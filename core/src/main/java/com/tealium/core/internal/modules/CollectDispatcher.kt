@@ -2,6 +2,7 @@ package com.tealium.core.internal
 
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.*
+import com.tealium.core.api.listeners.ModuleSettingsUpdatedListener
 
 class CollectDispatcher(
     private val tealiumContext: TealiumContext,
@@ -12,7 +13,7 @@ class CollectDispatcher(
     override val version: String
         get() = VERSION
 
-    override fun onBatchDispatchSend(dispatch: List<Dispatch>) {
+    override fun dispatch(dispatches: List<Dispatch>) {
         TODO("Not yet implemented")
     }
 

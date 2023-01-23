@@ -1,30 +1,36 @@
 package com.tealium.core.api
 
+import com.tealium.core.api.data.bundle.TealiumBundle
 import java.util.*
 
 class Dispatch private constructor(
-    val name: String,
+    val tealiumEvent: String,
     val type: TealiumDispatchType,
+    bundle: TealiumBundle,
     val id: String = UUID.randomUUID().toString(),
     val timestamp: Long = System.currentTimeMillis(),
 ) {
-    private var mutableMap: MutableMap<String, Any> = mutableMapOf(
-        Keys.TEALIUM_EVENT to name,
-        Keys.TEALIUM_EVENT_TYPE to type.friendlyName,
-        Keys.REQUEST_UUID to id,
-        Keys.TIMESTAMP to timestamp
-    )
-    constructor(eventName: String, type: TealiumDispatchType) : this(name = eventName, type)
-    constructor(dispatch: Dispatch) : this(dispatch.name, dispatch.type, dispatch.id, dispatch.timestamp) {
-        mutableMap.putAll(dispatch.payload())
+
+    private var bundle: TealiumBundle = TealiumBundle.Builder()
+        .put(Keys.TEALIUM_EVENT, tealiumEvent)
+        .put(Keys.TEALIUM_EVENT_TYPE, type.friendlyName)
+        .put(Keys.REQUEST_UUID, id)
+        .put(Keys.TIMESTAMP, timestamp)
+        .putAll(bundle)
+        .getBundle()
+
+    constructor(eventName: String, type: TealiumDispatchType, bundle: TealiumBundle = TealiumBundle.EMPTY_BUNDLE) : this(tealiumEvent = eventName, type = type, bundle = bundle)
+//    constructor(eventName: String, type: TealiumDispatchType, block: TealiumBundle.Builder.() -> Unit) : this(tealiumEvent = eventName, type = type)
+    constructor(dispatch: Dispatch) : this(dispatch.tealiumEvent, dispatch.type, dispatch.payload(), dispatch.id, dispatch.timestamp)
+
+    fun payload() : TealiumBundle {
+        return bundle
     }
 
-    fun payload(): Map<String, Any> {
-        return mutableMap.toMap()
-    }
-
-    fun addAll(data: Map<String, Any>) {
-        mutableMap.putAll(data)
+    fun addAll(data: TealiumBundle) {
+        bundle.copy {
+            putAll(data)
+        }
     }
 }
 

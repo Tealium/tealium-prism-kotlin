@@ -1,4 +1,5 @@
 package com.tealium.core.api
 
-interface Dispatcher : BatchDispatchSendListener {
+interface Dispatcher {
+    fun dispatch(dispatches: List<Dispatch>)
 }

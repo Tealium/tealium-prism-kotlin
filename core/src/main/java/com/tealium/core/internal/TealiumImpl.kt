@@ -1,13 +1,12 @@
 package com.tealium.core.internal
 
-import android.util.Log
 import com.tealium.core.Tealium
 import com.tealium.core.TealiumConfig
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.*
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import com.tealium.core.internal.modules.ModuleSettingImpl
-import org.json.JSONObject
+import java.lang.ref.WeakReference
 
 class TealiumImpl(
     private val config: TealiumConfig,
@@ -25,24 +24,51 @@ class TealiumImpl(
     private val _timedEvents = TimedEventsManagerImpl()
     private val _dataLayer = DataLayerImpl()
     private val _consent = ConsentManagerImpl()
+    // TODO - create async? + push into modulesmanager
 
     override val trace: TraceManager
-        get() = _trace
+        get() = TraceManagerWrapper(
+            WeakReference(moduleManager)
+        )
+
     override val deeplink: DeeplinkManager
-        get() = _deeplink
+        get() = DeepLinkManagerWrapper(
+            WeakReference(moduleManager)
+        )
     override val timedEvents: TimedEventsManager
-        get() = _timedEvents
+        get() = TimedEventsManagerWrapper(
+            WeakReference(moduleManager)
+        )
     override val dataLayer: DataLayer
-        get() = _dataLayer
+        get() = DataLayerWrapper(
+            WeakReference(moduleManager)
+        )
     override val consent: ConsentManager
-        get() = _consent
+        get() = ConsentManagerWrapper(
+            WeakReference(moduleManager)
+        )
 
     override fun track(dispatch: Dispatch) {
         val copy = Dispatch(dispatch)
+
+        // collection
         moduleManager.getModulesOfType(Collector::class.java).forEach {
             copy.addAll(it.collect())
         }
-        Log.d("TealiumV2", JSONObject(copy.payload()).toString())
+
+        // Transform
+        // todo
+
+        // Validation
+        // todo
+
+        // Dispatch
+        moduleManager.getModulesOfType(Dispatcher::class.java).forEach { dispatcher ->
+            dispatcher.dispatch(
+                listOf(copy)
+                // TODO - this might have been queued/batched.
+            )
+        }
     }
 
     override fun flushEventQueue() {

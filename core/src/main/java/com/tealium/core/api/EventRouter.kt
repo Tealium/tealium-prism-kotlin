@@ -1,12 +1,13 @@
 package com.tealium.core.api
 
-import java.util.*
+import com.tealium.core.api.listeners.DispatchReadyListener
+import com.tealium.core.api.listeners.DispatchSendListener
+import com.tealium.core.api.listeners.Listener
 import java.util.concurrent.CopyOnWriteArraySet
 
 interface EventRouter :
     DispatchReadyListener,
     DispatchSendListener,
-    BatchDispatchSendListener,
 //    DispatchQueuedListener,
 //    DispatchDroppedListener,
 //    RemoteCommandListener,
@@ -56,11 +57,7 @@ class EventDispatcher : EventRouter {
         TODO("Not yet implemented")
     }
 
-    override fun onDispatchSend(dispatch: Dispatch) {
-        TODO("Not yet implemented")
-    }
-
-    override fun onBatchDispatchSend(dispatch: List<Dispatch>) {
+    override fun onDispatchSend(dispatches: List<Dispatch>) {
         TODO("Not yet implemented")
     }
 }
