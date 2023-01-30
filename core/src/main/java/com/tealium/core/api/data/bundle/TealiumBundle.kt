@@ -1,10 +1,14 @@
 package com.tealium.core.api.data.bundle
 
 import com.tealium.core.api.Deserializer
+import com.tealium.core.internal.stringify
+import org.json.JSONStringer
 
 class TealiumBundle private constructor(
     initialData: Map<String, TealiumValue> = emptyMap()
 ) : Iterable<Map.Entry<String, TealiumValue>> {
+
+    private var _toString: String? = null
 
     private val map: Map<String, TealiumValue> =
         mutableMapOf<String, TealiumValue>().apply {
@@ -52,6 +56,14 @@ class TealiumBundle private constructor(
         }
     }
 
+    override fun toString(): String {
+        return _toString ?: run {
+            val stringer = JSONStringer()
+            stringify(stringer)
+            stringer.toString()
+        }.also { _toString = it }
+    }
+
     class Builder @JvmOverloads constructor(copy: TealiumBundle = EMPTY_BUNDLE) {
         private val data: MutableMap<String, TealiumValue> = mutableMapOf<String, TealiumValue>().apply {
             putAll(copy.getAll())
@@ -73,23 +85,31 @@ class TealiumBundle private constructor(
             put(key, TealiumValue.convert(value))
         }
 
+        fun put(key: String, value: Double) = apply {
+            put(key, TealiumValue.convert(value))
+        }
+
         fun put(key: String, value: Boolean) = apply {
             put(key, TealiumValue.convert(value))
         }
 
-        fun put(key: String, value: kotlin.Array<String>) = apply {
+        fun put(key: String, value: Array<String>) = apply {
             put(key, TealiumValue.convert(value))
         }
 
-        fun put(key: String, value: kotlin.Array<Int>) = apply {
+        fun put(key: String, value: Array<Int>) = apply {
             put(key, TealiumValue.convert(value))
         }
 
-        fun put(key: String, value: kotlin.Array<Long>) = apply {
+        fun put(key: String, value: Array<Long>) = apply {
             put(key, TealiumValue.convert(value))
         }
 
-        fun put(key: String, value: kotlin.Array<Boolean>) = apply {
+        fun put(key: String, value: Array<Double>) = apply {
+            put(key, TealiumValue.convert(value))
+        }
+
+        fun put(key: String, value: Array<Boolean>) = apply {
             put(key, TealiumValue.convert(value))
         }
 

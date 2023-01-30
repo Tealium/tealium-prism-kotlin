@@ -1,73 +1,141 @@
 package com.tealium.core.internal
 
+import com.tealium.core.LogLevel
 import com.tealium.core.Tealium
 import com.tealium.core.TealiumConfig
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.*
+import com.tealium.core.api.data.bundle.TealiumBundle
+import com.tealium.core.api.listeners.Listener
+import com.tealium.core.internal.messengers.DispatchDroppedMessenger
+import com.tealium.core.internal.messengers.DispatchQueuedMessenger
+import com.tealium.core.internal.messengers.DispatchReadyMessenger
+import com.tealium.core.internal.messengers.DispatchSendMessenger
 import com.tealium.core.internal.modules.ModuleManagerImpl
-import com.tealium.core.internal.modules.ModuleSettingImpl
+import java.lang.Exception
 import java.lang.ref.WeakReference
+import java.util.concurrent.Executors
 
 class TealiumImpl(
     private val config: TealiumConfig,
-    private val onReady: Tealium.OnTealiumReady
+    private val onReady: Tealium.OnTealiumReady? = null
 ) : Tealium {
 
-    private val moduleManager = ModuleManagerImpl(
-        config.modules, TealiumContext(config.application, this), SdkSettings(
-            mapOf("Example" to ModuleSettingImpl())
+    private val backgroundService = Executors.newSingleThreadScheduledExecutor()
+    private val eventRouter = EventDispatcher(backgroundService)
+    private val logger: Logger = Logger(logLevel = LogLevel.DEV) // todo read level from file?
+    private val messengerService: MessengerServiceImpl = MessengerServiceImpl(eventRouter)
+
+    override val events: Subscribable<Listener>
+        get() = messengerService
+
+    private val tealiumContext: TealiumContext =
+        TealiumContext(
+            config.application,
+            dataLayer = dataLayer,
+            events = messengerService,
+            logger = logger,
+            tealium = this
         )
+
+    private var _moduleManager = ModuleManagerImpl( // empty module manager.
+        tealiumContext, SdkSettings(emptyMap()), emptyList()
     )
 
-    private val _trace = TraceManagerImpl()
-    private val _deeplink = DeeplinkManagerImpl()
-    private val _timedEvents = TimedEventsManagerImpl()
-    private val _dataLayer = DataLayerImpl()
-    private val _consent = ConsentManagerImpl()
-    // TODO - create async? + push into modulesmanager
+    override val modules: ModuleManager
+        get() = _moduleManager
+
+    init {
+        backgroundService.submit {
+            bootstrap()
+        }
+    }
+
+    private fun bootstrap() {
+
+        val modules: MutableList<ModuleFactory> = mutableListOf(
+            DataLayerImpl,
+            TraceManagerImpl,
+            DeeplinkManagerImpl,
+            TimedEventsManagerImpl,
+            InternalModuleFactories.consentManagerFactory(eventRouter)
+        )
+
+        modules.addAll(config.modules)
+
+        try {
+            _moduleManager = ModuleManagerImpl(
+                tealiumContext, SdkSettings(emptyMap()), modules
+            )
+        } catch (ex: Exception) {
+            logger.error("bootstrap", "" + ex.message)
+        }
+
+        // todo - might have queued incoming events + dispatch them now.
+        onReady?.onReady(this)
+    }
 
     override val trace: TraceManager
         get() = TraceManagerWrapper(
-            WeakReference(moduleManager)
+            WeakReference(_moduleManager)
         )
 
     override val deeplink: DeeplinkManager
         get() = DeepLinkManagerWrapper(
-            WeakReference(moduleManager)
+            WeakReference(_moduleManager)
         )
     override val timedEvents: TimedEventsManager
         get() = TimedEventsManagerWrapper(
-            WeakReference(moduleManager)
+            WeakReference(_moduleManager)
         )
     override val dataLayer: DataLayer
         get() = DataLayerWrapper(
-            WeakReference(moduleManager)
+            WeakReference(_moduleManager)
         )
     override val consent: ConsentManager
         get() = ConsentManagerWrapper(
-            WeakReference(moduleManager)
+            WeakReference(_moduleManager)
         )
 
+    @Suppress("NAME_SHADOWING")
     override fun track(dispatch: Dispatch) {
-        val copy = Dispatch(dispatch)
+        Dispatch(dispatch).let { dispatch ->
+            // collection
+            val builder = TealiumBundle.Builder()
+            _moduleManager.getModulesOfType(Collector::class.java).forEach {
+                builder.putAll(it.collect())
+            }
+            dispatch.addAll(builder.getBundle())
 
-        // collection
-        moduleManager.getModulesOfType(Collector::class.java).forEach {
-            copy.addAll(it.collect())
-        }
+            // Transform
+            _moduleManager.getModulesOfType(Transformer::class.java).forEach {
+                it.transform(dispatch)
+            }
 
-        // Transform
-        // todo
+            logger.debug("TealiumImpl") {
+                "Dispatch(${dispatch.id.substring(0, 5)}) Ready - ${dispatch.payload()}"
+            }
+            eventRouter.send(DispatchReadyMessenger(dispatch))
 
-        // Validation
-        // todo
+            // Validation
+            // todo
 
-        // Dispatch
-        moduleManager.getModulesOfType(Dispatcher::class.java).forEach { dispatcher ->
-            dispatcher.dispatch(
-                listOf(copy)
-                // TODO - this might have been queued/batched.
-            )
+//        if (false) { // TODO - if queued
+            eventRouter.send(DispatchQueuedMessenger(dispatch))
+//        } else if (false) { // TODO - if dropped
+            eventRouter.send(DispatchDroppedMessenger(dispatch))
+//        }
+
+            // Dispatch
+            // TODO - this might have been queued/batched.
+            val dispatches = listOf(dispatch)
+            _moduleManager.getModulesOfType(Dispatcher::class.java).forEach { dispatcher ->
+                dispatcher.dispatch(
+                    dispatches,
+                )
+            }
+
+            eventRouter.send(DispatchSendMessenger(dispatches))
         }
     }
 
@@ -77,9 +145,5 @@ class TealiumImpl(
 
     fun shutdown() {
         TODO("Not yet implemented")
-    }
-
-    init {
-        onReady.onReady(this)
     }
 }

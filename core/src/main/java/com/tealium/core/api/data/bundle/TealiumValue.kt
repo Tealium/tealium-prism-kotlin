@@ -1,5 +1,6 @@
 package com.tealium.core.api.data.bundle
 
+import org.json.JSONException
 import org.json.JSONObject
 import java.lang.reflect.Array
 
@@ -22,6 +23,30 @@ class TealiumValue private constructor(
 
     fun getList(): TealiumList? {
         return value as? TealiumList
+    }
+
+    override fun toString(): String {
+        if (value == NULL) {
+            return "null";
+        }
+
+        try {
+            if (value is String) {
+                return JSONObject.quote(value)
+            }
+
+            if (value is Number) {
+                return JSONObject.numberToString(value)
+            }
+
+            if (value is TealiumBundle || value is TealiumList) {
+                return value.toString()
+            }
+
+            return value.toString()
+        } catch (e: JSONException) {
+            return ""
+        }
     }
 
     companion object {

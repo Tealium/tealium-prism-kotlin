@@ -1,6 +1,7 @@
 package com.tealium.core
 
 import com.tealium.core.api.*
+import com.tealium.core.api.listeners.Listener
 import com.tealium.core.internal.*
 
 interface Tealium {
@@ -8,6 +9,9 @@ interface Tealium {
     fun interface OnTealiumReady {
         fun onReady(tealium: Tealium)
     }
+
+    val modules: ModuleManager
+    val events: Subscribable<Listener>
 
     val trace: TraceManager
     val deeplink: DeeplinkManager

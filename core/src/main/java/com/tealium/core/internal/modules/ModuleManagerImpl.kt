@@ -1,32 +1,44 @@
 package com.tealium.core.internal.modules
 
+import android.util.Log
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.CoreSettings
 import com.tealium.core.api.Module
 import com.tealium.core.api.ModuleFactory
+import com.tealium.core.api.ModuleManager
 import com.tealium.core.api.ModuleSettings
-import com.tealium.core.api.listeners.ModuleSettingsUpdatedListener
 import com.tealium.core.api.listeners.SettingsUpdatedListener
 import com.tealium.core.internal.SdkSettings
+import java.util.concurrent.locks.Lock
+import java.util.concurrent.locks.ReentrantReadWriteLock
 
 class ModuleManagerImpl(
-    factories: List<ModuleFactory>,
     private val context: TealiumContext,
-    private var settings: SdkSettings
-) : SettingsUpdatedListener {
-    private val moduleFactories: Map<String, ModuleFactory> = factories.associateBy { it.name }
+    initialSettings: SdkSettings,
+    private val moduleFactories: List<ModuleFactory>,
+) : ModuleManager, SettingsUpdatedListener {
 
-    private var modules: Map<String, Module> = moduleFactories.map {
-        it.value.create(context, settings.moduleSettings[it.key] ?: ModuleSettingImpl())
+    private val updateLock = ReentrantReadWriteLock()
+    private val readLock = updateLock.readLock()
+    private val writeLock = updateLock.writeLock()
+
+    private var modules: Map<String, Module> =
+        createModules(context, initialSettings.moduleSettings, moduleFactories)
+
+    override fun <T> getModulesOfType(clazz: Class<T>): List<T> {
+        lock(readLock)
+        return try {
+            modules.values.filterIsInstance(clazz)
+        } finally {
+            unlock(readLock)
+        }
     }
-        .filterNotNull()
-        .associateBy { it.name }
 
-    fun <T> getModulesOfType(clazz: Class<T>): List<T> {
-        return modules.values.filterIsInstance(clazz)
+    init {
+        logEnabledModules()
     }
 
-    fun <T> getModuleOfType(clazz: Class<T>): T? {
+    override fun <T> getModuleOfType(clazz: Class<T>): T? {
         return getModulesOfType(clazz).first()
     }
 
@@ -34,42 +46,103 @@ class ModuleManagerImpl(
         coreSettings: CoreSettings,
         moduleSettings: Map<String, ModuleSettings>
     ) {
-        // existing modules
-        val newModules: MutableMap<String, Module> = modules.values.filter { module ->
-            // remove disabled
-            val settings = moduleSettings[module.name]
-            settings == null
-                    || settings.enabled
-        }.map {
-            // updated
-            if (it is ModuleSettingsUpdatedListener) {
-                it.onModuleSettingsUpdated(
-                    coreSettings,
-                    moduleSettings[it.name] ?: ModuleSettingImpl()
-                )
-            }
-            it
-        }.associateBy { it.name }
-            .toMutableMap()
+        // existing modules will have their settings updated before the [modules] list is updated.
+        // other threads should not be getting existing modules before updates are completed.
+        lock(writeLock)
 
-        // factories for missing.
-        moduleFactories.filter { (name, _) ->
-            !newModules.containsKey(name) // not already instantiated
-        }.forEach { (name, factory) ->
-            //
-            val settings = moduleSettings[name] ?: ModuleSettingImpl()
-            if (!settings.enabled) return@forEach
+        try {
+            // iterate all factories to preserve insertion order
+            modules = moduleFactories.mapNotNull { factory ->
+                val module = modules[factory.name]?.let { module ->
+                    // update all existing module settings in case disabled modules need to shut
+                    // anything down
+                    val updatedModuleSettings = moduleSettings.getOrDefault(factory.name)
+                    module.updateSettings(coreSettings, updatedModuleSettings)
 
-            factory.create(context, settings)?.let { module ->
-                newModules[module.name] = module
-            }
+                    if (updatedModuleSettings.enabled) module else null
+                } ?: run {
+                    // module was previously disabled, needs creating.
+                    createModule(context, moduleSettings.getOrDefault(factory.name), factory)
+                }
+
+                if (module != null)
+                    factory.name to module
+                else null
+            }.toMap()
+
+            logEnabledModules()
+        } finally {
+            unlock(writeLock)
+        }
+    }
+
+    private fun logEnabledModules() {
+        context.logger.info("ModuleManager", "Enabled modules: [${modules.keys.joinToString(", ")}]")
+    }
+
+    companion object {
+
+        /**
+         * Instantiates modules from their factories and associates them with the factory name.
+         *
+         * If a module is disabled according to the settings, then it will not be created.
+         */
+        private fun createModules(
+            context: TealiumContext,
+            modulesSettings: Map<String, ModuleSettings>,
+            factories: List<ModuleFactory>
+        ): Map<String, Module> {
+            return factories.mapNotNull {
+                createModule(context, modulesSettings.getOrDefault(it.name), it)
+            }.associateBy { it.name }
         }
 
-        modules = newModules.toMap()
+        private fun createModule(
+            context: TealiumContext,
+            settings: ModuleSettings,
+            factory: ModuleFactory
+        ): Module? {
+            return if (settings.enabled) {
+                factory.create(context, settings)
+            } else null
+        }
+
+        /**
+         * Extracts the module settings for the named module; otherwise returns the default settings.
+         */
+        private fun getModuleSettings(
+            moduleName: String,
+            modulesSettings: Map<String, ModuleSettings>
+        ): ModuleSettings {
+            return modulesSettings[moduleName] ?: ModuleSettingsImpl()
+        }
+
+        /**
+         * Extracts the module settings for the named module; otherwise returns the default settings.
+         */
+        private fun Map<String, ModuleSettings>.getOrDefault(name: String): ModuleSettings {
+            return getModuleSettings(name, this)
+        }
+
+        /**
+         * Locks a Lock implementation.
+         */
+        private fun lock(lock: Lock) {
+            lock.lock()
+        }
+
+        /**
+         * Unlocks a Lock implementation, discarding any exceptions
+         */
+        private fun unlock(lock: Lock) {
+            try {
+                lock.unlock()
+            } catch (ex: IllegalMonitorStateException) {
+                Log.d("Modules", "Unlocking Thread was not the lock owner.")
+            } catch (ex: Exception) {
+                Log.d("Modules", "Unlocking failed: ${ex.message}")
+            }
+        }
     }
 }
 
-class ModuleSettingImpl(
-    override val enabled: Boolean = true,
-    override val settings: Map<String, Any> = emptyMap()
-) : ModuleSettings

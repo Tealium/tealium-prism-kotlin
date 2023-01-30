@@ -8,12 +8,15 @@ import com.tealium.core.api.data.bundle.TealiumValue
 import org.junit.Test
 
 import org.junit.Assert.*
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 /**
  * Example local unit test, which will execute on the development machine (host).
  *
  * See [testing documentation](http://d.android.com/tools/testing).
  */
+@RunWith(RobolectricTestRunner::class)
 class ExampleUnitTest {
     @Test
     fun addition_isCorrect() {
@@ -71,6 +74,22 @@ class ExampleUnitTest {
         assertEquals("string", copy.getString(0))
         assertEquals(1, copy.getInt(1))
         assertEquals("new_value", copy.getString(2))
+    }
+
+    @Test
+    fun testBundleToString() {
+        val bundle = TealiumBundle.EMPTY_BUNDLE
+        assertEquals("{}", bundle.toString())
+
+        val bundle2 = TealiumBundle.create {
+            put("string", "value")
+            put("int", 123)
+//            put("double", 123.123)
+            put("long", 12345L)
+            put("bool", true)
+        }
+        assertEquals("{\"string\":\"value\",\"int\":123,\"long\":12345,\"bool\":true}", bundle2.toString())
+
     }
 
 

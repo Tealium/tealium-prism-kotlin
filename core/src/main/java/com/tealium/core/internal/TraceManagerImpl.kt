@@ -1,6 +1,9 @@
 package com.tealium.core.internal
 
+import com.tealium.core.TealiumContext
 import com.tealium.core.api.Module
+import com.tealium.core.api.ModuleFactory
+import com.tealium.core.api.ModuleSettings
 import com.tealium.core.api.TraceManager
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import java.lang.ref.WeakReference
@@ -26,8 +29,6 @@ class TraceManagerWrapper(
 
 class TraceManagerImpl: TraceManager, Module {
 
-
-
     override fun killVisitorSession() {
         TODO("Not yet implemented")
     }
@@ -41,7 +42,18 @@ class TraceManagerImpl: TraceManager, Module {
     }
 
     override val name: String
-        get() = "TraceManager"
+        get() = moduleName
     override val version: String
         get() = ""
+
+    companion object: ModuleFactory {
+        private const val moduleName = "TraceManager"
+
+        override val name: String
+            get() = moduleName
+
+        override fun create(context: TealiumContext, settings: ModuleSettings): Module {
+            return TraceManagerImpl()
+        }
+    }
 }

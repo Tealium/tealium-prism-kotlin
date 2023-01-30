@@ -2,12 +2,12 @@ package com.tealium.core.internal
 
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.*
-import com.tealium.core.api.listeners.ModuleSettingsUpdatedListener
 
 class CollectDispatcher(
     private val tealiumContext: TealiumContext,
     private var collectDispatcherSettings: CollectDispatcherSettings
-) : Dispatcher, Module, ModuleSettingsUpdatedListener {
+) : Dispatcher, Module {
+
     override val name: String
         get() = NAME
     override val version: String
@@ -17,10 +17,7 @@ class CollectDispatcher(
         TODO("Not yet implemented")
     }
 
-    override fun onModuleSettingsUpdated(
-        coreSettings: CoreSettings,
-        moduleSettings: ModuleSettings
-    ) {
+    override fun updateSettings(coreSettings: CoreSettings, moduleSettings: ModuleSettings) {
         collectDispatcherSettings = CollectDispatcherSettings.fromModuleSettings(moduleSettings)
     }
 

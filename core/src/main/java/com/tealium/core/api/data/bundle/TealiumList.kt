@@ -1,9 +1,13 @@
 package com.tealium.core.api.data.bundle
 
 import com.tealium.core.api.Deserializer
+import com.tealium.core.internal.stringify
+import org.json.JSONStringer
 
 
 class TealiumList(private val collection: List<TealiumValue>) : Iterable<TealiumValue> {
+
+    private var _toString: String? = null
 
     fun get(index: Int): TealiumValue? {
         return collection.getOrNull(index)
@@ -36,6 +40,16 @@ class TealiumList(private val collection: List<TealiumValue>) : Iterable<Tealium
         val builder = Builder(this)
         block.invoke(builder)
         return builder.getList()
+    }
+
+    override fun toString(): String {
+        return _toString ?: run {
+            val stringer = JSONStringer()
+            stringer.array()
+            stringify(stringer)
+            stringer.endArray()
+            ""
+        }.also { _toString = it }
     }
 
     companion object {

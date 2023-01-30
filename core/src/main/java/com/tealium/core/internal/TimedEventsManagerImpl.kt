@@ -1,6 +1,9 @@
 package com.tealium.core.internal
 
+import com.tealium.core.TealiumContext
 import com.tealium.core.api.Module
+import com.tealium.core.api.ModuleFactory
+import com.tealium.core.api.ModuleSettings
 import com.tealium.core.api.TimedEventsManager
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import java.lang.ref.WeakReference
@@ -46,7 +49,18 @@ class TimedEventsManagerImpl: TimedEventsManager, Module {
     }
 
     override val name: String
-        get() = "TimedEvents"
+        get() = moduleName
     override val version: String
         get() = "" //TODO
+
+    companion object: ModuleFactory {
+        private const val moduleName = "TimedEvents"
+
+        override val name: String
+            get() = moduleName
+
+        override fun create(context: TealiumContext, settings: ModuleSettings): Module {
+            return TimedEventsManagerImpl()
+        }
+    }
 }
