@@ -3,9 +3,7 @@ package com.tealium.core.api
 import com.tealium.core.api.listeners.Listener
 import kotlin.reflect.KClass
 
-abstract class Messenger<T : Listener>(listener: KClass<T>) {
-
-    val listenerClass: KClass<T> = listener
-
-    abstract fun deliver(listener: T)
+interface Messenger<T : Listener> {
+    val listenerClass: KClass<T>
+    fun deliver(listener: T)
 }

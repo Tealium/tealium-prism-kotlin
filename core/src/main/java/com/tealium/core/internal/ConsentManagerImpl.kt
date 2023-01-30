@@ -8,6 +8,7 @@ import com.tealium.core.api.Module
 import com.tealium.core.api.listeners.ConsentStatusUpdatedListener
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import java.lang.ref.WeakReference
+import kotlin.reflect.KClass
 
 
 class ConsentManagerWrapper(
@@ -57,7 +58,10 @@ class ConsentManagerImpl(
     }
 
     private class ConsentStatusUpdatedMessenger(private val newStatus: ConsentStatus) :
-        Messenger<ConsentStatusUpdatedListener>(ConsentStatusUpdatedListener::class) {
+        Messenger<ConsentStatusUpdatedListener> {
+        override val listenerClass: KClass<ConsentStatusUpdatedListener>
+            get() = ConsentStatusUpdatedListener::class
+
         override fun deliver(listener: ConsentStatusUpdatedListener) {
             listener.onConsentStatusUpdated(newStatus)
         }

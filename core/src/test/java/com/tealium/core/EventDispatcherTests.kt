@@ -1,24 +1,21 @@
 package com.tealium.core
 
-import com.tealium.core.api.Dispatch
+import com.tealium.core.api.ExternalMessenger
 import com.tealium.core.api.Messenger
 import com.tealium.core.api.MessengerService
-import com.tealium.core.api.TealiumDispatchType
-import com.tealium.core.api.listeners.DispatchDroppedListener
 import com.tealium.core.api.listeners.ExternalListener
 import com.tealium.core.api.listeners.Listener
 import com.tealium.core.internal.EventDispatcher
 import com.tealium.core.internal.EventRouter
 import com.tealium.core.internal.MessengerServiceImpl
-import com.tealium.core.internal.messengers.DispatchDroppedMessenger
 import org.junit.Before
 import org.junit.Test
+import kotlin.reflect.KClass
 
 class EventDispatcherTests {
 
     lateinit var router: EventDispatcher
     lateinit var messengerService: MessengerService
-
 
     lateinit var counter: CounterModule
     lateinit var incrementor: IncrementerModule
@@ -32,15 +29,6 @@ class EventDispatcherTests {
         incrementor = IncrementerModule(router)
         router.subscribe(counter)
         router.subscribe(incrementor)
-
-
-val router = EventDispatcher()
-router.subscribe(object: DispatchDroppedListener {
-    override fun onDispatchDropped(dispatch: Dispatch) {
-        //
-    }
-})
-router.send(DispatchDroppedMessenger(Dispatch("", TealiumDispatchType.Event)))
     }
 
     @Test
@@ -80,25 +68,34 @@ router.send(DispatchDroppedMessenger(Dispatch("", TealiumDispatchType.Event)))
 //        messengerService.send(DispatchReadyMessenger(Dispatch()))
 
         // CAN'T create a new anonymous class/messenger for an internal listener
-//        messengerService.send(object: Messenger<DispatchReadyListener>(DispatchReadyListener::class){
+//        messengerService.send(object: Messenger<DispatchReadyListener> {
+//            override val listenerClass: KClass<DispatchReadyListener>
+//                get() = DispatchReadyListener::class
+//
 //            override fun deliver(listener: DispatchReadyListener) {
 //                listener.onDispatchReady(Dispatch("", TealiumDispatchType.Event))
 //            }
 //        })
 
         // CAN'T create a new anonymous class/ExternalMessenger for an internal listener
-//        messengerService.send(object: ExternalMessenger<DispatchReadyListener>(DispatchReadyListener::class){
+//        messengerService.send(object: ExternalMessenger<DispatchReadyListener> {
+//            override val listenerClass: KClass<DispatchReadyListener>
+//                get() = DispatchReadyListener::class
+//
 //            override fun deliver(listener: DispatchReadyListener) {
 //                listener.onDispatchReady(Dispatch("", TealiumDispatchType.Event))
 //            }
 //        })
 
         // CAN create a new anonymous class/ExternalMessenger for an External listener
-//        messengerService.send(object: ExternalMessenger<TestExternalListener>(TestExternalListener::class) {
-//            override fun deliver(listener: TestExternalListener) {
-//                listener.onEvent()
-//            }
-//        })
+        messengerService.send(object: ExternalMessenger<TestExternalListener> {
+            override val listenerClass: KClass<TestExternalListener>
+                get() = TestExternalListener::class
+
+            override fun deliver(listener: TestExternalListener) {
+                listener.onEvent()
+            }
+        })
     }
 }
 
@@ -150,7 +147,10 @@ class CounterModule(
 
     private class CountMessenger(
         private val count: Int
-    ): Messenger<CountListener>(CountListener::class) {
+    ): Messenger<CountListener> {
+        override val listenerClass: KClass<CountListener>
+            get() = CountListener::class
+
         override fun deliver(listener: CountListener) {
             listener.onCountUpdated(count)
         }
@@ -159,7 +159,10 @@ class CounterModule(
 
 class IncrementMessenger(
     private val amount: Int
-): Messenger<IncrementListener>(IncrementListener::class) {
+): Messenger<IncrementListener> {
+    override val listenerClass: KClass<IncrementListener>
+        get() = IncrementListener::class
+
     override fun deliver(listener: IncrementListener) {
         listener.increment(amount)
     }
