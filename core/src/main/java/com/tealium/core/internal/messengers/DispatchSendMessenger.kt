@@ -6,8 +6,7 @@ import com.tealium.core.api.listeners.DispatchSendListener
 import kotlin.reflect.KClass
 
 class DispatchSendMessenger(private val dispatches: List<Dispatch>): Messenger<DispatchSendListener> {
-    override val listenerClass: KClass<DispatchSendListener>
-        get() = DispatchSendListener::class
+    override val listenerClass: KClass<DispatchSendListener> = DispatchSendListener::class
 
     override fun deliver(listener: DispatchSendListener) {
         listener.onDispatchSend(dispatches)

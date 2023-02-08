@@ -7,7 +7,7 @@ import com.tealium.core.api.listeners.ExternalListener
 import com.tealium.core.api.listeners.Listener
 
 class MessengerServiceImpl(
-    private val eventRouter: EventRouter
+    private val eventRouter: EventRouter<Listener>
 ): MessengerService, Subscribable<Listener> by eventRouter {
 
     override fun <T: ExternalListener> send(messenger: Messenger<T>) {

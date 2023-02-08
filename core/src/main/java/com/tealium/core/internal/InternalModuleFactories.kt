@@ -1,12 +1,12 @@
 package com.tealium.core.internal
 
-import com.tealium.core.api.ConsentManager
 import com.tealium.core.api.ModuleFactory
+import com.tealium.core.api.listeners.Listener
 import com.tealium.core.internal.modules.ConsentManagerFactory
 
 object InternalModuleFactories {
 
-    fun consentManagerFactory(eventRouter: EventRouter): ModuleFactory {
+    fun consentManagerFactory(eventRouter: EventRouter<Listener>): ModuleFactory {
         return ConsentManagerFactory(eventRouter)
     }
 

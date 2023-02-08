@@ -33,4 +33,15 @@ interface DataLayer {
     // todo - move to ktx?
     fun put(block: TealiumBundle.Builder.() -> Unit)
 
+    fun remove(key: String)
+
+    val onDataUpdated: Subscribable<DataLayerUpdatedListener>
+    val onDataRemoved: Subscribable<DataLayerRemovedListener>
+
+    fun interface DataLayerUpdatedListener {
+        fun onDataUpdated(key: String, value: Any)
+    }
+    fun interface DataLayerRemovedListener {
+        fun onDataRemoved(keys: Set<String>)
+    }
 }

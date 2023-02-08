@@ -5,6 +5,8 @@ import com.tealium.core.api.DataLayer
 import com.tealium.core.api.Module
 import com.tealium.core.api.ModuleFactory
 import com.tealium.core.api.ModuleSettings
+import com.tealium.core.api.Subscribable
+import com.tealium.core.api.data.MutableObservableProperty
 import com.tealium.core.api.data.bundle.TealiumBundle
 import com.tealium.core.api.data.bundle.TealiumList
 import com.tealium.core.api.data.bundle.TealiumValue
@@ -15,7 +17,7 @@ import java.lang.ref.WeakReference
 
 class DataLayerWrapper(
     private val moduleManager: WeakReference<ModuleManagerImpl>
-): DataLayer {
+) : DataLayer {
     private val delegate: DataLayer?
         get() = moduleManager.get()?.getModuleOfType(DataLayer::class.java)
 
@@ -94,57 +96,99 @@ class DataLayerWrapper(
     override fun put(key: String, value: Array<Boolean>) {
         delegate?.put(key, value)
     }
+
+    override fun remove(key: String) {
+        delegate?.remove(key)
+    }
+
+    override val onDataUpdated: Subscribable<DataLayer.DataLayerUpdatedListener>
+        get() = delegate?.onDataUpdated ?: throw Exception()
+    override val onDataRemoved: Subscribable<DataLayer.DataLayerRemovedListener>
+        get() = delegate?.onDataRemoved ?: throw Exception()
 }
 
-class DataLayerImpl: DataLayer, Module {
+class DataLayerImpl(
+    private val _onDataUpdated: MutableObservableProperty<Pair<String, Any>, DataLayer.DataLayerUpdatedListener>,
+    private val _onDataRemoved: MutableObservableProperty<Set<String>, DataLayer.DataLayerRemovedListener>
+) : DataLayer, Module {
+    //    private val eventRouter: EventRouter<DataLayer.DataLayerListener> = EventDispatcher()
+    private val data = mutableMapOf<String, Any>()
+
+    constructor(context: TealiumContext) : this(
+        _onDataUpdated = context.observables.createProperty(
+            initial = ("" to Any()), // TODO - make initial value nullable?
+            deliver = { observer, value ->
+                observer.onDataUpdated(value.first, value.second)
+            }
+        ),
+        _onDataRemoved = context.observables.createProperty(
+            initial = setOf(), // TODO - make initial value nullable?
+            deliver = { observer, value ->
+                observer.onDataRemoved(value)
+            }
+        )
+    )
+
+//    override val updated: Subscribable<DataLayer.DataLayerUpdatedListener>
+//        get() = eventRouter
+//    override val removed: Subscribable<DataLayer.DataLayerRemovedListener>
+//        get() = eventRouter
+
+    override val onDataUpdated: Subscribable<DataLayer.DataLayerUpdatedListener>
+        get() = _onDataUpdated
+    override val onDataRemoved: Subscribable<DataLayer.DataLayerRemovedListener>
+        get() = _onDataRemoved
+
     override fun put(key: String, value: TealiumValue) {
-        TODO("Not yet implemented")
+
     }
 
     override fun put(key: String, value: String) {
-        TODO("Not yet implemented")
+        data[key] = value
+        _onDataUpdated.update(key to value)
     }
 
     override fun put(key: String, value: Int) {
-        TODO("Not yet implemented")
+
     }
 
     override fun put(key: String, value: Float) {
-        TODO("Not yet implemented")
+
     }
 
     override fun put(key: String, value: Long) {
-        TODO("Not yet implemented")
+
     }
 
     override fun put(key: String, value: Double) {
-        TODO("Not yet implemented")
+
     }
 
     override fun put(key: String, value: Boolean) {
-        TODO("Not yet implemented")
+
     }
 
     override fun put(key: String, value: TealiumBundle) {
-        TODO("Not yet implemented")
+
     }
 
     override fun put(key: String, value: TealiumList) {
-        TODO("Not yet implemented")
+
     }
 
     override fun put(key: String, value: JSONObject) {
-        TODO("Not yet implemented")
+
     }
 
     override fun put(key: String, value: JSONArray) {
-        TODO("Not yet implemented")
+
     }
 
     override fun put(bundle: TealiumBundle) {
         // do something
     }
 
+    // TODO - could separate to a `-ktx` module
     override fun put(block: TealiumBundle.Builder.() -> Unit) {
         val builder = TealiumBundle.Builder()
         block.invoke(builder)
@@ -175,20 +219,50 @@ class DataLayerImpl: DataLayer, Module {
         TODO("Not yet implemented")
     }
 
+    override fun remove(key: String) {
+        val removed = data.remove(key)
+
+        if (removed != null) {
+            _onDataRemoved.update(setOf(key))
+        }
+    }
+
     override val name: String
         get() = moduleName
     override val version: String
         get() = "" //TODO("Not yet implemented")
 
 
-    companion object: ModuleFactory {
+    companion object : ModuleFactory {
         private const val moduleName = "DataLayer"
 
         override val name: String
             get() = moduleName
 
         override fun create(context: TealiumContext, settings: ModuleSettings): Module {
-            return DataLayerImpl()
+            return DataLayerImpl(context)
         }
     }
+
+//    private class DataLayerUpdatedMessenger(
+//        private val key: String,
+//        private val value: Any
+//    ) : Messenger<DataLayer.DataLayerUpdatedListener> {
+//        override val listenerClass: KClass<DataLayer.DataLayerUpdatedListener>
+//            get() = DataLayer.DataLayerUpdatedListener::class
+//
+//        override fun deliver(listener: DataLayer.DataLayerUpdatedListener) {
+//            listener.onDataUpdated(key, value)
+//        }
+//    }
+//
+//    private class DataLayerRemovedMessenger(private val keys: Set<String>) :
+//        Messenger<DataLayer.DataLayerRemovedListener> {
+//        override val listenerClass: KClass<DataLayer.DataLayerRemovedListener>
+//            get() = DataLayer.DataLayerRemovedListener::class
+//
+//        override fun deliver(listener: DataLayer.DataLayerRemovedListener) {
+//            listener.onDataRemoved(keys)
+//        }
+//    }
 }

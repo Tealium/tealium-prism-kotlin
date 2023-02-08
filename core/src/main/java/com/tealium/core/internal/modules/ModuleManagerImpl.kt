@@ -39,7 +39,7 @@ class ModuleManagerImpl(
     }
 
     override fun <T> getModuleOfType(clazz: Class<T>): T? {
-        return getModulesOfType(clazz).first()
+        return getModulesOfType(clazz).firstOrNull()
     }
 
     override fun onSettingsUpdated(

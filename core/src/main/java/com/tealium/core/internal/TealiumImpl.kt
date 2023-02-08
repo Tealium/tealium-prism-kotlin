@@ -1,10 +1,12 @@
 package com.tealium.core.internal
 
+import com.tealium.core.Environment
 import com.tealium.core.LogLevel
 import com.tealium.core.Tealium
 import com.tealium.core.TealiumConfig
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.*
+import com.tealium.core.internal.observables.ObservablesFactoryImpl
 import com.tealium.core.api.data.bundle.TealiumBundle
 import com.tealium.core.api.listeners.Listener
 import com.tealium.core.internal.messengers.DispatchDroppedMessenger
@@ -12,6 +14,7 @@ import com.tealium.core.internal.messengers.DispatchQueuedMessenger
 import com.tealium.core.internal.messengers.DispatchReadyMessenger
 import com.tealium.core.internal.messengers.DispatchSendMessenger
 import com.tealium.core.internal.modules.ModuleManagerImpl
+import com.tealium.core.internal.modules.TealiumCollector
 import java.lang.Exception
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
@@ -22,7 +25,7 @@ class TealiumImpl(
 ) : Tealium {
 
     private val backgroundService = Executors.newSingleThreadScheduledExecutor()
-    private val eventRouter = EventDispatcher(backgroundService)
+    private val eventRouter = EventDispatcher<Listener>(backgroundService)
     private val logger: Logger = Logger(logLevel = LogLevel.DEV) // todo read level from file?
     private val messengerService: MessengerServiceImpl = MessengerServiceImpl(eventRouter)
 
@@ -32,9 +35,13 @@ class TealiumImpl(
     private val tealiumContext: TealiumContext =
         TealiumContext(
             config.application,
+            // TODO - read from file instead.
+            coreSettings = CoreSettingsImpl("tealiummobile", "demo", Environment.DEV),
             dataLayer = dataLayer,
             events = messengerService,
             logger = logger,
+            visitorId = "", // TODO
+            observables = ObservablesFactoryImpl(backgroundService),
             tealium = this
         )
 
@@ -54,11 +61,12 @@ class TealiumImpl(
     private fun bootstrap() {
 
         val modules: MutableList<ModuleFactory> = mutableListOf(
+            TealiumCollector,
             DataLayerImpl,
             TraceManagerImpl,
             DeeplinkManagerImpl,
             TimedEventsManagerImpl,
-            InternalModuleFactories.consentManagerFactory(eventRouter)
+            InternalModuleFactories.consentManagerFactory(eventRouter),
         )
 
         modules.addAll(config.modules)

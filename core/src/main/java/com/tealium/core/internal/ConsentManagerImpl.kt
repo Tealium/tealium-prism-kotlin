@@ -6,6 +6,7 @@ import com.tealium.core.api.ConsentStatus
 import com.tealium.core.api.Messenger
 import com.tealium.core.api.Module
 import com.tealium.core.api.listeners.ConsentStatusUpdatedListener
+import com.tealium.core.api.listeners.Listener
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import java.lang.ref.WeakReference
 import kotlin.reflect.KClass
@@ -29,7 +30,7 @@ class ConsentManagerImpl(
     private val onConsentStatusUpdatedDelegate: ConsentStatusUpdatedListener
 ) : ConsentManager, Module {
 
-    constructor(context: TealiumContext, eventRouter: EventRouter) : this(
+    constructor(context: TealiumContext, eventRouter: EventRouter<Listener>) : this(
         context,
         object : ConsentStatusUpdatedListener {
             override fun onConsentStatusUpdated(status: ConsentStatus) {

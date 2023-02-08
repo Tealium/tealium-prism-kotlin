@@ -3,6 +3,8 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+version = "2.0.0"
+
 android {
     compileSdk 32
 
@@ -11,6 +13,8 @@ android {
         targetSdk 32
 
         buildConfigField 'String', 'TAG', "\"Tealium\""
+        buildConfigField 'String', 'TEALIUM_LIBRARY_NAME', "\"android-kotlin\""
+        buildConfigField 'String', 'TEALIUM_LIBRARY_VERSION', "\"$version\""
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles "consumer-rules.pro"
