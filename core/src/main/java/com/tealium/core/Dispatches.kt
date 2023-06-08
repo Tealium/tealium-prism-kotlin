@@ -37,7 +37,7 @@ class BaseBuilder(private val tealiumEvent: String, private val dispatchType: Te
     }
 
     override fun build(): Dispatch {
-        return Dispatch(tealiumEvent, dispatchType, builder.getBundle())
+        return Dispatch.create(tealiumEvent, dispatchType, builder.getBundle())
     }
 }
 

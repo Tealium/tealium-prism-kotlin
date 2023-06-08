@@ -6,30 +6,98 @@ import java.util.*
 class Dispatch private constructor(
     val tealiumEvent: String,
     val type: TealiumDispatchType,
-    bundle: TealiumBundle,
-    val id: String = UUID.randomUUID().toString(),
-    val timestamp: Long = System.currentTimeMillis(),
+    private var bundle: TealiumBundle,
+    val id: String,
+    val timestamp: Long,
 ) {
 
-    private var bundle: TealiumBundle = TealiumBundle.Builder()
-        .put(Keys.TEALIUM_EVENT, tealiumEvent)
-        .put(Keys.TEALIUM_EVENT_TYPE, type.friendlyName)
-        .put(Keys.REQUEST_UUID, id)
-        .put(Keys.TIMESTAMP, timestamp)
-        .putAll(bundle)
-        .getBundle()
-
-    constructor(eventName: String, type: TealiumDispatchType, bundle: TealiumBundle = TealiumBundle.EMPTY_BUNDLE) : this(tealiumEvent = eventName, type = type, bundle = bundle)
-//    constructor(eventName: String, type: TealiumDispatchType, block: TealiumBundle.Builder.() -> Unit) : this(tealiumEvent = eventName, type = type)
-    constructor(dispatch: Dispatch) : this(dispatch.tealiumEvent, dispatch.type, dispatch.payload(), dispatch.id, dispatch.timestamp)
-
-    fun payload() : TealiumBundle {
+    fun payload(): TealiumBundle {
         return bundle
     }
 
     fun addAll(data: TealiumBundle) {
         bundle = bundle.copy {
             putAll(data)
+        }
+    }
+
+    companion object {
+
+        /**
+         * Creates a new [Dispatch] with the provided event name and context data.
+         *
+         * This method will automatically add common data points such as
+         * [Keys.TEALIUM_EVENT]
+         * [Keys.TEALIUM_EVENT_TYPE]
+         * [Keys.REQUEST_UUID]
+         * [Keys.TIMESTAMP]
+         */
+        @JvmOverloads
+        @JvmStatic
+        fun create(
+            eventName: String,
+            type: TealiumDispatchType = TealiumDispatchType.Event,
+            bundle: TealiumBundle = TealiumBundle.EMPTY_BUNDLE
+        ): Dispatch {
+            val uuid = UUID.randomUUID().toString()
+            val timestamp = System.currentTimeMillis()
+
+            val updatedBundle: TealiumBundle = TealiumBundle.Builder()
+                .put(Keys.TEALIUM_EVENT, eventName)
+                .put(Keys.TEALIUM_EVENT_TYPE, type.friendlyName)
+                .put(Keys.REQUEST_UUID, uuid)
+                .put(Keys.TIMESTAMP, timestamp)
+                .putAll(bundle)
+                .getBundle()
+
+            return Dispatch(
+                tealiumEvent = eventName,
+                type = type,
+                bundle = updatedBundle,
+                id = uuid,
+                timestamp = timestamp
+            )
+        }
+
+        /**
+         * Produces a copy of the provided [dispatch] such that mutations to [dispatch] do not
+         * also mutate the returned [Dispatch]
+         */
+        internal fun create(dispatch: Dispatch): Dispatch {
+            return Dispatch(
+                dispatch.tealiumEvent,
+                dispatch.type,
+                dispatch.payload(),
+                dispatch.id,
+                dispatch.timestamp
+            )
+        }
+
+        /**
+         * Creates a Dispatch from just the [id], [bundle] and [timestamp]
+         * This is expected to be used for recreating dispatches from disk, where the insertion of
+         * expected key-value data is not required on construction. That is, common event data such
+         * as "tealium_event" and "request_uuid" has already been added previously.
+         *
+         * For creating new Dispatch instances that do require those data points to be added, you
+         * should use [create]
+         */
+        internal fun create(id: String, bundle: TealiumBundle, timestamp: Long): Dispatch? {
+
+            val tealiumEvent = bundle.getString(Keys.TEALIUM_EVENT) ?: return null
+            val type: TealiumDispatchType =
+                bundle.getString(Keys.TEALIUM_EVENT_TYPE)?.let { typeString ->
+                    TealiumDispatchType.values()
+                        .find { it.friendlyName.lowercase() == typeString.lowercase() }
+                } ?: TealiumDispatchType.Event
+
+            return Dispatch(
+                tealiumEvent = tealiumEvent,
+                type = type,
+                bundle = bundle,
+                id = id,
+                timestamp = timestamp
+            )
         }
     }
 

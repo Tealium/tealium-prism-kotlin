@@ -2,7 +2,9 @@ package com.tealium.core.api.data.bundle
 
 import com.tealium.core.api.Deserializer
 import com.tealium.core.internal.stringify
+import org.json.JSONException
 import org.json.JSONStringer
+import org.json.JSONTokener
 
 
 class TealiumList(private val collection: List<TealiumValue>) : Iterable<TealiumValue> {
@@ -45,16 +47,33 @@ class TealiumList(private val collection: List<TealiumValue>) : Iterable<Tealium
     override fun toString(): String {
         return _toString ?: run {
             val stringer = JSONStringer()
-            stringer.array()
             stringify(stringer)
-            stringer.endArray()
-            ""
-        }.also { _toString = it }
+            stringer.toString()
+        }.also {
+            _toString = it
+        }
     }
 
     companion object {
+        @JvmStatic
         val EMPTY_LIST: TealiumList = TealiumList(emptyList())
         private val DEFAULT_INDEX = -1
+
+        @JvmStatic
+        fun fromString(string: String) : TealiumList? {
+            if (string.isBlank()) return null
+
+            return try {
+                val parser = JSONTokener(string)
+
+                // TODO - Should try and lazy load this.
+                // i.e. keep as a string, only parse if `map` property is called
+                val value = TealiumValue.convert(parser.nextValue())
+                return value.getList()
+            } catch (ex: JSONException) {
+                null
+            }
+        }
 
         @JvmStatic
         fun create(block: Builder.() -> Unit): TealiumList {

@@ -107,7 +107,7 @@ class TealiumImpl(
 
     @Suppress("NAME_SHADOWING")
     override fun track(dispatch: Dispatch) {
-        Dispatch(dispatch).let { dispatch ->
+        Dispatch.create(dispatch).let { dispatch ->
             // collection
             val builder = TealiumBundle.Builder()
             _moduleManager.getModulesOfType(Collector::class.java).forEach {

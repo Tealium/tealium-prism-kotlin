@@ -1,28 +1,69 @@
 package com.tealium.core.api.data.bundle
 
+import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import java.lang.reflect.Array
 
+/**
+ * Data class for restricting the supported types that can be passed into the system.
+ * The toString() method will provide a JSON friendly representation of the data enclosed. That is,
+ *  - String data will be quoted; i.e.  "my string"
+ *  - Numeric data will not be quoted; i.e. 10 or 3.141..
+ *  - Boolean data will not be quoted; i.e. true/false
+ *  - TealiumList data will be formatted as a JSON Array; i.e. ["value", 10, true]
+ *  - TealiumBundle data will be formatted as a JSON Object; i.e. { "key":"value", "number":10 }
+ *
+ * This class is currently broadly similar to the [JSONObject] and makes use of several methods
+ * provided by the [org.json] package on Android.
+ */
 class TealiumValue private constructor(
-    val value: Any?
+    val value: Any,
 ) {
-    // TODO other getters / coercions
-
-    fun getBundle(): TealiumBundle? {
-        return value as? TealiumBundle
-    }
 
     fun isBundle(): Boolean {
         return value is TealiumBundle
     }
 
+    fun isList(): Boolean {
+        return value is TealiumList
+    }
+
+    fun isString(): Boolean {
+        return value is String
+    }
+
+    fun isInt(): Boolean {
+        return value is Int
+    }
+
+    fun isLong(): Boolean {
+        return value is Long
+    }
+
+    fun isDouble(): Boolean {
+        return value is Double
+    }
+
     fun getString(): String? {
-        return value as? String
+        return if (isString()) value as String else null
+    }
+    fun getInt(): Int? {
+        return if (isInt()) value as Int else null
+    }
+    fun getLong(): Long? {
+        return if (isLong()) value as Long else null
+    }
+    fun getDouble(): Double? {
+        return if (isDouble()) value as Double else null
     }
 
     fun getList(): TealiumList? {
-        return value as? TealiumList
+        return if (isList()) value as TealiumList else null
+    }
+
+    fun getBundle(): TealiumBundle? {
+        return if (isBundle()) value as TealiumBundle else null
     }
 
     override fun toString(): String {
@@ -51,7 +92,7 @@ class TealiumValue private constructor(
 
     companion object {
         @JvmStatic
-        val NULL = TealiumValue(null)
+        val NULL = TealiumValue(Any())
 
         @JvmStatic
         fun string(string: String): TealiumValue {
@@ -133,12 +174,12 @@ class TealiumValue private constructor(
                 return TealiumValue(any)
             }
             try {
-//                if (any is JSONArray) {
-//                   // TODO
-//                }
-//                if (any is JSONObject) {
-//                   // TODO
-//                }
+                if (any is JSONArray) {
+                    return convertJsonArray(any)
+                }
+                if (any is JSONObject) {
+                    return convertJsonObject(any)
+                }
                 if (any is Collection<*>) {
                     return convertCollection(any)
                 }
@@ -180,6 +221,28 @@ class TealiumValue private constructor(
             val builder = TealiumBundle.Builder()
             for ((key, value) in map) {
                 if (key is String && value != null) {
+                    // tolerate invalid keys
+                    builder.put(key, convert(value))
+                }
+            }
+            return TealiumValue(builder.getBundle())
+        }
+
+        private fun convertJsonArray(jsonArray: JSONArray): TealiumValue {
+            val builder = TealiumList.Builder()
+            val size = jsonArray.length()
+            for (idx in 0 until size) {
+                jsonArray.opt(idx)?.let { value ->
+                    builder.add(convert(value))
+                }
+            }
+            return TealiumValue(builder.getList())
+        }
+
+        private fun convertJsonObject(jsonObject: JSONObject): TealiumValue {
+            val builder = TealiumBundle.Builder()
+            for (key in jsonObject.keys()) {
+                jsonObject.opt(key)?.let { value ->
                     // tolerate invalid keys
                     builder.put(key, convert(value))
                 }
