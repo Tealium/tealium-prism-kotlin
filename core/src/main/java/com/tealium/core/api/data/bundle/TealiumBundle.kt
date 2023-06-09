@@ -122,7 +122,7 @@ class TealiumBundle private constructor(
     }
 
     companion object {
-        @JvmStatic
+        @JvmField
         val EMPTY_BUNDLE = TealiumBundle()
 
         /**

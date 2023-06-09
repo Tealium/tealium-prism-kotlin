@@ -51,7 +51,7 @@ public class TealiumJavaHelper {
 
         tealium.track(Dispatch.create("",
                 TealiumDispatchType.Event,
-                TealiumBundle.getEMPTY_BUNDLE()));
+                TealiumBundle.EMPTY_BUNDLE));
 //    new TealiumBundle.Builder()
 //                .put(",", "")
 //                // todo
