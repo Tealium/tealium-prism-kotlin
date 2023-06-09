@@ -3,7 +3,6 @@ package com.tealium.core.internal.persistence
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteException
 import android.database.sqlite.SQLiteOpenHelper
-import androidx.core.database.sqlite.transaction
 import com.tealium.core.TealiumConfig
 import com.tealium.core.internal.DataLayerImpl
 import com.tealium.core.internal.persistence.Schema.DispatchTable.CREATE_DISPATCH_TABLE
@@ -22,9 +21,9 @@ internal class DatabaseHelper(
 ) :
     SQLiteOpenHelper(config.application.applicationContext, databaseName, null, DATABASE_VERSION) {
 
-    fun writableDatabaseOrNull(): SQLiteDatabase? {
+    fun getWritableDatabaseOrNull(): SQLiteDatabase? {
         return try {
-            writableDatabase.takeIf { !it.isReadOnly }
+            writableDatabase.takeIf { it != null && !it.isReadOnly }
         } catch (ex: SQLiteException) {
             null
         }
@@ -51,15 +50,15 @@ internal class DatabaseHelper(
     }
 
     override fun onDowngrade(db: SQLiteDatabase?, oldVersion: Int, newVersion: Int) {
-        db?.close()
-        deleteDatabase()
-
         throw UnsupportedDowngrade(oldVersion, newVersion)
     }
 
     fun deleteDatabase() {
-        val dbFile = File(databaseName(config))
-        SQLiteDatabase.deleteDatabase(dbFile)
+        close()
+        val dbFile = File(databaseName)
+        SQLiteDatabase.deleteDatabase(dbFile).also {
+            println("Database removed? $it")
+        }
     }
 
     companion object {
@@ -70,13 +69,13 @@ internal class DatabaseHelper(
         const val DATABASE_VERSION = 3
 
         internal val V1_to_V2 = DatabaseUpgrade(
-            1
+            2
         ) {
             it.execSQL(Schema.LegacyTables.createLegacyTable(Schema.LegacyTables.VISITORS_TABLE_NAME))
         }
 
         internal val V2_to_V3 = DatabaseUpgrade(
-            2
+            3
         ) {
             createV3Tables(it)
 
@@ -106,7 +105,7 @@ internal class DatabaseHelper(
 //                db.execSQL(
 //                    migrateModuleData(oldTableName), arrayOf(moduleId)
 //                )
-//                db.dropTable(oldTableName)
+            db.dropTable(oldTableName)
 //            } catch (ignored: SQLiteException) {
 //                Log.d(BuildConfig.TAG, "Error ${ignored.message}")
 //            }
@@ -147,5 +146,5 @@ internal class DatabaseHelper(
         val oldVersion: Int,
         val newVersion: Int,
         message: String = "Downgrade from $oldVersion to $newVersion is not supported."
-    ): Exception(message)
+    ) : Exception(message)
 }

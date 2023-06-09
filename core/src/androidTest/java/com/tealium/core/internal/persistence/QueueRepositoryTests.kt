@@ -2,13 +2,12 @@ package com.tealium.core.internal.persistence
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
-import com.tealium.core.Environment
-import com.tealium.core.TealiumConfig
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.Dispatcher
 import com.tealium.core.api.TealiumDispatchType
 import com.tealium.core.api.data.bundle.TealiumBundle
 import com.tealium.tests.common.TestDispatcher
+import com.tealium.tests.common.getDefaultConfig
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -27,14 +26,7 @@ class QueueRepositoryTests {
     @Before
     fun setUp() {
         app = ApplicationProvider.getApplicationContext() as Application
-        val config = TealiumConfig(
-            application = app,
-            "test",
-            "test",
-            Environment.DEV,
-            "",
-            listOf()
-        )
+        val config = getDefaultConfig(app)
 
         // use-in-memory DB
         val inMemoryDbProvider = InMemoryDatabaseProvider(config)

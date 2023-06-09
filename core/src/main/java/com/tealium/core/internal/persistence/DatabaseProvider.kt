@@ -9,10 +9,11 @@ interface DatabaseProvider {
 
 internal class FileDatabaseProvider(
     private val config: TealiumConfig,
-    private var databaseHelper: DatabaseHelper = DatabaseHelper(config),
+    private val databaseHelperCreator: () -> DatabaseHelper = { DatabaseHelper(config) },
     private val inMemoryDatabaseProvider: InMemoryDatabaseProvider = InMemoryDatabaseProvider(config)
 ) : DatabaseProvider {
 
+    private var databaseHelper: DatabaseHelper = databaseHelperCreator.invoke()
     private var _database: SQLiteDatabase? = null
 
     override val database: SQLiteDatabase
@@ -24,10 +25,12 @@ internal class FileDatabaseProvider(
 
     private fun getPersistentDatabase(): SQLiteDatabase? {
         return try {
-            databaseHelper.writableDatabaseOrNull()
+            databaseHelper.getWritableDatabaseOrNull()
         } catch (ex: DatabaseHelper.UnsupportedDowngrade) {
             try {
-                databaseHelper.writableDatabaseOrNull()
+                databaseHelper.deleteDatabase()
+                databaseHelper = databaseHelperCreator.invoke()
+                databaseHelper.getWritableDatabaseOrNull()
             } catch (ex: Exception) {
                 null
             }
