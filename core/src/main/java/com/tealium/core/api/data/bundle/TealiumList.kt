@@ -55,7 +55,7 @@ class TealiumList(private val collection: List<TealiumValue>) : Iterable<Tealium
     }
 
     companion object {
-        @JvmStatic
+        @JvmField
         val EMPTY_LIST: TealiumList = TealiumList(emptyList())
         private val DEFAULT_INDEX = -1
 

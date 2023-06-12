@@ -91,7 +91,7 @@ class TealiumValue private constructor(
     }
 
     companion object {
-        @JvmStatic
+        @JvmField
         val NULL = TealiumValue(Any())
 
         @JvmStatic
