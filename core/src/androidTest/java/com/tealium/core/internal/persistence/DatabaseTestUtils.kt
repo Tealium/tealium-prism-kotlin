@@ -143,7 +143,12 @@ object DatabaseTestUtils {
         assertV3TablesExist(db)
     }
 
-    fun populateLegacyDatabase(db: SQLiteDatabase) {
+    fun populateV1Database(db: SQLiteDatabase) {
+        db.execSQL(POPULATE_LEGACY_DATALAYER)
+        db.execSQL(POPULATE_LEGACY_DISPATCHES)
+    }
+
+    fun populateV2Database(db: SQLiteDatabase) {
         db.execSQL(POPULATE_LEGACY_DATALAYER)
         db.execSQL(POPULATE_LEGACY_DISPATCHES)
         db.execSQL(POPULATE_LEGACY_VISITORS)

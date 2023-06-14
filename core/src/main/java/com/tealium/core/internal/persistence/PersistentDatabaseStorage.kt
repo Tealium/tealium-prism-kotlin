@@ -1,0 +1,300 @@
+package com.tealium.core.internal.persistence
+
+import android.database.Cursor
+import android.database.sqlite.SQLiteDatabase
+import com.tealium.core.api.Expiry
+import com.tealium.core.api.data.bundle.TealiumValue
+
+internal class PersistentDatabaseStorage(
+    private val dbProvider: DatabaseProvider,
+    private val moduleId: Long,
+    private val tableName: String = Schema.ModuleStorageTable.TABLE_NAME,
+    private val onDataUpdated: ((String, TealiumValue) -> Unit)? = null,
+    private val onDataRemoved: ((Set<String>) -> Unit)? = null
+) : PersistentStorage<String, TealiumValue> {
+
+    private val db: SQLiteDatabase
+        get() = dbProvider.database
+
+    override fun getAll(): Map<String, TealiumValue> {
+        return getAll(
+            selection = IS_OWNER_AND_NOT_EXPIRED,
+            selectionArgs = arrayOf(moduleId.toString(), getTimestamp().toString())
+        )
+    }
+
+    private fun getAll(
+        selection: String?,
+        selectionArgs: Array<String>?
+    ): Map<String, TealiumValue> {
+        val map = mutableMapOf<String, TealiumValue>()
+
+        db.query(
+            tableName,
+            arrayOf(
+                Schema.ModuleStorageTable.COLUMN_KEY,
+                Schema.ModuleStorageTable.COLUMN_VALUE,
+                Schema.ModuleStorageTable.COLUMN_TYPE,
+            ),
+            selection,
+            selectionArgs,
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            if (cursor.count <= 0) return emptyMap()
+
+            val columnKeyIndex = cursor.getColumnIndex(Schema.ModuleStorageTable.COLUMN_KEY)
+            val columnValueIndex = cursor.getColumnIndex(Schema.ModuleStorageTable.COLUMN_VALUE)
+            val columnTypeIndex = cursor.getColumnIndex(Schema.ModuleStorageTable.COLUMN_TYPE)
+
+            while (cursor.moveToNext()) {
+                val key = cursor.getString(columnKeyIndex)
+                readTealiumValue(cursor, columnValueIndex, columnTypeIndex)?.let {
+                    map[key] = it
+                }
+            }
+        }
+
+        return map
+    }
+
+    /**
+     * TODO - this needs moving to a class that isn't specific to the module
+     */
+    private fun getExpired(timestamp: Long = getTimestamp()): Map<String, TealiumValue> {
+        return getAll(
+            selection = IS_EXPIRED_CLAUSE,
+            selectionArgs = arrayOf(timestamp.toString())
+        )
+    }
+
+    override fun get(key: String): TealiumValue? {
+        val selection = "${Schema.ModuleStorageTable.COLUMN_KEY} = ? AND $IS_OWNER_AND_NOT_EXPIRED"
+        val selectionArgs = arrayOf(key, moduleId.toString(), getTimestamp().toString())
+
+        return db.query(
+            tableName,
+            arrayOf(
+                Schema.ModuleStorageTable.COLUMN_VALUE,
+                Schema.ModuleStorageTable.COLUMN_TYPE,
+            ),
+            selection,
+            selectionArgs,
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            if (cursor.count <= 0) return null
+
+            cursor.moveToFirst()
+
+            readTealiumValue(cursor)
+        }
+    }
+
+    override fun insert(key: String, value: TealiumValue, expiry: Expiry?) {
+        try {
+            val inserted =
+                db.insertWithOnConflict(
+                    tableName,
+                    null,
+                    createContentValues(
+                        moduleId, key, value, expiry
+                    ),
+                    SQLiteDatabase.CONFLICT_REPLACE
+                )
+
+            if (inserted > 0) {
+                onDataUpdated?.invoke(key, value)
+            }
+
+        } catch (e: Exception) {
+//                Logger.dev(BuildConfig.TAG, "Error while trying to insert item")
+        }
+
+    }
+
+    override fun update(key: String, value: TealiumValue, expiry: Expiry?) {
+        try {
+            val updated = db.update(
+                tableName,
+                createContentValues(
+                    moduleId, key, value, expiry
+                ),
+                "$IS_MODULE_OWNER AND ${Schema.ModuleStorageTable.COLUMN_KEY} = ?",
+                arrayOf(moduleId.toString(), key)
+            )
+
+            if (updated > 0) {
+                onDataUpdated?.invoke(key, value)
+            }
+
+        } catch (e: Exception) {
+//                Logger.dev(BuildConfig.TAG, "Error while trying to update item")
+        }
+    }
+
+    override fun upsert(key: String, value: TealiumValue, expiry: Expiry?) {
+        val existingExpiry = getExpiry(key)
+        if (existingExpiry != null) {
+            val newExpiry = if (expiry == null && Expiry.isExpired(existingExpiry)) {
+                Expiry.SESSION
+            } else expiry
+            update(key, value, newExpiry)
+        } else {
+            insert(key, value, expiry ?: Expiry.SESSION)
+        }
+    }
+
+    override fun delete(key: String) {
+        try {
+            val deleted = db.delete(
+                tableName,
+                "$IS_MODULE_OWNER AND ${Schema.ModuleStorageTable.COLUMN_KEY} = ?",
+                arrayOf(moduleId.toString(), key)
+            )
+
+            if (deleted > 0) {
+                onDataRemoved?.invoke(setOf(key))
+            }
+
+        } catch (e: Exception) {
+//            Logger.dev(BuildConfig.TAG, "Error while trying to delete key: $key")
+        }
+    }
+
+    override fun clear() {
+        try {
+            val keys = keys()
+            db.delete(
+                tableName,
+                IS_MODULE_OWNER,
+                arrayOf(moduleId.toString())
+            )
+            onDataRemoved?.invoke(keys.toSet())
+
+        } catch (e: Exception) {
+//                Logger.dev(BuildConfig.TAG, "Error while trying to clear database")
+        }
+    }
+
+    override fun keys(): List<String> {
+        val selection = IS_OWNER_AND_NOT_EXPIRED
+        val selectionArgs = arrayOf(moduleId.toString(), getTimestamp().toString())
+
+        val keys = mutableListOf<String>()
+
+        db.query(
+            tableName,
+            arrayOf(Schema.ModuleStorageTable.COLUMN_KEY),
+            selection,
+            selectionArgs,
+            null,
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            val columnIndex = cursor.getColumnIndex(Schema.ModuleStorageTable.COLUMN_KEY)
+
+            while (cursor.moveToNext()) {
+                keys.add(cursor.getString(columnIndex))
+            }
+        }
+
+        return keys
+    }
+
+    override fun count(): Int {
+        val selection = "WHERE $IS_OWNER_AND_NOT_EXPIRED"
+        val selectionArgs = arrayOf(moduleId.toString(), getTimestamp().toString())
+
+        return db.rawQuery(
+            "SELECT COUNT(*) from $tableName $selection",
+            selectionArgs
+        )?.use {
+            it.moveToFirst()
+            val count = it.getInt(0)
+            count
+        } ?: 0
+    }
+
+    override fun contains(key: String): Boolean {
+        val selection = "${Schema.ModuleStorageTable.COLUMN_KEY} = ? AND $IS_OWNER_AND_NOT_EXPIRED"
+        val selectionArgs = arrayOf(key, moduleId.toString(), getTimestamp().toString())
+
+        return db.query(
+            tableName,
+            arrayOf(Schema.ModuleStorageTable.COLUMN_KEY),
+            selection,
+            selectionArgs,
+            null,
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            val count = cursor.count
+            cursor.close()
+            count > 0
+        } ?: false
+    }
+
+    override fun transactionally(block: (PersistentStorage<String, TealiumValue>) -> Unit) {
+        transactionally({}, block)
+    }
+
+    override fun transactionally(exceptionHandler: (Exception) -> Unit, block: (PersistentStorage<String, TealiumValue>) -> Unit) {
+        db.transaction(exceptionHandler = exceptionHandler) {
+            block(this@PersistentDatabaseStorage)
+        }
+    }
+
+    private fun getExpiry(key: String): Expiry? {
+        return db.query(
+            tableName,
+            arrayOf(Schema.ModuleStorageTable.COLUMN_EXPIRY),
+            "${Schema.ModuleStorageTable.COLUMN_KEY} = ? AND $IS_MODULE_OWNER",
+            arrayOf(key, moduleId.toString()),
+            null,
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            if (cursor.count <= 0) return null
+
+            val expiryIndex = cursor.getColumnIndex(Schema.ModuleStorageTable.COLUMN_EXPIRY)
+            cursor.moveToFirst()
+
+            cursor.getLong(expiryIndex).let {
+                Expiry.fromLongValue(it)
+            }
+        }
+    }
+
+    private fun readTealiumValue(cursor: Cursor): TealiumValue? {
+        val columnValueIndex = cursor.getColumnIndex(Schema.ModuleStorageTable.COLUMN_VALUE)
+        val columnTypeIndex = cursor.getColumnIndex(Schema.ModuleStorageTable.COLUMN_TYPE)
+
+        return readTealiumValue(cursor, columnValueIndex, columnTypeIndex)
+    }
+
+    private fun readTealiumValue(cursor: Cursor, columnValueIndex: Int, columnTypeIndex: Int): TealiumValue? {
+        val value = cursor.getString(columnValueIndex)
+        val code = cursor.getInt(columnTypeIndex)
+        return deserializeTealiumValue(value, code)
+    }
+
+    companion object {
+        internal val IS_NOT_EXPIRED_CLAUSE =
+            "(${Schema.ModuleStorageTable.COLUMN_EXPIRY} < 0 OR ${Schema.ModuleStorageTable.COLUMN_EXPIRY} > ?)"
+
+        internal val IS_EXPIRED_CLAUSE =
+            "(${Schema.ModuleStorageTable.COLUMN_EXPIRY} >= 0 AND ${Schema.ModuleStorageTable.COLUMN_EXPIRY} < ?)"
+
+        internal val IS_MODULE_OWNER =
+            "${Schema.ModuleStorageTable.COLUMN_MODULE_ID} = ?"
+
+        internal val IS_OWNER_AND_NOT_EXPIRED =
+            "$IS_MODULE_OWNER AND $IS_NOT_EXPIRED_CLAUSE"
+    }
+}
