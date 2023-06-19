@@ -1,6 +1,7 @@
 package com.tealium.core.api
 
 import com.tealium.core.api.data.bundle.TealiumBundle
+import com.tealium.core.internal.persistence.getTimestampMilliseconds
 import java.util.*
 
 class Dispatch private constructor(
@@ -40,7 +41,7 @@ class Dispatch private constructor(
             bundle: TealiumBundle = TealiumBundle.EMPTY_BUNDLE
         ): Dispatch {
             val uuid = UUID.randomUUID().toString()
-            val timestamp = System.currentTimeMillis()
+            val timestamp = getTimestampMilliseconds()
 
             val updatedBundle: TealiumBundle = TealiumBundle.Builder()
                 .put(Keys.TEALIUM_EVENT, eventName)
