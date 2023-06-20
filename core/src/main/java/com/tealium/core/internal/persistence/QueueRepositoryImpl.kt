@@ -3,6 +3,7 @@ package com.tealium.core.internal.persistence
 import android.content.ContentValues
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import android.util.Log
 import androidx.core.database.getLongOrNull
 import androidx.core.database.getStringOrNull
@@ -10,6 +11,10 @@ import com.tealium.core.BuildConfig
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.Dispatcher
 import com.tealium.core.api.data.bundle.TealiumBundle
+import com.tealium.core.internal.persistence.Schema.DispatchTable
+import com.tealium.core.internal.persistence.Schema.DispatcherTable
+import com.tealium.core.internal.persistence.Schema.LegacyTables
+import com.tealium.core.internal.persistence.Schema.QueueTable
 import java.util.concurrent.TimeUnit
 
 class QueueRepositoryImpl(
@@ -33,64 +38,56 @@ class QueueRepositoryImpl(
 
     override val size: Int
         get() {
-            return db.rawQuery(SELECT_QUEUE_SIZE, arrayOf(getExpiryTimestamp(expiration).toString()))?.use { cursor ->
+            return db.rawQuery(
+                SELECT_QUEUE_SIZE,
+                arrayOf(getExpiryTimestamp(expiration).toString())
+            )?.use { cursor ->
                 cursor.moveToFirst()
                 cursor.getInt(0)
             } ?: 0
         }
 
+    private var migrationAttempted: Boolean = false
+
+    /**
+     * For testing purposes only.
+     *
+     * Returns the full size of the `queue` table, inclusive of duplicated `dispatch_id` values
+     */
     internal fun dispatcherQueueSize(): Int {
-        return db.rawQuery(SELECT_DISPATCHER_QUEUE_SIZE, arrayOf(getExpiryTimestamp(expiration).toString()))?.use { cursor ->
+        return db.rawQuery(
+            SELECT_DISPATCHER_QUEUE_SIZE,
+            arrayOf(getExpiryTimestamp(expiration).toString())
+        )?.use { cursor ->
             cursor.moveToFirst()
             cursor.getInt(0)
         } ?: 0
     }
 
-    private fun getDispatcherNames(): List<String> {
-        val list = mutableListOf<String>()
-        db.rawQuery(
-            SELECT_ALL_DISPATCHER_NAMES,
-            arrayOf()
-        )?.use { cursor ->
-            if (cursor.count <= 0) return emptyList()
-
-            val nameColumnId = cursor.getColumnIndex(Schema.DispatcherTable.COLUMN_NAME)
-            while (cursor.moveToNext()) {
-                cursor.getString(nameColumnId)?.let { name ->
-                    list.add(name)
-                }
-            }
-        }
-
-        return list.toList()
-    }
-
     override fun updateDispatchers(dispatchers: List<Dispatcher>) {
         db.transaction {
-            val dispatcherNames = getDispatcherNames()
-            val mappedDispatchers = dispatchers.map { it.name }
+            delete(
+                DispatcherTable.TABLE_NAME,
+                "${DispatcherTable.COLUMN_NAME} NOT IN ${dispatchers.placeholderList()}",
+                dispatchers.map { it.name }
+                    .toTypedArray()
+            )
 
-            val toDisable = dispatcherNames.filter { !mappedDispatchers.contains(it) }
-            val toInsert = dispatchers.filter { !dispatcherNames.contains(it.name) }
-            val toUpdate = dispatchers.filter { !toInsert.contains(it) }
-
-            toDisable.forEach { name ->
-                updateDispatcher(name, false)
-            }
-
-            toUpdate.forEach { d ->
-                updateDispatcher(d, true)
-            }
-
-            toInsert.forEach { d ->
-                insertDispatcher(d, true)
+            dispatchers.forEach {
+                insertDispatcher(it)
             }
         }
-        db.migrateDispatchQueue(expiration)
+        if (!migrationAttempted) {
+            migrationAttempted = true
+            try {
+                db.migrateDispatchQueue(expiration)
+            } catch (ignore: Exception) {
+                // log this
+            }
+        }
     }
 
     override fun enqueue(dispatch: Dispatch) = enqueue(listOf(dispatch))
-
 
     override fun enqueue(dispatches: List<Dispatch>) {
         db.transaction {
@@ -98,7 +95,7 @@ class QueueRepositoryImpl(
 
             dispatches.forEach {
                 val rowId = insert(
-                    Schema.DispatchTable.TABLE_NAME,
+                    DispatchTable.TABLE_NAME,
                     null,
                     it.asContentValues()
                 )
@@ -117,9 +114,9 @@ class QueueRepositoryImpl(
         )?.use { cursor ->
             if (cursor.count < 0) return emptyList()
 
-            val idColumnId = cursor.getColumnIndex(Schema.DispatchTable.COLUMN_ID)
-            val timestampColumnId = cursor.getColumnIndex(Schema.DispatchTable.COLUMN_TIMESTAMP)
-            val dispatchColumnId = cursor.getColumnIndex(Schema.DispatchTable.COLUMN_DISPATCH)
+            val idColumnId = cursor.getColumnIndex(DispatchTable.COLUMN_ID)
+            val timestampColumnId = cursor.getColumnIndex(DispatchTable.COLUMN_TIMESTAMP)
+            val dispatchColumnId = cursor.getColumnIndex(DispatchTable.COLUMN_DISPATCH)
 
             while (cursor.moveToNext()) {
                 readDispatch(
@@ -143,8 +140,8 @@ class QueueRepositoryImpl(
         db.transaction {
             dispatches.forEach {
                 val count = delete(
-                    Schema.DispatchTable.TABLE_NAME,
-                    "${Schema.DispatchTable.COLUMN_ID} = ?",
+                    DispatchTable.TABLE_NAME,
+                    "${DispatchTable.COLUMN_ID} = ?",
                     arrayOf(it.id)
                 )
                 if (count < 0) {
@@ -198,64 +195,64 @@ class QueueRepositoryImpl(
 
     companion object {
         private val NOT_EXPIRED_CLAUSE: String = """
-            ${Schema.DispatchTable.TABLE_NAME}.${Schema.DispatchTable.COLUMN_TIMESTAMP} >= ? 
+            ${DispatchTable.COLUMN_TIMESTAMP} >= ? 
         """.trimIndent()
 
         private val SELECT_LATEST_EVENTS: String = """
             SELECT 
-                ${Schema.DispatchTable.TABLE_NAME}.${Schema.DispatchTable.COLUMN_ID}, 
-                ${Schema.DispatchTable.TABLE_NAME}.${Schema.DispatchTable.COLUMN_TIMESTAMP}, 
-                ${Schema.DispatchTable.TABLE_NAME}.${Schema.DispatchTable.COLUMN_DISPATCH}
-            FROM ${Schema.DispatchTable.TABLE_NAME} 
-                INNER JOIN ${Schema.QueueTable.TABLE_NAME} 
-                ON ${Schema.QueueTable.TABLE_NAME}.${Schema.QueueTable.COLUMN_DISPATCH_ID} = ${Schema.DispatchTable.TABLE_NAME}.${Schema.DispatchTable.COLUMN_ID} 
-                INNER JOIN ${Schema.DispatcherTable.TABLE_NAME}
-                ON ${Schema.DispatcherTable.TABLE_NAME}.${Schema.DispatcherTable.COLUMN_ID} = ${Schema.QueueTable.TABLE_NAME}.${Schema.QueueTable.COLUMN_DISPATCHER_ID}
-                WHERE ${Schema.DispatcherTable.TABLE_NAME}.${Schema.DispatcherTable.COLUMN_NAME} = ?
+                d.${DispatchTable.COLUMN_ID}, 
+                d.${DispatchTable.COLUMN_TIMESTAMP}, 
+                d.${DispatchTable.COLUMN_DISPATCH}
+            FROM ${DispatchTable.TABLE_NAME} d 
+                INNER JOIN ${QueueTable.TABLE_NAME} q
+                ON q.${QueueTable.COLUMN_DISPATCH_ID} = d.${DispatchTable.COLUMN_ID} 
+                INNER JOIN ${DispatcherTable.TABLE_NAME} dr
+                ON dr.${DispatcherTable.COLUMN_ID} = q.${QueueTable.COLUMN_DISPATCHER_ID}
+                WHERE dr.${DispatcherTable.COLUMN_NAME} = ?
                 AND $NOT_EXPIRED_CLAUSE
-            ORDER BY ${Schema.DispatchTable.TABLE_NAME}.${Schema.DispatchTable.COLUMN_TIMESTAMP} ASC 
+            ORDER BY d.${DispatchTable.COLUMN_TIMESTAMP} ASC 
             LIMIT ?;
         """.trimIndent()
 
         private val DELETE_DISPATCH_FOR_DISPATCHER: String = """
-            DELETE FROM ${Schema.QueueTable.TABLE_NAME} 
-            WHERE ${Schema.QueueTable.TABLE_NAME}.${Schema.QueueTable.COLUMN_DISPATCH_ID} = ?
-            AND ${Schema.QueueTable.TABLE_NAME}.${Schema.QueueTable.COLUMN_DISPATCHER_ID} IN (
-                SELECT ${Schema.DispatcherTable.COLUMN_ID} 
-                FROM ${Schema.DispatcherTable.TABLE_NAME} 
-                WHERE ${Schema.DispatcherTable.COLUMN_NAME} = ?
+            DELETE FROM ${QueueTable.TABLE_NAME}
+            WHERE ${QueueTable.COLUMN_DISPATCH_ID} = ?
+            AND ${QueueTable.COLUMN_DISPATCHER_ID} IN (
+                SELECT ${DispatcherTable.COLUMN_ID}
+                FROM ${DispatcherTable.TABLE_NAME}
+                WHERE ${DispatcherTable.COLUMN_NAME} = ?
             );
         """.trimIndent()
 
         private val SELECT_QUEUE_SIZE: String = """
-            SELECT COUNT(*) FROM ${Schema.DispatchTable.TABLE_NAME}
+            SELECT COUNT(*) FROM ${DispatchTable.TABLE_NAME}
             WHERE $NOT_EXPIRED_CLAUSE
         """.trimIndent()
 
         private val SELECT_DISPATCHER_QUEUE_SIZE: String = """
-            SELECT COUNT(*) FROM ${Schema.QueueTable.TABLE_NAME} 
-                INNER JOIN ${Schema.DispatchTable.TABLE_NAME}
-                ON ${Schema.DispatchTable.TABLE_NAME}.${Schema.DispatchTable.COLUMN_ID} = ${Schema.QueueTable.TABLE_NAME}.${Schema.QueueTable.COLUMN_DISPATCH_ID} 
+            SELECT COUNT(*) FROM ${QueueTable.TABLE_NAME} q 
+                INNER JOIN ${DispatchTable.TABLE_NAME} d
+                ON d.${DispatchTable.COLUMN_ID} = q.${QueueTable.COLUMN_DISPATCH_ID} 
             WHERE $NOT_EXPIRED_CLAUSE
         """.trimIndent()
 
         private val DELETE_OLDEST_X_DISPATCHES: String = """
-            DELETE FROM ${Schema.DispatchTable.TABLE_NAME} 
-            WHERE ${Schema.DispatchTable.COLUMN_ID} IN (
-                SELECT ${Schema.DispatchTable.COLUMN_ID}
-                FROM ${Schema.DispatchTable.TABLE_NAME} 
-                ORDER BY ${Schema.DispatchTable.COLUMN_TIMESTAMP} ASC
+            DELETE FROM ${DispatchTable.TABLE_NAME} 
+            WHERE ${DispatchTable.COLUMN_ID} IN (
+                SELECT ${DispatchTable.COLUMN_ID}
+                FROM ${DispatchTable.TABLE_NAME} 
+                ORDER BY ${DispatchTable.COLUMN_TIMESTAMP} ASC
                 LIMIT ?	
             );
         """.trimIndent()
 
         private val SELECT_ALL_DISPATCHER_NAMES: String = """
-            SELECT ${Schema.DispatcherTable.COLUMN_NAME} FROM ${Schema.DispatcherTable.TABLE_NAME}
+            SELECT ${DispatcherTable.COLUMN_NAME} FROM ${DispatcherTable.TABLE_NAME}
         """.trimIndent()
 
         private val MIGRATE_DISPATCH_QUEUE: String = """
-            INSERT INTO ${Schema.DispatchTable.TABLE_NAME} 
-            SELECT `key`, timestamp, value from ${Schema.LegacyTables.DISPATCHES_TABLE_NAME}
+            INSERT INTO ${DispatchTable.TABLE_NAME} 
+            SELECT `key`, timestamp, value from ${LegacyTables.DISPATCHES_TABLE_NAME}
             WHERE timestamp > ?;
         """.trimIndent()
 
@@ -278,7 +275,7 @@ class QueueRepositoryImpl(
          */
         private fun SQLiteDatabase.migrateDispatchQueue(expiryTimeFrame: TimeFrame) {
             rawQuery(
-                COUNT_TABLE_NAME, arrayOf(Schema.LegacyTables.DISPATCHES_TABLE_NAME)
+                COUNT_TABLE_NAME, arrayOf(LegacyTables.DISPATCHES_TABLE_NAME)
             ).use { cursor ->
                 if (cursor.count <= 0) return
 
@@ -288,83 +285,44 @@ class QueueRepositoryImpl(
 
             transaction {
                 execSQL(MIGRATE_DISPATCH_QUEUE, arrayOf(getExpiryTimestamp(expiryTimeFrame)))
-                dropTableIfExists(Schema.LegacyTables.DISPATCHES_TABLE_NAME)
+                dropTableIfExists(LegacyTables.DISPATCHES_TABLE_NAME)
             }
-        }
-
-        /**
-         * Executes a SQL UPDATE, updating only the active column for the provided [dispatcher]
-         *
-         * @param dispatcher The Dispatcher to set active/inactive
-         * @param active Whether or not this [dispatcher] is now active or not
-         */
-        internal fun SQLiteDatabase.updateDispatcher(
-            dispatcher: Dispatcher,
-            active: Boolean = true
-        ) {
-            update(
-                Schema.DispatcherTable.TABLE_NAME,
-                dispatcher.asContentValues(active),
-                "${Schema.DispatcherTable.COLUMN_NAME} = ?",
-                arrayOf(dispatcher.name)
-            )
-        }
-
-        /**
-         *  Executes a SQL UPDATE, updating only the active column for the provided dispatcher [name]
-         *
-         * @param name The name of Dispatcher to set active/inactive
-         * @param active Whether or not this [Dispatcher] is now active or not
-         */
-        internal fun SQLiteDatabase.updateDispatcher(name: String, active: Boolean = true) {
-            update(
-                Schema.DispatcherTable.TABLE_NAME,
-                dispatcherContentValues(name, active),
-                "${Schema.DispatcherTable.COLUMN_NAME} = ?",
-                arrayOf(name)
-            )
         }
 
         /**
          * Inserts a new entry for a [Dispatcher] that has not been registered before.
          * If the dispatcher is already in the database, then it will not be replaced.
          *
-         * @param dispatcher The Dispatcher to set active/inactive
-         * @param active Whether or not this [dispatcher] is now active or not
+         * @param dispatcher The Dispatcher to insert
          */
         internal fun SQLiteDatabase.insertDispatcher(
             dispatcher: Dispatcher,
-            active: Boolean = true
         ) {
-            insert(
-                Schema.DispatcherTable.TABLE_NAME,
+            insertWithOnConflict(
+                DispatcherTable.TABLE_NAME,
                 null,
-                dispatcher.asContentValues(active)
+                dispatcher.asContentValues(),
+                CONFLICT_IGNORE
             )
         }
 
         /**
-         * Creates the [ContentValues] describing a Dispatcher in the database and whether it is
-         * active or not.
+         * Creates the [ContentValues] describing a Dispatcher in the database.
          *
-         * @param name The name of Dispatcher to set active/inactive
-         * @param active Whether or not this [Dispatcher] is now active or not
+         * @param name The name of Dispatcher to insert
          */
-        private fun dispatcherContentValues(name: String, active: Boolean): ContentValues {
+        private fun dispatcherContentValues(name: String): ContentValues {
             return ContentValues().also {
-                it.put(Schema.DispatcherTable.COLUMN_NAME, name)
-                it.put(Schema.DispatcherTable.COLUMN_ACTIVE, active)
+                it.put(DispatcherTable.COLUMN_NAME, name)
             }
         }
 
         /**
-         * Creates the [ContentValues] describing a Dispatcher in the database and whether it is
-         * active or not.
+         * Creates the [ContentValues] describing a Dispatcher in the database
          *
-         * @param active Whether or not this [Dispatcher] is now active or not
          */
-        private fun Dispatcher.asContentValues(active: Boolean = true): ContentValues {
-            return dispatcherContentValues(name, active)
+        private fun Dispatcher.asContentValues(): ContentValues {
+            return dispatcherContentValues(name)
         }
 
         /**
@@ -373,9 +331,9 @@ class QueueRepositoryImpl(
          */
         private fun Dispatch.asContentValues(): ContentValues {
             return ContentValues().apply {
-                put(Schema.DispatchTable.COLUMN_ID, id)
-                put(Schema.DispatchTable.COLUMN_TIMESTAMP, timestamp)
-                put(Schema.DispatchTable.COLUMN_DISPATCH, payload().toString())
+                put(DispatchTable.COLUMN_ID, id)
+                put(DispatchTable.COLUMN_TIMESTAMP, timestamp)
+                put(DispatchTable.COLUMN_DISPATCH, payload().toString())
             }
         }
 
@@ -425,7 +383,10 @@ class QueueRepositoryImpl(
         /**
          * Returns the oldest unix timestamp (in milliseconds) that would be considered not-expired.
          */
-        internal fun getExpiryTimestamp(timeFrame: TimeFrame, now: Long = getTimestampMilliseconds()): Long {
+        internal fun getExpiryTimestamp(
+            timeFrame: TimeFrame,
+            now: Long = getTimestampMilliseconds()
+        ): Long {
             val timeFrameMillis = timeFrame.unit.toMillis(timeFrame.number.toLong())
             return now - timeFrameMillis
         }

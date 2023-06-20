@@ -11,7 +11,6 @@ import com.tealium.core.internal.persistence.Schema.DispatcherTable.CREATE_DISPA
 import com.tealium.core.internal.persistence.Schema.ModuleStorageTable.CREATE_MODULE_STORAGE_TABLE
 import com.tealium.core.internal.persistence.Schema.ModuleTable.CREATE_MODULE_TABLE
 import com.tealium.core.internal.persistence.Schema.DispatchTable.CREATE_TRIGGER_ADD_TO_QUEUE
-//import com.tealium.core.internal.persistence.Schema.LegacyTables.migrateModuleData
 import com.tealium.core.internal.persistence.Schema.QueueTable.CREATE_TRIGGER_REMOVE_PROCESSED_DISPATCHES
 import java.io.File
 
@@ -50,6 +49,7 @@ internal class DatabaseHelper(
     }
 
     override fun onDowngrade(db: SQLiteDatabase?, oldVersion: Int, newVersion: Int) {
+        // TODO - find a way to downgrade safely.
         throw UnsupportedDowngrade(oldVersion, newVersion)
     }
 
