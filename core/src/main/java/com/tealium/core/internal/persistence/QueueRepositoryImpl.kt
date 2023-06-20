@@ -246,10 +246,6 @@ class QueueRepositoryImpl(
             );
         """.trimIndent()
 
-        private val SELECT_ALL_DISPATCHER_NAMES: String = """
-            SELECT ${DispatcherTable.COLUMN_NAME} FROM ${DispatcherTable.TABLE_NAME}
-        """.trimIndent()
-
         private val MIGRATE_DISPATCH_QUEUE: String = """
             INSERT INTO ${DispatchTable.TABLE_NAME} 
             SELECT `key`, timestamp, value from ${LegacyTables.DISPATCHES_TABLE_NAME}
