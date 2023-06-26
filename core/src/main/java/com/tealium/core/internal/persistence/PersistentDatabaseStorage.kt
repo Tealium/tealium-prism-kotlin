@@ -5,6 +5,19 @@ import android.database.sqlite.SQLiteDatabase
 import com.tealium.core.api.Expiry
 import com.tealium.core.api.data.bundle.TealiumValue
 
+/**
+ * This is the default implementation for reading and writing [TealiumValue] objects to and from
+ * disk using an SQLite Database.
+ *
+ * All data is linked to a [moduleId] which is uniquely generated for each
+ * [Module][com.tealium.core.api.Module]
+ *
+ * @param dbProvider The DatabaseProvider to provide a valid [SQLiteDatabase] instance
+ * @param moduleId The id of the module that this data belongs to
+ * @param tableName The underlying name of the SQL table to query
+ * @param onDataUpdated Delegate to notify when data has been updated
+ * @param onDataRemoved Delegate to notify when data has been removed
+ */
 internal class PersistentDatabaseStorage(
     private val dbProvider: DatabaseProvider,
     private val moduleId: Long,
@@ -112,7 +125,6 @@ internal class PersistentDatabaseStorage(
         } catch (e: Exception) {
 //                Logger.dev(BuildConfig.TAG, "Error while trying to insert item")
         }
-
     }
 
     override fun update(key: String, value: TealiumValue, expiry: Expiry?) {

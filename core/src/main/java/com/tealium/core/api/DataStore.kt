@@ -3,6 +3,7 @@ package com.tealium.core.api
 import com.tealium.core.api.data.bundle.TealiumBundle
 import com.tealium.core.api.data.bundle.TealiumValue
 
+
 interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
 
     /**
