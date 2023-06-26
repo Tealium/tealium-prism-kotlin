@@ -8,9 +8,12 @@ import com.tealium.core.api.TealiumDispatchType
 import com.tealium.core.api.data.bundle.TealiumBundle
 import com.tealium.tests.common.TestDispatcher
 import com.tealium.tests.common.getDefaultConfig
+import io.mockk.every
+import io.mockk.mockk
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import java.util.concurrent.TimeUnit
 
 class QueueRepositoryTests {
 
@@ -131,6 +134,69 @@ class QueueRepositoryTests {
     }
 
     @Test
+    fun updateDispatchers_InsertDoesntAffectExistingDispatchers() {
+        val dispatcher4 = TestDispatcher("dispatcher4")
+        queueRepository.updateDispatchers(
+            listOf(dispatcher1, dispatcher2, dispatcher3, dispatcher4)
+        )
+        queueRepository.enqueue(dispatch1)
+
+        val dispatches1 = queueRepository.getQueuedDispatches(1, dispatcher1)
+        val dispatches2 = queueRepository.getQueuedDispatches(1, dispatcher2)
+        val dispatches3 = queueRepository.getQueuedDispatches(1, dispatcher3)
+        val dispatches4 = queueRepository.getQueuedDispatches(1, dispatcher4)
+
+        assertEquals(1, dispatches1.size)
+        assertEquals(1, dispatches2.size)
+        assertEquals(1, dispatches3.size)
+        assertEquals(1, dispatches4.size)
+    }
+
+    @Test
+    fun updateDispatchers_DeletesOnlyQueueEntriesForRemovedDispatchers() {
+        queueRepository.enqueue(dispatch1)
+        var dispatches1 = queueRepository.getQueuedDispatches(1, dispatcher1)
+        var dispatches2 = queueRepository.getQueuedDispatches(1, dispatcher2)
+        var dispatches3 = queueRepository.getQueuedDispatches(1, dispatcher3)
+        assertEquals(1, dispatches1.size)
+        assertEquals(1, dispatches2.size)
+        assertEquals(1, dispatches3.size)
+
+        queueRepository.updateDispatchers( // remove dispatcher3
+            listOf(dispatcher1, dispatcher2)
+        )
+
+        dispatches1 = queueRepository.getQueuedDispatches(1, dispatcher1)
+        dispatches2 = queueRepository.getQueuedDispatches(1, dispatcher2)
+        dispatches3 = queueRepository.getQueuedDispatches(1, dispatcher3)
+
+        assertEquals(1, dispatches1.size)
+        assertEquals(1, dispatches2.size)
+        assertEquals(0, dispatches3.size)
+    }
+
+    @Test
+    fun updateDispatchers_DeletesQueueEntriesForRemovedDispatchers_AndAreNotAvailableIfReenabled() {
+        queueRepository.enqueue(dispatch1)
+        var dispatches3 = queueRepository.getQueuedDispatches(1, dispatcher3)
+        assertEquals(1, dispatches3.size)
+
+        queueRepository.updateDispatchers( // remove dispatcher3
+            listOf(dispatcher1, dispatcher2)
+        )
+
+        dispatches3 = queueRepository.getQueuedDispatches(1, dispatcher3)
+        assertEquals(0, dispatches3.size)
+
+        queueRepository.updateDispatchers( // enable dispatcher3 again
+            listOf(dispatcher1, dispatcher2, dispatcher3)
+        )
+
+        dispatches3 = queueRepository.getQueuedDispatches(1, dispatcher3)
+        assertEquals(0, dispatches3.size)
+    }
+
+    @Test
     fun resize_RemovesOldestDispatchesFirst() {
         queueRepository.enqueue(listOf(dispatch1, dispatch2))
         assertEquals(2, queueRepository.size)
@@ -161,6 +227,152 @@ class QueueRepositoryTests {
         assertEquals(2, queueRepository.size)
         assertEquals(dispatches.first().id, dispatch2.id)
         assertEquals(dispatches.last().id, dispatch3.id)
+    }
+
+    @Test
+    fun size_DoesNotInclude_ExpiredEntries() {
+        queueRepository.enqueue(listOf(dispatch1, dispatch2))
+        assertEquals(2, queueRepository.size)
+
+        val expiredDispatch = Dispatch.create(
+            "expired",
+            dispatch1.payload(),
+            QueueRepositoryImpl.getExpiryTimestamp(queueRepository.expiration) - 1
+        )
+        queueRepository.enqueue(listOf(expiredDispatch!!))
+
+        assertEquals(2, queueRepository.size)
+    }
+
+    @Test
+    fun getQueuedDispatches_DoesNotInclude_ExpiredEntries() {
+        queueRepository.enqueue(listOf(dispatch1, dispatch2))
+        assertEquals(2, queueRepository.size)
+
+        val expiredDispatch = Dispatch.create(
+            "expired",
+            dispatch1.payload(),
+            QueueRepositoryImpl.getExpiryTimestamp(queueRepository.expiration) - 1
+        )
+        queueRepository.enqueue(listOf(expiredDispatch!!))
+
+        val dispatches1 = queueRepository.getQueuedDispatches(3, dispatcher1)
+        val dispatches2 = queueRepository.getQueuedDispatches(3, dispatcher2)
+
+        assertEquals(2, dispatches1.size)
+        assertEquals(2, dispatches2.size)
+        assertNull(dispatches1.find { it.id == "expired" })
+        assertNull(dispatches2.find { it.id == "expired" })
+    }
+
+    @Test
+    fun getQueuedDispatches_DoesNot_ReturnMoreThanRequested() {
+        queueRepository.enqueue(listOf(dispatch1, dispatch2))
+        assertEquals(2, queueRepository.size)
+
+        val dispatches1 = queueRepository.getQueuedDispatches(1, dispatcher1)
+        val dispatches2 = queueRepository.getQueuedDispatches(1, dispatcher2)
+
+        assertEquals(1, dispatches1.size)
+        assertEquals(1, dispatches2.size)
+    }
+
+    @Test
+    fun getQueuedDispatches_ReturnsAll_WhenMoreIsRequested() {
+        queueRepository.enqueue(listOf(dispatch1, dispatch2))
+        assertEquals(2, queueRepository.size)
+
+        val dispatches1 = queueRepository.getQueuedDispatches(3, dispatcher1)
+        val dispatches2 = queueRepository.getQueuedDispatches(3, dispatcher2)
+
+        assertEquals(2, dispatches1.size)
+        assertEquals(2, dispatches2.size)
+    }
+
+    @Test
+    fun getQueuedDispatches_ReturnsAll_WhenNegativeCountProvided() {
+        queueRepository.enqueue(listOf(dispatch1, dispatch2))
+        assertEquals(2, queueRepository.size)
+
+        val dispatches1 = queueRepository.getQueuedDispatches(-1, dispatcher1)
+        val dispatches2 = queueRepository.getQueuedDispatches(-100, dispatcher2)
+
+        assertEquals(2, dispatches1.size)
+        assertEquals(2, dispatches2.size)
+    }
+
+    @Test
+    fun updateDispatches_OnUpgrade_MigratesExistingQueuedDispatches() {
+        val mockProvider = mockk<DatabaseProvider>()
+        val inMemoryDb =
+            DatabaseTestUtils.createV1Database(getDefaultConfig(app).application.applicationContext)
+        every { mockProvider.database } returns inMemoryDb
+
+
+        DatabaseTestUtils.insertLegacyDispatch(
+            inMemoryDb, "expired", timestamp = QueueRepositoryImpl.getExpiryTimestamp(
+                TimeFrame(10, TimeUnit.DAYS)
+            )
+        )
+        DatabaseTestUtils.insertLegacyDispatch(
+            inMemoryDb, "not-expired", timestamp = QueueRepositoryImpl.getExpiryTimestamp(
+                TimeFrame(1, TimeUnit.DAYS)
+            )
+        )
+        DatabaseTestUtils.getDatabaseUpgrades(
+            1, 3
+        ).forEach {
+            it.upgrade(inMemoryDb)
+        }
+
+        // migrate
+        val queueRepository =
+            QueueRepositoryImpl(mockProvider, expiration = TimeFrame(5, TimeUnit.DAYS))
+        queueRepository.updateDispatchers(listOf(dispatcher1, dispatcher2))
+        val dispatches1 = queueRepository.getQueuedDispatches(2, dispatcher1)
+        val dispatches2 = queueRepository.getQueuedDispatches(2, dispatcher2)
+        val dispatches3 = queueRepository.getQueuedDispatches(2, dispatcher3)
+
+
+        assertEquals(1, queueRepository.size)
+        assertEquals(2, queueRepository.dispatcherQueueSize()) // one for dispatcher 1 + 2
+
+        assertEquals(1, dispatches1.size)
+        assertEquals(1, dispatches2.size)
+        assertEquals(0, dispatches3.size)
+
+        assertEquals("not-expired", dispatches1.first().id)
+        assertEquals("not-expired", dispatches2.first().id)
+    }
+
+    @Test
+    fun updateDispatches_OnUpgrade_EmptyQueueDoesNotThrow() {
+        val mockProvider = mockk<DatabaseProvider>()
+        val inMemoryDb =
+            DatabaseTestUtils.createV1Database(getDefaultConfig(app).application.applicationContext)
+        every { mockProvider.database } returns inMemoryDb
+
+        DatabaseTestUtils.getDatabaseUpgrades(
+            1, 3
+        ).forEach {
+            it.upgrade(inMemoryDb)
+        }
+
+        // migrate
+        val queueRepository =
+            QueueRepositoryImpl(mockProvider, expiration = TimeFrame(5, TimeUnit.DAYS))
+        queueRepository.updateDispatchers(listOf(dispatcher1, dispatcher2))
+        val dispatches1 = queueRepository.getQueuedDispatches(2, dispatcher1)
+        val dispatches2 = queueRepository.getQueuedDispatches(2, dispatcher2)
+        val dispatches3 = queueRepository.getQueuedDispatches(2, dispatcher3)
+
+
+        assertEquals(0, queueRepository.size)
+        assertEquals(0, queueRepository.dispatcherQueueSize())
+
+        assertEquals(0, dispatches1.size)
+        assertEquals(0, dispatches2.size)
+        assertEquals(0, dispatches3.size)
     }
 
     private fun prePopulateDispatchers() {

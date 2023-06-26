@@ -16,7 +16,8 @@ interface QueueRepository {
     val size: Int
 
     /**
-     * Sets the given [dispatchers] as active, marking any others as inactive.
+     * Sets the given [dispatchers] as active, deleting any dispatchers not in this list - all queued
+     * Dispatches are also removed for disabled dispatchers
      *
      * @param dispatchers The dispatchers to start receiving events.
      */
@@ -24,7 +25,7 @@ interface QueueRepository {
 
     /**
      * Adds the [dispatch]es to the queue, creating entries for all [Dispatcher]s that are currently
-     * registered and active.
+     * registered.
      *
      * @param dispatch The dispatch to persist in case we can't yet send it.
      */
@@ -32,7 +33,7 @@ interface QueueRepository {
 
     /**
      * Adds the [dispatches] to the queue, creating entries for all [Dispatcher]s that are currently
-     * registered and active.
+     * registered.
      *
      * @param dispatches The dispatches to persist in case we can't yet send them.
      */

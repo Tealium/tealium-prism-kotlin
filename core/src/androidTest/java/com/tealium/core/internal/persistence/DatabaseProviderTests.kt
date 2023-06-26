@@ -3,7 +3,9 @@ package com.tealium.core.internal.persistence
 import android.app.Application
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteException
+import android.os.Build
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.filters.SdkSuppress
 import com.tealium.core.TealiumConfig
 import com.tealium.core.internal.persistence.DatabaseTestUtils.assertV3TablesExist
 import com.tealium.core.internal.persistence.DatabaseTestUtils.createV3Database
@@ -45,6 +47,7 @@ class DatabaseProviderTests {
     }
 
     @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.P)
     fun getDatabase_Returns_PersistentDatabase_WhenWritable() {
         val mockDatabase = mockk<SQLiteDatabase>(relaxed = true)
         every { mockDatabase.isReadOnly } returns false
@@ -58,6 +61,7 @@ class DatabaseProviderTests {
     }
 
     @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.P)
     fun getDatabase_Returns_InMemoryDatabase_WhenOnlyReadable() {
         val mockDatabase = mockk<SQLiteDatabase>()
         every { mockDatabase.isReadOnly } returns true
@@ -71,6 +75,7 @@ class DatabaseProviderTests {
     }
 
     @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.P)
     fun getDatabase_Returns_InMemoryDatabase_WhenWritableIsNull() {
         val mockDatabase = mockk<SQLiteDatabase>()
         every { mockDatabase.isReadOnly } returns true
@@ -84,6 +89,7 @@ class DatabaseProviderTests {
     }
 
     @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.P)
     fun getDatabase_Returns_InMemoryDatabase_WhenWritableThrows() {
         val mockDatabase = mockk<SQLiteDatabase>()
         every { mockDatabase.isReadOnly } returns true

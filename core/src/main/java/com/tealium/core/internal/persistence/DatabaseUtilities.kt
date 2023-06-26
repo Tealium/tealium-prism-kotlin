@@ -49,6 +49,15 @@ internal fun SQLiteDatabase.dropTableIfExists(tableName: String) {
 }
 
 /**
+ * Generates a SQL placeholder list for a collection. The returned value will create a string with
+ * placeholders for the number of items in the Collection.
+ * e.g. a collection of two elements will return "(?, ?)"
+ */
+internal fun Collection<*>.placeholderList(): String {
+    return this.joinToString(prefix = "(", postfix = ")", separator = ",") { "?" }
+}
+
+/**
  * Method used to consistently return a timestamp in seconds the same format.
  */
 internal fun getTimestamp(): Long {
