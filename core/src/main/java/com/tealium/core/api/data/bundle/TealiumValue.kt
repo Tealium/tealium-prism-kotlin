@@ -45,17 +45,33 @@ class TealiumValue private constructor(
         return value is Double
     }
 
+    fun isNumber(): Boolean {
+        return value is Number
+    }
+
+    fun isBoolean(): Boolean {
+        return value is Boolean
+    }
+
     fun getString(): String? {
         return if (isString()) value as String else null
     }
+
     fun getInt(): Int? {
-        return if (isInt()) value as Int else null
+        return if (isInt()) value as Int else asNumber()?.toInt()
     }
+
     fun getLong(): Long? {
-        return if (isLong()) value as Long else null
+        return if (isLong()) value as Long
+        else asNumber()?.toLong()
     }
+
     fun getDouble(): Double? {
-        return if (isDouble()) value as Double else null
+        return if (isDouble()) value as Double else asNumber()?.toDouble()
+    }
+
+    fun getBoolean(): Boolean? {
+        return if (isBoolean()) value as Boolean else null
     }
 
     fun getList(): TealiumList? {
@@ -64,6 +80,10 @@ class TealiumValue private constructor(
 
     fun getBundle(): TealiumBundle? {
         return if (isBundle()) value as TealiumBundle else null
+    }
+
+    private fun asNumber() : Number? {
+        return value as? Number
     }
 
     override fun toString(): String {

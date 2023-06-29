@@ -19,7 +19,7 @@ import org.junit.Test
 class DataStoreImplTests {
 
     private lateinit var app: Application
-    private lateinit var dataStoreFactory: DataStoreFactoryImpl
+    private lateinit var dataStoreFactory: DataStoreProviderImpl
     private lateinit var moduleRepository: ModuleStorageRepositoryImpl
 
     private val module1 = TestModule("module1")
@@ -50,7 +50,7 @@ class DataStoreImplTests {
             inMemoryDbProvider
         )
 
-        dataStoreFactory = DataStoreFactoryImpl(inMemoryDbProvider, moduleRepository)
+        dataStoreFactory = DataStoreProviderImpl(inMemoryDbProvider, moduleRepository)
     }
 
     @Test

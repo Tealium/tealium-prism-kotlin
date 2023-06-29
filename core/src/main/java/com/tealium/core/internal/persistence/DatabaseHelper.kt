@@ -3,6 +3,8 @@ package com.tealium.core.internal.persistence
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteException
 import android.database.sqlite.SQLiteOpenHelper
+import android.util.Log
+import com.tealium.core.BuildConfig
 import com.tealium.core.TealiumConfig
 import com.tealium.core.internal.DataLayerImpl
 import com.tealium.core.internal.persistence.Schema.DispatchTable.CREATE_DISPATCH_TABLE
@@ -12,6 +14,7 @@ import com.tealium.core.internal.persistence.Schema.ModuleStorageTable.CREATE_MO
 import com.tealium.core.internal.persistence.Schema.ModuleTable.CREATE_MODULE_TABLE
 import com.tealium.core.internal.persistence.Schema.DispatchTable.CREATE_TRIGGER_ADD_TO_QUEUE
 import com.tealium.core.internal.persistence.Schema.QueueTable.CREATE_TRIGGER_REMOVE_PROCESSED_DISPATCHES
+import com.tealium.core.internal.persistence.Schema.LegacyTables.migrateModuleData
 import java.io.File
 
 internal class DatabaseHelper(
@@ -96,19 +99,19 @@ internal class DatabaseHelper(
             moduleName: String,
             oldTableName: String
         ) {
-//            val moduleId = ModuleStorageRepositoryImpl.insertNewModule(
-//                db, moduleName
-//            )
-//            if (moduleId < 0) return
-//
-//            try {
-//                db.execSQL(
-//                    migrateModuleData(oldTableName), arrayOf(moduleId)
-//                )
+            val moduleId = ModuleStorageRepositoryImpl.insertNewModule(
+                db, moduleName
+            )
+            if (moduleId < 0) return
+
+            try {
+                db.execSQL(
+                    migrateModuleData(oldTableName), arrayOf(moduleId)
+                )
             db.dropTable(oldTableName)
-//            } catch (ignored: SQLiteException) {
-//                Log.d(BuildConfig.TAG, "Error ${ignored.message}")
-//            }
+            } catch (ignored: SQLiteException) {
+                Log.d(BuildConfig.TAG, "Error ${ignored.message}")
+            }
         }
 
         private fun createV3Tables(db: SQLiteDatabase) {

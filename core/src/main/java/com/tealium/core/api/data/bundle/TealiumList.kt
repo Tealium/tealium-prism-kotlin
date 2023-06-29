@@ -15,21 +15,27 @@ class TealiumList(private val collection: List<TealiumValue>) : Iterable<Tealium
         return collection.getOrNull(index)
     }
 
-    fun getString(index: Int): String? {
-        return get(index)?.value as? String
-    }
+    fun getString(index: Int): String? = get(index)?.getString()
 
-    fun getInt(index: Int): Int? {
-        return get(index)?.value as? Int
-    }
+    fun getInt(index: Int): Int? = get(index)?.getInt()
+
+    fun getLong(index: Int): Long? = get(index)?.getLong()
+
+    fun getDouble(index: Int): Double? = get(index)?.getDouble()
+
+    fun getBoolean(index: Int): Boolean? = get(index)?.getBoolean()
+
+    fun getList(index: Int): TealiumList? = get(index)?.getList()
+
+    fun getBundle(index: Int): TealiumBundle? = get(index)?.getBundle()
 
     fun <T> get(index: Int, deserializer: Deserializer<T, TealiumValue>): T? {
-        return collection.getOrNull(index)?.let { obj ->
+        return get(index)?.let { obj ->
             deserializer.deserialize(obj)
         }
     }
 
-    fun size() : Int = collection.size
+    fun size(): Int = collection.size
 
     fun contains(value: TealiumValue): Boolean = collection.contains(value)
 
@@ -38,7 +44,7 @@ class TealiumList(private val collection: List<TealiumValue>) : Iterable<Tealium
     }
 
     // Possibly for KTX separate library
-    fun copy(block: Builder.() -> Unit) : TealiumList {
+    fun copy(block: Builder.() -> Unit): TealiumList {
         val builder = Builder(this)
         block.invoke(builder)
         return builder.getList()
@@ -60,7 +66,7 @@ class TealiumList(private val collection: List<TealiumValue>) : Iterable<Tealium
         private val DEFAULT_INDEX = -1
 
         @JvmStatic
-        fun fromString(string: String) : TealiumList? {
+        fun fromString(string: String): TealiumList? {
             if (string.isBlank()) return null
 
             return try {

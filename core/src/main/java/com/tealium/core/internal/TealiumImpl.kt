@@ -15,19 +15,25 @@ import com.tealium.core.internal.messengers.DispatchReadyMessenger
 import com.tealium.core.internal.messengers.DispatchSendMessenger
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import com.tealium.core.internal.modules.TealiumCollector
+import com.tealium.core.internal.persistence.DataStoreProviderImpl
+import com.tealium.core.internal.persistence.DatabaseProvider
+import com.tealium.core.internal.persistence.FileDatabaseProvider
+import com.tealium.core.internal.persistence.ModuleStorageRepositoryImpl
 import java.lang.Exception
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
 
 class TealiumImpl(
     private val config: TealiumConfig,
-    private val onReady: Tealium.OnTealiumReady? = null
+    private val onReady: Tealium.OnTealiumReady? = null,
+    private val dbProvider: DatabaseProvider = FileDatabaseProvider(config)
 ) : Tealium {
 
     private val backgroundService = Executors.newSingleThreadScheduledExecutor()
     private val eventRouter = EventDispatcher<Listener>(backgroundService)
     private val logger: Logger = Logger(logLevel = LogLevel.DEV) // todo read level from file?
     private val messengerService: MessengerServiceImpl = MessengerServiceImpl(eventRouter)
+    private val moduleStorageRepository: ModuleStorageRepositoryImpl = ModuleStorageRepositoryImpl(dbProvider)
 
     override val events: Subscribable<Listener>
         get() = messengerService
@@ -42,6 +48,9 @@ class TealiumImpl(
             logger = logger,
             visitorId = "", // TODO
             observables = ObservablesFactoryImpl(backgroundService),
+            storageProvider = DataStoreProviderImpl(
+                dbProvider, moduleStorageRepository
+            ),
             tealium = this
         )
 

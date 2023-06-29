@@ -64,6 +64,15 @@ class TealiumBundle private constructor(
     fun getDouble(key: String): Double? = map[key]?.getDouble()
 
     /**
+     * Gets the [Boolean] stored at the given [key] if it exists and can be correctly returned
+     * as a [Boolean].
+     *
+     * @param key The key to use to lookup the item.
+     * @return The [Boolean] stored at the given [key]; else null
+     */
+    fun getBoolean(key: String): Boolean? = map[key]?.getBoolean()
+
+    /**
      * Gets the [TealiumList] stored at the given [key] if it exists and can be correctly returned
      * as a [TealiumList].
      *
