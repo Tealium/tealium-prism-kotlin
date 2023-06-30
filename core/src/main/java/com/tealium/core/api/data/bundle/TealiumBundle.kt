@@ -95,7 +95,7 @@ class TealiumBundle private constructor(
      * using the provided [Deserializer].
      * If conversion fails, then
      */
-    fun <T> get(key: String, deserializer: Deserializer<T, TealiumValue>): T? {
+    fun <T> get(key: String, deserializer: Deserializer<TealiumValue, T>): T? {
         return map[key]?.let { obj ->
             deserializer.deserialize(obj)
         }

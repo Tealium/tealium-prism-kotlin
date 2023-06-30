@@ -82,7 +82,7 @@ class TealiumValue private constructor(
         return if (isBundle()) value as TealiumBundle else null
     }
 
-    private fun asNumber() : Number? {
+    private fun asNumber(): Number? {
         return value as? Number
     }
 
@@ -108,6 +108,24 @@ class TealiumValue private constructor(
         } catch (e: JSONException) {
             return ""
         }
+    }
+
+    override fun equals(other: Any?): Boolean {
+        val otherValue = other as? TealiumValue ?: return false
+
+        if (isNumber() && otherValue.isNumber()) {
+            if (isDouble() && otherValue.isDouble()) {
+                return getDouble() == otherValue.getDouble()
+            }
+        }
+
+        return value == otherValue.value
+    }
+
+    override fun hashCode(): Int {
+        var result = 17
+        result = 31 * result + value.hashCode()
+        return result
     }
 
     companion object {

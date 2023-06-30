@@ -1,8 +1,11 @@
 package com.tealium.core.internal.persistence
 
+import android.content.ContentValues
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import com.tealium.core.api.Expiry
+import com.tealium.core.api.data.bundle.TealiumBundle
+import com.tealium.core.api.data.bundle.TealiumList
 import com.tealium.core.api.data.bundle.TealiumValue
 
 /**
@@ -18,13 +21,13 @@ import com.tealium.core.api.data.bundle.TealiumValue
  * @param onDataUpdated Delegate to notify when data has been updated
  * @param onDataRemoved Delegate to notify when data has been removed
  */
-internal class PersistentDatabaseStorage(
+internal class SQLiteStorageStrategy(
     private val dbProvider: DatabaseProvider,
     private val moduleId: Long,
     private val tableName: String = Schema.ModuleStorageTable.TABLE_NAME,
     private val onDataUpdated: ((String, TealiumValue) -> Unit)? = null,
     private val onDataRemoved: ((Set<String>) -> Unit)? = null
-) : PersistentStorage<String, TealiumValue> {
+) : DataStorageStrategy<String, TealiumValue> {
 
     private val db: SQLiteDatabase
         get() = dbProvider.database
@@ -106,7 +109,7 @@ internal class PersistentDatabaseStorage(
         }
     }
 
-    override fun insert(key: String, value: TealiumValue, expiry: Expiry?) {
+    override fun insert(key: String, value: TealiumValue, expiry: Expiry) {
         try {
             val inserted =
                 db.insertWithOnConflict(
@@ -127,7 +130,7 @@ internal class PersistentDatabaseStorage(
         }
     }
 
-    override fun update(key: String, value: TealiumValue, expiry: Expiry?) {
+    override fun update(key: String, value: TealiumValue, expiry: Expiry) {
         try {
             val updated = db.update(
                 tableName,
@@ -147,15 +150,11 @@ internal class PersistentDatabaseStorage(
         }
     }
 
-    override fun upsert(key: String, value: TealiumValue, expiry: Expiry?) {
-        val existingExpiry = getExpiry(key)
-        if (existingExpiry != null) {
-            val newExpiry = if (expiry == null && Expiry.isExpired(existingExpiry)) {
-                Expiry.SESSION
-            } else expiry
-            update(key, value, newExpiry)
+    override fun upsert(key: String, value: TealiumValue, expiry: Expiry) {
+        if (contains(key)) {
+            update(key, value, expiry)
         } else {
-            insert(key, value, expiry ?: Expiry.SESSION)
+            insert(key, value, expiry)
         }
     }
 
@@ -251,17 +250,17 @@ internal class PersistentDatabaseStorage(
         } ?: false
     }
 
-    override fun transactionally(block: (PersistentStorage<String, TealiumValue>) -> Unit) {
+    override fun transactionally(block: (DataStorageStrategy<String, TealiumValue>) -> Unit) {
         transactionally({}, block)
     }
 
-    override fun transactionally(exceptionHandler: (Exception) -> Unit, block: (PersistentStorage<String, TealiumValue>) -> Unit) {
+    override fun transactionally(exceptionHandler: (Exception) -> Unit, block: (DataStorageStrategy<String, TealiumValue>) -> Unit) {
         db.transaction(exceptionHandler = exceptionHandler) {
-            block(this@PersistentDatabaseStorage)
+            block(this@SQLiteStorageStrategy)
         }
     }
 
-    private fun getExpiry(key: String): Expiry? {
+    override fun getExpiry(key: String): Expiry? {
         return db.query(
             tableName,
             arrayOf(Schema.ModuleStorageTable.COLUMN_EXPIRY),
@@ -308,5 +307,45 @@ internal class PersistentDatabaseStorage(
 
         internal val IS_OWNER_AND_NOT_EXPIRED =
             "$IS_MODULE_OWNER AND $IS_NOT_EXPIRED_CLAUSE"
+
+        internal fun deserializeTealiumValue(serialized: String, code: Int): TealiumValue? {
+            return serializationFor(code)?.let { ser: Serialization ->
+                val value: Any? = Serdes.serdeFor(ser.clazz)
+                    ?.deserializer
+                    ?.deserialize(serialized)
+
+                return TealiumValue.convert(value)
+            }
+        }
+
+        internal fun createContentValues(
+            moduleId: Long,
+            key: String,
+            value: TealiumValue,
+            expiry: Expiry,
+        ): ContentValues? {
+            val (serializedValue, code) = value.serialize() ?: return null
+
+            return ContentValues().apply {
+                put(Schema.ModuleStorageTable.COLUMN_MODULE_ID, moduleId)
+                put(Schema.ModuleStorageTable.COLUMN_KEY, key)
+                put(Schema.ModuleStorageTable.COLUMN_VALUE, serializedValue)
+                put(Schema.ModuleStorageTable.COLUMN_TYPE, code)
+                put(Schema.ModuleStorageTable.COLUMN_EXPIRY, expiry.expiryTime())
+            }
+        }
+
+        internal fun TealiumValue.serialize(): Pair<String, Int>? {
+            return when (value) {
+                is String -> value to Serialization.STRING.code
+                is Int -> Serdes.intSerde().serializer.serialize(value) to Serialization.INT.code
+                is Long -> Serdes.longSerde().serializer.serialize(value) to Serialization.LONG.code
+                is Double -> Serdes.doubleSerde().serializer.serialize(value) to Serialization.DOUBLE.code
+                is Boolean -> Serdes.booleanSerde().serializer.serialize(value) to Serialization.BOOLEAN.code
+                is TealiumList -> Serdes.tealiumListSerde().serializer.serialize(value) to Serialization.TEALIUM_LIST.code
+                is TealiumBundle -> Serdes.tealiumBundleSerde().serializer.serialize(value) to Serialization.TEALIUM_BUNDLE.code
+                else -> null
+            }
+        }
     }
 }

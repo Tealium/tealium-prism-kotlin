@@ -3,7 +3,18 @@ package com.tealium.core.api
 import com.tealium.core.api.data.bundle.TealiumBundle
 import com.tealium.core.api.data.bundle.TealiumValue
 
-
+/**
+ * Generic data storage for storing and retrieving [TealiumValue] objects.
+ *
+ * Implementations are not guaranteed to be persistent. For instance, in cases where there may be
+ * insufficient storage space on the device, or other reasons such as write permissions etc.
+ *
+ * Stored data requires an [Expiry] to be provided when storing, and expired data will not be
+ * included in any retrieval operations; that is, expired data won't be returned by [get] or [getAll]
+ * but it will also not be included in any aggregate methods such as [keys] or [count]
+ *
+ * @see [Expiry]
+ */
 interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
 
     /**

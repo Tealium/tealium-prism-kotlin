@@ -3,17 +3,28 @@ package com.tealium.core.internal.persistence
 import com.tealium.core.api.Expiry
 
 
-interface PersistentStorage<K, T> {
+/**
+ * Generic storage strategy for reading and writing key-value pairs of data
+ *
+ * Implementations are expected to not return Expired data based on the [Expiry] provided to any
+ * methods that require it. This should be consistent across all methods; i.e. [keys] should not
+ * return a list containing entries that are expired.
+ *
+ * Calls to the editing methods ([insert]/[update]/[upsert]) are expected to persist immediately -
+ * where multiple data updates are required to be transactional, then [transactionally] should be
+ * used.
+ */
+interface DataStorageStrategy<K, T> {
 
     /**
      * Runs all methods in a single transaction, and be notified of exceptions.
      */
-    fun transactionally(exceptionHandler: (Exception) -> Unit, block: (PersistentStorage<K, T>) -> Unit)
+    fun transactionally(exceptionHandler: (Exception) -> Unit, block: (DataStorageStrategy<K, T>) -> Unit)
 
     /**
      * Runs all methods in a single transaction.
      */
-    fun transactionally(block: (PersistentStorage<K, T>) -> Unit)
+    fun transactionally(block: (DataStorageStrategy<K, T>) -> Unit)
 
     /**
      * Fetch and item given its [key]
@@ -31,10 +42,9 @@ interface PersistentStorage<K, T> {
      *
      * @param key The key to be updated
      * @param value The value insert
-     * @param expiry The expiry to update; null values should leave the existing existing expiry
-     * unaffected
+     * @param expiry The expiry to update
      */
-    fun insert(key: K, value: T, expiry: Expiry?)
+    fun insert(key: K, value: T, expiry: Expiry)
 
     /**
      * Attempts to update an existing entry in the storage, should not check if an item with the
@@ -42,10 +52,9 @@ interface PersistentStorage<K, T> {
      *
      * @param key The key to be updated
      * @param value The value replace any existing value
-     * @param expiry The expiry to update; null values should leave the existing existing expiry
-     * unaffected
+     * @param expiry The expiry to update
      */
-    fun update(key: K, value: T, expiry: Expiry?)
+    fun update(key: K, value: T, expiry: Expiry)
 
     /**
      * Removes and item from storage given the [key].
@@ -58,10 +67,9 @@ interface PersistentStorage<K, T> {
      *
      * @param key The key to be updated
      * @param value The value insert or replace
-     * @param expiry The expiry to update; null values should leave the existing existing expiry
-     * unaffected
+     * @param expiry The expiry to update
      */
-    fun upsert(key: K, value: T, expiry: Expiry?)
+    fun upsert(key: K, value: T, expiry: Expiry)
 
     /**
      * Removes all entries from the storage.
@@ -82,5 +90,10 @@ interface PersistentStorage<K, T> {
      * Returns true if an item with the given [key] is currently stored, else returns false.
      */
     fun contains(key: K): Boolean
+
+    /**
+     * Returns the [Expiry] for the given key if it exists.
+     */
+    fun getExpiry(key: K): Expiry?
 
 }

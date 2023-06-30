@@ -240,7 +240,7 @@ object DatabaseTestUtils {
             ('string',	'value',	-2,	null,	0),
             ('boolean_true',	'1',	-2, null,	4),
             ('boolean_false',	'0',	-2, null,	4),
-            ('boolean_array',	'[0,1,0]',	-2, null,	9),
+            ('boolean_array',	'[false,true,false]',	-2, null,	9),
             ('int',	'10',	-2, null,	1),
             ('int_array',	'[1,2,3]',	-2, null,	6),
             ('double',	'100.1',	-2, null,	2),

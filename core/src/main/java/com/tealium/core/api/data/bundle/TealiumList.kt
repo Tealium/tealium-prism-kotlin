@@ -29,7 +29,7 @@ class TealiumList(private val collection: List<TealiumValue>) : Iterable<Tealium
 
     fun getBundle(index: Int): TealiumBundle? = get(index)?.getBundle()
 
-    fun <T> get(index: Int, deserializer: Deserializer<T, TealiumValue>): T? {
+    fun <T> get(index: Int, deserializer: Deserializer<TealiumValue, T>): T? {
         return get(index)?.let { obj ->
             deserializer.deserialize(obj)
         }

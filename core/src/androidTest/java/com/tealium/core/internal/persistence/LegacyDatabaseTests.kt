@@ -4,11 +4,9 @@ import android.app.Application
 import android.database.sqlite.SQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
 import com.tealium.core.internal.persistence.DatabaseTestUtils.upgrade
-import com.tealium.tests.common.getDefaultConfig
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -37,7 +35,7 @@ class LegacyDatabaseTests {
         database.upgrade(1, 3)
 
         dataStore = DataStoreImpl(
-            PersistentDatabaseStorage(
+            SQLiteStorageStrategy(
                 dbProvider = dbProvider,
                 moduleId = 1 // Upgraded db migrates data layer as id 1
             )
@@ -126,9 +124,9 @@ class LegacyDatabaseTests {
     fun dataStore_get_BooleanArray_Returns_TealiumList() {
         val value = dataStore.get("boolean_array")!!.getList()!!
 
-        assertEquals(false, value.getLong(0))
-        assertEquals(true, value.getLong(1))
-        assertEquals(false, value.getLong(2))
+        assertEquals(false, value.getBoolean(0))
+        assertEquals(true, value.getBoolean(1))
+        assertEquals(false, value.getBoolean(2))
     }
 
     @Test

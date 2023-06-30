@@ -56,7 +56,7 @@ internal class DataStoreProviderImpl(
             throw Exception("Could not register module $name for storage")
 
         return DataStoreImpl(
-            PersistentDatabaseStorage(
+            SQLiteStorageStrategy(
                 dbProvider,
                 moduleId
             )

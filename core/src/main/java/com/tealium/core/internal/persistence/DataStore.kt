@@ -7,45 +7,40 @@ import com.tealium.core.api.data.bundle.TealiumValue
 import java.util.*
 
 class DataStoreImpl(
-    private val persistentStorage: PersistentStorage<String, TealiumValue>,
+    private val dataStorageStrategy: DataStorageStrategy<String, TealiumValue>,
 ) : DataStore {
 
-    override fun edit(): DataStore.Editor {
-        return DataStorageEditor(persistentStorage)
-    }
+    override fun edit(): DataStore.Editor =
+        DataStorageEditor(dataStorageStrategy)
 
-    override fun get(key: String): TealiumValue? {
-        return persistentStorage.get(key)
-    }
+    override fun get(key: String): TealiumValue? =
+        dataStorageStrategy.get(key)
 
     override fun getAll(): TealiumBundle {
         val bundleBuilder = TealiumBundle.Builder()
 
-        persistentStorage.getAll().forEach { (key, value) ->
+        dataStorageStrategy.getAll().forEach { (key, value) ->
             bundleBuilder.put(key, value)
         }
 
         return bundleBuilder.getBundle()
     }
 
-    override fun keys(): List<String> {
-        return persistentStorage.keys()
-    }
+    override fun keys(): List<String> =
+        dataStorageStrategy.keys()
 
-    override fun count(): Int {
-        return persistentStorage.count()
-    }
+    override fun count(): Int =
+        dataStorageStrategy.count()
 
-    override fun iterator(): Iterator<Map.Entry<String, TealiumValue>> {
-        return getAll().iterator()
-    }
+    override fun iterator(): Iterator<Map.Entry<String, TealiumValue>> =
+        getAll().iterator()
 
     class DataStorageEditor(
-        private val persistentStorage: PersistentStorage<String, TealiumValue>,
+        private val dataStorageStrategy: DataStorageStrategy<String, TealiumValue>,
     ) : DataStore.Editor {
         private var committed: Boolean = false
         private var clear: Boolean = false
-        private var edits: Queue<(PersistentStorage<String, TealiumValue>) -> Unit> = LinkedList()
+        private var edits: Queue<(DataStorageStrategy<String, TealiumValue>) -> Unit> = LinkedList()
 
         override fun put(key: String, value: TealiumValue, expiry: Expiry): DataStore.Editor =
             apply {
@@ -89,7 +84,7 @@ class DataStoreImpl(
             if (committed) return
 
             committed = true
-            persistentStorage.transactionally({ _ ->
+            dataStorageStrategy.transactionally({ _ ->
                 // TODO - perhaps allow re-commit on error.
                 // committed = false
             }) { store ->
