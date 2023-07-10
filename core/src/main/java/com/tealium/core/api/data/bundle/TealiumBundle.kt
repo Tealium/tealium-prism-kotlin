@@ -1,5 +1,6 @@
 package com.tealium.core.api.data.bundle
 
+import android.os.Bundle
 import com.tealium.core.api.Deserializer
 import com.tealium.core.internal.stringify
 import org.json.JSONException
@@ -120,7 +121,7 @@ class TealiumBundle private constructor(
     }
 
     // Possibly for KTX separate library
-    fun copy(block: Builder.() -> Unit) : TealiumBundle {
+    fun copy(block: Builder.() -> Unit = {}) : TealiumBundle {
         val builder = Builder(this)
         block.invoke(builder)
         return builder.getBundle()
@@ -176,6 +177,21 @@ class TealiumBundle private constructor(
             stringify(stringer)
             stringer.toString()
         }.also { _toString = it }
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as TealiumBundle
+
+        if (map != other.map) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return map.hashCode()
     }
 
     class Builder @JvmOverloads constructor(copy: TealiumBundle = EMPTY_BUNDLE) {

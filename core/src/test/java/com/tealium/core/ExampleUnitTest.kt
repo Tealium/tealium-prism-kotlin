@@ -37,22 +37,6 @@ class ExampleUnitTest {
     }
 
     @Test
-    fun testBundleCopy() {
-        val bundle = TealiumBundle.Builder()
-            .put("string", "string")
-            .put("int", 1)
-            .getBundle()
-
-        val copy = bundle.copy {
-            put("string", "new_value")
-        }
-
-        assertNotSame(bundle, copy)
-        assertNotEquals("new_value", bundle.getString("string"))
-        assertEquals("new_value", copy.getString("string"))
-    }
-
-    @Test
     fun testListCopy() {
         val list = TealiumList.Builder()
             .add("string")

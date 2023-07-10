@@ -44,7 +44,7 @@ class TealiumList(private val collection: List<TealiumValue>) : Iterable<Tealium
     }
 
     // Possibly for KTX separate library
-    fun copy(block: Builder.() -> Unit): TealiumList {
+    fun copy(block: Builder.() -> Unit = {}): TealiumList {
         val builder = Builder(this)
         block.invoke(builder)
         return builder.getList()
@@ -59,6 +59,26 @@ class TealiumList(private val collection: List<TealiumValue>) : Iterable<Tealium
             _toString = it
         }
     }
+
+    fun asTealiumValue(): TealiumValue {
+        return TealiumValue.Companion.convert(this)
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as TealiumList
+
+        if (collection != other.collection) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return collection.hashCode()
+    }
+
 
     companion object {
         @JvmField
