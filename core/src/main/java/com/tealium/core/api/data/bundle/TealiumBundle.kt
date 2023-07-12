@@ -133,13 +133,13 @@ class TealiumBundle private constructor(
     }
 
     // Possibly for KTX separate library
-    fun copy(block: Builder.() -> Unit = {}) : TealiumBundle {
+    fun copy(block: Builder.() -> Unit = {}): TealiumBundle {
         val builder = Builder(this)
         block.invoke(builder)
         return builder.getBundle()
     }
 
-    override fun asTealiumValue() : TealiumValue {
+    override fun asTealiumValue(): TealiumValue {
         return TealiumValue.convert(this)
     }
 
@@ -154,7 +154,7 @@ class TealiumBundle private constructor(
          * @return [TealiumBundle] of the given string; else null
          */
         @JvmStatic
-        fun fromString(string: String) : TealiumBundle? {
+        fun fromString(string: String): TealiumBundle? {
             if (string.isBlank()) return null
 
             return try {
@@ -207,9 +207,10 @@ class TealiumBundle private constructor(
     }
 
     class Builder @JvmOverloads constructor(copy: TealiumBundle = EMPTY_BUNDLE) {
-        private val data: MutableMap<String, TealiumValue> = mutableMapOf<String, TealiumValue>().apply {
-            putAll(copy.getAll())
-        }
+        private val data: MutableMap<String, TealiumValue> =
+            mutableMapOf<String, TealiumValue>().apply {
+                putAll(copy.getAll())
+            }
 
         /**
          * Adds the provided [value] into this [TealiumBundle.Builder], overwriting the existing

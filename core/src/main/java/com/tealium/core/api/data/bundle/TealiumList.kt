@@ -1,7 +1,6 @@
 package com.tealium.core.api.data.bundle
 
 import com.tealium.core.api.Deserializer
-import com.tealium.core.api.data.bundle.TealiumBundle.Builder
 import com.tealium.core.internal.stringify
 import org.json.JSONException
 import org.json.JSONStringer

@@ -5,8 +5,6 @@ import com.tealium.core.api.Serde
 import com.tealium.core.api.Serializer
 import com.tealium.core.api.data.bundle.TealiumBundle
 import com.tealium.core.api.data.bundle.TealiumList
-import org.json.JSONArray
-import org.json.JSONObject
 
 object Serdes {
     private val serdeMap: MutableMap<Class<*>, Serde<*, String>> = mutableMapOf()
