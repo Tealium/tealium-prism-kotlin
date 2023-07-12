@@ -50,7 +50,6 @@ internal class SQLiteStorageStrategy(
             arrayOf(
                 Schema.ModuleStorageTable.COLUMN_KEY,
                 Schema.ModuleStorageTable.COLUMN_VALUE,
-                Schema.ModuleStorageTable.COLUMN_TYPE,
             ),
             selection,
             selectionArgs,
@@ -62,11 +61,10 @@ internal class SQLiteStorageStrategy(
 
             val columnKeyIndex = cursor.getColumnIndex(Schema.ModuleStorageTable.COLUMN_KEY)
             val columnValueIndex = cursor.getColumnIndex(Schema.ModuleStorageTable.COLUMN_VALUE)
-            val columnTypeIndex = cursor.getColumnIndex(Schema.ModuleStorageTable.COLUMN_TYPE)
 
             while (cursor.moveToNext()) {
                 val key = cursor.getString(columnKeyIndex)
-                readTealiumValue(cursor, columnValueIndex, columnTypeIndex)?.let {
+                readTealiumValue(cursor, columnValueIndex)?.let {
                     map[key] = it
                 }
             }
@@ -93,7 +91,6 @@ internal class SQLiteStorageStrategy(
             tableName,
             arrayOf(
                 Schema.ModuleStorageTable.COLUMN_VALUE,
-                Schema.ModuleStorageTable.COLUMN_TYPE,
             ),
             selection,
             selectionArgs,
@@ -284,14 +281,13 @@ internal class SQLiteStorageStrategy(
 
     private fun readTealiumValue(cursor: Cursor): TealiumValue? {
         val columnValueIndex = cursor.getColumnIndex(Schema.ModuleStorageTable.COLUMN_VALUE)
-        val columnTypeIndex = cursor.getColumnIndex(Schema.ModuleStorageTable.COLUMN_TYPE)
 
-        return readTealiumValue(cursor, columnValueIndex, columnTypeIndex)
+        return readTealiumValue(cursor, columnValueIndex)
     }
 
-    private fun readTealiumValue(cursor: Cursor, columnValueIndex: Int, columnTypeIndex: Int): TealiumValue? {
+    private fun readTealiumValue(cursor: Cursor, columnValueIndex: Int): TealiumValue? {
         val value = cursor.getString(columnValueIndex)
-//        val code = cursor.getInt(columnTypeIndex)
+
         return deserializeTealiumValue(value)
     }
 
@@ -328,13 +324,11 @@ internal class SQLiteStorageStrategy(
             value: TealiumValue,
             expiry: Expiry,
         ): ContentValues {
-//            val (serializedValue, code) = value.serialize() ?: return null
 
             return ContentValues().apply {
                 put(Schema.ModuleStorageTable.COLUMN_MODULE_ID, moduleId)
                 put(Schema.ModuleStorageTable.COLUMN_KEY, key)
                 put(Schema.ModuleStorageTable.COLUMN_VALUE, value.toString())
-//                put(Schema.ModuleStorageTable.COLUMN_TYPE, code)
                 put(Schema.ModuleStorageTable.COLUMN_EXPIRY, expiry.expiryTime())
             }
         }

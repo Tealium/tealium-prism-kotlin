@@ -154,7 +154,6 @@ object Schema {
         const val COLUMN_KEY = "key"
         const val COLUMN_VALUE = "value"
         const val COLUMN_EXPIRY = "expiry"
-        const val COLUMN_TYPE = "type"
 
         val CREATE_MODULE_STORAGE_TABLE = """
             CREATE TABLE IF NOT EXISTS $TABLE_NAME (
@@ -162,7 +161,6 @@ object Schema {
                 $COLUMN_KEY         TEXT,
                 $COLUMN_VALUE       TEXT,
                 $COLUMN_EXPIRY      LONG,
-                $COLUMN_TYPE        SMALLINT,
             PRIMARY KEY ($COLUMN_MODULE_ID, $COLUMN_KEY),
             FOREIGN KEY ($COLUMN_MODULE_ID)
                 REFERENCES ${ModuleTable.TABLE_NAME}(${ModuleTable.COLUMN_ID})
