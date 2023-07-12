@@ -17,7 +17,6 @@ import com.tealium.core.api.data.bundle.TealiumSerializable;
 import com.tealium.core.api.data.bundle.TealiumValue;
 
 import java.util.Collections;
-import java.util.Map;
 
 public class TealiumJavaHelper {
     private TealiumJavaHelper() {
@@ -39,10 +38,10 @@ public class TealiumJavaHelper {
 
         TealiumBundle bundle = new TealiumBundle.Builder()
                 .put("", "")
-                .putSerializable("", new TealiumSerializable() {
+                .put("", new TealiumSerializable() {
                     @NonNull
                     @Override
-                    public TealiumValue serialize() {
+                    public TealiumValue asTealiumValue() {
                         return TealiumValue.string("");
                     }
                 })

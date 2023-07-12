@@ -237,7 +237,7 @@ object DatabaseTestUtils {
     private val POPULATE_LEGACY_DATALAYER: String = """
         INSERT INTO datalayer
         VALUES 
-            ('string',	'value',	-2,	null,	0),
+            ('string',	'value with spaces',	-2,	null,	0),
             ('boolean_true',	'1',	-2, null,	4),
             ('boolean_false',	'0',	-2, null,	4),
             ('boolean_array',	'[false,true,false]',	-2, null,	9),

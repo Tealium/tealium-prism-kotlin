@@ -22,7 +22,7 @@ class ExampleUnitTest {
     fun addition_isCorrect() {
         val complexSerializable = ComplexSerializable("test", listOf("1", "2", "3"), mapOf("string" to "string"))
         val bundle = TealiumBundle.Builder()
-            .putSerializable("ser", complexSerializable)
+            .put("ser", complexSerializable)
             .getBundle()
 
         val deserialized: ComplexSerializable? = bundle.get("ser", ComplexSerializable.Creator)
@@ -83,7 +83,7 @@ class ExampleUnitTest {
         val map: Map<String, String>
     ) : TealiumSerializable {
 
-        override fun serialize(): TealiumValue {
+        override fun asTealiumValue(): TealiumValue {
             val bundle = TealiumBundle.Builder()
                 .put(KEY_STRING, string)
                 .putAny(KEY_LIST, list)

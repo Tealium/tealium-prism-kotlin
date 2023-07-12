@@ -203,14 +203,14 @@ class TealiumValueTests {
     }
 
     @Test
-    fun isString_ReturnsNull_WhenValueIsNotString() {
-        assertNull(intValue.getString())
-        assertNull(doubleValue.getString())
-        assertNull(longValue.getString())
-        assertNull(falseValue.getString())
-        assertNull(trueValue.getString())
-        assertNull(listValue.getString())
-        assertNull(bundleValue.getString())
+    fun isString_ReturnsToString_WhenValueIsNotString() {
+        assertEquals("10", intValue.getString())
+        assertEquals("111.111", doubleValue.getString())
+        assertEquals("100", longValue.getString())
+        assertEquals("false", falseValue.getString())
+        assertEquals("true", trueValue.getString())
+        assertEquals("[1]", listValue.getString())
+        assertEquals("{\"string\":\"value\"}", bundleValue.getString())
     }
 
     @Test
@@ -569,7 +569,7 @@ class TealiumValueTests {
                 put(1)
             })
             put(JSONObject().apply {
-                put("string" , "value")
+                put("string", "value")
             })
         })
 
@@ -581,7 +581,7 @@ class TealiumValueTests {
         assertEquals(111.111, valueList.getDouble(3))
         assertEquals(true, valueList.getBoolean(4))
         assertEquals(1, valueList.getList(5)!!.getInt(0))
-        assertEquals("value", valueList.getBundle(6)!!.getString("key"))
+        assertEquals("value", valueList.getBundle(6)!!.getString("string"))
     }
 
     @Test
@@ -597,7 +597,7 @@ class TealiumValueTests {
                     put(1)
                 })
                 put("object", JSONObject().apply {
-                    put("string" , "value")
+                    put("string", "value")
                 })
             }
         )
@@ -612,9 +612,39 @@ class TealiumValueTests {
         assertEquals(true, valueBundle.getBoolean("boolean"))
 
         assertEquals(1, valueBundle.getList("array")!!.getInt(0))
-        assertEquals("value", valueBundle.getBundle("object")!!.getString("key"))
+        assertEquals("value", valueBundle.getBundle("object")!!.getString("string"))
     }
 
+    @Test
+    fun lazy_LazilyParsesValue_WhenInstantiatedWithString() {
+        val string = TealiumValue.lazy("\"value\"")
+        assertEquals("value", string.value)
 
+        val int = TealiumValue.lazy("1")
+        assertEquals(1, int.value)
+
+        val long = TealiumValue.lazy(Long.MAX_VALUE.toString())
+        assertEquals(Long.MAX_VALUE, long.value)
+
+        val double = TealiumValue.lazy("1.111")
+        assertEquals(1.111, double.value)
+
+        val boolTrue = TealiumValue.lazy("true")
+        assertEquals(true, boolTrue.value)
+
+        val boolFalse = TealiumValue.lazy("false")
+        assertEquals(false, boolFalse.value)
+
+        val nullValue = TealiumValue.lazy("null")
+        assertSame(TealiumValue.NULL, nullValue)
+        assertEquals(TealiumValue.NULL, nullValue)
+        assertNull(nullValue.value)
+
+        val list = TealiumValue.lazy("[true]")
+        assertEquals(true, list.getList()!!.get(0)!!.value)
+
+        val bundle = TealiumValue.lazy("{\"key\":\"value\"}")
+        assertEquals("value", bundle.getBundle()!!.get("key")!!.value)
+    }
 
 }

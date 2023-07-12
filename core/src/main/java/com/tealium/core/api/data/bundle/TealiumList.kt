@@ -1,16 +1,38 @@
 package com.tealium.core.api.data.bundle
 
 import com.tealium.core.api.Deserializer
+import com.tealium.core.api.data.bundle.TealiumBundle.Builder
 import com.tealium.core.internal.stringify
 import org.json.JSONException
 import org.json.JSONStringer
 import org.json.JSONTokener
 
-
-class TealiumList(private val collection: List<TealiumValue>) : Iterable<TealiumValue> {
+/**
+ * The [TealiumList] represents a list of restricted data types which are wrappable by
+ * [TealiumValue], to ensure that all data passed to the SDK can be used correctly and without
+ * unexpected behaviours when converting to Strings.
+ *
+ * Instances of [TealiumList] are immutable. When requiring updates, the [copy] method is
+ * available to use, which is prepopulate a [Builder] with the existing set of [TealiumValue]s
+ *
+ * Indexing starts at 0 as with standard Java lists.
+ *
+ * This class will serialize to a JSON array - [[ ... ]] - when calling [toString].
+ *
+ * @see TealiumValue
+ * @see TealiumBundle
+ */
+class TealiumList private constructor(private val collection: List<TealiumValue>) :
+    Iterable<TealiumValue>, TealiumSerializable {
 
     private var _toString: String? = null
 
+    /**
+     * Gets the [TealiumValue] at the given index.
+     *
+     * @param index The index of the list entry to retrieve; starts at 0
+     * @return [TealiumValue] found at the given [index]; or null if index not found.
+     */
     fun get(index: Int): TealiumValue? {
         return collection.getOrNull(index)
     }
@@ -60,8 +82,8 @@ class TealiumList(private val collection: List<TealiumValue>) : Iterable<Tealium
         }
     }
 
-    fun asTealiumValue(): TealiumValue {
-        return TealiumValue.Companion.convert(this)
+    override fun asTealiumValue(): TealiumValue {
+        return TealiumValue.convert(this)
     }
 
     override fun equals(other: Any?): Boolean {
@@ -129,27 +151,12 @@ class TealiumList(private val collection: List<TealiumValue>) : Iterable<Tealium
         }
 
         @JvmOverloads
+        fun add(value: Double, index: Int = DEFAULT_INDEX) = apply {
+            add(TealiumValue.convert(value), index)
+        }
+
+        @JvmOverloads
         fun add(value: Boolean, index: Int = DEFAULT_INDEX) = apply {
-            add(TealiumValue.convert(value), index)
-        }
-
-        @JvmOverloads
-        fun add(value: kotlin.Array<String>, index: Int = DEFAULT_INDEX) = apply {
-            add(TealiumValue.convert(value), index)
-        }
-
-        @JvmOverloads
-        fun add(value: kotlin.Array<Int>, index: Int = DEFAULT_INDEX) = apply {
-            add(TealiumValue.convert(value), index)
-        }
-
-        @JvmOverloads
-        fun add(value: kotlin.Array<Long>, index: Int = DEFAULT_INDEX) = apply {
-            add(TealiumValue.convert(value), index)
-        }
-
-        @JvmOverloads
-        fun add(value: kotlin.Array<Boolean>, index: Int = DEFAULT_INDEX) = apply {
             add(TealiumValue.convert(value), index)
         }
 
@@ -172,7 +179,12 @@ class TealiumList(private val collection: List<TealiumValue>) : Iterable<Tealium
         }
 
         @JvmOverloads
-        fun putAll(list: TealiumList, index: Int = DEFAULT_INDEX) = apply {
+        fun add(value: TealiumSerializable, index: Int = DEFAULT_INDEX) = apply {
+            add(value.asTealiumValue(), index)
+        }
+
+        @JvmOverloads
+        fun addAll(list: TealiumList, index: Int = DEFAULT_INDEX) = apply {
             if (index >= 0)
                 this.list.addAll(index, list.collection)
             else
@@ -184,7 +196,7 @@ class TealiumList(private val collection: List<TealiumValue>) : Iterable<Tealium
          */
         @JvmOverloads
         fun addSerializable(serializable: TealiumSerializable, index: Int = DEFAULT_INDEX) = apply {
-            add(serializable.serialize(), index)
+            add(serializable.asTealiumValue(), index)
         }
 
         fun remove(index: Int) {
@@ -196,6 +208,8 @@ class TealiumList(private val collection: List<TealiumValue>) : Iterable<Tealium
         }
 
         fun getList(): TealiumList {
+            if (list.isEmpty()) return EMPTY_LIST
+
             return TealiumList(list.toList())
         }
     }

@@ -3,10 +3,11 @@ package com.tealium.core.api.data.bundle
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
+import org.json.JSONTokener
 import java.lang.reflect.Array
 
 /**
- * Data class for restricting the supported types that can be passed into the system.
+ * Immutable data class for restricting the supported types that can be passed into the system.
  *
  * The toString() method will provide a JSON friendly representation of the data enclosed. That is,
  *  - String data will be quoted; i.e.  "my string"
@@ -17,10 +18,66 @@ import java.lang.reflect.Array
  *
  * This class is currently broadly similar to the [JSONObject] and makes use of several methods
  * provided by the [org.json] package on Android.
+ *
+ *
+ * The [any] value should be restricted to only JSON supportable types - see [convert].
+ *
+ * The [string] parameter should only be used in the case where this value is being lazily
+ * instantiated from an already stringified representation of the [value]. If provided, then the
+ * [string] parameter will be used as the pre-computed return value from [toString] as well
+ *
+ * @param any The value to be wrapped; at least this or the [string] value need to be provided
+ * @param string The string value representing the value of [any]; at least this or the [string]
+ *      value need to be provided
  */
 class TealiumValue private constructor(
-    val value: Any,
+    any: Any? = null,
+    string: String? = null,
 ) {
+    private var _value: Any?
+    private var _toString: String?
+    private var isLazy: Boolean = (any == null && string != null)
+
+    init {
+        _value = any
+        _toString = string
+    }
+
+    /**
+     * Contains the underlying data value for this instance.
+     *
+     * It is likely more convenient to use one of the many get methods to receive the [value] as the
+     * appropriate type.
+     *
+     * @see getString
+     * @see getInt
+     * @see getLong
+     * @see getDouble
+     * @see getBoolean
+     * @see getList
+     * @see getBundle
+     */
+    val value: Any?
+        get() {
+            if (_value == null && isLazy) {
+                parseSupported(_toString).also {
+                    isLazy = false
+                    _value = it
+                }
+            }
+
+            return _value
+        }
+
+
+    /**
+     * Indicates whether the contained value is null
+     *
+     * @return true if [value] is a null; else false
+     */
+    fun isNull(): Boolean {
+        return value == null
+    }
 
     /**
      * Indicates whether the contained value is a [TealiumBundle]
@@ -95,13 +152,13 @@ class TealiumValue private constructor(
     }
 
     /**
-     * Returns the contained value as a [String] if the contained value is a [String]
-     * No type coercion is attempted.
+     * Returns the contained value as a [String] if the contained value is a [String], or can be
+     * coerced to a [String]
      *
-     * @return [value] as a [String]; else null
+     * @return [value] as a [String]; else the result of calling [toString] on the [value]
      */
     fun getString(): String? {
-        return if (isString()) value as String else null
+        return if (isString()) value as String else value.toString()
     }
 
     /**
@@ -185,31 +242,35 @@ class TealiumValue private constructor(
      * @see TealiumValue
      */
     override fun toString(): String {
-        if (value == NULL) {
-            return "null";
-        }
-
-        try {
-            if (value is String) {
-                return JSONObject.quote(value)
+        return (_toString ?: if (isNull()) {
+            NULL_STRING;
+        } else {
+            try {
+                when (value) {
+                    is String -> {
+                        JSONObject.quote(value as String)
+                    }
+                    is Number -> {
+                        JSONObject.numberToString(value as Number)
+                    }
+                    is TealiumBundle, is TealiumList -> {
+                        value.toString()
+                    }
+                    else -> {
+                        value.toString()
+                    }
+                }
+            } catch (e: JSONException) {
+                // TODO - log error, but this shouldn't happen
+                return ""
             }
-
-            if (value is Number) {
-                return JSONObject.numberToString(value)
-            }
-
-            if (value is TealiumBundle || value is TealiumList) {
-                return value.toString()
-            }
-
-            return value.toString()
-        } catch (e: JSONException) {
-            return ""
-        }
+        }).also { _toString = it }
     }
 
     override fun equals(other: Any?): Boolean {
         val otherValue = other as? TealiumValue ?: return false
+
+        if (isNull() && otherValue.isNull()) return true
 
         if (isNumber() && otherValue.isNumber()) {
             if (isDouble() && otherValue.isDouble()) {
@@ -228,7 +289,8 @@ class TealiumValue private constructor(
 
     companion object {
         @JvmField
-        val NULL = TealiumValue(Any())
+        val NULL = TealiumValue(null)
+        private const val NULL_STRING = "null"
 
         /**
          * Creates a [TealiumValue] that contains a [string] as its [value]
@@ -237,7 +299,7 @@ class TealiumValue private constructor(
          */
         @JvmStatic
         fun string(string: String): TealiumValue {
-            return convert(string)
+            return TealiumValue(string)
         }
 
         /**
@@ -247,7 +309,7 @@ class TealiumValue private constructor(
          */
         @JvmStatic
         fun int(int: Int): TealiumValue {
-            return convert(int)
+            return TealiumValue(int)
         }
 
         /**
@@ -257,7 +319,7 @@ class TealiumValue private constructor(
          */
         @JvmStatic
         fun double(double: Double): TealiumValue {
-            return convert(double)
+            return TealiumValue(double)
         }
 
         /**
@@ -267,7 +329,7 @@ class TealiumValue private constructor(
          */
         @JvmStatic
         fun long(long: Long): TealiumValue {
-            return convert(long)
+            return TealiumValue(long)
         }
 
         /**
@@ -277,7 +339,7 @@ class TealiumValue private constructor(
          */
         @JvmStatic
         fun boolean(boolean: Boolean): TealiumValue {
-            return convert(boolean)
+            return TealiumValue(boolean)
         }
 
         /**
@@ -285,7 +347,7 @@ class TealiumValue private constructor(
          * For unsupported types, [NULL] will be returned.
          */
         @JvmStatic
-        fun convertOpt(any: Any?): TealiumValue {
+        fun convertOrNull(any: Any?): TealiumValue {
             return convert(any, NULL)
         }
 
@@ -316,7 +378,7 @@ class TealiumValue private constructor(
          * [String], [Int], [Long], [Double], [Boolean], [TealiumList], [TealiumBundle]
          *
          * If [any] is a [TealiumSerializable], then it will first be converted using
-         * [TealiumSerializable.serialize]
+         * [TealiumSerializable.asTealiumValue]
          *
          * [Float] and [Short] are coerced to [Double] and [Int] respectively, whilst [Char] is also
          * coerced to a [String]
@@ -334,7 +396,85 @@ class TealiumValue private constructor(
          */
         @JvmStatic
         fun convert(any: Any?): TealiumValue {
-            if (any == null || any === JSONObject.NULL) {
+            val supportedType = convertToSupported(any)
+
+            return if (supportedType is TealiumValue) {
+                supportedType
+            } else {
+                TealiumValue(supportedType)
+            }
+        }
+
+        /**
+         * Unsafe method allowing a [TealiumValue] to be instantiated from a stringified version of
+         * its [value].
+         *
+         * The [value] will remain uninitialized until its first access, either directly or
+         * indirectly via any of the "get" methods. This can be a performant way to create instances
+         * from stringified versions where the overhead of parsing the value is not necessarily
+         * required.
+         *
+         * @param string The stringified representation of this value.
+         * @return A TealiumValue with the [value] currently unparsed which could lead to errors
+         */
+        internal fun lazy(string: String): TealiumValue {
+            if (NULL_STRING == string) return NULL
+
+            return TealiumValue(string = string)
+        }
+
+        /**
+         * Creates a [TealiumValue] from it's string representation, parsing the contents of the
+         * string as if it were JSON
+         * i.e. string values should be quoted "value"
+         */
+        fun parse(string: String): TealiumValue {
+            return convert(parseSupported(string))
+        }
+
+        /**
+         * Parses the contents of the string as if it were JSON
+         * i.e. string values should be quoted "value"
+         *
+         * The resultant value is converted to a supported type and subsequently returned.
+         * If conversion fails, then null will be returned
+         *
+         * @param string The JSON string representation of the value
+         * @return The Tealium supported type
+         */
+        private fun parseSupported(string: String?): Any? {
+            if (string == null) return null
+
+            return try {
+                val tokener = JSONTokener(string)
+
+                val any = convertToSupported(tokener.nextValue())
+                if (any is TealiumValue) {
+                    any.value
+                } else any
+            } catch (ex: JSONException) {
+                null
+            }
+        }
+
+        /**
+         * Takes an object of any type and converts it into one of the supported data types if
+         * possible.
+         *
+         * Returned values may already be instances of [TealiumValue] if the value provided as [any]
+         * was either:
+         * a) already a [TealiumValue], including [NULL]
+         * b) implements [TealiumSerializable]
+         *
+         * Returned types are limited to: [String], [Int], [Long], [Double], [Boolean],
+         * [TealiumList], [TealiumBundle] and [TealiumValue]
+         *
+         * @param any The object to be converted to a supported type
+         *
+         * @return An instance of a supported value.
+         */
+        private fun convertToSupported(any: Any?): Any {
+            if (any == null || any === JSONObject.NULL || any === NULL) {
                 return NULL
             }
             if (any is TealiumValue) {
@@ -347,25 +487,25 @@ class TealiumValue private constructor(
                 any is Long ||
                 any is String
             ) {
-                return TealiumValue(any)
+                return any
             }
             if (any is TealiumSerializable) {
-                return any.serialize()
+                return any.asTealiumValue()
             }
             if (any is Byte || any is Short) {
-                return TealiumValue((any as Number).toInt())
+                return (any as Number).toInt()
             }
             if (any is Char) {
-                return TealiumValue(any.toString())
+                return any.toString()
             }
             if (any is Float) {
-                return TealiumValue((any as Number).toDouble())
+                return (any as Number).toDouble()
             }
             if (any is Double) {
                 if (any.isInfinite() || any.isNaN()) {
                     return NULL
                 }
-                return TealiumValue(any)
+                return any
             }
             try {
                 if (any is JSONArray) {
@@ -389,40 +529,39 @@ class TealiumValue private constructor(
             return NULL
         }
 
-        private fun convertArray(array: Any): TealiumValue {
+        /**
+         * Converts an array to the supported [TealiumList] type.
+         */
+        private fun convertArray(array: Any): TealiumList {
             val length = Array.getLength(array)
-            val list: MutableList<TealiumValue> = ArrayList(length)
+            val list: TealiumList.Builder = TealiumList.Builder()
+
             for (i in 0 until length) {
                 val value = Array.get(array, i)
                 if (value != null) {
                     list.add(convert(value))
                 }
             }
-            return TealiumValue(TealiumList(list))
+            return list.getList()
         }
 
-        private fun convertCollection(collection: Collection<*>): TealiumValue {
-            val list: MutableList<TealiumValue> = arrayListOf()
+        /**
+         * Converts a Collection to the supported [TealiumList] type.
+         */
+        private fun convertCollection(collection: Collection<*>): TealiumList {
+            val list: TealiumList.Builder = TealiumList.Builder()
             for (obj in collection) {
                 if (obj != null) {
                     list.add(convert(obj))
                 }
             }
-            return TealiumValue(TealiumList(list))
+            return list.getList()
         }
 
-        private fun convertMap(map: Map<*, *>): TealiumValue {
-            val builder = TealiumBundle.Builder()
-            for ((key, value) in map) {
-                if (key is String && value != null) {
-                    // tolerate invalid keys
-                    builder.put(key, convert(value))
-                }
-            }
-            return TealiumValue(builder.getBundle())
-        }
-
-        private fun convertJsonArray(jsonArray: JSONArray): TealiumValue {
+        /**
+         * Converts a JSONArray to the supported [TealiumList] type.
+         */
+        private fun convertJsonArray(jsonArray: JSONArray): TealiumList {
             val builder = TealiumList.Builder()
             val size = jsonArray.length()
             for (idx in 0 until size) {
@@ -430,10 +569,27 @@ class TealiumValue private constructor(
                     builder.add(convert(value))
                 }
             }
-            return TealiumValue(builder.getList())
+            return builder.getList()
         }
 
-        private fun convertJsonObject(jsonObject: JSONObject): TealiumValue {
+        /**
+         * Converts a Map to the supported [TealiumBundle] type.
+         */
+        private fun convertMap(map: Map<*, *>): TealiumBundle {
+            val builder = TealiumBundle.Builder()
+            for ((key, value) in map) {
+                if (key is String && value != null) {
+                    // tolerate invalid keys
+                    builder.put(key, convert(value))
+                }
+            }
+            return builder.getBundle()
+        }
+
+        /**
+         * Converts a JSONObject to the supported [TealiumBundle] type.
+         */
+        private fun convertJsonObject(jsonObject: JSONObject): TealiumBundle {
             val builder = TealiumBundle.Builder()
             for (key in jsonObject.keys()) {
                 jsonObject.opt(key)?.let { value ->
@@ -441,7 +597,7 @@ class TealiumValue private constructor(
                     builder.put(key, convert(value))
                 }
             }
-            return TealiumValue(builder.getBundle())
+            return builder.getBundle()
         }
     }
 }

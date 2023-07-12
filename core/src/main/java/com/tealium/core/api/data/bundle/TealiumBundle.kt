@@ -1,15 +1,27 @@
 package com.tealium.core.api.data.bundle
 
-import android.os.Bundle
 import com.tealium.core.api.Deserializer
 import com.tealium.core.internal.stringify
 import org.json.JSONException
 import org.json.JSONStringer
 import org.json.JSONTokener
 
+/**
+ * The [TealiumBundle] represents a map of restricted data types which are wrappable by
+ * [TealiumValue], to ensure that all data passed to the SDK can be used correctly and without
+ * unexpected behaviours when converting to Strings.
+ *
+ * Instances of [TealiumBundle] are immutable. When requiring updates, the [copy] method is
+ * available to use, which is prepopulate a [Builder] with the existing set of [TealiumValue]s
+ *
+ * This class will serialize to a JSON object - { ... } - when calling [toString].
+ *
+ * @see TealiumValue
+ * @see TealiumList
+ */
 class TealiumBundle private constructor(
     initialData: Map<String, TealiumValue> = emptyMap()
-) : Iterable<Map.Entry<String, TealiumValue>> {
+) : Iterable<Map.Entry<String, TealiumValue>>, TealiumSerializable {
 
     private var _toString: String? = null
 
@@ -127,7 +139,7 @@ class TealiumBundle private constructor(
         return builder.getBundle()
     }
 
-    fun asTealiumValue() : TealiumValue {
+    override fun asTealiumValue() : TealiumValue {
         return TealiumValue.convert(this)
     }
 
@@ -335,8 +347,8 @@ class TealiumBundle private constructor(
          *
          * @return The current [Builder] being operated on
          */
-        fun putSerializable(key: String, serializable: TealiumSerializable) = apply {
-            put(key, serializable.serialize())
+        fun put(key: String, value: TealiumSerializable) = apply {
+            put(key, value.asTealiumValue())
         }
 
         /**
@@ -365,6 +377,8 @@ class TealiumBundle private constructor(
          * the [Builder]
          */
         fun getBundle(): TealiumBundle {
+            if (data.isEmpty()) return EMPTY_BUNDLE
+
             return TealiumBundle(data)
         }
     }

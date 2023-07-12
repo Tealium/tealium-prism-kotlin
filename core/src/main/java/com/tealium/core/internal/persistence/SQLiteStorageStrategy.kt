@@ -291,8 +291,8 @@ internal class SQLiteStorageStrategy(
 
     private fun readTealiumValue(cursor: Cursor, columnValueIndex: Int, columnTypeIndex: Int): TealiumValue? {
         val value = cursor.getString(columnValueIndex)
-        val code = cursor.getInt(columnTypeIndex)
-        return deserializeTealiumValue(value, code)
+//        val code = cursor.getInt(columnTypeIndex)
+        return deserializeTealiumValue(value)
     }
 
     companion object {
@@ -318,32 +318,36 @@ internal class SQLiteStorageStrategy(
             }
         }
 
+        internal fun deserializeTealiumValue(serialized: String): TealiumValue? {
+            return TealiumValue.lazy(serialized)
+        }
+
         internal fun createContentValues(
             moduleId: Long,
             key: String,
             value: TealiumValue,
             expiry: Expiry,
-        ): ContentValues? {
-            val (serializedValue, code) = value.serialize() ?: return null
+        ): ContentValues {
+//            val (serializedValue, code) = value.serialize() ?: return null
 
             return ContentValues().apply {
                 put(Schema.ModuleStorageTable.COLUMN_MODULE_ID, moduleId)
                 put(Schema.ModuleStorageTable.COLUMN_KEY, key)
-                put(Schema.ModuleStorageTable.COLUMN_VALUE, serializedValue)
-                put(Schema.ModuleStorageTable.COLUMN_TYPE, code)
+                put(Schema.ModuleStorageTable.COLUMN_VALUE, value.toString())
+//                put(Schema.ModuleStorageTable.COLUMN_TYPE, code)
                 put(Schema.ModuleStorageTable.COLUMN_EXPIRY, expiry.expiryTime())
             }
         }
 
         internal fun TealiumValue.serialize(): Pair<String, Int>? {
             return when (value) {
-                is String -> value to Serialization.STRING.code
-                is Int -> Serdes.intSerde().serializer.serialize(value) to Serialization.INT.code
-                is Long -> Serdes.longSerde().serializer.serialize(value) to Serialization.LONG.code
-                is Double -> Serdes.doubleSerde().serializer.serialize(value) to Serialization.DOUBLE.code
-                is Boolean -> Serdes.booleanSerde().serializer.serialize(value) to Serialization.BOOLEAN.code
-                is TealiumList -> Serdes.tealiumListSerde().serializer.serialize(value) to Serialization.TEALIUM_LIST.code
-                is TealiumBundle -> Serdes.tealiumBundleSerde().serializer.serialize(value) to Serialization.TEALIUM_BUNDLE.code
+                is String -> value as String to Serialization.STRING.code
+                is Int -> Serdes.intSerde().serializer.serialize(value as Int) to Serialization.INT.code
+                is Long -> Serdes.longSerde().serializer.serialize(value as Long) to Serialization.LONG.code
+                is Double -> Serdes.doubleSerde().serializer.serialize(value as Double) to Serialization.DOUBLE.code
+                is Boolean -> Serdes.booleanSerde().serializer.serialize(value as Boolean) to Serialization.BOOLEAN.code
+                is TealiumList -> Serdes.tealiumListSerde().serializer.serialize(value as TealiumList) to Serialization.TEALIUM_LIST.code
+                is TealiumBundle -> Serdes.tealiumBundleSerde().serializer.serialize(value as TealiumBundle) to Serialization.TEALIUM_BUNDLE.code
                 else -> null
             }
         }

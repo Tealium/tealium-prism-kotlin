@@ -46,7 +46,7 @@ class LegacyDatabaseTests {
     fun dataStore_get_String_Returns_String() {
         val value = dataStore.get("string")!!
 
-        assertEquals("value", value.getString())
+        assertEquals("value with spaces", value.getString())
     }
 
     @Test

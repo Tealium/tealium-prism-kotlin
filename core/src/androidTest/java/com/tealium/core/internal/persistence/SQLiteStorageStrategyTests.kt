@@ -123,8 +123,10 @@ class SQLiteStorageStrategyTests {
         val storage = getEmptyStorage(module1Id)
 
         storage.insert("key", TealiumValue.convert(100L), Expiry.SESSION)
+        storage.insert("max", TealiumValue.convert(Long.MAX_VALUE), Expiry.SESSION)
 
-        assertEquals(100L, storage.get("key")?.value)
+        assertEquals(100, storage.get("key")?.value)
+        assertEquals(Long.MAX_VALUE, storage.get("max")?.value)
     }
 
     @Test
@@ -181,8 +183,7 @@ class SQLiteStorageStrategyTests {
 
         assertEquals("value", storedBundle.getString("string"))
         assertEquals(1, storedBundle.getInt("int"))
-        // TODO - add type coercions between numerics
-        assertEquals(10, storedBundle.getInt("long"))
+        assertEquals(10L, storedBundle.getLong("long"))
         assertEquals(100.1, storedBundle.getDouble("double"))
     }
 
@@ -193,7 +194,8 @@ class SQLiteStorageStrategyTests {
         val bundle = storage.getAll()
         assertEquals("value", bundle.get("string")?.value)
         assertEquals(1, bundle.get("int")?.value)
-        assertEquals(10L, bundle.get("long")?.value)
+        assertEquals(10, bundle.get("long")?.value)
+        assertEquals(10L, bundle.get("long")?.getLong())
         assertEquals(100.1, bundle.get("double")?.value)
     }
 

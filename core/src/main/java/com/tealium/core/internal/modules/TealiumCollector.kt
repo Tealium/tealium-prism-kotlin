@@ -27,7 +27,7 @@ class TealiumCollector(
         return TealiumBundle.create {
             put(Dispatch.Keys.TEALIUM_ACCOUNT, context.coreSettings.account)
             put(Dispatch.Keys.TEALIUM_PROFILE, context.coreSettings.profile)
-            putSerializable(Dispatch.Keys.TEALIUM_ENVIRONMENT, context.coreSettings.environment)
+            put(Dispatch.Keys.TEALIUM_ENVIRONMENT, context.coreSettings.environment)
             context.coreSettings.dataSource?.let {
                 put(Dispatch.Keys.TEALIUM_ACCOUNT, it)
             }
