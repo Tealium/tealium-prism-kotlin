@@ -30,10 +30,6 @@ class ExampleUnitTest {
         assertEquals(complexSerializable.list, deserialized?.list)
         assertEquals(complexSerializable.map, deserialized?.map)
 
-
-        val newBundle: TealiumBundle = TealiumBundle.create {
-            put("int", arrayOf<Int>(1, 2, 3))
-        }
     }
 
     @Test
@@ -48,8 +44,8 @@ class ExampleUnitTest {
         }
 
         assertNotSame(list, copy)
-        assertEquals(2, list.size())
-        assertEquals(3, copy.size())
+        assertEquals(2, list.size)
+        assertEquals(3, copy.size)
 
         assertEquals("string", list.getString(0))
         assertEquals(1, list.getInt(1))

@@ -203,7 +203,7 @@ class TealiumValueTests {
     }
 
     @Test
-    fun isString_ReturnsToString_WhenValueIsNotString() {
+    fun getString_ReturnsToString_WhenValueIsNotString() {
         assertEquals("10", intValue.getString())
         assertEquals("111.111", doubleValue.getString())
         assertEquals("100", longValue.getString())
@@ -478,6 +478,17 @@ class TealiumValueTests {
     }
 
     @Test
+    fun convert_Double_InfinityOrNan_Returns_Null() {
+        val nan = TealiumValue.convert(Double.NaN)
+        val positiveInfinity = TealiumValue.convert(Double.POSITIVE_INFINITY)
+        val negativeInfinity = TealiumValue.convert(Double.NEGATIVE_INFINITY)
+
+        assertEquals(TealiumValue.NULL, nan)
+        assertEquals(TealiumValue.NULL, positiveInfinity)
+        assertEquals(TealiumValue.NULL, negativeInfinity)
+    }
+
+    @Test
     fun convert_Boolean_Returns_TealiumValueBoolean() {
         val value = TealiumValue.convert(false)
 
@@ -647,4 +658,75 @@ class TealiumValueTests {
         assertEquals("value", bundle.getBundle()!!.get("key")!!.value)
     }
 
+    @Test
+    fun toString_String_ReturnsJsonFormattedString() {
+        val result = stringValue.toString()
+        val resultWithSpacesAndQuotes = TealiumValue.string("Some, longer; \"string\".").toString()
+
+        assertEquals("\"string\"", result)
+        assertEquals("\"Some, longer; \\\"string\\\".\"", resultWithSpacesAndQuotes)
+    }
+
+    @Test
+    fun toString_Int_ReturnsJsonFormattedString() {
+        val result = intValue.toString()
+
+        assertEquals("10", result)
+    }
+
+    @Test
+    fun toString_Long_ReturnsJsonFormattedString() {
+        val result = longValue.toString()
+
+        assertEquals("100", result)
+    }
+
+    @Test
+    fun toString_Double_ReturnsJsonFormattedString() {
+        val result = doubleValue.toString()
+
+        assertEquals("111.111", result)
+    }
+
+    @Test
+    fun toString_Boolean_ReturnsJsonFormattedString() {
+        val falseResult = booleanFalse.toString()
+        val trueResult = booleanTrue.toString()
+
+        assertEquals("false", falseResult)
+        assertEquals("true", trueResult)
+    }
+
+    @Test
+    fun toString_Null_ReturnsJsonFormattedString() {
+        val nullResult = TealiumValue.convert(null).toString()
+        val nullConstantResult = TealiumValue.NULL.toString()
+
+        assertEquals("null", nullResult)
+        assertEquals("null", nullConstantResult)
+    }
+
+    @Test
+    fun toString_TealiumList_ReturnsJsonFormattedString() {
+        val result = TealiumValue.convert(TealiumList.create {
+            add("string")
+            add(2)
+            add(false)
+            add(TealiumValue.NULL)
+        }).toString()
+
+        assertEquals("[\"string\",2,false,null]", result)
+    }
+
+    @Test
+    fun toString_TealiumBundle_ReturnsJsonFormattedString() {
+        val result = TealiumValue.convert(TealiumBundle.create {
+            put("string", "string")
+            put("int", 2)
+            put("boolean", false)
+            put("null", TealiumValue.NULL)
+        }).toString()
+
+        assertEquals("{\"string\":\"string\",\"int\":2,\"boolean\":false,\"null\":null}", result)
+    }
 }

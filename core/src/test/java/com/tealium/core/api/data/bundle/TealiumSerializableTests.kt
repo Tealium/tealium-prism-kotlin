@@ -1,6 +1,7 @@
 package com.tealium.core.api.data.bundle
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -33,6 +34,18 @@ class TealiumSerializableTests {
 
         assertEquals("{\"string\":\"value\",\"int\":10}", serialized.toString())
         assertEquals(bundleSerializable, deserialized)
+    }
+
+    @Test
+    fun deserialize_ReturnsNull_WhenInvalidType() {
+
+        assertNull(TestListSerializable
+            .Deserializer
+            .deserialize(TealiumBundle.create {  }.asTealiumValue()))
+
+        assertNull(TestBundleSerializable
+            .Deserializer
+            .deserialize(TealiumList.create {  }.asTealiumValue()))
     }
 }
 

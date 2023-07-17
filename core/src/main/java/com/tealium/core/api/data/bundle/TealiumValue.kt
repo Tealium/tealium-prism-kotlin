@@ -34,14 +34,10 @@ class TealiumValue private constructor(
     any: Any? = null,
     string: String? = null,
 ) {
-    private var _value: Any?
-    private var _toString: String?
+    private var _value: Any? = any
+    private var _toString: String? = string
     private var isLazy: Boolean = (any == null && string != null)
 
-    init {
-        _value = any
-        _toString = string
-    }
 
     /**
      * Contains the underlying data value for this instance.
@@ -288,9 +284,16 @@ class TealiumValue private constructor(
     }
 
     companion object {
-        @JvmField
-        val NULL = TealiumValue(null)
         private const val NULL_STRING = "null"
+
+        /**
+         * Constant value representing null.
+         *
+         * It's preferable to use this instance if null is required, to save on unnecessary object
+         * creation.
+         */
+        @JvmField
+        val NULL = TealiumValue(any = null)
 
         /**
          * Creates a [TealiumValue] that contains a [string] as its [value]
@@ -299,7 +302,7 @@ class TealiumValue private constructor(
          */
         @JvmStatic
         fun string(string: String): TealiumValue {
-            return TealiumValue(string)
+            return convert(string)
         }
 
         /**
@@ -309,7 +312,7 @@ class TealiumValue private constructor(
          */
         @JvmStatic
         fun int(int: Int): TealiumValue {
-            return TealiumValue(int)
+            return convert(int)
         }
 
         /**
@@ -319,7 +322,7 @@ class TealiumValue private constructor(
          */
         @JvmStatic
         fun double(double: Double): TealiumValue {
-            return TealiumValue(double)
+            return convert(double)
         }
 
         /**
@@ -329,7 +332,7 @@ class TealiumValue private constructor(
          */
         @JvmStatic
         fun long(long: Long): TealiumValue {
-            return TealiumValue(long)
+            return convert(long)
         }
 
         /**
@@ -339,7 +342,7 @@ class TealiumValue private constructor(
          */
         @JvmStatic
         fun boolean(boolean: Boolean): TealiumValue {
-            return TealiumValue(boolean)
+            return convert(boolean)
         }
 
         /**
@@ -509,95 +512,24 @@ class TealiumValue private constructor(
             }
             try {
                 if (any is JSONArray) {
-                    return convertJsonArray(any)
+                    return TealiumList.fromJSONArray(any)
                 }
                 if (any is JSONObject) {
-                    return convertJsonObject(any)
+                    return TealiumBundle.fromJSONObject(any)
                 }
                 if (any is Collection<*>) {
-                    return convertCollection(any)
+                    return TealiumList.fromCollection(any)
                 }
                 if (any.javaClass.isArray) {
-                    return convertArray(any)
+                    return TealiumList.fromArray(any) ?: NULL
                 }
                 if (any is Map<*, *>) {
-                    return convertMap(any)
+                    return TealiumBundle.fromMap(any)
                 }
             } catch (exception: Exception) {
                 // TODO, log this
             }
             return NULL
-        }
-
-        /**
-         * Converts an array to the supported [TealiumList] type.
-         */
-        private fun convertArray(array: Any): TealiumList {
-            val length = Array.getLength(array)
-            val list: TealiumList.Builder = TealiumList.Builder()
-
-            for (i in 0 until length) {
-                val value = Array.get(array, i)
-                if (value != null) {
-                    list.add(convert(value))
-                }
-            }
-            return list.getList()
-        }
-
-        /**
-         * Converts a Collection to the supported [TealiumList] type.
-         */
-        private fun convertCollection(collection: Collection<*>): TealiumList {
-            val list: TealiumList.Builder = TealiumList.Builder()
-            for (obj in collection) {
-                if (obj != null) {
-                    list.add(convert(obj))
-                }
-            }
-            return list.getList()
-        }
-
-        /**
-         * Converts a JSONArray to the supported [TealiumList] type.
-         */
-        private fun convertJsonArray(jsonArray: JSONArray): TealiumList {
-            val builder = TealiumList.Builder()
-            val size = jsonArray.length()
-            for (idx in 0 until size) {
-                jsonArray.opt(idx)?.let { value ->
-                    builder.add(convert(value))
-                }
-            }
-            return builder.getList()
-        }
-
-        /**
-         * Converts a Map to the supported [TealiumBundle] type.
-         */
-        private fun convertMap(map: Map<*, *>): TealiumBundle {
-            val builder = TealiumBundle.Builder()
-            for ((key, value) in map) {
-                if (key is String && value != null) {
-                    // tolerate invalid keys
-                    builder.put(key, convert(value))
-                }
-            }
-            return builder.getBundle()
-        }
-
-        /**
-         * Converts a JSONObject to the supported [TealiumBundle] type.
-         */
-        private fun convertJsonObject(jsonObject: JSONObject): TealiumBundle {
-            val builder = TealiumBundle.Builder()
-            for (key in jsonObject.keys()) {
-                jsonObject.opt(key)?.let { value ->
-                    // tolerate invalid keys
-                    builder.put(key, convert(value))
-                }
-            }
-            return builder.getBundle()
         }
     }
 }

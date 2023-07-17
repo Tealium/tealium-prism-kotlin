@@ -1,5 +1,6 @@
 package com.tealium.core.api.data.bundle
 
+import com.tealium.tests.common.trimJson
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -140,6 +141,29 @@ class TealiumBundleTests {
     }
 
     @Test
+    fun create_ConvertsDouble_InfinityOrNan_Returns_Null() {
+        val bundle = TealiumBundle.create {
+            put("nan", Double.NaN)
+            put("plus-infinity", Double.POSITIVE_INFINITY)
+            put("negative-infinity", Double.NEGATIVE_INFINITY)
+        }
+
+        assertEquals(null, bundle.getDouble("nan"))
+        assertEquals(null, bundle.getDouble("plus-infinity"))
+        assertEquals(null, bundle.getDouble("negative-infinity"))
+        bundle.map {
+            assertSame(TealiumValue.NULL, it.value)
+        }
+        assertEquals("""
+            { 
+                "nan": null,
+                "plus-infinity": null,
+                "negative-infinity": null 
+            }
+        """.trimJson(), bundle.toString())
+    }
+
+    @Test
     fun create_ConvertsBoolean_ToTealiumValue() {
         val bundle = TealiumBundle.create {
             put("true", true)
@@ -182,6 +206,19 @@ class TealiumBundleTests {
         assertEquals(111.111, childBundle.getDouble("double"))
         assertEquals(Long.MAX_VALUE, childBundle.getLong("long"))
         assertEquals(false, childBundle.getBoolean("false"))
+    }
+
+    @Test
+    fun create_ConvertsSerializable_ToBundle_AndBack() {
+        val bundleSerializable = TestBundleSerializable("value", 10)
+
+        val bundle = TealiumBundle.create {
+            put("serialized", bundleSerializable)
+        }
+
+        val deserialized = bundle.get("serialized", TestBundleSerializable.Deserializer)
+
+        assertEquals(bundleSerializable, deserialized)
     }
 
     @Test
@@ -261,18 +298,64 @@ class TealiumBundleTests {
         )
     }
 
-    /**
-     * Utility method to remove all excess whitespace from a JSON String. Allows test JSON
-     * to be formatted for readability in tests.
-     *
-     * Removals inclusive of:
-     *  - New lines
-     *  - whitespace at beginning and end of lines
-     *
-     *  Whitespace inside of values will remain unaffected
-     */
-    private fun String.trimJson(): String {
-        return this.replace(Regex("\\s+(?=(?:(?:[^\"]*\"){2})*[^\"]*+\$)"), "")
+    @Test
+    fun lazy_OnlyParses_WhenDataIsRequested() {
+        val lazyBundle = TealiumBundle.lazy("""
+            {
+                "string" : "string"
+            }
+        """.trimJson())
+
+        assertEquals("string", lazyBundle.getString("string"))
     }
 
+    @Test
+    fun lazy_ReturnsOriginal_StringValue_OnToString() {
+        val jsonString = """
+            {
+                "string" : "string"
+            }
+        """.trimJson()
+        val lazyBundle = TealiumBundle.lazy(jsonString)
+
+        assertSame(jsonString, lazyBundle.toString())
+        assertEquals(jsonString, lazyBundle.toString())
+    }
+
+    @Test
+    fun lazy_Invalidates_StringValue_IfValueRequested_And_InvalidString() {
+        val jsonString = """
+            {
+                "string" : "string"
+        """.trimJson()
+        val lazyBundle = TealiumBundle.lazy(jsonString)
+        val value = lazyBundle.getString("string")
+
+        assertEquals("{}", lazyBundle.toString())
+        assertNull(value)
+    }
+
+    @Test
+    fun copy_OnInvalidLazy_ResultsInEmptyBundle() {
+        val lazyBundle = TealiumBundle.lazy("""
+            {
+                "string" : "string"
+        """.trimJson()).copy {  }
+
+        assertEquals(0, lazyBundle.size)
+    }
+
+    @Test
+    fun size_Returns_CorrectItemCount() {
+        val addedTo = testSimpleBundle.copy {
+            put("new_key", "new string")
+        }
+        val removedFrom = testSimpleBundle.copy {
+            remove("string")
+        }
+
+        assertEquals(5, testSimpleBundle.size)
+        assertEquals(6, addedTo.size)
+        assertEquals(4, removedFrom.size)
+    }
 }
