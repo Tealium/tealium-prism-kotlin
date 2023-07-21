@@ -14,7 +14,6 @@ import com.tealium.core.internal.persistence.Schema.ModuleStorageTable.CREATE_MO
 import com.tealium.core.internal.persistence.Schema.ModuleTable.CREATE_MODULE_TABLE
 import com.tealium.core.internal.persistence.Schema.DispatchTable.CREATE_TRIGGER_ADD_TO_QUEUE
 import com.tealium.core.internal.persistence.Schema.QueueTable.CREATE_TRIGGER_REMOVE_PROCESSED_DISPATCHES
-import com.tealium.core.internal.persistence.Schema.LegacyTables.migrateModuleData
 import java.io.File
 
 internal class DatabaseHelper(
@@ -81,37 +80,6 @@ internal class DatabaseHelper(
             3
         ) {
             createV3Tables(it)
-
-            migrateModuleData(it, DataLayerImpl.name, Schema.LegacyTables.DATALAYER_TABLE_NAME)
-//            // TODO - VisitorSwitching module doesn't exist yet; name might change
-            migrateModuleData(it, "VisitorSwitching", Schema.LegacyTables.VISITORS_TABLE_NAME)
-
-            // Dispatch migration has to be handled later, as the Dispatchers needs to be known
-            // and registered in order for the triggers to accurately introduce the relevant
-            // entries into the queue
-        }
-
-        /**
-         * Attempts to migrate data from the
-         */
-        private fun migrateModuleData(
-            db: SQLiteDatabase,
-            moduleName: String,
-            oldTableName: String
-        ) {
-            val moduleId = ModuleStorageRepositoryImpl.insertNewModule(
-                db, moduleName
-            )
-            if (moduleId < 0) return
-
-            try {
-                db.execSQL(
-                    migrateModuleData(oldTableName), arrayOf(moduleId)
-                )
-            db.dropTable(oldTableName)
-            } catch (ignored: SQLiteException) {
-                Log.d(BuildConfig.TAG, "Error ${ignored.message}")
-            }
         }
 
         private fun createV3Tables(db: SQLiteDatabase) {

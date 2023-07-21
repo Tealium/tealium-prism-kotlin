@@ -144,8 +144,6 @@ object Schema {
      * The `key` column is the id used to store and retrieve the value
      * The `value` column is the data to be stored in String format
      * The 'expiry' column is a number describing when this data is valid for. See [Expiry]
-     * The 'type' column is a number describing what type of data was put into this field used for
-     * disambiguation of types that might overlap in their String forms (i.e. Integer 1 and Long 1)
      */
     object ModuleStorageTable {
         const val TABLE_NAME = "module_storage"
@@ -193,15 +191,5 @@ object Schema {
                 $COLUMN_TIMESTAMP   LONG,
                 $COLUMN_TYPE        SMALLINT);
             """.trimIndent()
-
-        internal fun migrateModuleData(tableName: String): String = """
-            INSERT INTO ${ModuleStorageTable.TABLE_NAME}
-            SELECT ? $COLUMN_MODULE_ID, 
-                    $COLUMN_KEY, 
-                    $COLUMN_VALUE, 
-                    $COLUMN_EXPIRY, 
-                    $COLUMN_TYPE 
-            FROM $tableName; 
-        """.trimIndent()
     }
 }
