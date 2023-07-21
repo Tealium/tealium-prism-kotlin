@@ -1,7 +1,5 @@
 package com.tealium.core.internal.persistence
 
-import com.tealium.core.internal.persistence.Schema.ModuleStorageTable.COLUMN_MODULE_ID
-
 /**
  * Constants object holding all constant values for defining all things relating to the Database
  * schema, including table names, column names, SQL that should be used to construct tables and

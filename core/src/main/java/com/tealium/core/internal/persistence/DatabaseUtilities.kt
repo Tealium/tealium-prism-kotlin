@@ -2,13 +2,7 @@
 
 package com.tealium.core.internal.persistence
 
-import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
-import com.tealium.core.api.Expiry
-import com.tealium.core.api.data.bundle.TealiumBundle
-import com.tealium.core.api.data.bundle.TealiumList
-import com.tealium.core.api.data.bundle.TealiumValue
-import kotlin.math.exp
 
 /**
  * Handles all begin/end transaction calls, wrapping all SQL statements made by the [block] in a

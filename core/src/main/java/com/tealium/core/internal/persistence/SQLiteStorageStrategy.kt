@@ -4,8 +4,6 @@ import android.content.ContentValues
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import com.tealium.core.api.Expiry
-import com.tealium.core.api.data.bundle.TealiumBundle
-import com.tealium.core.api.data.bundle.TealiumList
 import com.tealium.core.api.data.bundle.TealiumValue
 
 /**
@@ -292,27 +290,17 @@ internal class SQLiteStorageStrategy(
     }
 
     companion object {
-        internal val IS_NOT_EXPIRED_CLAUSE =
+        internal const val IS_NOT_EXPIRED_CLAUSE =
             "(${Schema.ModuleStorageTable.COLUMN_EXPIRY} < 0 OR ${Schema.ModuleStorageTable.COLUMN_EXPIRY} > ?)"
 
-        internal val IS_EXPIRED_CLAUSE =
+        internal const val IS_EXPIRED_CLAUSE =
             "(${Schema.ModuleStorageTable.COLUMN_EXPIRY} >= 0 AND ${Schema.ModuleStorageTable.COLUMN_EXPIRY} < ?)"
 
-        internal val IS_MODULE_OWNER =
+        internal const val IS_MODULE_OWNER =
             "${Schema.ModuleStorageTable.COLUMN_MODULE_ID} = ?"
 
-        internal val IS_OWNER_AND_NOT_EXPIRED =
+        internal const val IS_OWNER_AND_NOT_EXPIRED =
             "$IS_MODULE_OWNER AND $IS_NOT_EXPIRED_CLAUSE"
-
-        internal fun deserializeTealiumValue(serialized: String, code: Int): TealiumValue? {
-            return serializationFor(code)?.let { ser: Serialization ->
-                val value: Any? = Serdes.serdeFor(ser.clazz)
-                    ?.deserializer
-                    ?.deserialize(serialized)
-
-                return TealiumValue.convert(value)
-            }
-        }
 
         internal fun deserializeTealiumValue(serialized: String): TealiumValue? {
             return TealiumValue.lazy(serialized)
@@ -330,19 +318,6 @@ internal class SQLiteStorageStrategy(
                 put(Schema.ModuleStorageTable.COLUMN_KEY, key)
                 put(Schema.ModuleStorageTable.COLUMN_VALUE, value.toString())
                 put(Schema.ModuleStorageTable.COLUMN_EXPIRY, expiry.expiryTime())
-            }
-        }
-
-        internal fun TealiumValue.serialize(): Pair<String, Int>? {
-            return when (value) {
-                is String -> value as String to Serialization.STRING.code
-                is Int -> Serdes.intSerde().serializer.serialize(value as Int) to Serialization.INT.code
-                is Long -> Serdes.longSerde().serializer.serialize(value as Long) to Serialization.LONG.code
-                is Double -> Serdes.doubleSerde().serializer.serialize(value as Double) to Serialization.DOUBLE.code
-                is Boolean -> Serdes.booleanSerde().serializer.serialize(value as Boolean) to Serialization.BOOLEAN.code
-                is TealiumList -> Serdes.tealiumListSerde().serializer.serialize(value as TealiumList) to Serialization.TEALIUM_LIST.code
-                is TealiumBundle -> Serdes.tealiumBundleSerde().serializer.serialize(value as TealiumBundle) to Serialization.TEALIUM_BUNDLE.code
-                else -> null
             }
         }
     }

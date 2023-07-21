@@ -11,12 +11,10 @@ fun TealiumValue.stringify(stringer: JSONStringer) {
         return
     }
 
-    if (value is TealiumList) {
-        (value as TealiumList).stringify(stringer)
-    } else if (value is TealiumBundle) {
-        (value as TealiumBundle).stringify(stringer)
-    } else {
-        stringer.value(value)
+    when (val it = value) {
+        is TealiumList -> it.stringify(stringer)
+        is TealiumBundle -> it.stringify(stringer)
+        else -> stringer.value(it)
     }
 }
 
