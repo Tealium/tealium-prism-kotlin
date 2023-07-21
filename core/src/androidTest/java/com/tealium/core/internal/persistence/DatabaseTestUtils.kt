@@ -73,11 +73,7 @@ object DatabaseTestUtils {
             }
 
             override fun onUpgrade(db: SQLiteDatabase?, oldVersion: Int, newVersion: Int) {
-                db?.let {
-                    getDatabaseUpgrades(1, 2).forEach {
-                        it.upgrade(db)
-                    }
-                }
+                db?.upgrade(oldVersion, newVersion)
             }
         }.writableDatabase
     }
@@ -145,7 +141,12 @@ object DatabaseTestUtils {
         assertV3TablesExist(db)
     }
 
-    fun populateLegacyDatabase(db: SQLiteDatabase) {
+    fun populateV1Database(db: SQLiteDatabase) {
+        db.execSQL(POPULATE_LEGACY_DATALAYER)
+        db.execSQL(POPULATE_LEGACY_DISPATCHES)
+    }
+
+    fun populateV2Database(db: SQLiteDatabase) {
         db.execSQL(POPULATE_LEGACY_DATALAYER)
         db.execSQL(POPULATE_LEGACY_DISPATCHES)
         db.execSQL(POPULATE_LEGACY_VISITORS)
@@ -157,7 +158,8 @@ object DatabaseTestUtils {
         payload: String = """{"tealium_event_type":"view","tealium_event":"ModuleList","screen_title":"ModuleList","request_uuid":"2a71891f-3e6f-4ac7-a957-22d53da7697d","autotracked":true,"global_data":"value","available_modules":["Consent Manager","Crash Reporter","Hosted Data Layer","Location","Timed Events","Visitor Service","Media Tracking","WebView Consent Sync","In App Purchase"],"tealium_account":"tealiummobile","tealium_profile":"android","tealium_environment":"dev","tealium_datasource":"","tealium_visitor_id":"73ef029f5c7d4648bebeb431b96f0631","tealium_library_name":"android-kotlin","tealium_library_version":"1.5.3","tealium_random":"2541512247698537","tealium_session_id":1686048488589,"app_uuid":"856f9e13-1dfc-4019-a97a-b5ef47351a55","app_rdns":"com.tealium.mobile","app_name":"Tealium Kotlin Example","app_version":"1.0","app_build":"1","app_memory_usage":64,"connection_type":"wifi","device_connected":true,"carrier":"T-Mobile","carrier_iso":"us","carrier_mcc":"310","carrier_mnc":"260","device":"Google sdk_gphone64_arm64","device_model":"sdk_gphone64_arm64","device_manufacturer":"Google","device_architecture":"64bit","device_cputype":"aarch64","device_resolution":"1080x2201","device_logical_resolution":"412x915","device_android_runtime":"2.1.0","origin":"mobile","platform":"android","os_name":"Android","device_os_build":"9526604","device_os_version":"13","device_free_system_storage":50446336,"device_free_external_storage":3984711680,"device_orientation":"Portrait","device_language":"en-US","device_battery_percent":100,"device_ischarging":false,"timestamp":"2023-06-06T10:48:09Z","timestamp_local":"2023-06-06T11:48:09","timestamp_offset":"1","timestamp_unix":1686048489,"timestamp_unix_milliseconds":1686048489502,"timestamp_epoch":1686048489,"remote_commands":["localjsoncommand-0.0","bgcolor-0.0"],"consent_last_updated":1686048488892,"lifecycle_dayofweek_local":3,"lifecycle_dayssincelaunch":"14","lifecycle_dayssincelastwake":"0","lifecycle_hourofday_local":"11","lifecycle_launchcount":2,"lifecycle_sleepcount":0,"lifecycle_wakecount":2,"lifecycle_totalcrashcount":1,"lifecycle_totallaunchcount":2,"lifecycle_totalsleepcount":"0","lifecycle_totalwakecount":"2","lifecycle_totalsecondsawake":"0","lifecycle_dayssinceupdate":"14","lifecycle_firstlaunchdate":"2023-05-23T10:32:55Z","lifecycle_firstlaunchdate_MMDDYYYY":"05\/23\/2023","lifecycle_lastlaunchdate":"2023-06-06T11:48:09Z","lifecycle_lastwakedate":"2023-06-06T11:48:09Z","enabled_modules":["AdIdentifier","AppData","Collect","Connectivity","ConsentManager","Crash","DeviceData","HostedDataLayer","InAppPurchaseManager","Lifecycle","RemoteCommands","TagManagement","VisitorService"],"enabled_modules_versions":["1.1.0","1.5.3","1.1.0","1.5.3","1.5.3","1.1.0","1.5.3","1.1.0","1.0.1","1.1.1","1.3.0","1.2.0","1.2.0"],"was_queued":true}""",
         timestamp: Long = getTimestampMilliseconds()
     ) {
-        db.execSQL("""
+        db.execSQL(
+            """
             INSERT INTO dispatches
                 VALUES (
                 '$uuid',	
@@ -166,7 +168,15 @@ object DatabaseTestUtils {
                 $timestamp,	
                 10)
             ;
-        """.trimIndent())
+        """.trimIndent()
+        )
+    }
+
+    fun SQLiteDatabase.upgrade(oldVersion: Int, newVersion: Int) {
+        getDatabaseUpgrades(oldVersion, newVersion)
+            .forEach {
+                it.upgrade(this)
+            }
     }
 
     /**
@@ -227,7 +237,7 @@ object DatabaseTestUtils {
     private val POPULATE_LEGACY_DATALAYER: String = """
         INSERT INTO datalayer
         VALUES 
-            ('string',	'value',	-2,	null,	0),
+            ('string',	'value with spaces',	-2,	null,	0),
             ('boolean_true',	'1',	-2, null,	4),
             ('boolean_false',	'0',	-2, null,	4),
             ('boolean_array',	'[false,true,false]',	-2, null,	9),

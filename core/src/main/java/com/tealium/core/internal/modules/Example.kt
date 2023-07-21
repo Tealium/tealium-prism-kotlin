@@ -1,13 +1,12 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.TealiumContext
-import com.tealium.core.api.Collector
-import com.tealium.core.api.Module
-import com.tealium.core.api.ModuleFactory
-import com.tealium.core.api.ModuleSettings
+import com.tealium.core.api.*
 import com.tealium.core.api.data.bundle.TealiumBundle
 
-class Example: Module, Collector {
+class Example(
+    private val dataStore: DataStore
+): Module, Collector {
     override val name: String
         get() = NAME
     override val version: String
@@ -26,7 +25,9 @@ class Example: Module, Collector {
             get() = NAME
 
         override fun create(context: TealiumContext, settings: ModuleSettings): Module {
-            return Example()
+            val dataStore = context.storageProvider.getDataStore(this)
+
+            return Example(dataStore)
         }
     }
 }

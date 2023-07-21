@@ -6,6 +6,7 @@ import com.tealium.core.api.Dispatch
 import com.tealium.core.api.Dispatcher
 import com.tealium.core.api.TealiumDispatchType
 import com.tealium.core.api.data.bundle.TealiumBundle
+import com.tealium.core.internal.persistence.DatabaseTestUtils.upgrade
 import com.tealium.tests.common.TestDispatcher
 import com.tealium.tests.common.getDefaultConfig
 import io.mockk.every
@@ -319,11 +320,7 @@ class QueueRepositoryTests {
                 TimeFrame(1, TimeUnit.DAYS)
             )
         )
-        DatabaseTestUtils.getDatabaseUpgrades(
-            1, 3
-        ).forEach {
-            it.upgrade(inMemoryDb)
-        }
+        inMemoryDb.upgrade(1, 3)
 
         // migrate
         val queueRepository =
@@ -350,13 +347,9 @@ class QueueRepositoryTests {
         val mockProvider = mockk<DatabaseProvider>()
         val inMemoryDb =
             DatabaseTestUtils.createV1Database(getDefaultConfig(app).application.applicationContext)
+        inMemoryDb.upgrade(1, 3)
         every { mockProvider.database } returns inMemoryDb
 
-        DatabaseTestUtils.getDatabaseUpgrades(
-            1, 3
-        ).forEach {
-            it.upgrade(inMemoryDb)
-        }
 
         // migrate
         val queueRepository =

@@ -29,6 +29,8 @@ internal fun SQLiteDatabase.transaction(
  * Drops the table with the provided [tableName].
  */
 internal fun SQLiteDatabase.dropTable(tableName: String) {
+    if (tableName.isBlank()) return
+
     execSQL(
         "DROP TABLE $tableName"
     )
@@ -38,6 +40,8 @@ internal fun SQLiteDatabase.dropTable(tableName: String) {
  * Safely drops the table with the provided [tableName] if it exists.
  */
 internal fun SQLiteDatabase.dropTableIfExists(tableName: String) {
+    if (tableName.isBlank()) return
+
     execSQL(
         "DROP TABLE IF EXISTS $tableName"
     )
@@ -64,4 +68,19 @@ internal fun getTimestamp(): Long {
  */
 internal fun getTimestampMilliseconds(): Long {
     return System.currentTimeMillis()
+}
+
+/**
+ * Pre-calculated map of code to [Serialization] mappings
+ */
+private val serializationLookupByCode = Serialization.values()
+    .associateBy { s -> s.code }
+
+/**
+ * Helper method to easily lookup the appropriate code for a given class.
+ *
+ * @return the Int [code] for the provided [clazz] or null
+ */
+internal fun serializationFor(code: Int): Serialization? {
+    return serializationLookupByCode[code]
 }

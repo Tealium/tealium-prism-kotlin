@@ -1,7 +1,5 @@
 package com.tealium.core.internal.persistence
 
-import com.tealium.core.internal.persistence.Schema.ModuleStorageTable.COLUMN_MODULE_ID
-
 /**
  * Constants object holding all constant values for defining all things relating to the Database
  * schema, including table names, column names, SQL that should be used to construct tables and
@@ -144,8 +142,6 @@ object Schema {
      * The `key` column is the id used to store and retrieve the value
      * The `value` column is the data to be stored in String format
      * The 'expiry' column is a number describing when this data is valid for. See [Expiry]
-     * The 'type' column is a number describing what type of data was put into this field used for
-     * disambiguation of types that might overlap in their String forms (i.e. Integer 1 and Long 1)
      */
     object ModuleStorageTable {
         const val TABLE_NAME = "module_storage"
@@ -154,7 +150,6 @@ object Schema {
         const val COLUMN_KEY = "key"
         const val COLUMN_VALUE = "value"
         const val COLUMN_EXPIRY = "expiry"
-        const val COLUMN_TYPE = "type"
 
         val CREATE_MODULE_STORAGE_TABLE = """
             CREATE TABLE IF NOT EXISTS $TABLE_NAME (
@@ -162,7 +157,6 @@ object Schema {
                 $COLUMN_KEY         TEXT,
                 $COLUMN_VALUE       TEXT,
                 $COLUMN_EXPIRY      LONG,
-                $COLUMN_TYPE        SMALLINT,
             PRIMARY KEY ($COLUMN_MODULE_ID, $COLUMN_KEY),
             FOREIGN KEY ($COLUMN_MODULE_ID)
                 REFERENCES ${ModuleTable.TABLE_NAME}(${ModuleTable.COLUMN_ID})
@@ -195,15 +189,5 @@ object Schema {
                 $COLUMN_TIMESTAMP   LONG,
                 $COLUMN_TYPE        SMALLINT);
             """.trimIndent()
-
-        internal fun migrateModuleData(tableName: String): String = """
-            INSERT INTO ${ModuleStorageTable.TABLE_NAME}
-            SELECT ? $COLUMN_MODULE_ID, 
-                    $COLUMN_KEY, 
-                    $COLUMN_VALUE, 
-                    $COLUMN_EXPIRY, 
-                    $COLUMN_TYPE 
-            FROM $tableName; 
-        """.trimIndent()
     }
 }

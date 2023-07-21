@@ -2,19 +2,50 @@ package com.tealium.core.api.data.bundle
 
 import com.tealium.core.api.Deserializer
 import com.tealium.core.internal.stringify
-import org.json.JSONException
-import org.json.JSONStringer
-import org.json.JSONTokener
+import org.json.*
 
+/**
+ * The [TealiumBundle] represents a map of restricted data types which are wrappable by
+ * [TealiumValue], to ensure that all data passed to the SDK can be used correctly and without
+ * unexpected behaviours when converting to Strings.
+ *
+ * Instances of [TealiumBundle] are immutable. When requiring updates, the [copy] method is
+ * available to use, which is prepopulate a [Builder] with the existing set of [TealiumValue]s
+ *
+ * This class will serialize to a JSON object - { ... } - when calling [toString].
+ *
+ * @see TealiumValue
+ * @see TealiumList
+ */
 class TealiumBundle private constructor(
-    initialData: Map<String, TealiumValue> = emptyMap()
-) : Iterable<Map.Entry<String, TealiumValue>> {
+    data: Map<String, TealiumValue>? = null,
+    string: String? = null
+) : Iterable<Map.Entry<String, TealiumValue>>, TealiumSerializable {
 
-    private var _toString: String? = null
+    private lateinit var _data: Map<String, TealiumValue>
+    private var _toString: String? = string
+    private var isLazy = data == null && string != null
 
-    private val map: Map<String, TealiumValue> =
-        mutableMapOf<String, TealiumValue>().apply {
-            putAll(initialData)
+    init {
+        data?.let {
+            _data = it
+        }
+    }
+
+    private val map: Map<String, TealiumValue>
+        get() {
+            if (!this::_data.isInitialized && isLazy) {
+                parseData(_toString).also {
+                    isLazy = false
+                    _data = it ?: let {
+                        // _toString was not parsable
+                        _toString = EMPTY_BUNDLE_STRING
+                        emptyMap()
+                    }
+                }
+            }
+
+            return _data
         }
 
     /**
@@ -64,6 +95,15 @@ class TealiumBundle private constructor(
     fun getDouble(key: String): Double? = map[key]?.getDouble()
 
     /**
+     * Gets the [Boolean] stored at the given [key] if it exists and can be correctly returned
+     * as a [Boolean].
+     *
+     * @param key The key to use to lookup the item.
+     * @return The [Boolean] stored at the given [key]; else null
+     */
+    fun getBoolean(key: String): Boolean? = map[key]?.getBoolean()
+
+    /**
      * Gets the [TealiumList] stored at the given [key] if it exists and can be correctly returned
      * as a [TealiumList].
      *
@@ -82,11 +122,14 @@ class TealiumBundle private constructor(
     fun getBundle(key: String): TealiumBundle? = map[key]?.getBundle()
 
     /**
-     * Gets the [TealiumValue] at the given key, and attempts to deserialize it into the type [T]
+     * Gets the [TealiumValue] at the given [key], and attempts to deserialize it into the type [T]
      * using the provided [Deserializer].
-     * If conversion fails, then
+     *
+     * @param key The key to use to lookup the item.
+     * @param deserializer The deserializer to use to recreate the object of type [T]
+     * @return The reconstructed instance of [T]; else null
      */
-    fun <T> get(key: String, deserializer: Deserializer<T, TealiumValue>): T? {
+    fun <T> get(key: String, deserializer: Deserializer<TealiumValue, T>): T? {
         return map[key]?.let { obj ->
             deserializer.deserialize(obj)
         }
@@ -102,6 +145,14 @@ class TealiumBundle private constructor(
     }
 
     /**
+     * Returns the number of top level entries stored in this bundle.
+     *
+     * @return The number of entries in this bundle.
+     */
+    val size: Int
+        get() = map.size
+
+    /**
      * Returns the [Iterator] in order to iterate over the collection.
      *
      * @return The iterator which can be used to iterate over all entries in the collection
@@ -110,29 +161,61 @@ class TealiumBundle private constructor(
         return map.iterator()
     }
 
+    override fun toString(): String {
+        return _toString ?: run {
+            val stringer = JSONStringer()
+            stringify(stringer)
+            stringer.toString()
+        }.also { _toString = it }
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as TealiumBundle
+
+        if (map != other.map) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return map.hashCode()
+    }
+
     // Possibly for KTX separate library
-    fun copy(block: Builder.() -> Unit) : TealiumBundle {
+    fun copy(block: Builder.() -> Unit = {}): TealiumBundle {
         val builder = Builder(this)
         block.invoke(builder)
         return builder.getBundle()
     }
 
-    fun asTealiumValue() : TealiumValue {
+    override fun asTealiumValue(): TealiumValue {
         return TealiumValue.convert(this)
     }
 
     companion object {
+        private const val EMPTY_BUNDLE_STRING = "{}"
+
+        /**
+         * Constant value representing an empty [TealiumBundle].
+         *
+         * It's preferable to use this instance if an empty bundle is required, to save on
+         * unnecessary object creation.
+         */
         @JvmField
-        val EMPTY_BUNDLE = TealiumBundle()
+        val EMPTY_BUNDLE = TealiumBundle(data = emptyMap(), string = EMPTY_BUNDLE_STRING)
 
         /**
          * Converts a [String] representation of a bundle, into an actual [TealiumBundle] if
-         * possible
+         * possible.
+         * This method eagerly parses the [string] value.
          *
          * @return [TealiumBundle] of the given string; else null
          */
         @JvmStatic
-        fun fromString(string: String) : TealiumBundle? {
+        fun fromString(string: String): TealiumBundle? {
             if (string.isBlank()) return null
 
             return try {
@@ -147,6 +230,81 @@ class TealiumBundle private constructor(
             }
         }
 
+        private fun parseData(string: String?): Map<String, TealiumValue>? {
+            if (string.isNullOrBlank()) return null
+
+            return try {
+                val parser = JSONTokener(string)
+
+                val jsonObject = parser.nextValue()
+                if (jsonObject !is JSONObject) return null
+
+                return jsonObject.mapValues { value ->
+                    TealiumValue.convert(value)
+                }
+            } catch (ex: JSONException) {
+                null
+            }
+        }
+
+        /**
+         * Converts a Map to the supported [TealiumBundle] type.
+         *
+         * Keys should be [String]s.
+         * Unsupported values are replaced with [TealiumValue.NULL]
+         *
+         * @param map The map of key value pairs
+         * @return [TealiumBundle] containing all key value pairs as wrapped by [TealiumValue]
+         */
+        @JvmStatic
+        fun fromMap(map: Map<*, *>): TealiumBundle {
+            val builder = Builder()
+            for ((key, value) in map) {
+                if (key is String && value != null) {
+                    // tolerate invalid keys
+                    builder.put(key, TealiumValue.convert(value))
+                }
+            }
+            return builder.getBundle()
+        }
+
+        /**
+         * Converts a [JSONObject] to the supported [TealiumBundle] type.
+         *
+         * @param jsonObject The [JSONObject] containing the key value pairs
+         * @return [TealiumBundle] containing all key value pairs as wrapped by [TealiumValue]
+         */
+        @JvmStatic
+        fun fromJSONObject(jsonObject: JSONObject): TealiumBundle {
+            val builder = Builder()
+            for (key in jsonObject.keys()) {
+                jsonObject.opt(key)?.let { value ->
+                    // tolerate invalid keys
+                    builder.put(key, TealiumValue.convert(value))
+                }
+            }
+            return builder.getBundle()
+        }
+
+        /**
+         * Unsafe method allowing a [TealiumValue] to be instantiated from a stringified version of
+         * its [value].
+         *
+         * The [value] will remain uninitialized until its first access, either directly or
+         * indirectly via any of the "get" methods. This can be a performant way to create instances
+         * from stringified versions where the overhead of parsing the value is not necessarily
+         * required.
+         *
+         * @param string The stringified representation of this value.
+         * @return A TealiumValue with the [value] currently unparsed which could lead to errors
+         */
+        internal fun lazy(string: String): TealiumBundle {
+            if (EMPTY_BUNDLE_STRING == string) return EMPTY_BUNDLE
+
+            return TealiumBundle(string = string)
+        }
+
+
         /**
          * Creates a new [TealiumBundle] providing the [Builder] in a block for easy population
          *
@@ -159,20 +317,23 @@ class TealiumBundle private constructor(
             block.invoke(builder)
             return builder.getBundle()
         }
-    }
 
-    override fun toString(): String {
-        return _toString ?: run {
-            val stringer = JSONStringer()
-            stringify(stringer)
-            stringer.toString()
-        }.also { _toString = it }
+        private fun <T> JSONObject.mapValues(block: (value: Any) -> T): Map<String, T> {
+            val map = mutableMapOf<String, T>()
+            for (key in keys()) {
+                opt(key)?.let { value ->
+                    map[key] = block(value)
+                }
+            }
+            return map
+        }
     }
 
     class Builder @JvmOverloads constructor(copy: TealiumBundle = EMPTY_BUNDLE) {
-        private val data: MutableMap<String, TealiumValue> = mutableMapOf<String, TealiumValue>().apply {
-            putAll(copy.getAll())
-        }
+        private val data: MutableMap<String, TealiumValue> =
+            mutableMapOf<String, TealiumValue>().apply {
+                putAll(copy.getAll())
+            }
 
         /**
          * Adds the provided [value] into this [TealiumBundle.Builder], overwriting the existing
@@ -224,55 +385,55 @@ class TealiumBundle private constructor(
             put(key, TealiumValue.convert(value))
         }
 
-        /**
-         * Adds the provided [value] into this [TealiumBundle.Builder], overwriting the existing
-         * item at that key if it already exists.
-         *
-         * @return The current [Builder] being operated on
-         */
-        fun put(key: String, value: Array<String>) = apply {
-            put(key, TealiumValue.convert(value))
-        }
-
-        /**
-         * Adds the provided [value] into this [TealiumBundle.Builder], overwriting the existing
-         * item at that key if it already exists.
-         *
-         * @return The current [Builder] being operated on
-         */
-        fun put(key: String, value: Array<Int>) = apply {
-            put(key, TealiumValue.convert(value))
-        }
-
-        /**
-         * Adds the provided [value] into this [TealiumBundle.Builder], overwriting the existing
-         * item at that key if it already exists.
-         *
-         * @return The current [Builder] being operated on
-         */
-        fun put(key: String, value: Array<Long>) = apply {
-            put(key, TealiumValue.convert(value))
-        }
-
-        /**
-         * Adds the provided [value] into this [TealiumBundle.Builder], overwriting the existing
-         * item at that key if it already exists.
-         *
-         * @return The current [Builder] being operated on
-         */
-        fun put(key: String, value: Array<Double>) = apply {
-            put(key, TealiumValue.convert(value))
-        }
-
-        /**
-         * Adds the provided [value] into this [TealiumBundle.Builder], overwriting the existing
-         * item at that key if it already exists.
-         *
-         * @return The current [Builder] being operated on
-         */
-        fun put(key: String, value: Array<Boolean>) = apply {
-            put(key, TealiumValue.convert(value))
-        }
+//        /**
+//         * Adds the provided [value] into this [TealiumBundle.Builder], overwriting the existing
+//         * item at that key if it already exists.
+//         *
+//         * @return The current [Builder] being operated on
+//         */
+//        fun put(key: String, value: Array<String>) = apply {
+//            put(key, TealiumValue.convert(value))
+//        }
+//
+//        /**
+//         * Adds the provided [value] into this [TealiumBundle.Builder], overwriting the existing
+//         * item at that key if it already exists.
+//         *
+//         * @return The current [Builder] being operated on
+//         */
+//        fun put(key: String, value: Array<Int>) = apply {
+//            put(key, TealiumValue.convert(value))
+//        }
+//
+//        /**
+//         * Adds the provided [value] into this [TealiumBundle.Builder], overwriting the existing
+//         * item at that key if it already exists.
+//         *
+//         * @return The current [Builder] being operated on
+//         */
+//        fun put(key: String, value: Array<Long>) = apply {
+//            put(key, TealiumValue.convert(value))
+//        }
+//
+//        /**
+//         * Adds the provided [value] into this [TealiumBundle.Builder], overwriting the existing
+//         * item at that key if it already exists.
+//         *
+//         * @return The current [Builder] being operated on
+//         */
+//        fun put(key: String, value: Array<Double>) = apply {
+//            put(key, TealiumValue.convert(value))
+//        }
+//
+//        /**
+//         * Adds the provided [value] into this [TealiumBundle.Builder], overwriting the existing
+//         * item at that key if it already exists.
+//         *
+//         * @return The current [Builder] being operated on
+//         */
+//        fun put(key: String, value: Array<Boolean>) = apply {
+//            put(key, TealiumValue.convert(value))
+//        }
 
         /**
          * Unsafe shortcut to put [any] object into the bundle. The [any] will attempt to be
@@ -310,8 +471,8 @@ class TealiumBundle private constructor(
          *
          * @return The current [Builder] being operated on
          */
-        fun putSerializable(key: String, serializable: TealiumSerializable) = apply {
-            put(key, serializable.serialize())
+        fun put(key: String, value: TealiumSerializable) = apply {
+            put(key, value.asTealiumValue())
         }
 
         /**
@@ -340,6 +501,8 @@ class TealiumBundle private constructor(
          * the [Builder]
          */
         fun getBundle(): TealiumBundle {
+            if (data.isEmpty()) return EMPTY_BUNDLE
+
             return TealiumBundle(data)
         }
     }

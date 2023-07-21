@@ -8,6 +8,7 @@ import com.tealium.core.internal.persistence.DatabaseTestUtils.assertV2TablesExi
 import com.tealium.core.internal.persistence.DatabaseTestUtils.assertV3TablesExist
 import com.tealium.core.internal.persistence.DatabaseTestUtils.assertV3TablesPostUpgrade
 import com.tealium.core.internal.persistence.DatabaseTestUtils.createV3Database
+import com.tealium.core.internal.persistence.DatabaseTestUtils.upgrade
 import com.tealium.tests.common.getDefaultConfig
 import org.junit.After
 import org.junit.Before
@@ -53,11 +54,7 @@ class DatabaseUpgradeTests {
     @Test
     fun upgrade_InMemory_From_1_to_2_DoesNotThrow() {
         val inMemoryDb = DatabaseTestUtils.createV1Database(config.application.applicationContext)
-        DatabaseTestUtils.getDatabaseUpgrades(
-            1, 2
-        ).forEach {
-            it.upgrade(inMemoryDb)
-        }
+        inMemoryDb.upgrade(1, 2)
 
         assertV2TablesExist(inMemoryDb)
     }
@@ -65,11 +62,7 @@ class DatabaseUpgradeTests {
     @Test
     fun upgrade_InMemory_From_2_to_3_DoesNotThrow() {
         val inMemoryDb = DatabaseTestUtils.createV2Database(config.application.applicationContext)
-        DatabaseTestUtils.getDatabaseUpgrades(
-            2, 3
-        ).forEach {
-            it.upgrade(inMemoryDb)
-        }
+        inMemoryDb.upgrade(2, 3)
 
         assertV3TablesPostUpgrade(inMemoryDb)
     }
@@ -77,11 +70,7 @@ class DatabaseUpgradeTests {
     @Test
     fun upgrade_InMemory_From_1_to_3_DoesNotThrow() {
         val inMemoryDb = DatabaseTestUtils.createV1Database(config.application.applicationContext)
-        DatabaseTestUtils.getDatabaseUpgrades(
-            1, 3
-        ).forEach {
-            it.upgrade(inMemoryDb)
-        }
+        inMemoryDb.upgrade(1, 3)
 
         assertV3TablesPostUpgrade(inMemoryDb)
     }
