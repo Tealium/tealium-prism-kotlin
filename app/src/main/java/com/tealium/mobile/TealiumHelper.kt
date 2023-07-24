@@ -15,6 +15,7 @@ import com.tealium.core.api.listeners.DispatchDroppedListener
 import com.tealium.core.api.listeners.DispatchQueuedListener
 import com.tealium.core.api.listeners.DispatchReadyListener
 import com.tealium.core.internal.CollectDispatcher
+import com.tealium.core.internal.network.*
 import com.tealium.core.internal.modules.VisitorService
 import com.tealium.core.internal.modules.visitorService
 import java.lang.Exception
@@ -115,5 +116,45 @@ object TealiumHelper :
 
     override fun onConsentStatusUpdated(status: ConsentStatus) {
         Log.d("TealiumHelper", "Status: $status")
+    }
+}
+
+class CustomInterceptor(private val delayInterval: Long) : Interceptor {
+    override fun didComplete(request: HttpRequestData, result: NetworkResult) {
+        when (result) {
+            is Success -> println("Successful request : ${result.responseData.statusCode}")
+            is Failure -> {
+                when (val error = result.networkError) {
+                    is Non200Error -> println("Failed request with status code: ${error.statusCode}")
+                    is IOError -> println("Failed request - cause: ${error.ex?.cause}, message: ${error.ex?.message}")
+                    is UnexpectedError -> println("Failed request - cause: ${error.ex?.cause}, message: ${error.ex?.message}")
+                    is Cancelled -> println("Failed request - cancelled")
+                }
+            }
+        }
+    }
+
+    override fun shouldRetry(
+        request: HttpRequestData,
+        result: NetworkResult,
+        retryCount: Int
+    ): RetryPolicy {
+//        return RetryAfterDelay(delayInterval)
+        return when (result) {
+            is Failure -> {
+                if (result.networkError.isRetryable()) {
+                    RetryAfterDelay(delayInterval)
+                } else {
+                    // something else
+                    DoNotRetry()
+                }
+            }
+            else -> DoNotRetry()
+        }
+    }
+
+    override fun shouldDelay(request: HttpRequestData): DelayPolicy {
+        // if connectivity not available, then delay
+        return DoNotDelay()
     }
 }
