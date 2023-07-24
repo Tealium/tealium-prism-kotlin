@@ -2,10 +2,7 @@ package com.tealium.mobile
 
 import android.app.Application
 import android.util.Log
-import com.tealium.core.Dispatches
-import com.tealium.core.Modules
-import com.tealium.core.Tealium
-import com.tealium.core.TealiumConfig
+import com.tealium.core.*
 import com.tealium.core.api.ConsentStatus
 import com.tealium.core.api.DataLayer
 import com.tealium.core.api.Dispatch
@@ -49,7 +46,10 @@ object TealiumHelper :
         val config = TealiumConfig(
             application = application,
             modules = listOf(Example, CollectDispatcher, Modules.VisitorService, Modules.Collect),
-            fileName = "tealium-settings.json"
+            fileName = "tealium-settings.json",
+            accountName = "tealiummobile",
+            profileName = "android",
+            environment = Environment.DEV
         )
 
         Tealium.create("main", config) {

@@ -1,12 +1,9 @@
 package com.tealium.core
 
 import android.content.Context
-import com.tealium.core.api.CoreSettings
-import com.tealium.core.api.DataLayer
-import com.tealium.core.api.Dispatch
-import com.tealium.core.api.Logging
-import com.tealium.core.api.MessengerService
+import com.tealium.core.api.*
 import com.tealium.core.api.data.ObservablesFactory
+import com.tealium.core.internal.persistence.DataStoreProvider
 
 class TealiumContext(
     val context: Context,
@@ -18,6 +15,7 @@ class TealiumContext(
     // TODO - find a better place to access this?
     val observables: ObservablesFactory,
     visitorId: String, // todo
+    val storageProvider: DataStoreProvider,
 
     private val tealium: Tealium
 ) {

@@ -9,7 +9,7 @@ enum class Environment(val environment: String) : TealiumSerializable, TealiumDe
     QA("qa"),
     PROD("prod");
 
-    override fun serialize(): TealiumValue {
+    override fun asTealiumValue(): TealiumValue {
         return TealiumValue.string(this.environment)
     }
 

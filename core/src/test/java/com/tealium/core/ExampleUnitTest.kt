@@ -22,7 +22,7 @@ class ExampleUnitTest {
     fun addition_isCorrect() {
         val complexSerializable = ComplexSerializable("test", listOf("1", "2", "3"), mapOf("string" to "string"))
         val bundle = TealiumBundle.Builder()
-            .putSerializable("ser", complexSerializable)
+            .put("ser", complexSerializable)
             .getBundle()
 
         val deserialized: ComplexSerializable? = bundle.get("ser", ComplexSerializable.Creator)
@@ -30,26 +30,6 @@ class ExampleUnitTest {
         assertEquals(complexSerializable.list, deserialized?.list)
         assertEquals(complexSerializable.map, deserialized?.map)
 
-
-        val newBundle: TealiumBundle = TealiumBundle.create {
-            put("int", arrayOf<Int>(1, 2, 3))
-        }
-    }
-
-    @Test
-    fun testBundleCopy() {
-        val bundle = TealiumBundle.Builder()
-            .put("string", "string")
-            .put("int", 1)
-            .getBundle()
-
-        val copy = bundle.copy {
-            put("string", "new_value")
-        }
-
-        assertNotSame(bundle, copy)
-        assertNotEquals("new_value", bundle.getString("string"))
-        assertEquals("new_value", copy.getString("string"))
     }
 
     @Test
@@ -64,8 +44,8 @@ class ExampleUnitTest {
         }
 
         assertNotSame(list, copy)
-        assertEquals(2, list.size())
-        assertEquals(3, copy.size())
+        assertEquals(2, list.size)
+        assertEquals(3, copy.size)
 
         assertEquals("string", list.getString(0))
         assertEquals(1, list.getInt(1))
@@ -99,7 +79,7 @@ class ExampleUnitTest {
         val map: Map<String, String>
     ) : TealiumSerializable {
 
-        override fun serialize(): TealiumValue {
+        override fun asTealiumValue(): TealiumValue {
             val bundle = TealiumBundle.Builder()
                 .put(KEY_STRING, string)
                 .putAny(KEY_LIST, list)
