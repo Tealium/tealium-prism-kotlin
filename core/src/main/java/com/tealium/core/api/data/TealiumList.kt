@@ -1,4 +1,4 @@
-package com.tealium.core.api.data.bundle
+package com.tealium.core.api.data
 
 import com.tealium.core.api.Deserializer
 import com.tealium.core.internal.stringify
@@ -340,41 +340,6 @@ class TealiumList private constructor(
             val builder = Builder()
             block.invoke(builder)
             return builder.getList()
-        }
-
-        /**
-         * Utility function to allow [map] iterating on a [JSONArray]
-         */
-        private fun <T> JSONArray.map(transform: (value: Any) -> T) : List<T> {
-            val list = mutableListOf<T>()
-            this.forEach { value ->
-                list.add(transform.invoke(value))
-            }
-            return list.toList()
-        }
-
-        /**
-         * Utility function to allow forEach iteration on a [JSONArray]
-         */
-        private fun JSONArray.forEach(block: (value: Any) -> Unit) {
-            val size = this.length()
-            for (idx in 0 until size) {
-                this.opt(idx)?.let { value ->
-                    block(value)
-                }
-            }
-        }
-
-        /**
-         * Utility function to allow forEach with index iteration on a [JSONArray]
-         */
-        private fun JSONArray.forEachIndexed(block: (value: Any, index: Int) -> Unit) {
-            val size = this.length()
-            for (idx in 0 until size) {
-                this.opt(idx)?.let { value ->
-                    block(value, idx)
-                }
-            }
         }
     }
 

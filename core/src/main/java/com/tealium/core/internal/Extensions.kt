@@ -1,8 +1,8 @@
 package com.tealium.core.internal
 
-import com.tealium.core.api.data.bundle.TealiumBundle
-import com.tealium.core.api.data.bundle.TealiumList
-import com.tealium.core.api.data.bundle.TealiumValue
+import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.TealiumList
+import com.tealium.core.api.data.TealiumValue
 import org.json.JSONStringer
 
 fun TealiumValue.stringify(stringer: JSONStringer) {

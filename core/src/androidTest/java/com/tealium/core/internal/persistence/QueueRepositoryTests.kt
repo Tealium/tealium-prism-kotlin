@@ -5,7 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.Dispatcher
 import com.tealium.core.api.TealiumDispatchType
-import com.tealium.core.api.data.bundle.TealiumBundle
+import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.internal.persistence.DatabaseTestUtils.upgrade
 import com.tealium.tests.common.TestDispatcher
 import com.tealium.tests.common.getDefaultConfig

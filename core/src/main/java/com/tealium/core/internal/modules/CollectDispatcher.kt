@@ -1,5 +1,6 @@
-package com.tealium.core.internal
+package com.tealium.core.internal.modules
 
+import com.tealium.core.BuildConfig
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.*
 
@@ -9,24 +10,25 @@ class CollectDispatcher(
 ) : Dispatcher, Module {
 
     override val name: String
-        get() = NAME
+        get() = moduleName
     override val version: String
-        get() = VERSION
+        get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
     override fun dispatch(dispatches: List<Dispatch>) {
-        TODO("Not yet implemented")
+
     }
 
     override fun updateSettings(coreSettings: CoreSettings, moduleSettings: ModuleSettings) {
         collectDispatcherSettings = CollectDispatcherSettings.fromModuleSettings(moduleSettings)
     }
 
-    companion object Factory : ModuleFactory {
-        const val NAME = "CollectDispatcher"
-        const val VERSION = "1.0.0"
+    companion object {
+        const val moduleName = "CollectDispatcher"
+    }
 
+    object Factory : ModuleFactory {
         override val name: String
-            get() = NAME
+            get() = moduleName
 
         override fun create(context: TealiumContext, settings: ModuleSettings): Module {
             return CollectDispatcher(context, CollectDispatcherSettings.fromModuleSettings(settings))

@@ -1,7 +1,7 @@
 package com.tealium.core.api
 
-import com.tealium.core.api.data.bundle.TealiumBundle
-import com.tealium.core.api.data.bundle.TealiumValue
+import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.TealiumValue
 
 /**
  * Generic data storage for storing and retrieving [TealiumValue] objects.

@@ -1,4 +1,4 @@
-package com.tealium.core.api.data.bundle
+package com.tealium.core.api.data
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -16,9 +16,7 @@ class TealiumSerializableTests {
     fun serialize_ListSerializable_CreatesTealiumList() {
         val serialized = listSerializable.asTealiumValue()
 
-        val deserialized = TestListSerializable
-            .Deserializer
-            .deserialize(serialized)
+        val deserialized = TestListSerializable.Deserializer.deserialize(serialized)
 
         assertEquals("[\"value\",10]", serialized.toString())
         assertEquals(listSerializable, deserialized)
@@ -28,9 +26,7 @@ class TealiumSerializableTests {
     fun serialize_BundleSerializable_CreatesTealiumBundle() {
         val serialized = bundleSerializable.asTealiumValue()
 
-        val deserialized = TestBundleSerializable
-            .Deserializer
-            .deserialize(serialized)
+        val deserialized = TestBundleSerializable.Deserializer.deserialize(serialized)
 
         assertEquals("{\"string\":\"value\",\"int\":10}", serialized.toString())
         assertEquals(bundleSerializable, deserialized)
@@ -39,13 +35,11 @@ class TealiumSerializableTests {
     @Test
     fun deserialize_ReturnsNull_WhenInvalidType() {
 
-        assertNull(TestListSerializable
-            .Deserializer
-            .deserialize(TealiumBundle.create {  }.asTealiumValue()))
+        assertNull(TestListSerializable.Deserializer.deserialize(TealiumBundle.create { }
+            .asTealiumValue()))
 
-        assertNull(TestBundleSerializable
-            .Deserializer
-            .deserialize(TealiumList.create {  }.asTealiumValue()))
+        assertNull(TestBundleSerializable.Deserializer.deserialize(TealiumList.create { }
+            .asTealiumValue()))
     }
 }
 

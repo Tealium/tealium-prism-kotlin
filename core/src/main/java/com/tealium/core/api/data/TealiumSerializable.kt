@@ -1,4 +1,4 @@
-package com.tealium.core.api.data.bundle
+package com.tealium.core.api.data
 
 /**
  * Classes that implement this interface should be able to convert themselves successfully to an

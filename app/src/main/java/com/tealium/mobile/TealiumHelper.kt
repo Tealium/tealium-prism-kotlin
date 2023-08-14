@@ -6,19 +6,13 @@ import com.tealium.core.*
 import com.tealium.core.api.ConsentStatus
 import com.tealium.core.api.DataLayer
 import com.tealium.core.api.Dispatch
-import com.tealium.core.internal.modules.Example
-import com.tealium.core.api.TealiumDispatchType
 import com.tealium.core.api.VisitorService
-import com.tealium.core.api.data.bundle.TealiumBundle
 import com.tealium.core.api.listeners.ConsentStatusUpdatedListener
 import com.tealium.core.api.listeners.DispatchDroppedListener
 import com.tealium.core.api.listeners.DispatchQueuedListener
 import com.tealium.core.api.listeners.DispatchReadyListener
-import com.tealium.core.internal.CollectDispatcher
 import com.tealium.core.internal.network.*
-import com.tealium.core.internal.modules.VisitorService
-import com.tealium.core.internal.modules.visitorService
-import java.lang.Exception
+import com.tealium.core.Modules
 
 object TealiumHelper :
     DispatchReadyListener,
@@ -46,7 +40,7 @@ object TealiumHelper :
     fun init(application: Application) {
         val config = TealiumConfig(
             application = application,
-            modules = listOf(Example, CollectDispatcher, Modules.VisitorService, Modules.Collect),
+            modules = listOf(Modules.VisitorService, Modules.Collect),
             fileName = "tealium-settings.json",
             accountName = "tealiummobile",
             profileName = "android",
@@ -72,17 +66,17 @@ object TealiumHelper :
             it.dataLayer.remove("key2")
 
             it.visitorService?.let { vs ->
-                val vId = vs.visitorId.get()
-                Log.d("VisitorId", "vId = $vId")
-                vs.visitorId.subscribe {
-                    Log.d("OnMain?", "Executing on ${Thread.currentThread().name}")
-                    Log.d("VisitorId", "Updated VisitorId: $it")
-                }
+//                val vId = vs.visitorId.get()
+//                Log.d("VisitorId", /**/"vId = $vId")
+//                vs.visitorId.subscribe {
+//                    Log.d("OnMain?", "Executing on ${Thread.currentThread().name}")
+//                    Log.d("VisitorId", "Updated VisitorId: $it")
+//                }
                 vs.resetVisitorId()
                 vs.resetVisitorId()
                 vs.resetVisitorId()
                 vs.resetVisitorId()
-                vs.visitorId.subscribe(this)
+//                vs.visitorId.subscribe(this)
                 vs.resetVisitorId()
             }
 

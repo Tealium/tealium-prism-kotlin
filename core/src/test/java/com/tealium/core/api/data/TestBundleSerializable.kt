@@ -1,4 +1,4 @@
-package com.tealium.core.api.data.bundle
+package com.tealium.core.api.data
 
 data class TestBundleSerializable(
     private val string: String,

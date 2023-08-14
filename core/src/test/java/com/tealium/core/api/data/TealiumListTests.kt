@@ -1,4 +1,4 @@
-package com.tealium.core.api.data.bundle
+package com.tealium.core.api.data
 
 import com.tealium.tests.common.trimJson
 import org.junit.Assert.*

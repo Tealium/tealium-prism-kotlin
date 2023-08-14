@@ -1,5 +1,6 @@
 package com.tealium.core.internal
 
+import com.tealium.core.BuildConfig
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.DeeplinkManager
 import com.tealium.core.api.Module
@@ -35,7 +36,7 @@ class DeeplinkManagerImpl: DeeplinkManager, Module {
     override val name: String
         get() = moduleName
     override val version: String
-        get() = "" // TODO
+        get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
     companion object: ModuleFactory {
         private const val moduleName = "DeepLinkManager"

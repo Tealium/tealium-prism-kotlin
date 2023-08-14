@@ -1,42 +1,44 @@
 package com.tealium.core.internal
 
+import com.tealium.core.BuildConfig
 import com.tealium.core.Environment
 import com.tealium.core.LogLevel
 import com.tealium.core.Tealium
 import com.tealium.core.TealiumConfig
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.*
-import com.tealium.core.internal.observables.ObservablesFactoryImpl
-import com.tealium.core.api.data.bundle.TealiumBundle
-import com.tealium.core.api.listeners.Listener
-import com.tealium.core.internal.messengers.DispatchDroppedMessenger
-import com.tealium.core.internal.messengers.DispatchQueuedMessenger
-import com.tealium.core.internal.messengers.DispatchReadyMessenger
-import com.tealium.core.internal.messengers.DispatchSendMessenger
+import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import com.tealium.core.internal.modules.TealiumCollector
 import com.tealium.core.internal.persistence.DataStoreProviderImpl
 import com.tealium.core.internal.persistence.DatabaseProvider
 import com.tealium.core.internal.persistence.FileDatabaseProvider
 import com.tealium.core.internal.persistence.ModuleStorageRepositoryImpl
+import java.io.File
+import java.io.IOException
 import java.lang.Exception
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
 
 class TealiumImpl(
     private val config: TealiumConfig,
     private val onReady: Tealium.OnTealiumReady? = null,
-    private val dbProvider: DatabaseProvider = FileDatabaseProvider(config)
+    private val dbProvider: DatabaseProvider = FileDatabaseProvider(config),
+    private val backgroundService: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
 ) : Tealium {
 
-    private val backgroundService = Executors.newSingleThreadScheduledExecutor()
-    private val eventRouter = EventDispatcher<Listener>(backgroundService)
     private val logger: Logger = Logger(logLevel = LogLevel.DEV) // todo read level from file?
-    private val messengerService: MessengerServiceImpl = MessengerServiceImpl(eventRouter)
-    private val moduleStorageRepository: ModuleStorageRepositoryImpl = ModuleStorageRepositoryImpl(dbProvider)
 
-    override val events: Subscribable<Listener>
-        get() = messengerService
+    init {
+        makeTealiumDirectory(config).let { success ->
+            if (!success) {
+                logger.error(BuildConfig.TAG, "Failed to create Tealium directory")
+            }
+        }
+    }
+
+    private val moduleStorageRepository: ModuleStorageRepositoryImpl = ModuleStorageRepositoryImpl(dbProvider)
 
     private val tealiumContext: TealiumContext =
         TealiumContext(
@@ -44,10 +46,8 @@ class TealiumImpl(
             // TODO - read from file instead.
             coreSettings = CoreSettingsImpl("tealiummobile", "demo", Environment.DEV),
             dataLayer = dataLayer,
-            events = messengerService,
             logger = logger,
             visitorId = "", // TODO
-            observables = ObservablesFactoryImpl(backgroundService),
             storageProvider = DataStoreProviderImpl(
                 dbProvider, moduleStorageRepository
             ),
@@ -75,7 +75,7 @@ class TealiumImpl(
             TraceManagerImpl,
             DeeplinkManagerImpl,
             TimedEventsManagerImpl,
-            InternalModuleFactories.consentManagerFactory(eventRouter),
+            ConsentManagerImpl.Factory,
         )
 
         modules.addAll(config.modules)
@@ -114,6 +114,9 @@ class TealiumImpl(
             WeakReference(_moduleManager)
         )
 
+    override val visitorService: VisitorService?
+        get() = modules.getModuleOfType(VisitorService::class.java)
+
     @Suppress("NAME_SHADOWING")
     override fun track(dispatch: Dispatch) {
         Dispatch.create(dispatch).let { dispatch ->
@@ -132,15 +135,14 @@ class TealiumImpl(
             logger.debug("TealiumImpl") {
                 "Dispatch(${dispatch.id.substring(0, 5)}) Ready - ${dispatch.payload()}"
             }
-            eventRouter.send(DispatchReadyMessenger(dispatch))
 
             // Validation
             // todo
 
 //        if (false) { // TODO - if queued
-            eventRouter.send(DispatchQueuedMessenger(dispatch))
+
 //        } else if (false) { // TODO - if dropped
-            eventRouter.send(DispatchDroppedMessenger(dispatch))
+
 //        }
 
             // Dispatch
@@ -151,8 +153,6 @@ class TealiumImpl(
                     dispatches,
                 )
             }
-
-            eventRouter.send(DispatchSendMessenger(dispatches))
         }
     }
 
@@ -162,5 +162,20 @@ class TealiumImpl(
 
     fun shutdown() {
         TODO("Not yet implemented")
+    }
+
+    companion object {
+
+        fun makeTealiumDirectory(config: TealiumConfig): Boolean {
+            val pathName =
+                "${config.application.filesDir}${File.separatorChar}tealium${File.separatorChar}${config.accountName}${File.separatorChar}${config.profileName}${File.separatorChar}${config.environment.environment}"
+            val tealiumDirectory = File(pathName)
+
+            return try {
+                tealiumDirectory.exists() || tealiumDirectory.mkdirs()
+            } catch (e: IOException) {
+                false
+            }
+        }
     }
 }

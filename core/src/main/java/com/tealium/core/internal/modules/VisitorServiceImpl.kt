@@ -1,92 +1,48 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.BuildConfig
-import com.tealium.core.Modules
-import com.tealium.core.Tealium
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.CoreSettings
+import com.tealium.core.api.DataStore
 import com.tealium.core.api.Module
 import com.tealium.core.api.ModuleFactory
 import com.tealium.core.api.ModuleSettings
 import com.tealium.core.api.VisitorProfile
 import com.tealium.core.api.VisitorService
-import com.tealium.core.api.data.MutableObservableProperty
-import com.tealium.core.api.data.ObservableProperty
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.util.*
 
 class VisitorServiceImpl(
     private var settings: VisitorServiceSettings,
-    private val _visitorId: MutableObservableProperty<String, VisitorService.VisitorIdUpdatedListener>,
-    private val _visitorProfile: MutableObservableProperty<VisitorProfile, VisitorService.VisitorProfileUpdatedListener>
+    private val dataStore: DataStore
 ) : VisitorService, Module {
 
-    private constructor(
-        context: TealiumContext,
-        settings: VisitorServiceSettings
-    ) : this(
-        settings,
-        context.observables.createBufferedProperty(
-            generateVisitorId(),
-            size = 3,
-            deliver = { observer, value ->
-                observer.onVisitorIdUpdated(value)
-            }
-        ),
-        context.observables.createProperty(
-            initial = VisitorProfile(),
-            deliver = { observer, value ->
-                observer.onVisitorProfileUpdated(value)
-            }
-        )
+    private val visitorIdFlow: MutableStateFlow<String> =
+        MutableStateFlow(generateVisitorId()) // TODO load from storage
+    private val visitorProfileFlow: MutableStateFlow<VisitorProfile> = MutableStateFlow(
+        VisitorProfile() // TODO load latest
     )
 
-//    private val _someDelegatingProp: MutableObservableProperty<String, VisitorService.VisitorIdUpdatedListener> =
-//        context.observables.Builder<String, VisitorService.VisitorIdUpdatedListener>(
-//            generateVisitorId()
-//        ).onUpdate { observer, value ->
-//            observer.onVisitorIdUpdated(value)
-//        }.build()
+    override val visitorId: String
+        get() = visitorIdFlow.value
+
+    override val onVisitorIdUpdated: StateFlow<String>
+        get() = visitorIdFlow.asStateFlow()
 
 
-    //    private val _visitorId = object :
-//        MutableObservablePropertyImpl<String, VisitorService.VisitorIdUpdatedListener>(
-//            generateVisitorId(), // TODO - read from disk
-//        ) {
-//        override fun deliver(observer: VisitorService.VisitorIdUpdatedListener, value: String) {
-//            observer.onVisitorIdUpdated(value)
-//        }
-//    }
-//    private val _visitorId: MutableObservableProperty<String, VisitorService.VisitorIdUpdatedListener> =
-//        context.observables.createProperty(generateVisitorId()) { observer, value ->
-//            observer.onVisitorIdUpdated(value)
-//        }
+    override val visitorProfile: VisitorProfile
+        get() = visitorProfileFlow.value
 
-    //    private val _visitorId: MutableObservableProperty<String, VisitorService.VisitorIdUpdatedListener> =
-//        context.observables.createBufferedProperty(
-//            generateVisitorId(),
-//            size = 3
-//        ) { observer, value ->
-//            observer.onVisitorIdUpdated(value)
-//        }
-    override val visitorId: ObservableProperty<String, VisitorService.VisitorIdUpdatedListener>
-        get() = _visitorId
-
-    //    private val _visitorProfile = object :
-//        MutableObservablePropertyImpl<VisitorProfile, VisitorService.VisitorProfileUpdatedListener>(
-//            VisitorProfile()
-//        ) {
-//        override fun deliver(
-//            observer: VisitorService.VisitorProfileUpdatedListener,
-//            value: VisitorProfile
-//        ) {
-//            observer.onVisitorProfileUpdated(value)
-//        }
-//    }
-    override val visitorProfile: ObservableProperty<VisitorProfile, VisitorService.VisitorProfileUpdatedListener>
-        get() = _visitorProfile
+    override val onVisitorProfileUpdated: StateFlow<VisitorProfile>
+        get() = visitorProfileFlow.asStateFlow()
 
     override fun resetVisitorId() {
-        _visitorId.update(generateVisitorId())
+        val newId = generateVisitorId()
+
+
+//        _visitorId.update(generateVisitorId())
     }
 
     override fun clearStoredVisitorIds() {
@@ -100,11 +56,10 @@ class VisitorServiceImpl(
     override val name: String
         get() = moduleName
     override val version: String
-        get() = moduleVersion
+        get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
     companion object {
         private const val moduleName = "VisitorService"
-        private const val moduleVersion = BuildConfig.TEALIUM_LIBRARY_VERSION
 
         private fun generateVisitorId(uuid: UUID = UUID.randomUUID()): String {
             return uuid.toString().replace("-", "")
@@ -116,7 +71,10 @@ class VisitorServiceImpl(
             get() = moduleName
 
         override fun create(context: TealiumContext, settings: ModuleSettings): Module {
-            return VisitorServiceImpl(context, VisitorServiceSettings.fromModuleSettings(settings))
+            return VisitorServiceImpl(
+                VisitorServiceSettings.fromModuleSettings(settings),
+                context.storageProvider.getDataStore(this)
+            )
         }
     }
 }
@@ -154,12 +112,3 @@ class VisitorServiceSettings(
         }
     }
 }
-
-
-// TODO - move elsewhere
-val Tealium.visitorService: VisitorService?
-    get() = modules.getModuleOfType(VisitorService::class.java)
-
-// TODO - move elsewhere
-val Modules.VisitorService: ModuleFactory
-    get() = VisitorServiceImpl.Factory

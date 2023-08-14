@@ -1,10 +1,11 @@
 package com.tealium.core
 
-import com.tealium.core.api.data.bundle.TealiumDeserializable
-import com.tealium.core.api.data.bundle.TealiumSerializable
-import com.tealium.core.api.data.bundle.TealiumValue
+import com.tealium.core.api.data.TealiumDeserializable
+import com.tealium.core.api.data.TealiumSerializable
+import com.tealium.core.api.data.TealiumValue
 
-enum class Environment(val environment: String) : TealiumSerializable, TealiumDeserializable<Environment> {
+enum class Environment(val environment: String) : TealiumSerializable,
+    TealiumDeserializable<Environment> {
     DEV("dev"),
     QA("qa"),
     PROD("prod");

@@ -5,9 +5,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.tealium.core.Environment
 import com.tealium.core.TealiumConfig
 import com.tealium.core.api.Expiry
-import com.tealium.core.api.data.bundle.TealiumBundle
-import com.tealium.core.api.data.bundle.TealiumList
-import com.tealium.core.api.data.bundle.TealiumValue
+import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.TealiumList
+import com.tealium.core.api.data.TealiumValue
 import com.tealium.tests.common.TestModule
 import org.junit.Assert.*
 import org.junit.Before

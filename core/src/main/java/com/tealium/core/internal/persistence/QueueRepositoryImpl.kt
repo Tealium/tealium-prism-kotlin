@@ -10,7 +10,7 @@ import androidx.core.database.getStringOrNull
 import com.tealium.core.BuildConfig
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.Dispatcher
-import com.tealium.core.api.data.bundle.TealiumBundle
+import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.internal.persistence.Schema.DispatchTable
 import com.tealium.core.internal.persistence.Schema.DispatcherTable
 import com.tealium.core.internal.persistence.Schema.LegacyTables

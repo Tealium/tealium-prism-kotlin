@@ -1,14 +1,14 @@
 package com.tealium.core
 
-import com.tealium.core.internal.CollectDispatcher
+import com.tealium.core.api.ModuleFactory
+import com.tealium.core.internal.modules.CollectDispatcher
+import com.tealium.core.internal.modules.VisitorServiceImpl
 
 
 /**
- * Extenson point for optional modules
+ * Extension point for optional modules
  */
 object Modules {
-    val Collect = CollectDispatcher
-    // TODO - others
-
-
+    val Collect: ModuleFactory = CollectDispatcher.Factory
+    val VisitorService: ModuleFactory = VisitorServiceImpl.Factory
 }

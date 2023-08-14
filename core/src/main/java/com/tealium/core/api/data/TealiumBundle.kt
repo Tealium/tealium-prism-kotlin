@@ -1,4 +1,4 @@
-package com.tealium.core.api.data.bundle
+package com.tealium.core.api.data
 
 import com.tealium.core.api.Deserializer
 import com.tealium.core.internal.stringify
@@ -317,16 +317,6 @@ class TealiumBundle private constructor(
             block.invoke(builder)
             return builder.getBundle()
         }
-
-        private fun <T> JSONObject.mapValues(block: (value: Any) -> T): Map<String, T> {
-            val map = mutableMapOf<String, T>()
-            for (key in keys()) {
-                opt(key)?.let { value ->
-                    map[key] = block(value)
-                }
-            }
-            return map
-        }
     }
 
     class Builder @JvmOverloads constructor(copy: TealiumBundle = EMPTY_BUNDLE) {
@@ -384,56 +374,6 @@ class TealiumBundle private constructor(
         fun put(key: String, value: Boolean) = apply {
             put(key, TealiumValue.convert(value))
         }
-
-//        /**
-//         * Adds the provided [value] into this [TealiumBundle.Builder], overwriting the existing
-//         * item at that key if it already exists.
-//         *
-//         * @return The current [Builder] being operated on
-//         */
-//        fun put(key: String, value: Array<String>) = apply {
-//            put(key, TealiumValue.convert(value))
-//        }
-//
-//        /**
-//         * Adds the provided [value] into this [TealiumBundle.Builder], overwriting the existing
-//         * item at that key if it already exists.
-//         *
-//         * @return The current [Builder] being operated on
-//         */
-//        fun put(key: String, value: Array<Int>) = apply {
-//            put(key, TealiumValue.convert(value))
-//        }
-//
-//        /**
-//         * Adds the provided [value] into this [TealiumBundle.Builder], overwriting the existing
-//         * item at that key if it already exists.
-//         *
-//         * @return The current [Builder] being operated on
-//         */
-//        fun put(key: String, value: Array<Long>) = apply {
-//            put(key, TealiumValue.convert(value))
-//        }
-//
-//        /**
-//         * Adds the provided [value] into this [TealiumBundle.Builder], overwriting the existing
-//         * item at that key if it already exists.
-//         *
-//         * @return The current [Builder] being operated on
-//         */
-//        fun put(key: String, value: Array<Double>) = apply {
-//            put(key, TealiumValue.convert(value))
-//        }
-//
-//        /**
-//         * Adds the provided [value] into this [TealiumBundle.Builder], overwriting the existing
-//         * item at that key if it already exists.
-//         *
-//         * @return The current [Builder] being operated on
-//         */
-//        fun put(key: String, value: Array<Boolean>) = apply {
-//            put(key, TealiumValue.convert(value))
-//        }
 
         /**
          * Unsafe shortcut to put [any] object into the bundle. The [any] will attempt to be

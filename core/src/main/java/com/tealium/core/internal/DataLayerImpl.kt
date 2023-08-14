@@ -1,15 +1,15 @@
 package com.tealium.core.internal
 
+import com.tealium.core.BuildConfig
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.DataLayer
 import com.tealium.core.api.Module
 import com.tealium.core.api.ModuleFactory
 import com.tealium.core.api.ModuleSettings
 import com.tealium.core.api.Subscribable
-import com.tealium.core.api.data.MutableObservableProperty
-import com.tealium.core.api.data.bundle.TealiumBundle
-import com.tealium.core.api.data.bundle.TealiumList
-import com.tealium.core.api.data.bundle.TealiumValue
+import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.TealiumList
+import com.tealium.core.api.data.TealiumValue
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import org.json.JSONArray
 import org.json.JSONObject
@@ -108,36 +108,14 @@ class DataLayerWrapper(
 }
 
 class DataLayerImpl(
-    private val _onDataUpdated: MutableObservableProperty<Pair<String, Any>, DataLayer.DataLayerUpdatedListener>,
-    private val _onDataRemoved: MutableObservableProperty<Set<String>, DataLayer.DataLayerRemovedListener>
+    context: TealiumContext
 ) : DataLayer, Module {
-    //    private val eventRouter: EventRouter<DataLayer.DataLayerListener> = EventDispatcher()
     private val data = mutableMapOf<String, Any>()
 
-    constructor(context: TealiumContext) : this(
-        _onDataUpdated = context.observables.createProperty(
-            initial = ("" to Any()), // TODO - make initial value nullable?
-            deliver = { observer, value ->
-                observer.onDataUpdated(value.first, value.second)
-            }
-        ),
-        _onDataRemoved = context.observables.createProperty(
-            initial = setOf(), // TODO - make initial value nullable?
-            deliver = { observer, value ->
-                observer.onDataRemoved(value)
-            }
-        )
-    )
-
-//    override val updated: Subscribable<DataLayer.DataLayerUpdatedListener>
-//        get() = eventRouter
-//    override val removed: Subscribable<DataLayer.DataLayerRemovedListener>
-//        get() = eventRouter
-
     override val onDataUpdated: Subscribable<DataLayer.DataLayerUpdatedListener>
-        get() = _onDataUpdated
+        get() = TODO () //_onDataUpdated
     override val onDataRemoved: Subscribable<DataLayer.DataLayerRemovedListener>
-        get() = _onDataRemoved
+        get() =  TODO () //_onDataRemoved
 
     override fun put(key: String, value: TealiumValue) {
 
@@ -145,7 +123,6 @@ class DataLayerImpl(
 
     override fun put(key: String, value: String) {
         data[key] = value
-        _onDataUpdated.update(key to value)
     }
 
     override fun put(key: String, value: Int) {
@@ -223,14 +200,14 @@ class DataLayerImpl(
         val removed = data.remove(key)
 
         if (removed != null) {
-            _onDataRemoved.update(setOf(key))
+
         }
     }
 
     override val name: String
         get() = moduleName
     override val version: String
-        get() = "" //TODO("Not yet implemented")
+        get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
 
     companion object : ModuleFactory {
@@ -243,26 +220,4 @@ class DataLayerImpl(
             return DataLayerImpl(context)
         }
     }
-
-//    private class DataLayerUpdatedMessenger(
-//        private val key: String,
-//        private val value: Any
-//    ) : Messenger<DataLayer.DataLayerUpdatedListener> {
-//        override val listenerClass: KClass<DataLayer.DataLayerUpdatedListener>
-//            get() = DataLayer.DataLayerUpdatedListener::class
-//
-//        override fun deliver(listener: DataLayer.DataLayerUpdatedListener) {
-//            listener.onDataUpdated(key, value)
-//        }
-//    }
-//
-//    private class DataLayerRemovedMessenger(private val keys: Set<String>) :
-//        Messenger<DataLayer.DataLayerRemovedListener> {
-//        override val listenerClass: KClass<DataLayer.DataLayerRemovedListener>
-//            get() = DataLayer.DataLayerRemovedListener::class
-//
-//        override fun deliver(listener: DataLayer.DataLayerRemovedListener) {
-//            listener.onDataRemoved(keys)
-//        }
-//    }
 }

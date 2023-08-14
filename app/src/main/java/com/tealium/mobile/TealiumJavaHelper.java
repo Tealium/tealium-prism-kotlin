@@ -7,14 +7,14 @@ import androidx.annotation.NonNull;
 
 import com.tealium.core.Dispatches;
 import com.tealium.core.Environment;
+import com.tealium.core.Modules;
 import com.tealium.core.Tealium;
 import com.tealium.core.TealiumConfig;
 import com.tealium.core.api.Dispatch;
-import com.tealium.core.internal.modules.Example;
 import com.tealium.core.api.TealiumDispatchType;
-import com.tealium.core.api.data.bundle.TealiumBundle;
-import com.tealium.core.api.data.bundle.TealiumSerializable;
-import com.tealium.core.api.data.bundle.TealiumValue;
+import com.tealium.core.api.data.TealiumBundle;
+import com.tealium.core.api.data.TealiumSerializable;
+import com.tealium.core.api.data.TealiumValue;
 
 import java.util.Collections;
 
@@ -26,7 +26,7 @@ public class TealiumJavaHelper {
         Tealium teal = Tealium.create(
                 "",
                 new TealiumConfig(app, "tealiummobile", "android", Environment.DEV, "tealium-settings.json",
-                        Collections.singletonList(Example.Factory)), tealium -> {
+                        Collections.singletonList(Modules.INSTANCE.getCollect())),tealium -> {
                     Log.d("", "Ready");
                 });
         teal.getTrace().join("");
@@ -46,16 +46,10 @@ public class TealiumJavaHelper {
                     }
                 })
                 .getBundle();
-//        tealium.getTrace().join();
 
         tealium.track(Dispatch.create("",
                 TealiumDispatchType.Event,
                 TealiumBundle.EMPTY_BUNDLE));
-//    new TealiumBundle.Builder()
-//                .put(",", "")
-//                // todo
-//                .getBundle()
-//        ));
 
         tealium.track(
                 Dispatches.event("")

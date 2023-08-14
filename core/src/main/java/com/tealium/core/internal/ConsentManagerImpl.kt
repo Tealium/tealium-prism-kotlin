@@ -1,15 +1,15 @@
 package com.tealium.core.internal
 
+import com.tealium.core.BuildConfig
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.ConsentManager
 import com.tealium.core.api.ConsentStatus
-import com.tealium.core.api.Messenger
 import com.tealium.core.api.Module
+import com.tealium.core.api.ModuleFactory
+import com.tealium.core.api.ModuleSettings
 import com.tealium.core.api.listeners.ConsentStatusUpdatedListener
-import com.tealium.core.api.listeners.Listener
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import java.lang.ref.WeakReference
-import kotlin.reflect.KClass
 
 
 class ConsentManagerWrapper(
@@ -30,15 +30,6 @@ class ConsentManagerImpl(
     private val onConsentStatusUpdatedDelegate: ConsentStatusUpdatedListener
 ) : ConsentManager, Module {
 
-    constructor(context: TealiumContext, eventRouter: EventRouter<Listener>) : this(
-        context,
-        object : ConsentStatusUpdatedListener {
-            override fun onConsentStatusUpdated(status: ConsentStatus) {
-                eventRouter.send(ConsentStatusUpdatedMessenger(status))
-            }
-        }
-    )
-
     private var currentStatus: ConsentStatus = ConsentStatus.Unknown
 
     override var consentStatus: ConsentStatus
@@ -51,20 +42,21 @@ class ConsentManagerImpl(
     override val name: String
         get() = moduleName
     override val version: String
-        get() = "" //TODO("Not yet implemented")
+        get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
 
     companion object {
         private const val moduleName = "ConsentManager"
     }
 
-    private class ConsentStatusUpdatedMessenger(private val newStatus: ConsentStatus) :
-        Messenger<ConsentStatusUpdatedListener> {
-        override val listenerClass: KClass<ConsentStatusUpdatedListener>
-            get() = ConsentStatusUpdatedListener::class
+    object Factory : ModuleFactory {
+        override val name: String
+            get() = moduleName
 
-        override fun deliver(listener: ConsentStatusUpdatedListener) {
-            listener.onConsentStatusUpdated(newStatus)
+        override fun create(context: TealiumContext, settings: ModuleSettings): Module? {
+            return ConsentManagerImpl(context) {
+                // TODO - impl listener support.
+            }
         }
     }
 }

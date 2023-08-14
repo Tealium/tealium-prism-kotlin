@@ -4,7 +4,7 @@ import android.content.ContentValues
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import com.tealium.core.api.Expiry
-import com.tealium.core.api.data.bundle.TealiumValue
+import com.tealium.core.api.data.TealiumValue
 
 /**
  * This is the default implementation for reading and writing [TealiumValue] objects to and from

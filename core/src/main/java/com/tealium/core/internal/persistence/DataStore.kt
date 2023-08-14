@@ -2,8 +2,8 @@ package com.tealium.core.internal.persistence
 
 import com.tealium.core.api.DataStore
 import com.tealium.core.api.Expiry
-import com.tealium.core.api.data.bundle.TealiumBundle
-import com.tealium.core.api.data.bundle.TealiumValue
+import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.TealiumValue
 import java.util.*
 
 class DataStoreImpl(

@@ -1,7 +1,7 @@
 package com.tealium.core.internal.persistence
 
-import com.tealium.core.api.data.bundle.TealiumBundle
-import com.tealium.core.api.data.bundle.TealiumList
+import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.TealiumList
 
 enum class Serialization(val code: Int, val clazz: Class<*>) {
     STRING(0, String::class.java),

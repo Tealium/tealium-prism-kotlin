@@ -1,7 +1,6 @@
 package com.tealium.core
 
 import com.tealium.core.api.*
-import com.tealium.core.api.listeners.Listener
 import com.tealium.core.internal.*
 
 interface Tealium {
@@ -11,13 +10,15 @@ interface Tealium {
     }
 
     val modules: ModuleManager
-    val events: Subscribable<Listener>
 
     val trace: TraceManager
     val deeplink: DeeplinkManager
     val timedEvents: TimedEventsManager
     val dataLayer: DataLayer
     val consent: ConsentManager
+
+    // Optionals
+    val visitorService: VisitorService?
 
     fun track(dispatch: Dispatch)
     fun flushEventQueue()

@@ -2,7 +2,7 @@ package com.tealium.core
 
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.TealiumDispatchType
-import com.tealium.core.api.data.bundle.TealiumBundle
+import com.tealium.core.api.data.TealiumBundle
 
 // TODO - just a WIP in case there's a nicer more fluent way to create these.
 object Dispatches {
