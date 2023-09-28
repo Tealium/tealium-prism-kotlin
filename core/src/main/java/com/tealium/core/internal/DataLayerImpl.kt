@@ -5,18 +5,18 @@ import com.tealium.core.TealiumContext
 import com.tealium.core.api.DataLayer
 import com.tealium.core.api.Module
 import com.tealium.core.api.ModuleFactory
+import com.tealium.core.api.ModuleManager
 import com.tealium.core.api.ModuleSettings
 import com.tealium.core.api.Subscribable
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumList
 import com.tealium.core.api.data.TealiumValue
-import com.tealium.core.internal.modules.ModuleManagerImpl
 import org.json.JSONArray
 import org.json.JSONObject
 import java.lang.ref.WeakReference
 
 class DataLayerWrapper(
-    private val moduleManager: WeakReference<ModuleManagerImpl>
+    private val moduleManager: WeakReference<ModuleManager>
 ) : DataLayer {
     private val delegate: DataLayer?
         get() = moduleManager.get()?.getModuleOfType(DataLayer::class.java)

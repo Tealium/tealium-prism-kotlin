@@ -22,6 +22,21 @@ internal class DatabaseHelper(
 ) :
     SQLiteOpenHelper(config.application.applicationContext, databaseName, null, DATABASE_VERSION) {
 
+    /**
+     * Stores the old version code of the database.
+     *
+     * Negative values signify it was neither created, nor updated.
+     * Zero value signifies it was created this launch.
+     * Positive values indicate the version it was upgraded from.
+     */
+    var oldVersion: Int = -1
+
+    /**
+     * Reports whether or not the database was upgraded this launch.
+     */
+    val wasUpgraded: Boolean
+        get() = oldVersion > 0
+
     fun getWritableDatabaseOrNull(): SQLiteDatabase? {
         return try {
             writableDatabase.takeIf { it != null && !it.isReadOnly }
@@ -37,6 +52,7 @@ internal class DatabaseHelper(
     }
 
     override fun onCreate(db: SQLiteDatabase?) {
+        oldVersion = 0
         db?.let {
             createV3Tables(it)
         }
@@ -48,6 +64,7 @@ internal class DatabaseHelper(
                 it.upgrade(db)
             }
         }
+        this.oldVersion = oldVersion
     }
 
     override fun onDowngrade(db: SQLiteDatabase?, oldVersion: Int, newVersion: Int) {

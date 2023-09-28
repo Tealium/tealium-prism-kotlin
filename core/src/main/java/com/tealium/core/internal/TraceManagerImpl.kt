@@ -3,13 +3,13 @@ package com.tealium.core.internal
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.Module
 import com.tealium.core.api.ModuleFactory
+import com.tealium.core.api.ModuleManager
 import com.tealium.core.api.ModuleSettings
 import com.tealium.core.api.TraceManager
-import com.tealium.core.internal.modules.ModuleManagerImpl
 import java.lang.ref.WeakReference
 
 class TraceManagerWrapper(
-    private val moduleManager: WeakReference<ModuleManagerImpl>
+    private val moduleManager: WeakReference<ModuleManager>
 ): TraceManager {
     private val delegate: TraceManager?
         get() = moduleManager.get()?.getModuleOfType(TraceManager::class.java)

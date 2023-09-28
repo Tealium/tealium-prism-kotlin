@@ -47,25 +47,25 @@ object TealiumHelper :
             environment = Environment.DEV
         )
 
-        Tealium.create("main", config) {
+        Tealium.create("main", config) { tealium, error ->
 //            it.events.subscribe(this)
 //            it.track("", TealiumDispatchType.Event) {
 //                put
 //            }
-            it.dataLayer.onDataUpdated.subscribe(this)
-            it.dataLayer.onDataRemoved.subscribe(this)
-            it.dataLayer.onDataRemoved.subscribe {
+            tealium.dataLayer.onDataUpdated.subscribe(this)
+            tealium.dataLayer.onDataRemoved.subscribe(this)
+            tealium.dataLayer.onDataRemoved.subscribe {
                 it.forEach {
                     Log.d("Lambda", "Removed: key: $it")
                 }
             }
 
-            it.dataLayer.put("key", "value")
-            it.dataLayer.put("key2", "value2")
-            it.dataLayer.remove("key")
-            it.dataLayer.remove("key2")
+            tealium.dataLayer.put("key", "value")
+            tealium.dataLayer.put("key2", "value2")
+            tealium.dataLayer.remove("key")
+            tealium.dataLayer.remove("key2")
 
-            it.visitorService?.let { vs ->
+            tealium.visitorService?.let { vs ->
 //                val vId = vs.visitorId.get()
 //                Log.d("VisitorId", /**/"vId = $vId")
 //                vs.visitorId.subscribe {

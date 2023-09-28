@@ -9,6 +9,8 @@ import com.tealium.core.internal.modules.VisitorServiceImpl
  * Extension point for optional modules
  */
 object Modules {
+    @JvmField
     val Collect: ModuleFactory = CollectDispatcher.Factory
+    @JvmField
     val VisitorService: ModuleFactory = VisitorServiceImpl.Factory
 }

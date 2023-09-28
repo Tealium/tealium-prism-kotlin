@@ -9,6 +9,8 @@ import com.tealium.core.api.ModuleManager
 import com.tealium.core.api.ModuleSettings
 import com.tealium.core.api.listeners.SettingsUpdatedListener
 import com.tealium.core.internal.SdkSettings
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantReadWriteLock
 
@@ -16,6 +18,7 @@ class ModuleManagerImpl(
     private val context: TealiumContext,
     initialSettings: SdkSettings,
     private val moduleFactories: List<ModuleFactory>,
+    private val tealiumScope: CoroutineScope
 ) : ModuleManager, SettingsUpdatedListener {
 
     private val updateLock = ReentrantReadWriteLock()
@@ -24,6 +27,10 @@ class ModuleManagerImpl(
 
     private var modules: Map<String, Module> =
         createModules(context, initialSettings.moduleSettings, moduleFactories)
+
+    init {
+        logEnabledModules()
+    }
 
     override fun <T> getModulesOfType(clazz: Class<T>): List<T> {
         lock(readLock)
@@ -34,12 +41,14 @@ class ModuleManagerImpl(
         }
     }
 
-    init {
-        logEnabledModules()
-    }
-
     override fun <T> getModuleOfType(clazz: Class<T>): T? {
         return getModulesOfType(clazz).firstOrNull()
+    }
+
+    override fun <T> getModuleOfType(clazz: Class<T>, block: (T?) -> Unit) {
+        tealiumScope.launch {
+            block.invoke(getModuleOfType(clazz))
+        }
     }
 
     override fun onSettingsUpdated(
@@ -77,11 +86,13 @@ class ModuleManagerImpl(
     }
 
     private fun logEnabledModules() {
-        context.logger.info("ModuleManager", "Enabled modules: [${modules.keys.joinToString(", ")}]")
+        context.logger.info(
+            "ModuleManager",
+            "Enabled modules: [${modules.keys.joinToString(", ")}]"
+        )
     }
 
     companion object {
-
         /**
          * Instantiates modules from their factories and associates them with the factory name.
          *

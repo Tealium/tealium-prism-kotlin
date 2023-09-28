@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.tealium.core.internal.persistence.DatabaseTestUtils.upgrade
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.MutableSharedFlow
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -21,7 +22,7 @@ class LegacyDatabaseTests {
     private lateinit var dbProvider: DatabaseProvider
     private lateinit var database: SQLiteDatabase
 
-    private lateinit var dataStore: DataStoreImpl
+    private lateinit var dataStore: ModuleStore
 
     @Before
     fun setUp() {
@@ -34,11 +35,12 @@ class LegacyDatabaseTests {
 
         database.upgrade(1, 3)
 
-        dataStore = DataStoreImpl(
-            SQLiteStorageStrategy(
+        dataStore = ModuleStore(
+            SQLKeyValueRepository(
                 dbProvider = dbProvider,
                 moduleId = 1 // Upgraded db migrates data layer as id 1
-            )
+            ),
+            onDataExpired = MutableSharedFlow()
         )
     }
 

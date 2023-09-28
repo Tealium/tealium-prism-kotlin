@@ -3,13 +3,13 @@ package com.tealium.core.internal
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.Module
 import com.tealium.core.api.ModuleFactory
+import com.tealium.core.api.ModuleManager
 import com.tealium.core.api.ModuleSettings
 import com.tealium.core.api.TimedEventsManager
-import com.tealium.core.internal.modules.ModuleManagerImpl
 import java.lang.ref.WeakReference
 
 class TimedEventsManagerWrapper(
-    private val moduleManager: WeakReference<ModuleManagerImpl>
+    private val moduleManager: WeakReference<ModuleManager>
 ): TimedEventsManager {
     private val delegate: TimedEventsManager?
         get() = moduleManager.get()?.getModuleOfType(TimedEventsManager::class.java)

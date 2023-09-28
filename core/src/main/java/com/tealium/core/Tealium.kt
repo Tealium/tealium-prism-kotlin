@@ -6,7 +6,7 @@ import com.tealium.core.internal.*
 interface Tealium {
 
     fun interface OnTealiumReady {
-        fun onReady(tealium: Tealium)
+        fun onReady(tealium: Tealium, exception: Exception?)
     }
 
     val modules: ModuleManager

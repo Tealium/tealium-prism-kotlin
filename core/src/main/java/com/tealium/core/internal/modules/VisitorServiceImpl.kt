@@ -73,7 +73,7 @@ class VisitorServiceImpl(
         override fun create(context: TealiumContext, settings: ModuleSettings): Module {
             return VisitorServiceImpl(
                 VisitorServiceSettings.fromModuleSettings(settings),
-                context.storageProvider.getDataStore(this)
+                context.storageProvider.getModuleStore(this)
             )
         }
     }

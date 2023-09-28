@@ -6,14 +6,14 @@ import com.tealium.core.api.ConsentManager
 import com.tealium.core.api.ConsentStatus
 import com.tealium.core.api.Module
 import com.tealium.core.api.ModuleFactory
+import com.tealium.core.api.ModuleManager
 import com.tealium.core.api.ModuleSettings
 import com.tealium.core.api.listeners.ConsentStatusUpdatedListener
-import com.tealium.core.internal.modules.ModuleManagerImpl
 import java.lang.ref.WeakReference
 
 
 class ConsentManagerWrapper(
-    private val moduleManager: WeakReference<ModuleManagerImpl>
+    private val moduleManager: WeakReference<ModuleManager>
 ) : ConsentManager {
     private val delegate: ConsentManager?
         get() = moduleManager.get()?.getModuleOfType(ConsentManager::class.java)

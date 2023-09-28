@@ -2,6 +2,7 @@
 
 package com.tealium.core.internal.persistence
 
+import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 
 /**
@@ -13,16 +14,65 @@ internal fun SQLiteDatabase.transaction(
     block: SQLiteDatabase.() -> Unit
 ) {
     try {
-        beginTransaction()
+        beginTransactionNonExclusive()
+        try {
+            block(this)
 
-        block(this)
-
-        setTransactionSuccessful()
+            setTransactionSuccessful()
+        } catch (e: Exception) {
+            exceptionHandler?.invoke(e)
+        } finally {
+            endTransaction()
+        }
     } catch (e: Exception) {
         exceptionHandler?.invoke(e)
-    } finally {
-        endTransaction()
     }
+}
+
+/**
+ * Utility wrapper around [SQLiteDatabase.query] to enable omitting optional parameters and simplify
+ * code-readability.
+ * This method will include all columns and values from the given table. Equivalent to running:
+ * ```sql
+ * SELECT * FROM <table name>
+ * ```
+ *
+ * Cursor closure is auto-handled after the block is completed.
+ *
+ * @param from The name of the table to select from.
+ * @param block The block of code to receive the [Cursor] in.
+ */
+internal inline fun <T> SQLiteDatabase.selectAll(from: String, block: (Cursor) -> T) =
+    select(from, block = block)
+
+/**
+ * Utility wrapper around [SQLiteDatabase.query] to enable omitting optional parameters and simplify
+ * code-readability.
+ * All params are passed as-is to the database instance.
+ *
+ * Cursor closure is auto-handled after the block is completed.
+ *
+ * @param from The name of the table to select from.
+ * @param columns The list of column names to select
+ * @param where The selection clause after the SQL WHERE statement, excluding the "WHERE" part
+ * @param whereArgs The binding arguments for any ?'s in the [where] clause
+ * @param groupBy The column name for the SQL GROUP BY statement, excluding the "GROUP BY" part
+ * @param having The clause for the SQL HAVING statement, excluding the "HAVING" part
+ * @param orderBy The column name for the SQL ORDER BY statement, excluding the "ORDER BY" part
+ * @param block The block of code to receive the [Cursor] in.
+ * @return the result returned from [block], else null if the cursor was null
+ */
+internal inline fun <T> SQLiteDatabase.select(
+    from: String,
+    columns: Array<String>? = null,
+    where: String? = null,
+    whereArgs: Array<String>? = null,
+    groupBy: String? = null,
+    having: String? = null,
+    orderBy: String? = null,
+    block: (Cursor) -> T
+) = this.query(from, columns, where, whereArgs, groupBy, having, orderBy)?.use {
+    block(it)
 }
 
 /**

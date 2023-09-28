@@ -9,16 +9,21 @@ import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumList
 import com.tealium.core.api.data.TealiumValue
 import com.tealium.tests.common.TestModule
+import io.mockk.mockk
+import io.mockk.verify
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import java.sql.SQLException
 
 @Suppress("UNCHECKED_CAST")
-class SQLiteStorageStrategyTests {
+class SQLKeyValueRepositoryTests {
 
     private lateinit var app: Application
     private lateinit var dbProvider: DatabaseProvider
-    private lateinit var moduleRepository: ModuleStorageRepositoryImpl
+    private lateinit var moduleRepository: SQLModulesRepository
 
     private var module1Id: Long = -1
     private val module1 = TestModule("module1")
@@ -46,8 +51,9 @@ class SQLiteStorageStrategyTests {
         // use-in-memory DB
         dbProvider = InMemoryDatabaseProvider(config)
         // Repositories
-        moduleRepository = ModuleStorageRepositoryImpl(
-            dbProvider
+        moduleRepository = SQLModulesRepository(
+            dbProvider,
+            tealiumScope = CoroutineScope(Dispatchers.Default)
         )
         module1Id = moduleRepository.registerModule(module1.name)
         module2Id = moduleRepository.registerModule(module2.name)
@@ -57,7 +63,7 @@ class SQLiteStorageStrategyTests {
     fun count_Returns_ItemCount() {
         val storage = getEmptyStorage(module1Id)
 
-        storage.insert("key", TealiumValue.convert("value"), Expiry.SESSION)
+        storage.upsert("key", TealiumValue.convert("value"), Expiry.SESSION)
 
         assertEquals(1, storage.count())
     }
@@ -67,7 +73,7 @@ class SQLiteStorageStrategyTests {
         val storage1 = getEmptyStorage(module1Id)
         val storage2 = getEmptyStorage(module2Id)
 
-        storage1.insert("key", TealiumValue.convert("value"), Expiry.SESSION)
+        storage1.upsert("key", TealiumValue.convert("value"), Expiry.SESSION)
 
         assertEquals(1, storage1.count())
         storage2.assertEmpty()
@@ -78,7 +84,7 @@ class SQLiteStorageStrategyTests {
         val storage = getEmptyStorage(module1Id)
         assertTrue(storage.keys().isEmpty())
 
-        storage.insert("key", TealiumValue.convert("value"), Expiry.SESSION)
+        storage.upsert("key", TealiumValue.convert("value"), Expiry.SESSION)
 
         assertEquals(1, storage.keys().count())
         assertEquals("key", storage.keys().first())
@@ -91,8 +97,8 @@ class SQLiteStorageStrategyTests {
         assertTrue(storage1.keys().isEmpty())
         assertTrue(storage2.keys().isEmpty())
 
-        storage1.insert("key1", TealiumValue.convert("value"), Expiry.SESSION)
-        storage2.insert("key2", TealiumValue.convert("value"), Expiry.SESSION)
+        storage1.upsert("key1", TealiumValue.convert("value"), Expiry.SESSION)
+        storage2.upsert("key2", TealiumValue.convert("value"), Expiry.SESSION)
 
         assertEquals(1, storage1.keys().count())
         assertEquals(1, storage2.keys().count())
@@ -104,7 +110,7 @@ class SQLiteStorageStrategyTests {
     fun get_Returns_StringValue() {
         val storage = getEmptyStorage(module1Id)
 
-        storage.insert("key", TealiumValue.convert("value"), Expiry.SESSION)
+        storage.upsert("key", TealiumValue.convert("value"), Expiry.SESSION)
 
         assertEquals("value", storage.get("key")?.value)
     }
@@ -113,7 +119,7 @@ class SQLiteStorageStrategyTests {
     fun get_Returns_IntValue() {
         val storage = getEmptyStorage(module1Id)
 
-        storage.insert("key", TealiumValue.convert(10), Expiry.SESSION)
+        storage.upsert("key", TealiumValue.convert(10), Expiry.SESSION)
 
         assertEquals(10, storage.get("key")?.value)
     }
@@ -122,8 +128,8 @@ class SQLiteStorageStrategyTests {
     fun get_Returns_LongValue() {
         val storage = getEmptyStorage(module1Id)
 
-        storage.insert("key", TealiumValue.convert(100L), Expiry.SESSION)
-        storage.insert("max", TealiumValue.convert(Long.MAX_VALUE), Expiry.SESSION)
+        storage.upsert("key", TealiumValue.convert(100L), Expiry.SESSION)
+        storage.upsert("max", TealiumValue.convert(Long.MAX_VALUE), Expiry.SESSION)
 
         assertEquals(100, storage.get("key")?.value)
         assertEquals(Long.MAX_VALUE, storage.get("max")?.value)
@@ -133,7 +139,7 @@ class SQLiteStorageStrategyTests {
     fun get_Returns_DoubleValue() {
         val storage = getEmptyStorage(module1Id)
 
-        storage.insert("key", TealiumValue.convert(100.100), Expiry.SESSION)
+        storage.upsert("key", TealiumValue.convert(100.100), Expiry.SESSION)
 
         assertEquals(100.100, storage.get("key")?.value)
     }
@@ -142,7 +148,7 @@ class SQLiteStorageStrategyTests {
     fun get_Returns_ListValue() {
         val storage = getEmptyStorage(module1Id)
 
-        storage.insert(
+        storage.upsert(
             "key", TealiumValue.convert(
                 arrayOf(1, 2, 3)
             ), Expiry.SESSION
@@ -160,7 +166,7 @@ class SQLiteStorageStrategyTests {
     fun get_Returns_MixedListValue() {
         val storage = getEmptyStorage(module1Id)
 
-        storage.insert(
+        storage.upsert(
             "key", TealiumValue.convert(
                 arrayOf(1, "", true)
             ), Expiry.SESSION
@@ -178,7 +184,7 @@ class SQLiteStorageStrategyTests {
     fun get_Returns_BundleValue() {
         val storage = getEmptyStorage(module1Id)
 
-        storage.insert("key", TealiumValue.convert(testBundle), Expiry.SESSION)
+        storage.upsert("key", TealiumValue.convert(testBundle), Expiry.SESSION)
         val storedBundle = storage.get("key")?.getBundle()!!
 
         assertEquals("value", storedBundle.getString("string"))
@@ -260,12 +266,12 @@ class SQLiteStorageStrategyTests {
     fun get_DoesNotReturn_ExpiredData() {
         val storage = getEmptyStorage(module1Id)
 
-        storage.insert(
+        storage.upsert(
             "expired",
             TealiumValue.string("expired"),
             Expiry.afterEpochTime(getTimestamp() - 10000)
         )
-        storage.insert(
+        storage.upsert(
             "not_expired", TealiumValue.string("not_expired"),
             Expiry.afterEpochTime(getTimestamp() + 10000)
         )
@@ -278,12 +284,12 @@ class SQLiteStorageStrategyTests {
     fun getAll_DoesNotReturn_ExpiredData() {
         val storage = getEmptyStorage(module1Id)
 
-        storage.insert(
+        storage.upsert(
             "expired",
             TealiumValue.string("expired"),
             Expiry.afterEpochTime(getTimestamp() - 10000)
         )
-        storage.insert(
+        storage.upsert(
             "not_expired", TealiumValue.string("not_expired"),
             Expiry.afterEpochTime(getTimestamp() + 10000)
         )
@@ -298,12 +304,12 @@ class SQLiteStorageStrategyTests {
     fun count_DoesNotInclude_ExpiredData() {
         val storage = getEmptyStorage(module1Id)
 
-        storage.insert(
+        storage.upsert(
             "expired",
             TealiumValue.string("expired"),
             Expiry.afterEpochTime(getTimestamp() - 10000)
         )
-        storage.insert(
+        storage.upsert(
             "not_expired", TealiumValue.string("not_expired"),
             Expiry.afterEpochTime(getTimestamp() + 10000)
         )
@@ -315,12 +321,12 @@ class SQLiteStorageStrategyTests {
     fun keys_DoesNotReturn_ExpiredData() {
         val storage = getEmptyStorage(module1Id)
 
-        storage.insert(
+        storage.upsert(
             "expired",
             TealiumValue.string("expired"),
             Expiry.afterEpochTime(getTimestamp() - 10000)
         )
-        storage.insert(
+        storage.upsert(
             "not_expired", TealiumValue.string("not_expired"),
             Expiry.afterEpochTime(getTimestamp() + 10000)
         )
@@ -329,62 +335,6 @@ class SQLiteStorageStrategyTests {
         assertEquals(1, keys.count())
         assertFalse(keys.contains("expired"))
         assertTrue(keys.contains("not_expired"))
-    }
-
-    @Test
-    fun update_UpdatesAllData_ForExistingEntry() {
-        val storage = getPrepopulatedStorage(module1Id)
-
-        storage.update(
-            "string", TealiumValue.string("new_value"),
-            Expiry.FOREVER
-        )
-
-        val value = storage.get("string")!!
-        assertEquals("new_value", value.value)
-        assertEquals(Expiry.FOREVER, storage.getExpiry("string"))
-    }
-
-    @Test
-    fun update_DoesNothing_WhenEntryDoesntExist() {
-        val storage = getPrepopulatedStorage(module1Id)
-
-        storage.update(
-            "non_existient_key", TealiumValue.string("new_value"),
-            Expiry.FOREVER
-        )
-
-        val value = storage.get("non_existient_key")
-        assertNull(value)
-        assertNull(storage.getExpiry("non_existient_key"))
-    }
-
-    @Test
-    fun insert_Inserts_WhenEntryDoesntExist() {
-        val storage = getPrepopulatedStorage(module1Id)
-
-        storage.insert(
-            "new_string", TealiumValue.string("new_value"),
-            Expiry.FOREVER
-        )
-
-        val value = storage.get("new_string")!!
-        assertEquals("new_value", value.value)
-        assertEquals(Expiry.FOREVER, storage.getExpiry("new_string"))
-    }
-
-    @Test
-    fun insert_Replaces_WhenEntryAlreadyExists() {
-        val storage = getPrepopulatedStorage(module1Id)
-
-        storage.insert(
-            "string", TealiumValue.string("new_value"),
-            Expiry.FOREVER
-        )
-
-        val value = storage.get("string")!!
-        assertEquals("new_value", value.value)
-        assertEquals(Expiry.FOREVER, storage.getExpiry("string"))
     }
 
     @Test
@@ -433,7 +383,7 @@ class SQLiteStorageStrategyTests {
     fun contains_ReturnsFalse_WhenKeyIsExpired() {
         val storage = getPrepopulatedStorage(module1Id)
 
-        storage.insert(
+        storage.upsert(
             "expired",
             TealiumValue.string("expired"),
             Expiry.afterEpochTime(getTimestamp() - 10000)
@@ -442,8 +392,56 @@ class SQLiteStorageStrategyTests {
         assertFalse(storage.contains("expired"))
     }
 
-    private fun getEmptyStorage(moduleId: Long): SQLiteStorageStrategy {
-        return SQLiteStorageStrategy(dbProvider, moduleId).also {
+    @Test
+    fun transactionally_RollsBack_OnException() {
+        val storage = getEmptyStorage(module1Id)
+
+        try {
+            storage.transactionally {
+                it.upsert("key1", TealiumValue.string("value"), Expiry.FOREVER)
+                it.upsert("key2", TealiumValue.string("value"), Expiry.FOREVER)
+
+                throw SQLException("Failure")
+            }
+        } catch (ignore: Exception) {
+        }
+
+        assertEquals(0, storage.count())
+        assertEquals(0, storage.keys().size)
+    }
+
+    @Test
+    fun transactionally_ThrowsException_OnSqlException() {
+        val storage = getEmptyStorage(module1Id)
+
+        val exception = try {
+            storage.transactionally {
+                throw SQLException("Failure")
+            }
+            null
+        } catch (e: Exception) {
+            e
+        }
+
+        assertNotNull(exception)
+    }
+
+    @Test
+    fun transactionally_DoesNotThrowException_OnSqlException_WhenHandlerProvided() {
+        val storage = getEmptyStorage(module1Id)
+        val handler: (Exception) -> Unit = mockk(relaxed = true)
+
+        storage.transactionally(handler) {
+            throw SQLException("Failure")
+        }
+
+        verify {
+            handler.invoke(any())
+        }
+    }
+
+    private fun getEmptyStorage(moduleId: Long): SQLKeyValueRepository {
+        return SQLKeyValueRepository(dbProvider, moduleId).also {
             it.assertEmpty()
         }
     }
@@ -452,17 +450,17 @@ class SQLiteStorageStrategyTests {
         moduleId: Long,
         populatedWith: TealiumBundle = testBundle,
         expiry: Expiry = Expiry.SESSION
-    ): SQLiteStorageStrategy {
+    ): SQLKeyValueRepository {
         return getEmptyStorage(moduleId).also {
             it.prepopulate(populatedWith, expiry)
         }
     }
 
-    private fun DataStorageStrategy<*, *>.assertEmpty(): Boolean {
+    private fun KeyValueRepository.assertEmpty(): Boolean {
         return count() == 0
     }
 
-    private fun DataStorageStrategy<String, TealiumValue>.prepopulate(
+    private fun KeyValueRepository.prepopulate(
         bundle: TealiumBundle,
         expiry: Expiry = Expiry.SESSION
     ) {

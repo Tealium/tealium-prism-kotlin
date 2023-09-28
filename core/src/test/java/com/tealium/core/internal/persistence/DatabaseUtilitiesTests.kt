@@ -27,7 +27,7 @@ class DatabaseUtilitiesTests {
         mockDb.transaction { }
 
         verify {
-            mockDb.beginTransaction()
+            mockDb.beginTransactionNonExclusive()
             mockDb.setTransactionSuccessful()
             mockDb.endTransaction()
         }
@@ -42,7 +42,7 @@ class DatabaseUtilitiesTests {
         }
 
         verify {
-            mockDb.beginTransaction()
+            mockDb.beginTransactionNonExclusive()
             errorHandler.invoke(error)
             mockDb.endTransaction()
         }

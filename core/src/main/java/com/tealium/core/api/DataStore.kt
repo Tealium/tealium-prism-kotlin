@@ -2,6 +2,7 @@ package com.tealium.core.api
 
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumValue
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Generic data storage for storing and retrieving [TealiumValue] objects.
@@ -75,7 +76,9 @@ interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
          * Calling this method multiple times is not supported, and subsequent executions
          * are ignored.
          */
+        @Throws(PersistenceException::class)
         fun commit()
+
     }
 
     /**
@@ -115,14 +118,14 @@ interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
      */
     fun count(): Int
 
-//    TODO - Observables need some extra features for this
-//    val onDataUpdated: Subscribable<DataUpdatedListener>
-//    val onDataRemoved: Subscribable<DataRemovedListener>
-//
-//    fun interface DataUpdatedListener {
-//        fun onDataUpdated(key: String, value: Any)
-//    }
-//    fun interface DataRemovedListener {
-//        fun onDataRemoved(keys: Set<String>)
-//    }
+    /**
+     * Flow of key-value pairs from this [DataStore] that have been updated.
+     */
+    val onDataUpdated: Flow<TealiumBundle>
+
+    /**
+     * Flow of keys from this [DataStore] that have been removed.
+     */
+    val onDataRemoved: Flow<List<String>>
+
 }

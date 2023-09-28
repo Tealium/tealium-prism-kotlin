@@ -131,11 +131,9 @@ object DatabaseTestUtils {
      * Asserts that all V3 tables exist and none of the migratable tables in V1 or V2 tables exist
      */
     fun assertV3TablesPostUpgrade(db: SQLiteDatabase) {
-        // should be migrated and dropped
-        assertTableNotExists(db, Schema.LegacyTables.DATALAYER_TABLE_NAME)
-        assertTableNotExists(db, Schema.LegacyTables.VISITORS_TABLE_NAME)
-
-        // Should not be migrated
+        // Should not be migrated by the db updagrade
+        assertTableExists(db, Schema.LegacyTables.DATALAYER_TABLE_NAME)
+        assertTableExists(db, Schema.LegacyTables.VISITORS_TABLE_NAME)
         assertTableExists(db, Schema.LegacyTables.DISPATCHES_TABLE_NAME)
 
         assertV3TablesExist(db)

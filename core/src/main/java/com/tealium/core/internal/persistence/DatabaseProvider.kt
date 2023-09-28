@@ -30,7 +30,7 @@ interface DatabaseProvider {
 internal class FileDatabaseProvider(
     private val config: TealiumConfig,
     private val databaseHelperCreator: () -> DatabaseHelper = { DatabaseHelper(config) },
-    private val inMemoryDatabaseProvider: InMemoryDatabaseProvider = InMemoryDatabaseProvider(config)
+    private val inMemoryDatabaseProvider: (TealiumConfig) -> InMemoryDatabaseProvider = ::InMemoryDatabaseProvider
 ) : DatabaseProvider {
 
     private var databaseHelper: DatabaseHelper = databaseHelperCreator.invoke()
@@ -38,7 +38,7 @@ internal class FileDatabaseProvider(
 
     override val database: SQLiteDatabase
         get() {
-            return _database ?: (getPersistentDatabase() ?: inMemoryDatabaseProvider.database).also { db ->
+            return _database ?: (getPersistentDatabase() ?: inMemoryDatabaseProvider.invoke(config).database).also { db ->
                 _database = db
             }
         }
@@ -68,9 +68,11 @@ internal class FileDatabaseProvider(
  */
 internal class InMemoryDatabaseProvider(
     private val config: TealiumConfig,
-    private val databaseHelper: DatabaseHelper = DatabaseHelper(config, databaseName = null)
 ) : DatabaseProvider {
     private var _database: SQLiteDatabase? = null
+    private val databaseHelper: DatabaseHelper by lazy {
+        DatabaseHelper(config, databaseName = null)
+    }
 
     override val database: SQLiteDatabase
         get() {

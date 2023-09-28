@@ -2,7 +2,6 @@ package com.tealium.core
 
 import android.content.Context
 import com.tealium.core.api.*
-import com.tealium.core.internal.persistence.DataStoreProvider
 
 class TealiumContext(
     val context: Context,
@@ -12,7 +11,7 @@ class TealiumContext(
     val logger: Logging,
     // TODO - find a better place to access this?
     visitorId: String, // todo
-    val storageProvider: DataStoreProvider,
+    val storageProvider: ModuleStoreProvider,
 
     private val tealium: Tealium
 ) {

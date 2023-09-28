@@ -10,13 +10,15 @@ import com.tealium.core.api.*
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import com.tealium.core.internal.modules.TealiumCollector
-import com.tealium.core.internal.persistence.DataStoreProviderImpl
+import com.tealium.core.internal.persistence.ModuleStoreProviderImpl
 import com.tealium.core.internal.persistence.DatabaseProvider
 import com.tealium.core.internal.persistence.FileDatabaseProvider
-import com.tealium.core.internal.persistence.ModuleStorageRepositoryImpl
+import com.tealium.core.internal.persistence.ModulesRepository
+import com.tealium.core.internal.persistence.SQLModulesRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.asCoroutineDispatcher
 import java.io.File
 import java.io.IOException
-import java.lang.Exception
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
@@ -28,7 +30,11 @@ class TealiumImpl(
     private val backgroundService: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
 ) : Tealium {
 
-    private val logger: Logger = Logger(logLevel = LogLevel.DEV) // todo read level from file?
+    private val tealiumScope: CoroutineScope =
+        CoroutineScope(backgroundService.asCoroutineDispatcher())
+
+    // TODO read level from file/config
+    private val logger: Logger = Logger(logLevel = LogLevel.DEV)
 
     init {
         makeTealiumDirectory(config).let { success ->
@@ -38,26 +44,22 @@ class TealiumImpl(
         }
     }
 
-    private val moduleStorageRepository: ModuleStorageRepositoryImpl = ModuleStorageRepositoryImpl(dbProvider)
+    //
+    private var _moduleManager: ModuleManager = object : ModuleManager {
+        override fun <T> getModulesOfType(clazz: Class<T>): List<T> {
+            return emptyList()
+        }
 
-    private val tealiumContext: TealiumContext =
-        TealiumContext(
-            config.application,
-            // TODO - read from file instead.
-            coreSettings = CoreSettingsImpl("tealiummobile", "demo", Environment.DEV),
-            dataLayer = dataLayer,
-            logger = logger,
-            visitorId = "", // TODO
-            storageProvider = DataStoreProviderImpl(
-                dbProvider, moduleStorageRepository
-            ),
-            tealium = this
-        )
+        override fun <T> getModuleOfType(clazz: Class<T>): T? {
+            return null
+        }
 
-    private var _moduleManager = ModuleManagerImpl( // empty module manager.
-        tealiumContext, SdkSettings(emptyMap()), emptyList()
-    )
+        override fun <T> getModuleOfType(clazz: Class<T>, block: (T?) -> Unit) {
+            block(null)
+        }
+    }
 
+    // TODO - Update ModuleManager
     override val modules: ModuleManager
         get() = _moduleManager
 
@@ -68,6 +70,37 @@ class TealiumImpl(
     }
 
     private fun bootstrap() {
+        logger.debug(BuildConfig.TAG, "Initializing Database.")
+        try {
+            val db = dbProvider.database
+            logger.debug(BuildConfig.TAG, "Database Initialized (v${db.version})")
+        } catch (e: Exception) {
+            logger.error(BuildConfig.TAG, "Database Initialization failed. ${e.message}")
+
+            // Database failed to open.
+            onReady?.onReady(this, e)
+            return
+        }
+
+        val modulesRepository =
+            SQLModulesRepository(dbProvider, tealiumScope = tealiumScope)
+
+        val tealiumContext =
+            TealiumContext(
+                config.application,
+                // TODO - read from file instead.
+                coreSettings = CoreSettingsImpl("tealiummobile", "demo", Environment.DEV),
+                dataLayer = dataLayer,
+                logger = logger,
+                visitorId = "", // TODO
+                storageProvider = ModuleStoreProviderImpl(
+                    dbProvider, modulesRepository
+                ),
+                tealium = this
+            )
+
+        // TODO - clear session data if necessary
+        modulesRepository.deleteExpired(ModulesRepository.ExpirationType.UntilRestart)
 
         val modules: MutableList<ModuleFactory> = mutableListOf(
             TealiumCollector,
@@ -78,18 +111,13 @@ class TealiumImpl(
             ConsentManagerImpl.Factory,
         )
 
-        modules.addAll(config.modules)
-
-        try {
-            _moduleManager = ModuleManagerImpl(
-                tealiumContext, SdkSettings(emptyMap()), modules
-            )
-        } catch (ex: Exception) {
-            logger.error("bootstrap", "" + ex.message)
-        }
+        // TODO - needs registration to settings updates
+        _moduleManager = ModuleManagerImpl(
+            tealiumContext, SdkSettings(emptyMap()), modules + config.modules, tealiumScope
+        )
 
         // todo - might have queued incoming events + dispatch them now.
-        onReady?.onReady(this)
+        onReady?.onReady(this, null)
     }
 
     override val trace: TraceManager
