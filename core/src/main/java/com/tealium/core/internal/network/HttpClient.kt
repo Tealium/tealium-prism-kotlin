@@ -2,10 +2,30 @@ package com.tealium.core.internal.network
 
 import android.util.Log
 import com.tealium.core.BuildConfig
+import com.tealium.core.api.network.AfterDelay
+import com.tealium.core.api.network.AfterEvent
+import com.tealium.core.api.network.Cancelled
+import com.tealium.core.api.network.Failure
+import com.tealium.core.api.network.HttpRequest
+import com.tealium.core.api.network.HttpResponse
+import com.tealium.core.api.network.IOError
+import com.tealium.core.api.network.Interceptor
+import com.tealium.core.api.network.NetworkClient
+import com.tealium.core.api.network.NetworkResult
+import com.tealium.core.api.network.Non200Error
+import com.tealium.core.api.network.RetryAfterDelay
+import com.tealium.core.api.network.RetryAfterEvent
+import com.tealium.core.api.network.Success
+import com.tealium.core.api.network.UnexpectedError
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.take
 import java.io.DataOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
+import java.net.URL
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 
@@ -16,28 +36,27 @@ import java.util.zip.GZIPOutputStream
  * @property interceptors The list of interceptors to be applied to the requests.
  */
 class HttpClient(
-    private val ioScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
+    private val ioScope: CoroutineScope = CoroutineScope(Dispatchers.IO),
+    internal val interceptors: MutableList<Interceptor> = mutableListOf()
 ) : NetworkClient {
 
-    internal val interceptors: MutableList<Interceptor> = mutableListOf()
-
     override fun sendRequestAsync(
-        request: HttpRequestData
+        request: HttpRequest
     ): Deferred<NetworkResult> {
         return ioScope.async {
             try {
                 return@async processRequest(request, 0)
             } catch (ex: CancellationException) {
                 Log.d(BuildConfig.TAG, "Request canceled: $request")
-                return@async Failure(Cancelled())
+                return@async Failure(Cancelled)
             }
-        }.ensureSafeDeferred(Failure(Cancelled()))
+        }.ensureSafeDeferred(Failure(Cancelled))
     }
 
-    private suspend fun processRequest(request: HttpRequestData, retryCount: Int): NetworkResult =
+    private suspend fun processRequest(request: HttpRequest, retryCount: Int): NetworkResult =
         coroutineScope {
             if (!this.isActive) {
-                return@coroutineScope Failure(Cancelled())
+                return@coroutineScope Failure(Cancelled)
             }
 
             processInterceptorsForDelay(request)
@@ -51,10 +70,10 @@ class HttpClient(
             }
         }
 
-    private suspend fun send(request: HttpRequestData): NetworkResult = coroutineScope {
+    private suspend fun send(request: HttpRequest): NetworkResult = coroutineScope {
         lateinit var connection: HttpURLConnection
         return@coroutineScope try {
-            connection = request.url.openConnection() as HttpURLConnection
+            connection = URL(request.url).openConnection() as HttpURLConnection
             with(connection) {
                 try {
                     requestMethod = request.method.value
@@ -113,7 +132,7 @@ class HttpClient(
                     }
 
                     Success(
-                        HttpResponseData(url, responseCode, responseMessage, headerFields, body)
+                        HttpResponse(url, responseCode, responseMessage, headerFields, body)
                     )
                 } else {
                     // Non200Status Error
@@ -130,7 +149,7 @@ class HttpClient(
         }
     }
 
-    private fun notifyResponseResult(request: HttpRequestData, result: NetworkResult) {
+    private fun notifyResponseResult(request: HttpRequest, result: NetworkResult) {
         interceptors.forEach { interceptor ->
             interceptor.didComplete(request, result)
         }
@@ -139,7 +158,7 @@ class HttpClient(
     /**
      * Iterate through interceptors and process them specifically for determining delay behavior
      */
-    internal suspend fun processInterceptorsForDelay(request: HttpRequestData) {
+    internal suspend fun processInterceptorsForDelay(request: HttpRequest) {
         interceptors.reversed().forEach { interceptor ->
             val policy = interceptor.shouldDelay(request)
             if (policy.shouldDelay()) {
@@ -148,8 +167,8 @@ class HttpClient(
                         delayRequest(policy.interval, request)
                         return
                     }
-                    is AfterEvent -> {
-                        // subscribe to event to send after
+                    is AfterEvent<*> -> {
+                        delayRequest(policy.event, request)
                         return
                     }
                     else -> {
@@ -160,9 +179,19 @@ class HttpClient(
         }
     }
 
-    private suspend fun delayRequest(interval: Long, request: HttpRequestData) {
+    private suspend fun delayRequest(interval: Long, request: HttpRequest) {
         Log.d(BuildConfig.TAG, "Delaying request: $request")
         delay(interval)
+        Log.d(BuildConfig.TAG, "End delay request: $request")
+    }
+
+    private suspend fun <T> delayRequest(flow: Flow<T>, request: HttpRequest) {
+        Log.d(BuildConfig.TAG, "Delaying request: $request")
+        flow.take(1)
+            .onEach {
+                Log.d(BuildConfig.TAG, "Received delay continuation: $request")
+            }
+            .collect()
         Log.d(BuildConfig.TAG, "End delay request: $request")
     }
 
@@ -170,7 +199,7 @@ class HttpClient(
      * Iterate through interceptors and process them specifically for determining retry behavior
      */
     internal suspend fun processInterceptorsForRetry(
-        request: HttpRequestData,
+        request: HttpRequest,
         result: NetworkResult,
         retryCount: Int
     ): Boolean {
@@ -182,7 +211,7 @@ class HttpClient(
                         delayRequest(retryPolicy.interval, request)
                         return true
                     }
-                    is RetryAfterEvent -> {
+                    is RetryAfterEvent<*> -> {
                         // delayByEvent
                         return true
                     }

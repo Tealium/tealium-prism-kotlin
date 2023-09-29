@@ -2,6 +2,8 @@ package com.tealium.core
 
 import android.content.Context
 import com.tealium.core.api.*
+import com.tealium.core.api.network.NetworkHelper
+import com.tealium.core.api.network.NetworkUtilities
 
 class TealiumContext(
     val context: Context,
@@ -12,7 +14,7 @@ class TealiumContext(
     // TODO - find a better place to access this?
     visitorId: String, // todo
     val storageProvider: ModuleStoreProvider,
-
+    val network: NetworkUtilities,
     private val tealium: Tealium
 ) {
     private val _visitorId = visitorId

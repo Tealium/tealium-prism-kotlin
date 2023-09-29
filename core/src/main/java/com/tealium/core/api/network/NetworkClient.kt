@@ -1,4 +1,4 @@
-package com.tealium.core.internal.network
+package com.tealium.core.api.network
 
 import kotlinx.coroutines.Deferred
 
@@ -7,10 +7,10 @@ interface NetworkClient {
      * Sends an HTTP request asynchronously and returns a [Deferred] that represents the ongoing request.
      * The request is retried if necessary based on the provided [request] and the response [NetworkResult].
      *
-     * @param request The [HttpRequestData] object representing the request to be sent.
+     * @param request The [HttpRequest] object representing the request to be sent.
      * @return A [Deferred] that resolves to a [NetworkResult] representing the result of the request.
      */
-    fun sendRequestAsync(request: HttpRequestData): Deferred<NetworkResult>
+    fun sendRequestAsync(request: HttpRequest): Deferred<NetworkResult>
 
     /**
      * Adds an interceptor to the client's list of interceptors.

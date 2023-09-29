@@ -8,8 +8,13 @@ import com.tealium.core.TealiumConfig
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.*
 import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.network.NetworkUtilities
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import com.tealium.core.internal.modules.TealiumCollector
+import com.tealium.core.internal.network.ConnectivityInterceptor
+import com.tealium.core.internal.network.ConnectivityRetriever
+import com.tealium.core.internal.network.HttpClient
+import com.tealium.core.internal.network.NetworkHelperImpl
 import com.tealium.core.internal.persistence.ModuleStoreProviderImpl
 import com.tealium.core.internal.persistence.DatabaseProvider
 import com.tealium.core.internal.persistence.FileDatabaseProvider
@@ -44,7 +49,6 @@ class TealiumImpl(
         }
     }
 
-    //
     private var _moduleManager: ModuleManager = object : ModuleManager {
         override fun <T> getModulesOfType(clazz: Class<T>): List<T> {
             return emptyList()
@@ -62,6 +66,9 @@ class TealiumImpl(
     // TODO - Update ModuleManager
     override val modules: ModuleManager
         get() = _moduleManager
+
+    private val networkClient: HttpClient =
+        HttpClient(interceptors = mutableListOf(ConnectivityInterceptor.getInstance(config.application)))
 
     init {
         backgroundService.submit {
@@ -85,7 +92,7 @@ class TealiumImpl(
         val modulesRepository =
             SQLModulesRepository(dbProvider, tealiumScope = tealiumScope)
 
-        val tealiumContext =
+        val tealiumContext: TealiumContext =
             TealiumContext(
                 config.application,
                 // TODO - read from file instead.
@@ -96,8 +103,14 @@ class TealiumImpl(
                 storageProvider = ModuleStoreProviderImpl(
                     dbProvider, modulesRepository
                 ),
+                network = NetworkUtilities(
+                    connectivity = ConnectivityRetriever.getInstance(config.application),
+                    networkClient = networkClient,
+                    networkHelper = NetworkHelperImpl(networkClient)
+                ),
                 tealium = this
             )
+
 
         // TODO - clear session data if necessary
         modulesRepository.deleteExpired(ModulesRepository.ExpirationType.UntilRestart)

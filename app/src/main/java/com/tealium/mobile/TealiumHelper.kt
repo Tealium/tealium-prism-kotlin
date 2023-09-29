@@ -13,6 +13,20 @@ import com.tealium.core.api.listeners.DispatchQueuedListener
 import com.tealium.core.api.listeners.DispatchReadyListener
 import com.tealium.core.internal.network.*
 import com.tealium.core.Modules
+import com.tealium.core.api.network.Cancelled
+import com.tealium.core.api.network.DelayPolicy
+import com.tealium.core.api.network.DoNotDelay
+import com.tealium.core.api.network.DoNotRetry
+import com.tealium.core.api.network.Failure
+import com.tealium.core.api.network.HttpRequest
+import com.tealium.core.api.network.IOError
+import com.tealium.core.api.network.Interceptor
+import com.tealium.core.api.network.NetworkResult
+import com.tealium.core.api.network.Non200Error
+import com.tealium.core.api.network.RetryAfterDelay
+import com.tealium.core.api.network.RetryPolicy
+import com.tealium.core.api.network.Success
+import com.tealium.core.api.network.UnexpectedError
 
 object TealiumHelper :
     DispatchReadyListener,
@@ -114,9 +128,9 @@ object TealiumHelper :
 }
 
 class CustomInterceptor(private val delayInterval: Long) : Interceptor {
-    override fun didComplete(request: HttpRequestData, result: NetworkResult) {
+    override fun didComplete(request: HttpRequest, result: NetworkResult) {
         when (result) {
-            is Success -> println("Successful request : ${result.responseData.statusCode}")
+            is Success -> println("Successful request : ${result.httpResponse.statusCode}")
             is Failure -> {
                 when (val error = result.networkError) {
                     is Non200Error -> println("Failed request with status code: ${error.statusCode}")
@@ -129,7 +143,7 @@ class CustomInterceptor(private val delayInterval: Long) : Interceptor {
     }
 
     override fun shouldRetry(
-        request: HttpRequestData,
+        request: HttpRequest,
         result: NetworkResult,
         retryCount: Int
     ): RetryPolicy {
@@ -140,15 +154,15 @@ class CustomInterceptor(private val delayInterval: Long) : Interceptor {
                     RetryAfterDelay(delayInterval)
                 } else {
                     // something else
-                    DoNotRetry()
+                    DoNotRetry
                 }
             }
-            else -> DoNotRetry()
+            else -> DoNotRetry
         }
     }
 
-    override fun shouldDelay(request: HttpRequestData): DelayPolicy {
+    override fun shouldDelay(request: HttpRequest): DelayPolicy {
         // if connectivity not available, then delay
-        return DoNotDelay()
+        return DoNotDelay
     }
 }

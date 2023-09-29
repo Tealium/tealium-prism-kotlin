@@ -6,11 +6,11 @@ plugins {
 version = "2.0.0"
 
 android {
-    compileSdk 32
+    compileSdk 33
 
     defaultConfig {
-        minSdk 21
-        targetSdk 32
+        minSdk 23
+        targetSdk 33
 
         buildConfigField 'String', 'TAG', "\"Tealium\""
         buildConfigField 'String', 'TEALIUM_LIBRARY_NAME', "\"android-kotlin\""
@@ -41,6 +41,7 @@ android {
     }
     testOptions {
         unitTests.returnDefaultValues = true
+        unitTests.includeAndroidResources = true
     }
     namespace 'com.tealium.core'
 }
