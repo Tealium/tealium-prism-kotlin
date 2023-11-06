@@ -1,7 +1,7 @@
 package com.tealium.core.internal.network
 
-import android.util.Log
 import com.tealium.core.BuildConfig
+import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.AfterDelay
 import com.tealium.core.api.network.AfterEvent
 import com.tealium.core.api.network.Cancelled
@@ -36,6 +36,7 @@ import java.util.zip.GZIPOutputStream
  * @property interceptors The list of interceptors to be applied to the requests.
  */
 class HttpClient(
+    private val logger: Logger,
     private val ioScope: CoroutineScope = CoroutineScope(Dispatchers.IO),
     internal val interceptors: MutableList<Interceptor> = mutableListOf()
 ) : NetworkClient {
@@ -47,7 +48,7 @@ class HttpClient(
             try {
                 return@async processRequest(request, 0)
             } catch (ex: CancellationException) {
-                Log.d(BuildConfig.TAG, "Request canceled: $request")
+                logger.debug?.log(BuildConfig.TAG, "Request canceled: $request")
                 return@async Failure(Cancelled)
             }
         }.ensureSafeDeferred(Failure(Cancelled))
@@ -180,19 +181,19 @@ class HttpClient(
     }
 
     private suspend fun delayRequest(interval: Long, request: HttpRequest) {
-        Log.d(BuildConfig.TAG, "Delaying request: $request")
+        logger.debug?.log(BuildConfig.TAG, "Delaying request: $request")
         delay(interval)
-        Log.d(BuildConfig.TAG, "End delay request: $request")
+        logger.debug?.log(BuildConfig.TAG, "End delay request: $request")
     }
 
     private suspend fun <T> delayRequest(flow: Flow<T>, request: HttpRequest) {
-        Log.d(BuildConfig.TAG, "Delaying request: $request")
+        logger.debug?.log(BuildConfig.TAG, "Delaying request: $request")
         flow.take(1)
             .onEach {
-                Log.d(BuildConfig.TAG, "Received delay continuation: $request")
+                logger.debug?.log(BuildConfig.TAG, "Received delay continuation: $request")
             }
             .collect()
-        Log.d(BuildConfig.TAG, "End delay request: $request")
+        logger.debug?.log(BuildConfig.TAG, "End delay request: $request")
     }
 
     /**

@@ -2,12 +2,13 @@ package com.tealium.core.internal
 
 import com.tealium.core.BuildConfig
 import com.tealium.core.Environment
-import com.tealium.core.LogLevel
 import com.tealium.core.Tealium
 import com.tealium.core.TealiumConfig
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.*
 import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.network.NetworkClient
 import com.tealium.core.api.network.NetworkUtilities
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import com.tealium.core.internal.modules.TealiumCollector
@@ -15,9 +16,9 @@ import com.tealium.core.internal.network.ConnectivityInterceptor
 import com.tealium.core.internal.network.ConnectivityRetriever
 import com.tealium.core.internal.network.HttpClient
 import com.tealium.core.internal.network.NetworkHelperImpl
-import com.tealium.core.internal.persistence.ModuleStoreProviderImpl
 import com.tealium.core.internal.persistence.DatabaseProvider
 import com.tealium.core.internal.persistence.FileDatabaseProvider
+import com.tealium.core.internal.persistence.ModuleStoreProviderImpl
 import com.tealium.core.internal.persistence.ModulesRepository
 import com.tealium.core.internal.persistence.SQLModulesRepository
 import kotlinx.coroutines.CoroutineScope
@@ -38,13 +39,21 @@ class TealiumImpl(
     private val tealiumScope: CoroutineScope =
         CoroutineScope(backgroundService.asCoroutineDispatcher())
 
+    // SettingsRetriever to get settings
+
     // TODO read level from file/config
-    private val logger: Logger = Logger(logLevel = LogLevel.DEV)
+    private val logger: Logger = LoggerImpl(logHandler = config.overrideLogHandler ?: LoggerImpl.ConsoleLogHandler)
+
+    private val networkClient: NetworkClient =
+        HttpClient(
+            logger = logger,
+            interceptors = mutableListOf(ConnectivityInterceptor.getInstance(config.application))
+        )
 
     init {
         makeTealiumDirectory(config).let { success ->
             if (!success) {
-                logger.error(BuildConfig.TAG, "Failed to create Tealium directory")
+                logger.error?.log(BuildConfig.TAG, "Failed to create Tealium directory")
             }
         }
     }
@@ -67,8 +76,6 @@ class TealiumImpl(
     override val modules: ModuleManager
         get() = _moduleManager
 
-    private val networkClient: HttpClient =
-        HttpClient(interceptors = mutableListOf(ConnectivityInterceptor.getInstance(config.application)))
 
     init {
         backgroundService.submit {
@@ -77,12 +84,12 @@ class TealiumImpl(
     }
 
     private fun bootstrap() {
-        logger.debug(BuildConfig.TAG, "Initializing Database.")
+        logger.debug?.log(BuildConfig.TAG, "Initializing Database.")
         try {
             val db = dbProvider.database
-            logger.debug(BuildConfig.TAG, "Database Initialized (v${db.version})")
+            logger.debug?.log(BuildConfig.TAG, "Database Initialized (v${db.version})")
         } catch (e: Exception) {
-            logger.error(BuildConfig.TAG, "Database Initialization failed. ${e.message}")
+            logger.error?.log(BuildConfig.TAG, "Database Initialization failed. ${e.message}")
 
             // Database failed to open.
             onReady?.onReady(this, e)
@@ -129,6 +136,7 @@ class TealiumImpl(
             tealiumContext, SdkSettings(emptyMap()), modules + config.modules, tealiumScope
         )
 
+        logger.debug?.log(BuildConfig.TAG, "Bootstrap complete, continue to onReady")
         // todo - might have queued incoming events + dispatch them now.
         onReady?.onReady(this, null)
     }
@@ -173,9 +181,10 @@ class TealiumImpl(
                 it.transform(dispatch)
             }
 
-            logger.debug("TealiumImpl") {
+            logger.debug?.log(
+                BuildConfig.TAG,
                 "Dispatch(${dispatch.id.substring(0, 5)}) Ready - ${dispatch.payload()}"
-            }
+            )
 
             // Validation
             // todo

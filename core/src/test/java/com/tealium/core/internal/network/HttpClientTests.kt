@@ -1,5 +1,6 @@
 package com.tealium.core.internal.network
 
+import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.AfterDelay
 import com.tealium.core.api.network.Cancelled
 import com.tealium.core.api.network.DoNotDelay
@@ -14,6 +15,7 @@ import com.tealium.core.api.network.Non200Error
 import com.tealium.core.api.network.RetryAfterDelay
 import com.tealium.core.api.network.Success
 import com.tealium.core.api.network.UnexpectedError
+import com.tealium.core.internal.LoggerImpl
 import com.tealium.core.internal.network.*
 import io.mockk.*
 import kotlinx.coroutines.*
@@ -33,6 +35,7 @@ class HttpClientTests {
     lateinit var mockWebServer: MockWebServer
 
     private val mockInterceptor: Interceptor = mockk(relaxed = true)
+    private val mockLogger: Logger = mockk(relaxed = true)
 
     lateinit var httpClient: HttpClient
     private val port = 8888
@@ -47,7 +50,7 @@ class HttpClientTests {
 
     @Before
     fun setUp() {
-        httpClient = HttpClient()
+        httpClient = HttpClient(mockLogger)
         httpClient.addInterceptor(mockInterceptor)
 
         val captureRequest = slot<HttpRequest>()

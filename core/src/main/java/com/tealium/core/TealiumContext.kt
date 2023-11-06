@@ -2,7 +2,7 @@ package com.tealium.core
 
 import android.content.Context
 import com.tealium.core.api.*
-import com.tealium.core.api.network.NetworkHelper
+import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.NetworkUtilities
 
 class TealiumContext(
@@ -10,7 +10,7 @@ class TealiumContext(
     val coreSettings: CoreSettings,
     // TODO
     val dataLayer: DataLayer,
-    val logger: Logging,
+    val logger: Logger,
     // TODO - find a better place to access this?
     visitorId: String, // todo
     val storageProvider: ModuleStoreProvider,

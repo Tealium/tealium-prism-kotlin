@@ -9,5 +9,5 @@ class CoreSettingsImpl(
     override val profile: String,
     override val environment: Environment,
     override val dataSource: String? = null,
-    override val logLevel: LogLevel = LogLevel.PROD
+    override val logLevel: LogLevel = LogLevel.ERROR
 ): CoreSettings

@@ -86,10 +86,30 @@ class ModuleManagerImpl(
     }
 
     private fun logEnabledModules() {
-        context.logger.info(
+        context.logger.info?.log(
             "ModuleManager",
             "Enabled modules: [${modules.keys.joinToString(", ")}]"
         )
+    }
+
+    /**
+     * Locks a Lock implementation.
+     */
+    private fun lock(lock: Lock) {
+        lock.lock()
+    }
+
+    /**
+     * Unlocks a Lock implementation, discarding any exceptions
+     */
+    private fun unlock(lock: Lock) {
+        try {
+            lock.unlock()
+        } catch (ex: IllegalMonitorStateException) {
+            context.logger.error?.log("Modules", "Unlocking Thread was not the lock owner.")
+        } catch (ex: Exception) {
+            context.logger.error?.log("Modules", "Unlocking failed: ${ex.message}")
+        }
     }
 
     companion object {
@@ -133,26 +153,6 @@ class ModuleManagerImpl(
          */
         private fun Map<String, ModuleSettings>.getOrDefault(name: String): ModuleSettings {
             return getModuleSettings(name, this)
-        }
-
-        /**
-         * Locks a Lock implementation.
-         */
-        private fun lock(lock: Lock) {
-            lock.lock()
-        }
-
-        /**
-         * Unlocks a Lock implementation, discarding any exceptions
-         */
-        private fun unlock(lock: Lock) {
-            try {
-                lock.unlock()
-            } catch (ex: IllegalMonitorStateException) {
-                Log.d("Modules", "Unlocking Thread was not the lock owner.")
-            } catch (ex: Exception) {
-                Log.d("Modules", "Unlocking failed: ${ex.message}")
-            }
         }
     }
 }
