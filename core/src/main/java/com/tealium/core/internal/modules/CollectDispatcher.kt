@@ -1,21 +1,123 @@
 package com.tealium.core.internal.modules
 
+import android.net.Uri
 import com.tealium.core.BuildConfig
+import com.tealium.core.TealiumConfig
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.*
+import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.TealiumList
+import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.network.Failure
+import com.tealium.core.api.network.NetworkHelper
+import com.tealium.core.api.network.NetworkResult
+import com.tealium.core.api.network.Success
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.merge
 
+/**
+ * The [CollectDispatcher]
+ */
 class CollectDispatcher(
-    private val tealiumContext: TealiumContext,
-    private var collectDispatcherSettings: CollectDispatcherSettings
+    private val config: TealiumConfig,
+    private val logger: Logger,
+    private val networkHelper: NetworkHelper,
+    private var collectDispatcherSettings: CollectDispatcherSettings,
 ) : Dispatcher, Module {
+
+    constructor(
+        tealiumContext: TealiumContext,
+        collectDispatcherSettings: CollectDispatcherSettings
+    ) : this(
+        tealiumContext.config,
+        tealiumContext.logger,
+        tealiumContext.network.networkHelper,
+        collectDispatcherSettings
+    )
 
     override val name: String
         get() = moduleName
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
-    override fun dispatch(dispatches: List<Dispatch>) {
+    override val dispatchLimit: Int
+        get() = CollectDispatcherSettings.MAX_BATCH_SIZE
 
+    override fun dispatch(dispatches: List<Dispatch>): Flow<List<Dispatch>> {
+        logger.trace?.log(
+            "Dispatcher",
+            "$moduleName dispatching events: ${dispatches.map { it.payload() }}"
+        )
+
+        return if (dispatches.size == 1) {
+            sendSingle(dispatches.first())
+        } else {
+            sendBatch(dispatches)
+        }
+    }
+
+    private fun sendBatch(
+        dispatches: List<Dispatch>,
+    ): Flow<List<Dispatch>> {
+        return dispatches.groupBy {
+            it.payload().getString(Dispatch.Keys.TEALIUM_VISITOR_ID)
+        }.mapNotNull { (visitorId, dispatches) ->
+            if (visitorId == null) flowOf(dispatches) // shouldn't happen
+            else sendBatch(visitorId, dispatches)
+        }.merge()
+    }
+
+
+    private fun sendBatch(
+        visitorId: String,
+        batch: List<Dispatch>
+    ): Flow<List<Dispatch>> {
+        logger.trace?.log(
+            "Dispatcher",
+            "$moduleName processing batch: ${batch.map { it.payload() }}"
+        )
+
+        return if (batch.count() == 1) {
+            sendSingle(batch.first())
+        } else {
+            flow {
+                val compressed = compressDispatches(
+                    batch,
+                    visitorId,
+                    config.accountName,
+                    collectDispatcherSettings.profile ?: config.profileName
+                )
+                if (compressed == null) {
+                    emit(batch)
+                } else {
+                    val result = networkHelper.post(collectDispatcherSettings.batchUrl, compressed)
+                    logger.debug?.log(
+                        "Dispatcher",
+                        "$moduleName NetworkResult was ${result.javaClass.simpleName} for batch: ${batch.map { it.payload() }}"
+                    )
+                    emit(batch)
+                }
+            }
+        }
+    }
+
+    private fun sendSingle(dispatch: Dispatch): Flow<List<Dispatch>> {
+        collectDispatcherSettings.profile?.let { profile ->
+            dispatch.addAll(TealiumBundle.create {
+                put(Dispatch.Keys.TEALIUM_PROFILE, profile)
+            })
+        }
+
+        return flow {
+            val result = networkHelper.post(collectDispatcherSettings.url, dispatch.payload())
+            logger.debug?.log(
+                "Dispatcher",
+                "$moduleName NetworkResult was ${result.javaClass.simpleName} for batch: ${dispatch.payload()}"
+            )
+            emit(listOf(dispatch))
+        }
     }
 
     override fun updateSettings(coreSettings: CoreSettings, moduleSettings: ModuleSettings) {
@@ -24,6 +126,70 @@ class CollectDispatcher(
 
     companion object {
         const val moduleName = "CollectDispatcher"
+
+        const val KEY_SHARED = "shared"
+        const val KEY_EVENTS = "events"
+
+        fun compressDispatches(
+            dispatches: List<Dispatch>,
+            visitorId: String,
+            account: String,
+            profile: String
+        ): TealiumBundle? {
+            return compressBundles(dispatches.map { dispatch ->
+                dispatch.payload()
+            }, visitorId, account, profile)
+        }
+
+        /**
+         * Compresses a collection of TealiumBundles into a new JSON format where known keys are
+         * in a "shared" sub key, and the events have common data removed and placed in an "events" sub key.
+         *
+         * The [bundles] are expected to contain events associated to only a single Visitor Id.
+         *
+         * The end result is a JSON of the following format:
+         * ```json
+         * {
+         *   "shared": {
+         *      ...
+         *   },
+         *   "events": [{
+         *      ...
+         *   },{
+         *      ...
+         *   }]
+         * }
+         * ```
+         */
+        fun compressBundles(
+            bundles: List<TealiumBundle>,
+            visitorId: String,
+            account: String,
+            profile: String
+        ): TealiumBundle? {
+            if (bundles.isEmpty()) return null
+
+            val compressed = TealiumBundle.Builder()
+            val shared = TealiumBundle.create {
+                put(Dispatch.Keys.TEALIUM_ACCOUNT, account)
+                put(Dispatch.Keys.TEALIUM_PROFILE, profile)
+                put(Dispatch.Keys.TEALIUM_VISITOR_ID, visitorId)
+            }
+
+            val events = TealiumList.create {
+                bundles.forEach { bundle ->
+                    add(bundle.copy {
+                        remove(Dispatch.Keys.TEALIUM_ACCOUNT)
+                        remove(Dispatch.Keys.TEALIUM_PROFILE)
+                        remove(Dispatch.Keys.TEALIUM_VISITOR_ID)
+                    })
+                }
+            }
+
+            return compressed.put(KEY_SHARED, shared)
+                .put(KEY_EVENTS, events)
+                .getBundle()
+        }
     }
 
     object Factory : ModuleFactory {
@@ -31,20 +197,70 @@ class CollectDispatcher(
             get() = moduleName
 
         override fun create(context: TealiumContext, settings: ModuleSettings): Module {
-            return CollectDispatcher(context, CollectDispatcherSettings.fromModuleSettings(settings))
+            return CollectDispatcher(
+                context,
+                CollectDispatcherSettings.fromModuleSettings(settings)
+            )
         }
     }
 }
 
-class CollectDispatcherSettings(val overrideCollectUrl: String = DEFAULT_COLLECT_URL) {
+/**
+ * Carries all available settings for the Collect Dispatcher
+ *
+ * @param url The endpoint to dispatch single events to
+ * @param batchUrl The endpoint to dispatch batched events to
+ * @param profile Optional - Tealium profile name to override on the payload
+ */
+class CollectDispatcherSettings(
+    val url: String = DEFAULT_COLLECT_URL,
+    val batchUrl: String = DEFAULT_COLLECT_BATCH_URL,
+    val profile: String? = null,
+) {
 
     companion object {
-        const val DEFAULT_COLLECT_URL = "https://tealium.com"
-        const val OVERRIDE_COLLECT_URL = "overrideCollectUrl"
+        const val MAX_BATCH_SIZE = 10
+        const val DEFAULT_COLLECT_URL = "https://collect.tealiumiq.com/event"
+        const val DEFAULT_COLLECT_BATCH_URL = "https://collect.tealiumiq.com/bulk-event"
+
+        /**
+         * Current module settings from Mobile Data Source front-end.
+         * TODO - Validate that these are final
+         *
+         * "collect": {
+         *   "enabled": true,
+         *   "dispatch_profile": "...",
+         *   "single_dispatch_url": "https://collect.tealiumiq.com/event/",
+         *   "batch_dispatch_url": "https://collect.tealiumiq.com/bulk-event/",
+         *   "dispatch_domain": "collect.tealiumiq.com"
+         * }
+         */
+        const val KEY_COLLECT_DOMAIN = "dispatch_domain"
+        const val KEY_COLLECT_URL = "single_dispatch_url"
+        const val KEY_COLLECT_BATCH_URL = "batch_dispatch_url"
+        const val KEY_COLLECT_PROFILE = "dispatch_profile"
+
+        private fun configureDomain(url: String, domain: String?): String? {
+            return if (domain == null) null else
+                Uri.parse(url).buildUpon()
+                    .authority(domain)
+                    .build()
+                    .toString()
+        }
 
         fun fromModuleSettings(settings: ModuleSettings): CollectDispatcherSettings {
+            val domain = settings.settings[KEY_COLLECT_DOMAIN] as? String
+
+            val url = settings.settings[KEY_COLLECT_URL] as? String
+                ?: configureDomain(DEFAULT_COLLECT_URL, domain)
+                ?: DEFAULT_COLLECT_URL
+            val batchUrl = settings.settings[KEY_COLLECT_BATCH_URL] as? String
+                ?: configureDomain(DEFAULT_COLLECT_BATCH_URL, domain)
+                ?: DEFAULT_COLLECT_BATCH_URL
+            val profile = settings.settings[KEY_COLLECT_PROFILE] as? String
+
             return CollectDispatcherSettings(
-                settings.settings[OVERRIDE_COLLECT_URL] as? String ?: DEFAULT_COLLECT_URL
+                url, batchUrl, profile
             )
         }
     }

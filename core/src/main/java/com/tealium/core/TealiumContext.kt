@@ -7,7 +7,7 @@ import com.tealium.core.api.network.NetworkUtilities
 
 class TealiumContext(
     val context: Context,
-    val coreSettings: CoreSettings,
+    val config: TealiumConfig,
     // TODO
     val dataLayer: DataLayer,
     val logger: Logger,

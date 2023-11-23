@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">mobile</string>
+    <string name="track_event">Track Event</string>
 </resources>

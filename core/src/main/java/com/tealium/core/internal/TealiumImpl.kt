@@ -23,9 +23,12 @@ import com.tealium.core.internal.persistence.ModulesRepository
 import com.tealium.core.internal.persistence.SQLModulesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.IOException
 import java.lang.ref.WeakReference
+import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 
@@ -42,7 +45,8 @@ class TealiumImpl(
     // SettingsRetriever to get settings
 
     // TODO read level from file/config
-    private val logger: Logger = LoggerImpl(logHandler = config.overrideLogHandler ?: LoggerImpl.ConsoleLogHandler)
+    private val logger: Logger =
+        LoggerImpl(logHandler = config.overrideLogHandler ?: LoggerImpl.ConsoleLogHandler)
 
     private val networkClient: NetworkClient =
         HttpClient(
@@ -103,10 +107,11 @@ class TealiumImpl(
             TealiumContext(
                 config.application,
                 // TODO - read from file instead.
-                coreSettings = CoreSettingsImpl("tealiummobile", "demo", Environment.DEV),
+                config = config,
                 dataLayer = dataLayer,
                 logger = logger,
-                visitorId = "", // TODO
+                // TODO - Visitor Storage not done yet, but EventStream requires a value for tealium_visitor_id
+                visitorId = UUID.randomUUID().toString().replace("-", ""),
                 storageProvider = ModuleStoreProviderImpl(
                     dbProvider, modulesRepository
                 ),
@@ -168,26 +173,28 @@ class TealiumImpl(
 
     @Suppress("NAME_SHADOWING")
     override fun track(dispatch: Dispatch) {
-        Dispatch.create(dispatch).let { dispatch ->
-            // collection
-            val builder = TealiumBundle.Builder()
-            _moduleManager.getModulesOfType(Collector::class.java).forEach {
-                builder.putAll(it.collect())
-            }
-            dispatch.addAll(builder.getBundle())
+        tealiumScope.launch {
 
-            // Transform
-            _moduleManager.getModulesOfType(Transformer::class.java).forEach {
-                it.transform(dispatch)
-            }
+            Dispatch.create(dispatch).let { dispatch ->
+                // collection
+                val builder = TealiumBundle.Builder()
+                _moduleManager.getModulesOfType(Collector::class.java).forEach {
+                    builder.putAll(it.collect())
+                }
+                dispatch.addAll(builder.getBundle())
 
-            logger.debug?.log(
-                BuildConfig.TAG,
-                "Dispatch(${dispatch.id.substring(0, 5)}) Ready - ${dispatch.payload()}"
-            )
+                // Transform
+                _moduleManager.getModulesOfType(Transformer::class.java).forEach {
+                    it.transform(dispatch)
+                }
 
-            // Validation
-            // todo
+                logger.debug?.log(
+                    BuildConfig.TAG,
+                    "Dispatch(${dispatch.id.substring(0, 5)}) Ready - ${dispatch.payload()}"
+                )
+
+                // Validation
+                // todo
 
 //        if (false) { // TODO - if queued
 
@@ -195,13 +202,25 @@ class TealiumImpl(
 
 //        }
 
-            // Dispatch
-            // TODO - this might have been queued/batched.
-            val dispatches = listOf(dispatch)
-            _moduleManager.getModulesOfType(Dispatcher::class.java).forEach { dispatcher ->
-                dispatcher.dispatch(
-                    dispatches,
-                )
+                // Dispatch
+                // TODO - this might have been queued/batched.
+//            val dispatches = listOf(dispatch, dispatch, dispatch, dispatch, dispatch) // Testing.
+                val dispatches = listOf(dispatch)
+                _moduleManager.getModulesOfType(Dispatcher::class.java).forEach { dispatcher ->
+                    dispatcher.dispatch(
+                        dispatches,
+                    ).collect { processed ->
+                        // placeholder until Dispatch Manager
+                        logger.debug?.log(
+                            "Tealium",
+                            "${dispatcher.name} - Processed - ${processed.map { dispatch -> dispatch.tealiumEvent + "(${dispatch.id.substring(0, 5)})" }}"
+                        )
+                        logger.trace?.log(
+                            "Tealium",
+                            "${dispatcher.name} - Processed - ${processed.map { dispatch -> dispatch.id }}"
+                        )
+                    }
+                }
             }
         }
     }

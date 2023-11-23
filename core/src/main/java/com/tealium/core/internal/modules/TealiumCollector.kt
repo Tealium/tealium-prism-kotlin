@@ -24,10 +24,10 @@ class TealiumCollector(
         }
 
     private val baseData = TealiumBundle.create {
-        put(Dispatch.Keys.TEALIUM_ACCOUNT, context.coreSettings.account)
-        put(Dispatch.Keys.TEALIUM_PROFILE, context.coreSettings.profile)
-        put(Dispatch.Keys.TEALIUM_ENVIRONMENT, context.coreSettings.environment)
-        context.coreSettings.dataSource?.let {
+        put(Dispatch.Keys.TEALIUM_ACCOUNT, context.config.accountName)
+        put(Dispatch.Keys.TEALIUM_PROFILE, context.config.profileName)
+        put(Dispatch.Keys.TEALIUM_ENVIRONMENT, context.config.environment)
+        context.config.datasource?.let {
             put(Dispatch.Keys.TEALIUM_ACCOUNT, it)
         }
         put(Dispatch.Keys.TEALIUM_LIBRARY_NAME, BuildConfig.TEALIUM_LIBRARY_NAME)

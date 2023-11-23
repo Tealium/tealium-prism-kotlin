@@ -13,6 +13,8 @@ import com.tealium.core.api.listeners.DispatchQueuedListener
 import com.tealium.core.api.listeners.DispatchReadyListener
 import com.tealium.core.internal.network.*
 import com.tealium.core.Modules
+import com.tealium.core.api.TealiumDispatchType
+import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.network.Cancelled
 import com.tealium.core.api.network.DelayPolicy
 import com.tealium.core.api.network.DoNotDelay
@@ -36,8 +38,12 @@ object TealiumHelper :
 //    DataLayer.DataLayerListener
     DataLayer.DataLayerUpdatedListener,
     DataLayer.DataLayerRemovedListener,
-    VisitorService.VisitorIdUpdatedListener
-{
+    VisitorService.VisitorIdUpdatedListener {
+
+    private const val INSTANCE_NAME = "main"
+
+    private val shared: Tealium?
+        get() = Tealium[INSTANCE_NAME]
 
     override fun onVisitorIdUpdated(visitorId: String) {
         Log.d("Helper", "This Updated VisitorId: $visitorId")
@@ -61,7 +67,7 @@ object TealiumHelper :
             environment = Environment.DEV
         )
 
-        Tealium.create("main", config) { tealium, error ->
+        Tealium.create(INSTANCE_NAME, config) { tealium, error ->
 //            it.events.subscribe(this)
 //            it.track("", TealiumDispatchType.Event) {
 //                put
@@ -108,6 +114,14 @@ object TealiumHelper :
 //                    .build()
 //            )
         }
+    }
+
+    fun track(
+        event: String,
+        type: TealiumDispatchType = TealiumDispatchType.Event,
+        data: TealiumBundle = TealiumBundle.EMPTY_BUNDLE
+    ) {
+        shared?.track(Dispatch.create(event, type, data))
     }
 
     override fun onDispatchDropped(dispatch: Dispatch) {

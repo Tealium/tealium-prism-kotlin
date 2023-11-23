@@ -14,6 +14,7 @@ class TealiumConfig @JvmOverloads constructor(
     val fileName: String,
     val modules: List<ModuleFactory>,
     val events: List<Listener> = emptyList(),
+    val datasource: String? = null,
 //    val remoteCommands: List<RemoteCommand>
 ) {
     private val pathName =
