@@ -184,9 +184,9 @@ class TealiumImpl(
                 dispatch.addAll(builder.getBundle())
 
                 // Transform
-                _moduleManager.getModulesOfType(Transformer::class.java).forEach {
-                    it.transform(dispatch)
-                }
+//                _moduleManager.getModulesOfType(Transformer::class.java).forEach {
+//                    it.transform(dispatch)
+//                }
 
                 logger.debug?.log(
                     BuildConfig.TAG,
