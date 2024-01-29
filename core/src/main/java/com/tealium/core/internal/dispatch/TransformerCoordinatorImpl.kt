@@ -42,7 +42,8 @@ class TransformerCoordinatorImpl(
         dispatch: Dispatch?,
         scope: DispatchScope
     ): Dispatch? {
-        if (transformations.isEmpty() || dispatch == null) return null
+        if (transformations.isEmpty()) return dispatch
+        if (dispatch == null) return null
 
         return transformations.fold(dispatch) { acc: Dispatch?, transformation: ScopedTransformation ->
             apply(transformation, acc, scope)

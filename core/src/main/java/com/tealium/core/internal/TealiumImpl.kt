@@ -1,15 +1,19 @@
 package com.tealium.core.internal
 
 import com.tealium.core.BuildConfig
-import com.tealium.core.Environment
 import com.tealium.core.Tealium
 import com.tealium.core.TealiumConfig
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.*
+import com.tealium.core.api.ConsentManager
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.NetworkClient
 import com.tealium.core.api.network.NetworkUtilities
+import com.tealium.core.internal.dispatch.BarrierCoordinatorImpl
+import com.tealium.core.internal.dispatch.DispatchManagerImpl
+import com.tealium.core.internal.dispatch.TransformerCoordinatorImpl
+import com.tealium.core.internal.dispatch.VolatileQueueManagerImpl
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import com.tealium.core.internal.modules.TealiumCollector
 import com.tealium.core.internal.network.ConnectivityInterceptor
@@ -23,7 +27,7 @@ import com.tealium.core.internal.persistence.ModulesRepository
 import com.tealium.core.internal.persistence.SQLModulesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.IOException
@@ -80,6 +84,7 @@ class TealiumImpl(
     override val modules: ModuleManager
         get() = _moduleManager
 
+    private lateinit var _dispatchManager: DispatchManagerImpl
 
     init {
         backgroundService.submit {
@@ -140,6 +145,21 @@ class TealiumImpl(
         _moduleManager = ModuleManagerImpl(
             tealiumContext, SdkSettings(emptyMap()), modules + config.modules, tealiumScope
         )
+
+        _dispatchManager = DispatchManagerImpl(
+            consentManager = com.tealium.core.internal.consent.ConsentManagerImpl(),
+            // TODO - Load default barriers
+            barrierCoordinator = BarrierCoordinatorImpl(setOf(), setOf()),
+            // TODO - load transformers
+            transformerCoordinator = TransformerCoordinatorImpl(setOf(), MutableStateFlow(setOf())),
+            // TODO - create flow from the ModulesManager
+            dispatchers = MutableStateFlow(_moduleManager.getModulesOfType(Dispatcher::class.java).toSet()),
+            // TODO - hook this up to persistent storage
+            queueManager = VolatileQueueManagerImpl(scope = tealiumScope),
+            tealiumScope = tealiumScope,
+            logger = logger
+        )
+        _dispatchManager.startDispatchLoop()
 
         logger.debug?.log(BuildConfig.TAG, "Bootstrap complete, continue to onReady")
         // todo - might have queued incoming events + dispatch them now.
@@ -205,22 +225,7 @@ class TealiumImpl(
                 // Dispatch
                 // TODO - this might have been queued/batched.
 //            val dispatches = listOf(dispatch, dispatch, dispatch, dispatch, dispatch) // Testing.
-                val dispatches = listOf(dispatch)
-                _moduleManager.getModulesOfType(Dispatcher::class.java).forEach { dispatcher ->
-                    dispatcher.dispatch(
-                        dispatches,
-                    ).collect { processed ->
-                        // placeholder until Dispatch Manager
-                        logger.debug?.log(
-                            "Tealium",
-                            "${dispatcher.name} - Processed - ${processed.map { dispatch -> dispatch.tealiumEvent + "(${dispatch.id.substring(0, 5)})" }}"
-                        )
-                        logger.trace?.log(
-                            "Tealium",
-                            "${dispatcher.name} - Processed - ${processed.map { dispatch -> dispatch.id }}"
-                        )
-                    }
-                }
+                _dispatchManager.track(dispatch)
             }
         }
     }

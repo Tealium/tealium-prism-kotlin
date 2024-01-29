@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 /**
  * Kotlin version of this function (flatMapConcat) was marked as experimental.
@@ -44,6 +45,27 @@ fun <T, R> Flow<T>.flatMapLatest(transform: suspend (value: T) -> Flow<R>): Flow
     collectLatest { upstream ->
         transform(upstream).collectLatest { transformed ->
             send(transformed)
+        }
+    }
+}
+
+/**
+ * Kotlin version of this function (flatMapMerge) was marked as experimental.
+ *
+ * @see [kotlinx.coroutines.flow.flatMapMerge]
+ */
+fun <T, R> Flow<T>.flatMapMerge(transform: suspend (value: T) -> Flow<R>): Flow<R> =
+    map(transform).merge()
+
+/**
+ * Enables parallel collection of multiple flows. Does not guarantee collection order
+ */
+fun <T> Flow<Flow<T>>.merge(): Flow<T> = channelFlow {
+    collect { flow ->
+        launch {
+            flow.collect { value ->
+                send(value)
+            }
         }
     }
 }
