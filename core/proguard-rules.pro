@@ -44,5 +44,10 @@
     public protected *;
 }
 
+# Keep observables public for external module use, but remain in internal package.
+-keep public class com.tealium.core.internal.observables.* {
+    *;
+}
+
 # OpenForTesting Annotation
 -keep class com.tealium.test.* { *; }
