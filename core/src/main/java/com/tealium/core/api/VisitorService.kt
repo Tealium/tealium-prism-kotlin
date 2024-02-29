@@ -1,6 +1,6 @@
 package com.tealium.core.api
 
-import kotlinx.coroutines.flow.StateFlow
+import com.tealium.core.api.listeners.Subscribable
 
 interface VisitorService {
 
@@ -12,11 +12,9 @@ interface VisitorService {
         fun onVisitorProfileUpdated(profile: VisitorProfile)
     }
 
-    val visitorId: String
-    val onVisitorIdUpdated: StateFlow<String>
+    val onVisitorIdUpdated: Subscribable<String>
 
-    val visitorProfile: VisitorProfile
-    val onVisitorProfileUpdated: StateFlow<VisitorProfile>
+    val onVisitorProfileUpdated: Subscribable<VisitorProfile>
 
 
     fun resetVisitorId()

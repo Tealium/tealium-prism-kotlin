@@ -9,9 +9,9 @@ import com.tealium.core.api.ModuleFactory
 import com.tealium.core.api.ModuleSettings
 import com.tealium.core.api.VisitorProfile
 import com.tealium.core.api.VisitorService
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.tealium.core.api.listeners.Subscribable
+import com.tealium.core.internal.observables.Observables
+import com.tealium.core.internal.observables.StateSubject
 import java.util.*
 
 class VisitorServiceImpl(
@@ -19,24 +19,17 @@ class VisitorServiceImpl(
     private val dataStore: DataStore
 ) : VisitorService, Module {
 
-    private val visitorIdFlow: MutableStateFlow<String> =
-        MutableStateFlow(generateVisitorId()) // TODO load from storage
-    private val visitorProfileFlow: MutableStateFlow<VisitorProfile> = MutableStateFlow(
+    private val visitorIdSubject: StateSubject<String> =
+        Observables.stateSubject(generateVisitorId()) // TODO load from storage
+    private val visitorProfileFlow: StateSubject<VisitorProfile> = Observables.stateSubject(
         VisitorProfile() // TODO load latest
     )
 
-    override val visitorId: String
-        get() = visitorIdFlow.value
+    override val onVisitorIdUpdated: Subscribable<String>
+        get() = visitorIdSubject.asObservable()
 
-    override val onVisitorIdUpdated: StateFlow<String>
-        get() = visitorIdFlow.asStateFlow()
-
-
-    override val visitorProfile: VisitorProfile
-        get() = visitorProfileFlow.value
-
-    override val onVisitorProfileUpdated: StateFlow<VisitorProfile>
-        get() = visitorProfileFlow.asStateFlow()
+    override val onVisitorProfileUpdated: Subscribable<VisitorProfile>
+        get() = visitorProfileFlow.asObservable()
 
     override fun resetVisitorId() {
         val newId = generateVisitorId()
