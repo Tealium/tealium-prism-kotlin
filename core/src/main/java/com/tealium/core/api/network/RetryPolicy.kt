@@ -1,6 +1,6 @@
 package com.tealium.core.api.network
 
-import kotlinx.coroutines.flow.Flow
+import com.tealium.core.internal.observables.Observable
 
 /**
  * The [RetryPolicy] is used to determine if and when a network request can be retried.
@@ -44,11 +44,11 @@ class RetryAfterDelay(val interval: Long) : RetryPolicy() {
  * [RetryAfterEvent] signifies that there is an event that can be used to trigger retrying the
  * network request.
  *
- * The next emission of the [event] [Flow] will trigger the retry of the network request.
+ * The next emission of the [event] [Observable] will trigger the retry of the network request.
  *
- * @param event The [Flow] to subscribe to indicate it is safe to retry
+ * @param event The [Observable] to subscribe to indicate it is safe to retry
  */
-class RetryAfterEvent<T>(val event: Flow<T>) : RetryPolicy() {
+class RetryAfterEvent<T>(val event: Observable<T>) : RetryPolicy() {
     override fun shouldRetry(): Boolean {
         return true
     }

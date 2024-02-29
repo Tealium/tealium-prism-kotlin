@@ -26,7 +26,9 @@ import com.tealium.core.internal.persistence.ModuleStoreProviderImpl
 import com.tealium.core.internal.persistence.ModulesRepository
 import com.tealium.core.internal.persistence.SQLModulesRepository
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
@@ -40,7 +42,8 @@ class TealiumImpl(
     private val config: TealiumConfig,
     private val onReady: Tealium.OnTealiumReady? = null,
     private val dbProvider: DatabaseProvider = FileDatabaseProvider(config),
-    private val backgroundService: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
+    private val backgroundService: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor(),
+    private val networkService: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
 ) : Tealium {
 
     private val tealiumScope: CoroutineScope =
@@ -55,6 +58,8 @@ class TealiumImpl(
     private val networkClient: NetworkClient =
         HttpClient(
             logger = logger,
+            backgroundService,
+            networkService,
             interceptors = mutableListOf(ConnectivityInterceptor.getInstance(config.application))
         )
 

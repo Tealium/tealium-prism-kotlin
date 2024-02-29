@@ -8,12 +8,13 @@ import com.tealium.core.api.*
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumList
 import com.tealium.core.api.logger.Logger
-import com.tealium.core.api.network.Failure
 import com.tealium.core.api.network.NetworkHelper
-import com.tealium.core.api.network.NetworkResult
-import com.tealium.core.api.network.Success
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.buffer
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.merge
 
@@ -82,7 +83,7 @@ class CollectDispatcher(
         return if (batch.count() == 1) {
             sendSingle(batch.first())
         } else {
-            flow {
+            callbackFlow {
                 val compressed = compressDispatches(
                     batch,
                     visitorId,
@@ -90,14 +91,19 @@ class CollectDispatcher(
                     collectDispatcherSettings.profile ?: config.profileName
                 )
                 if (compressed == null) {
-                    emit(batch)
+                    trySend(batch)
                 } else {
-                    val result = networkHelper.post(collectDispatcherSettings.batchUrl, compressed)
-                    logger.debug?.log(
-                        "Dispatcher",
-                        "$moduleName NetworkResult was ${result.javaClass.simpleName} for batch: ${batch.map { it.payload() }}"
-                    )
-                    emit(batch)
+                    val disposable = networkHelper.post(collectDispatcherSettings.batchUrl, compressed) { result ->
+                        logger.debug?.log(
+                            "Dispatcher",
+                            "$moduleName NetworkResult was ${result.javaClass.simpleName} for batch: ${batch.map { it.payload() }}"
+                        )
+                        trySend(batch)
+                        close()
+                    }
+                    awaitClose {
+                        disposable.dispose()
+                    }
                 }
             }
         }
@@ -110,14 +116,21 @@ class CollectDispatcher(
             })
         }
 
-        return flow {
-            val result = networkHelper.post(collectDispatcherSettings.url, dispatch.payload())
-            logger.debug?.log(
-                "Dispatcher",
-                "$moduleName NetworkResult was ${result.javaClass.simpleName} for batch: ${dispatch.payload()}"
-            )
-            emit(listOf(dispatch))
-        }
+        return callbackFlow {
+
+            val disposable = networkHelper.post(collectDispatcherSettings.url, dispatch.payload()) { result ->
+                logger.debug?.log(
+                    "Dispatcher",
+                    "$moduleName NetworkResult was ${result.javaClass.simpleName} for single: ${dispatch.payload()}"
+                )
+                trySend(listOf(dispatch))
+                close()
+            }
+
+            awaitClose {
+                disposable.dispose()
+            }
+        }.buffer(Channel.UNLIMITED)
     }
 
     override fun updateSettings(coreSettings: CoreSettings, moduleSettings: ModuleSettings) {

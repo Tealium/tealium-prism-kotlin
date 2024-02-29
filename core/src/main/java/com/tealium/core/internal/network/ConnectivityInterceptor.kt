@@ -1,10 +1,7 @@
 package com.tealium.core.internal.network
 
 import android.content.Context
-import com.tealium.core.api.network.AfterEvent
 import com.tealium.core.api.network.Connectivity
-import com.tealium.core.api.network.DelayPolicy
-import com.tealium.core.api.network.DoNotDelay
 import com.tealium.core.api.network.DoNotRetry
 import com.tealium.core.api.network.Failure
 import com.tealium.core.api.network.HttpRequest
@@ -13,7 +10,6 @@ import com.tealium.core.api.network.NetworkResult
 import com.tealium.core.api.network.RetryAfterEvent
 import com.tealium.core.api.network.RetryPolicy
 import com.tealium.core.internal.Singleton
-import kotlinx.coroutines.flow.filter
 
 /**
  * The [ConnectivityInterceptor] is an [Interceptor] implementation that uses [Connectivity] to
@@ -48,13 +44,6 @@ class ConnectivityInterceptor internal constructor(
         }
     }
 
-    override fun shouldDelay(request: HttpRequest): DelayPolicy {
-        return if (!connectivity.isConnected()) {
-            AfterEvent(connectivity.onConnectionStatusUpdated.filter { status -> status == Connectivity.Status.Connected })
-        } else {
-            DoNotDelay
-        }
-    }
 
     override fun didComplete(request: HttpRequest, result: NetworkResult) {
         // do nothing

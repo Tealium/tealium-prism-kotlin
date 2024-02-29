@@ -8,6 +8,7 @@ import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.HttpResponse
 import com.tealium.core.api.network.NetworkHelper
+import com.tealium.core.api.network.NetworkResult
 import com.tealium.core.api.network.Success
 import io.mockk.MockKAnnotations
 import io.mockk.coEvery
@@ -16,6 +17,7 @@ import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -43,12 +45,18 @@ class CollectDispatcherTests {
     fun setUp() {
         MockKAnnotations.init(this)
 
-        coEvery { networkHelper.post(any(), any()) } returns Success(
-            HttpResponse(
-                url = URL(CollectDispatcherSettings.DEFAULT_COLLECT_URL),
-                statusCode = 200, message = "", headers = mapOf()
+        val completionCapture = slot<(NetworkResult) -> Unit>()
+        coEvery { networkHelper.post(any(), any(), capture(completionCapture)) } answers {
+            completionCapture.captured.invoke(
+                Success(
+                    HttpResponse(
+                        url = URL(CollectDispatcherSettings.DEFAULT_COLLECT_URL),
+                        statusCode = 200, message = "", headers = mapOf()
+                    )
+                )
             )
-        )
+            mockk(relaxed = true)
+        }
     }
 
     @Test
@@ -63,7 +71,7 @@ class CollectDispatcherTests {
         }
 
         coVerify(timeout = 1000) {
-            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, dispatch.payload())
+            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, dispatch.payload(), any())
         }
     }
 
@@ -81,7 +89,7 @@ class CollectDispatcherTests {
         }
 
         coVerify(timeout = 1000) {
-            networkHelper.post("http://localhost/", any())
+            networkHelper.post("http://localhost/", any(), any())
         }
     }
 
@@ -102,7 +110,7 @@ class CollectDispatcherTests {
         coVerify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, match {
                 it.getString(Dispatch.Keys.TEALIUM_PROFILE) == "override"
-            })
+            }, any())
         }
     }
 
@@ -121,7 +129,7 @@ class CollectDispatcherTests {
         }
 
         coVerify(timeout = 1000) {
-            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, any())
+            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, any(), any())
         }
     }
 
@@ -137,7 +145,7 @@ class CollectDispatcherTests {
         }
 
         coVerify(timeout = 1000) {
-            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, dispatch.payload())
+            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, dispatch.payload(), any())
         }
     }
 
@@ -158,7 +166,7 @@ class CollectDispatcherTests {
         }
 
         coVerify(timeout = 1000) {
-            networkHelper.post("http://localhost/", any())
+            networkHelper.post("http://localhost/", any(), any())
         }
     }
 
@@ -183,7 +191,7 @@ class CollectDispatcherTests {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, match {
                 it.getBundle(CollectDispatcher.KEY_SHARED)!!
                     .getString(Dispatch.Keys.TEALIUM_PROFILE) == "override"
-            })
+            }, any())
         }
     }
 
@@ -221,7 +229,7 @@ class CollectDispatcherTests {
                         && event1.getString("key_2") == "string2"
                         && event2.getString("key_3") == "string3"
                         && event2.getString("key_4") == "string4"
-            })
+            }, any())
         }
     }
 
@@ -255,7 +263,7 @@ class CollectDispatcherTests {
                 shared.getString(Dispatch.Keys.TEALIUM_PROFILE) == "override"
                         && event1.get(Dispatch.Keys.TEALIUM_PROFILE) == null
                         && event2.get(Dispatch.Keys.TEALIUM_PROFILE) == null
-            })
+            }, any())
         }
     }
 
@@ -265,8 +273,9 @@ class CollectDispatcherTests {
 
         val dispatch1 = createTestDispatch("test", visitorId = "visitor_1")
         val dispatch2 = createTestDispatch("test", visitorId = "visitor_2")
+        val dispatch3 = createTestDispatch("test2", visitorId = "visitor_2")
 
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch2)).test {
+        collectDispatcher.dispatch(listOf(dispatch1, dispatch2, dispatch3)).test {
             val visitor1 = awaitItem()
             assertEquals(
                 "visitor_1",
@@ -278,6 +287,10 @@ class CollectDispatcherTests {
                 "visitor_2",
                 visitor2.first().payload().getString(Dispatch.Keys.TEALIUM_VISITOR_ID)
             )
+            assertEquals(
+                "visitor_2",
+                visitor2[1].payload().getString(Dispatch.Keys.TEALIUM_VISITOR_ID)
+            )
 
             awaitComplete()
         }
@@ -285,10 +298,10 @@ class CollectDispatcherTests {
         coVerify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, match {
                 it.getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_1"
-            })
-            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, match {
-                it.getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_2"
-            })
+            }, any())
+            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, match {
+                it.getBundle(CollectDispatcher.KEY_SHARED)!!.getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_2"
+            }, any())
         }
     }
 
@@ -303,7 +316,7 @@ class CollectDispatcherTests {
         }
 
         coVerify(timeout = 1000) {
-            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, any())
+            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, any(), any())
         }
 
         val url = "https://localhost/"
@@ -321,7 +334,7 @@ class CollectDispatcherTests {
         }
 
         coVerify(timeout = 1000) {
-            networkHelper.post(url, any())
+            networkHelper.post(url, any(), any())
         }
     }
 
@@ -336,7 +349,7 @@ class CollectDispatcherTests {
         }
 
         coVerify(timeout = 1000) {
-            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, any())
+            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, any(), any())
         }
 
         val url = "https://localhost/"
@@ -354,7 +367,7 @@ class CollectDispatcherTests {
         }
 
         coVerify(timeout = 1000) {
-            networkHelper.post(url, any())
+            networkHelper.post(url, any(), any())
         }
     }
 
@@ -375,7 +388,7 @@ class CollectDispatcherTests {
         coVerify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, match {
                 it.getString(Dispatch.Keys.TEALIUM_PROFILE) == "default"
-            })
+            }, any())
         }
 
         val overrideProfile = "override"
@@ -395,7 +408,7 @@ class CollectDispatcherTests {
         coVerify(timeout = 1000) {
             networkHelper.post(any(), match {
                 it.getString(Dispatch.Keys.TEALIUM_PROFILE) == overrideProfile
-            })
+            }, any())
         }
     }
 

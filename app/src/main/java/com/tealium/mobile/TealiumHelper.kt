@@ -11,13 +11,10 @@ import com.tealium.core.api.listeners.ConsentStatusUpdatedListener
 import com.tealium.core.api.listeners.DispatchDroppedListener
 import com.tealium.core.api.listeners.DispatchQueuedListener
 import com.tealium.core.api.listeners.DispatchReadyListener
-import com.tealium.core.internal.network.*
 import com.tealium.core.Modules
 import com.tealium.core.api.TealiumDispatchType
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.network.Cancelled
-import com.tealium.core.api.network.DelayPolicy
-import com.tealium.core.api.network.DoNotDelay
 import com.tealium.core.api.network.DoNotRetry
 import com.tealium.core.api.network.Failure
 import com.tealium.core.api.network.HttpRequest
@@ -161,7 +158,6 @@ class CustomInterceptor(private val delayInterval: Long) : Interceptor {
         result: NetworkResult,
         retryCount: Int
     ): RetryPolicy {
-//        return RetryAfterDelay(delayInterval)
         return when (result) {
             is Failure -> {
                 if (result.networkError.isRetryable()) {
@@ -173,10 +169,5 @@ class CustomInterceptor(private val delayInterval: Long) : Interceptor {
             }
             else -> DoNotRetry
         }
-    }
-
-    override fun shouldDelay(request: HttpRequest): DelayPolicy {
-        // if connectivity not available, then delay
-        return DoNotDelay
     }
 }

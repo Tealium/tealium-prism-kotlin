@@ -1,16 +1,18 @@
 package com.tealium.core.api.network
 
-import kotlinx.coroutines.Deferred
+import com.tealium.core.api.listeners.Disposable
 
 interface NetworkClient {
     /**
-     * Sends an HTTP request asynchronously and returns a [Deferred] that represents the ongoing request.
+     * Sends an HTTP request asynchronously and returns the result to the provided [completion] block.
      * The request is retried if necessary based on the provided [request] and the response [NetworkResult].
      *
      * @param request The [HttpRequest] object representing the request to be sent.
-     * @return A [Deferred] that resolves to a [NetworkResult] representing the result of the request.
+     * @param completion The block to receive the result of the network request. This will be called
+     * on Tealium's background thread.
+     * @return A [Disposable] that can be used to cancel the request.
      */
-    fun sendRequestAsync(request: HttpRequest): Deferred<NetworkResult>
+    fun sendRequest(request: HttpRequest, completion: (NetworkResult) -> Unit): Disposable
 
     /**
      * Adds an interceptor to the client's list of interceptors.

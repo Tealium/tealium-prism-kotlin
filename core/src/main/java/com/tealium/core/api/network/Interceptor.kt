@@ -23,11 +23,4 @@ interface Interceptor {
      */
     fun shouldRetry(request: HttpRequest, result: NetworkResult, retryCount: Int) : RetryPolicy
 
-    /**
-     * Determines if a network request should be delayed before being sent.
-     *
-     * @param request The [HttpRequest] object representing the request.
-     * @return A [DelayPolicy] indicating whether the request should be delayed and the delay behavior.
-     */
-    fun shouldDelay(request: HttpRequest): DelayPolicy
 }

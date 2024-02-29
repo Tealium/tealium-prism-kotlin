@@ -1,6 +1,7 @@
 package com.tealium.core.internal.network
 
 import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.listeners.Disposable
 import com.tealium.core.api.network.Failure
 import com.tealium.core.api.network.HttpRequest
 import com.tealium.core.api.network.HttpResponse
@@ -9,11 +10,7 @@ import com.tealium.core.api.network.NetworkHelper
 import com.tealium.core.api.network.NetworkResult
 import com.tealium.core.api.network.Success
 import io.mockk.*
-import kotlinx.coroutines.runBlocking
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
+import org.json.JSONObject
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -31,58 +28,99 @@ class NetworkHelperTests {
         networkHelper = NetworkHelperImpl(networkClient)
     }
 
+    /**
+     * Helper that sets up a mock on the [networkClient] to return the [response]
+     * immediately for the given [request].
+     * Optional [returns] Disposable if a mocked one is not sufficient.
+     */
+    private fun mockRequest(request: HttpRequest, response: NetworkResult, returns: Disposable = mockk()) {
+        val responseCapture = slot<(NetworkResult) -> Unit>()
+        every { networkClient.sendRequest(request, capture(responseCapture)) } answers {
+            responseCapture.captured.invoke(response)
+            returns
+        }
+    }
+
     @Test
-    fun sendGetRequestReturnsSuccessfulResult() = runBlocking {
+    fun sendGetRequestReturnsSuccessfulResult() {
         val request = HttpRequest.get("url", null)
         val successResponse: NetworkResult = Success(mockk())
-        coEvery { networkClient.sendRequestAsync(request).await() } returns successResponse
+        val onComplete: (NetworkResult) -> Unit = mockk(relaxed = true)
+        mockRequest(request, successResponse)
 
-        val result = networkHelper.get(request.url, null)
+        networkHelper.get(request.url, null, onComplete)
 
-        assertTrue(result is Success)
-        coVerify(exactly = 1) { networkClient.sendRequestAsync(request).await() }
+        verify {
+            onComplete(match { result ->
+                result is Success
+            })
+        }
+        verify(exactly = 1) {
+            networkClient.sendRequest(request, any())
+        }
     }
 
     @Test
-    fun sendGetRequestReturnsFailedResult() = runBlocking {
+    fun sendGetRequestReturnsFailedResult() {
         val request = HttpRequest.get("url", null)
         val failedResponse: NetworkResult = Failure(mockk())
-        coEvery { networkClient.sendRequestAsync(request).await() } returns failedResponse
+        val onComplete: (NetworkResult) -> Unit = mockk(relaxed = true)
+        mockRequest(request, failedResponse)
 
-        val result = networkHelper.get(request.url, null)
+        networkHelper.get(request.url, null, onComplete)
 
-        assertTrue(result is Failure)
-        coVerify(exactly = 1) { networkClient.sendRequestAsync(request).await() }
+        verify {
+            onComplete(match { result ->
+                result is Failure
+            })
+        }
+        verify(exactly = 1) {
+            networkClient.sendRequest(request, any())
+        }
     }
 
     @Test
-    fun sendPostRequestReturnsSuccessfulResult() = runBlocking {
+    fun sendPostRequestReturnsSuccessfulResult() {
         val payload: TealiumBundle = TealiumBundle.EMPTY_BUNDLE
         val request = HttpRequest.post("url", payload, true)
         val successResponse: NetworkResult = Success(mockk())
-        coEvery { networkClient.sendRequestAsync(request).await() } returns successResponse
+        val onComplete: (NetworkResult) -> Unit = mockk(relaxed = true)
+        mockRequest(request, successResponse)
 
-        val result = networkHelper.post(request.url, payload)
+        networkHelper.post(request.url, payload, onComplete)
 
-        assertTrue(result is Success)
-        coVerify(exactly = 1) { networkClient.sendRequestAsync(request).await() }
+        verify {
+            onComplete(match { result ->
+                result is Success
+            })
+        }
+        verify(exactly = 1) {
+            networkClient.sendRequest(request, any())
+        }
     }
 
     @Test
-    fun sendPostRequestReturnsFailedResult() = runBlocking {
+    fun sendPostRequestReturnsFailedResult() {
         val payload: TealiumBundle = TealiumBundle.EMPTY_BUNDLE
         val request = HttpRequest.post("url", payload, true)
         val failedResponse: NetworkResult = Failure(mockk())
-        coEvery { networkClient.sendRequestAsync(request).await() } returns failedResponse
+        val onComplete: (NetworkResult) -> Unit = mockk(relaxed = true)
+        mockRequest(request, failedResponse)
 
-        val result = networkHelper.post(request.url, payload)
+        networkHelper.post(request.url, payload, onComplete)
 
-        assertTrue(result is Failure)
-        coVerify(exactly = 1) { networkClient.sendRequestAsync(request).await() }
+        verify {
+            onComplete(match { result ->
+                result is Failure
+            })
+        }
+        verify(exactly = 1) {
+            networkClient.sendRequest(request, any())
+        }
     }
 
     @Test
-    fun getJsonReturnsJSONObjectForValidJSON() = runBlocking {
+    fun getJsonReturnsJSONObjectForValidJSON() {
         val request = HttpRequest.get("url", null)
         val successResponse: NetworkResult = Success(
             HttpResponse(
@@ -93,16 +131,21 @@ class NetworkHelperTests {
                 body = "{\"key\": \"value\"}"
             )
         )
-        coEvery { networkClient.sendRequestAsync(request).await() } returns successResponse
+        val onComplete: (JSONObject?) -> Unit = mockk(relaxed = true)
+        mockRequest(request, successResponse)
 
-        val jsonObject = networkHelper.getJson(request.url, null)
+        networkHelper.getJson(request.url, null, onComplete)
 
-        assertNotNull(jsonObject)
-        coVerify(exactly = 1) { networkClient.sendRequestAsync(request).await() }
+        verify {
+            onComplete(isNull(inverse = true))
+        }
+        verify(exactly = 1) {
+            networkClient.sendRequest(request, any())
+        }
     }
 
     @Test
-    fun getJsonReturnsNullForInvalidJSON() = runBlocking {
+    fun getJsonReturnsNullForInvalidJSON() {
         val request = HttpRequest.get("url", null)
         val successResponse: NetworkResult = Success(
             HttpResponse(
@@ -112,16 +155,21 @@ class NetworkHelperTests {
                 headers = emptyMap()
             )
         )
-        coEvery { networkClient.sendRequestAsync(request).await() } returns successResponse
+        val onComplete: (JSONObject?) -> Unit = mockk(relaxed = true)
+        mockRequest(request, successResponse)
 
-        val jsonObject = networkHelper.getJson(request.url, null)
+        networkHelper.getJson(request.url, null, onComplete)
 
-        assertNull(jsonObject)
-        coVerify(exactly = 1) { networkClient.sendRequestAsync(request).await() }
+        verify {
+            onComplete(isNull())
+        }
+        verify(exactly = 1) {
+            networkClient.sendRequest(request, any())
+        }
     }
 
     @Test
-    fun getTealiumBundleReturnsValidTealiumBundle() = runBlocking {
+    fun getTealiumBundleReturnsValidTealiumBundle() {
         val request = HttpRequest.get("url", null)
         val successResponse: NetworkResult = Success(
             HttpResponse(
@@ -132,13 +180,18 @@ class NetworkHelperTests {
                 body = "{\"key\": \"value\"}"
             )
         )
-        coEvery { networkClient.sendRequestAsync(request).await() } returns successResponse
+        val onComplete: (TealiumBundle?) -> Unit = mockk(relaxed = true)
+        mockRequest(request, successResponse)
 
-        val bundle = networkHelper.getTealiumBundle(request.url, null)
+        networkHelper.getTealiumBundle(request.url, null, onComplete)
 
-        assertNotNull(bundle)
-        val bundleValue = bundle?.get("key")
-        assertEquals("value", bundleValue?.value )
-        coVerify(exactly = 1) { networkClient.sendRequestAsync(request).await() }
+        verify {
+            onComplete(match { bundle ->
+                bundle.get("key")!!.value == "value"
+            })
+        }
+        verify(exactly = 1) {
+            networkClient.sendRequest(request, any())
+        }
     }
 }

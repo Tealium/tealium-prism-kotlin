@@ -1,6 +1,6 @@
 package com.tealium.core.api.network
 
-import kotlinx.coroutines.flow.StateFlow
+import com.tealium.core.internal.observables.ObservableState
 
 /**
  * Provides access to the current connectivity status of the device either synchronously through
@@ -29,7 +29,7 @@ interface Connectivity {
     /**
      * Observable flow of connectivity statuses, enabling reactivity to network status changes
      */
-    val onConnectionStatusUpdated: StateFlow<Status>
+    val onConnectionStatusUpdated: ObservableState<Status>
 
     /**
      * This class defines the possible statuses of device connectivity.

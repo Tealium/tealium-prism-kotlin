@@ -1,9 +1,7 @@
 package com.tealium.core.internal.network
 
 import com.tealium.core.api.logger.Logger
-import com.tealium.core.api.network.AfterDelay
 import com.tealium.core.api.network.Cancelled
-import com.tealium.core.api.network.DoNotDelay
 import com.tealium.core.api.network.DoNotRetry
 import com.tealium.core.api.network.Failure
 import com.tealium.core.api.network.HttpMethod
@@ -13,10 +11,12 @@ import com.tealium.core.api.network.Interceptor
 import com.tealium.core.api.network.NetworkResult
 import com.tealium.core.api.network.Non200Error
 import com.tealium.core.api.network.RetryAfterDelay
+import com.tealium.core.api.network.RetryAfterEvent
 import com.tealium.core.api.network.Success
 import com.tealium.core.api.network.UnexpectedError
-import com.tealium.core.internal.LoggerImpl
 import com.tealium.core.internal.network.*
+import com.tealium.core.internal.observables.Observable
+import com.tealium.core.internal.observables.Observables
 import io.mockk.*
 import kotlinx.coroutines.*
 import okhttp3.mockwebserver.MockResponse
@@ -27,11 +27,14 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import kotlin.system.measureTimeMillis
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
 
 @RunWith(RobolectricTestRunner::class)
 class HttpClientTests {
 
+    lateinit var executorService: ScheduledExecutorService
+    lateinit var tealiumService: ScheduledExecutorService
     lateinit var mockWebServer: MockWebServer
 
     private val mockInterceptor: Interceptor = mockk(relaxed = true)
@@ -50,13 +53,15 @@ class HttpClientTests {
 
     @Before
     fun setUp() {
-        httpClient = HttpClient(mockLogger)
+        executorService = Executors.newSingleThreadScheduledExecutor()
+        tealiumService = Executors.newSingleThreadScheduledExecutor()
+
+        httpClient = HttpClient(mockLogger, tealiumService, executorService)
         httpClient.addInterceptor(mockInterceptor)
 
         val captureRequest = slot<HttpRequest>()
         val captureResult = slot<NetworkResult>()
 
-        every { mockInterceptor.shouldDelay(any()) } returns DoNotDelay
         every {
             mockInterceptor.shouldRetry(
                 capture(captureRequest),
@@ -81,24 +86,29 @@ class HttpClientTests {
                     status = result.httpResponse.statusCode
                     response = result.httpResponse.body
                 }
+
                 is Failure -> {
                     when (val error = result.networkError) {
                         is Non200Error -> {
                             status = error.statusCode
                         }
+
                         is IOError -> {
                             val cause = error.ex?.cause
                             errorMessage = error.ex?.message
                         }
+
                         is UnexpectedError -> {
                             val cause = error.ex?.cause
                             errorMessage = error.ex?.message
                         }
+
                         is Cancelled -> {
                             errorMessage = "Cancelled"
                         }
                     }
                 }
+
                 else -> {}
             }
         }
@@ -106,308 +116,322 @@ class HttpClientTests {
 
     @After
     fun tearDown() {
-        mockWebServer.shutdown()
+        if (this::mockWebServer.isInitialized) {
+            mockWebServer.shutdown()
+        }
+    }
+
+    private fun startMockWebServer(vararg responses: MockResponse) {
+        mockWebServer = MockWebServer()
+
+        for (response in responses) {
+            mockWebServer.enqueue(
+                response
+            )
+        }
+        mockWebServer.start(port)
+        mockWebServer.url(urlString)
     }
 
     @Test
-    fun addAndRemoveInterceptor() {
-        mockWebServer = MockWebServer()
-        assertEquals(1, httpClient.interceptors.size)
-        val mockInterceptor = mockk<Interceptor>()
-        httpClient.addInterceptor(mockInterceptor)
-
-        assertEquals(2, httpClient.interceptors.size)
-
-        httpClient.removeInterceptor(mockInterceptor)
-
-        assertEquals(1, httpClient.interceptors.size)
-    }
-
-    @Test
-    fun sendSuccessfulGetRequest() = runBlocking {
-        mockWebServer = MockWebServer()
-        mockWebServer.enqueue(
+    fun sendSuccessfulGetRequest() {
+        startMockWebServer(
             MockResponse()
                 .setBody("Success")
                 .setResponseCode(200)
         )
-        mockWebServer.start(port)
-        mockWebServer.url(urlString)
+        val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
 
-        val request = httpClient.sendRequestAsync(
+        httpClient.sendRequest(
             HttpRequest(
                 urlString,
                 HttpMethod.Get
-            )
+            ),
+            completion
         )
-
-        val result = request.await()
 
         val mockRequest = mockWebServer.takeRequest()
 
         assertEquals("GET / HTTP/1.1", mockRequest.requestLine)
-        assertTrue(result is Success)
-        assertEquals(200, status)
-        assertEquals("Success", response)
+
+        verify(timeout = 1000) {
+            completion(match { result ->
+                result is Success
+                        && status == 200
+                        && "Success" == response
+            })
+        }
     }
 
     @Test
-    fun sendFailedGetRequest() = runBlocking {
-        mockWebServer = MockWebServer()
-        mockWebServer.enqueue(
+    fun sendFailedGetRequest() {
+        startMockWebServer(
             MockResponse()
                 .setResponseCode(500)
         )
-        mockWebServer.start(port)
-        mockWebServer.url(urlString)
+        val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
 
-        val request = httpClient.sendRequestAsync(
+        httpClient.sendRequest(
             HttpRequest(
                 urlString,
                 HttpMethod.Get
-            )
+            ),
+            completion
         )
 
-        val result = request.await()
         val mockRequest = mockWebServer.takeRequest()
 
         assertEquals("GET / HTTP/1.1", mockRequest.requestLine)
-        assertTrue(result is Failure)
-        assertTrue((result as Failure).networkError is Non200Error)
-        assertEquals(500, status)
+        verify(timeout = 1000) {
+            completion(match { result ->
+                result is Failure
+                        && result.networkError is Non200Error
+                        && 500 == status
+            })
+        }
     }
 
     @Test
-    fun sendRequestAsyncSuccessReportsSameRequestInDidComplete() = runBlocking {
-        mockWebServer = MockWebServer()
-        mockWebServer.enqueue(
+    fun sendRequestSuccessReportsSameRequestInDidComplete() {
+        startMockWebServer(
             MockResponse()
                 .setBody("Success")
                 .setResponseCode(200)
         )
-        mockWebServer.start(port)
-        mockWebServer.url(urlString)
+        val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
 
         val httpRequest = HttpRequest(
             urlString,
             HttpMethod.Get
         )
 
-        val request = httpClient.sendRequestAsync(httpRequest)
-
-        val result = request.await()
+        httpClient.sendRequest(httpRequest, completion)
 
         val mockRequest = mockWebServer.takeRequest()
 
         assertEquals("GET / HTTP/1.1", mockRequest.requestLine)
-        assertTrue(result is Success)
-        assertEquals(httpRequest, this@HttpClientTests.httpRequest)
-        assertEquals(result, networkResult)
-        assertEquals(200, status)
-        assertEquals("Success", response)
+
+        verify(timeout = 1000) {
+            completion(match { result ->
+                result is Success
+                        && httpRequest == this@HttpClientTests.httpRequest
+                        && 200 == status
+                        && "Success" == response
+            })
+        }
     }
 
     @Test
-    fun sendRequestAsyncFailureReportsSameRequestInDidComplete() = runBlocking {
-        mockWebServer = MockWebServer()
-        mockWebServer.enqueue(
+    fun sendRequestFailureReportsSameRequestInDidComplete() {
+        startMockWebServer(
             MockResponse()
                 .setResponseCode(500)
         )
-        mockWebServer.start(port)
-        mockWebServer.url(urlString)
+        val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
 
         val httpRequest = HttpRequest(
             urlString,
             HttpMethod.Get
         )
 
-        val request = httpClient.sendRequestAsync(httpRequest)
-
-        val result = request.await()
+        httpClient.sendRequest(httpRequest, completion)
 
         val mockRequest = mockWebServer.takeRequest()
 
         assertEquals("GET / HTTP/1.1", mockRequest.requestLine)
-        assertTrue(result is Failure)
-        assertEquals(httpRequest, this@HttpClientTests.httpRequest)
-        assertEquals(result, networkResult)
-        assertTrue((result as Failure).networkError is Non200Error)
-        assertEquals(500, status)
+
+        verify(timeout = 1000) {
+            completion(match { result ->
+                result is Failure
+                        && httpRequest == this@HttpClientTests.httpRequest
+                        && result == networkResult
+                        && 500 == status
+                        && result.networkError is Non200Error
+            })
+        }
     }
 
     @Test
-    fun cancelledRequestReturnsCancelledFailure() = runBlocking {
-        mockWebServer = MockWebServer()
-        mockWebServer.enqueue(
+    fun cancelledRequestReturnsCancelledFailure() {
+        every { mockInterceptor.shouldRetry(any(), any(), any()) } returns RetryAfterDelay(100L)
+        startMockWebServer(
+            MockResponse()
+                .setResponseCode(500),
+            MockResponse()
+                .setResponseCode(500)
+        )
+        val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
+
+        val httpRequest = HttpRequest(
+            urlString,
+            HttpMethod.Get
+        )
+
+        val request = httpClient.sendRequest(httpRequest, completion)
+        request.dispose()
+
+        val mockRequest = mockWebServer.takeRequest()
+
+        assertEquals("GET / HTTP/1.1", mockRequest.requestLine)
+
+        verify(timeout = 1000) {
+            completion(match { result ->
+                result is Failure
+                        && result.networkError is Cancelled
+            })
+        }
+        confirmVerified(completion)
+    }
+
+    @Test
+    fun redirectSuccessfulResponse() {
+        startMockWebServer(
+            MockResponse()
+                .setResponseCode(301)
+                .setHeader("Location", urlString),
             MockResponse()
                 .setResponseCode(200)
         )
-        mockWebServer.start(port)
-        mockWebServer.url(urlString)
+        val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
 
-        val request = httpClient.sendRequestAsync(
+        httpClient.sendRequest(
             HttpRequest(
                 urlString,
                 HttpMethod.Get
-            )
+            ),
+            completion
         )
 
-        request.cancel()
-
-        val result = request.await()
         val mockRequest = mockWebServer.takeRequest()
 
         assertEquals("GET / HTTP/1.1", mockRequest.requestLine)
-        assertTrue(result is Failure)
-        assertTrue((result as Failure).networkError is Cancelled)
+
+        verify(timeout = 1000) {
+            completion(match { result ->
+                result is Success
+                        && status == 200
+            })
+        }
     }
 
     @Test
-    fun redirectSuccessfulResponse() = runBlocking {
-        mockWebServer = MockWebServer()
-        mockWebServer.enqueue(
+    fun redirectFailedResponseWhenNoLocationHeader() {
+        startMockWebServer(
             MockResponse()
-                .setResponseCode(301)
-                .setHeader("Location", urlString)
-        )
-        mockWebServer.enqueue(
+                .setResponseCode(301),
             MockResponse()
                 .setResponseCode(200)
         )
-        mockWebServer.start(port)
-        mockWebServer.url(urlString)
+        val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
 
-        val httpRequest = HttpRequest(
-            urlString,
-            HttpMethod.Get
+        httpClient.sendRequest(
+            HttpRequest(
+                urlString,
+                HttpMethod.Get
+            ),
+            completion
         )
 
-        val request = httpClient.sendRequestAsync(httpRequest)
-
-        val result = request.await()
         val mockRequest = mockWebServer.takeRequest()
 
         assertEquals("GET / HTTP/1.1", mockRequest.requestLine)
-        assertTrue(result is Success)
+
+        verify(timeout = 1000) {
+            completion(match { result ->
+                result is Failure
+                        && result.networkError is UnexpectedError
+            })
+        }
     }
 
     @Test
-    fun redirectFailedResponseWhenNoLocationHeader() = runBlocking {
-        mockWebServer = MockWebServer()
-        mockWebServer.enqueue(
+    fun sendSuccessfulPostRequest() {
+        startMockWebServer(
             MockResponse()
-                .setResponseCode(301)
-        )
-
-        mockWebServer.start(port)
-        mockWebServer.url(urlString)
-
-        val httpRequest = HttpRequest(
-            urlString,
-            HttpMethod.Get
-        )
-
-        val request = httpClient.sendRequestAsync(httpRequest)
-
-        val result = request.await()
-        val mockRequest = mockWebServer.takeRequest()
-
-        assertEquals("GET / HTTP/1.1", mockRequest.requestLine)
-        assertTrue(result is Failure)
-        assertTrue((result as Failure).networkError is UnexpectedError)
-        assertTrue((result.networkError as UnexpectedError).ex?.message == "Received redirect response without a valid Location header")
-    }
-
-    @Test
-    fun sendSuccessfulPostRequest() = runBlocking {
-        mockWebServer = MockWebServer()
-        mockWebServer.enqueue(MockResponse()
                 .setBody("Successful POST")
                 .setResponseCode(200)
         )
+        val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
 
-        mockWebServer.start(port)
-        mockWebServer.url(urlString)
-
-        val httpRequest = HttpRequest(
-            urlString,
-            HttpMethod.Post,
-            body = "Test Body",
-            headers = mapOf("Content-type" to "text/plain")
+        httpClient.sendRequest(
+            HttpRequest(
+                urlString,
+                HttpMethod.Post,
+                body = "Test Body",
+                headers = mapOf("Content-type" to "text/plain")
+            ),
+            completion
         )
 
-        val request = httpClient.sendRequestAsync(httpRequest)
-
-        val result = request.await()
         val mockRequest = mockWebServer.takeRequest()
 
         assertEquals("POST / HTTP/1.1", mockRequest.requestLine)
-        assertTrue(result is Success)
-        assertEquals( "Successful POST", (result as Success).httpResponse.body)
+
+        verify(timeout = 1000) {
+            completion(match { result ->
+                result is Success
+                        && "Successful POST" == result.httpResponse.body
+            })
+        }
     }
 
     @Test
-    fun sendFailedPostRequest() = runBlocking {
-        mockWebServer = MockWebServer()
-        mockWebServer.enqueue(MockResponse()
-            .setBody("Successful POST")
-            .setResponseCode(200)
+    fun sendFailedPostRequest() {
+        startMockWebServer(
+            MockResponse()
+                .setBody("Failed POST")
+                .setResponseCode(404)
+        )
+        val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
+
+        httpClient.sendRequest(
+            HttpRequest(
+                urlString,
+                HttpMethod.Post,
+                body = "Test Body",
+                headers = mapOf("Content-type" to "text/plain")
+            ),
+            completion
         )
 
-        val url = "http://localhost:1000"
-        mockWebServer.start(port)
-        mockWebServer.url(url)
+        val mockRequest = mockWebServer.takeRequest()
 
-        val httpRequest = HttpRequest(
-            url,
-            HttpMethod.Post,
-            body = "Test Body",
-            headers = mapOf("Content-type" to "text/plain")
-        )
+        assertEquals("POST / HTTP/1.1", mockRequest.requestLine)
 
-        val request = httpClient.sendRequestAsync(httpRequest)
-
-        val result = request.await()
-
-        assertTrue(result is Failure)
+        verify(timeout = 1000) {
+            completion(match { result ->
+                result is Failure
+            })
+        }
     }
 
     @Test
-    fun incrementRetryCount() = runBlocking {
+    fun incrementRetryCount() {
         every { mockInterceptor.didComplete(any(), any()) } just Runs
         every {
             mockInterceptor.shouldRetry(any(), any(), any())
         } returns RetryAfterDelay(10) andThen RetryAfterDelay(10) andThen DoNotRetry
-        every { mockInterceptor.shouldDelay(any()) } returns DoNotDelay
+        val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
 
-        mockWebServer = MockWebServer()
-        mockWebServer.enqueue(
+        startMockWebServer(
             MockResponse()
-                .setResponseCode(500)
-        )
-        mockWebServer.enqueue(
+                .setResponseCode(500),
             MockResponse()
-                .setResponseCode(500)
-        )
-        mockWebServer.enqueue(
+                .setResponseCode(500),
             MockResponse()
                 .setResponseCode(200)
         )
-        mockWebServer.start(port)
-        mockWebServer.url(urlString)
 
-        val httpRequest = HttpRequest(
-            urlString,
-            HttpMethod.Get
+        httpClient.sendRequest(
+            HttpRequest(
+                urlString,
+                HttpMethod.Get
+            ), completion
         )
 
-        val request = httpClient.sendRequestAsync(httpRequest)
-
-        request.await()
         mockWebServer.takeRequest()
 
-        coVerify {
+        verify(timeout = 1000) {
             mockInterceptor.shouldRetry(any(), any(), 0)
             mockInterceptor.shouldRetry(any(), any(), 1)
             mockInterceptor.shouldRetry(any(), any(), 2)
@@ -415,80 +439,71 @@ class HttpClientTests {
     }
 
     @Test
-    fun delayRequestIfInterceptorReturnsAfterDelay() = runBlocking {
-        val delayDuration = 1000L // 1 second
-        val delayPolicy = AfterDelay(delayDuration)
-        every { mockInterceptor.shouldDelay(any()) } returns delayPolicy
-
-        mockWebServer = MockWebServer()
-        mockWebServer.enqueue(
-            MockResponse()
-                .setResponseCode(500)
+    fun delayRequestIfInterceptorReturnsAfterDelay() {
+        val startTime = System.currentTimeMillis()
+        val delayDuration = 500L // 0.5 second
+        every { mockInterceptor.shouldRetry(any(), any(), any()) } returns RetryAfterDelay(
+            delayDuration
         )
-
-        mockWebServer.start(port)
-        mockWebServer.url(urlString)
 
         val httpRequest = HttpRequest(
             urlString,
             HttpMethod.Get
         )
 
-        val delayDurationActual = measureTimeMillis {
-            httpClient.sendRequestAsync(httpRequest).await()
+        val completion = spyk<(Boolean) -> Unit>({
+            assertTrue(it)
+            assertTrue(System.currentTimeMillis() >= startTime + delayDuration)
+        })
+        httpClient.processInterceptorsForDelay(httpRequest, mockk(), 0, completion)
+
+        verify { mockInterceptor.shouldRetry(httpRequest, any(), any()) }
+        verify(timeout = 1000) {
+            completion(true)
         }
-
-        mockWebServer.takeRequest()
-
-
-        coVerify { mockInterceptor.shouldDelay(httpRequest) }
-        assert(delayDurationActual >= delayDuration)
-
     }
 
     @Test
-    fun interceptRequestCalledInReverseOrder() = runBlocking {
-        val mockInterceptor1 = mockk<Interceptor>()
-        val mockInterceptor2 = mockk<Interceptor>()
+    fun delayRequestIfInterceptorReturnsAfterEvent() {
+        val subject = Observables.publishSubject<Unit>()
+        val event = subject
+            .subscribeOn(executorService)
+            .observeOn(executorService)
 
-        every { mockInterceptor1.shouldDelay(any()) } returns DoNotDelay
-        every { mockInterceptor2.shouldDelay(any()) } returns DoNotDelay
-
-        mockWebServer = MockWebServer()
-        mockWebServer.start(port)
-        mockWebServer.url(urlString)
-
-        httpClient.addInterceptor(mockInterceptor1)
-        httpClient.addInterceptor(mockInterceptor2)
+        every { mockInterceptor.shouldRetry(any(), any(), any()) } returns RetryAfterEvent(
+            event
+        )
 
         val httpRequest = HttpRequest(
             urlString,
             HttpMethod.Get
         )
 
-        httpClient.processInterceptorsForDelay(httpRequest)
+        val completion = spyk<(Boolean) -> Unit>({
+            assertTrue(it)
+        })
+        httpClient.processInterceptorsForDelay(httpRequest, mockk(), 0, completion)
 
-        verifyOrder {
-            mockInterceptor2.shouldDelay(httpRequest)
-            mockInterceptor1.shouldDelay(httpRequest)
-            mockInterceptor.shouldDelay(httpRequest)
+        verify { mockInterceptor.shouldRetry(httpRequest, any(), any()) }
+        verify(timeout = 500, inverse = true) {
+            completion(true)
         }
 
-        confirmVerified(mockInterceptor1, mockInterceptor2)
+        subject.onNext(Unit)
+        verify(timeout = 500) {
+            completion(true)
+        }
     }
 
     @Test
-    fun shouldRetryCalledInReverseOrder() = runBlocking {
+    fun shouldRetryCalledInReverseOrder() {
+        val completion = mockk<(Boolean) -> Unit>(relaxed = true)
         val mockInterceptor1 = mockk<Interceptor>()
         val mockInterceptor2 = mockk<Interceptor>()
 
         every { mockInterceptor1.shouldRetry(any(), any(), any()) } returns DoNotRetry
         every { mockInterceptor2.shouldRetry(any(), any(), any()) } returns DoNotRetry
 
-        mockWebServer = MockWebServer()
-        mockWebServer.start(port)
-        mockWebServer.url(urlString)
-
         httpClient.addInterceptor(mockInterceptor1)
         httpClient.addInterceptor(mockInterceptor2)
 
@@ -497,7 +512,7 @@ class HttpClientTests {
             HttpMethod.Get
         )
 
-        httpClient.processInterceptorsForRetry(httpRequest, mockk(), 0)
+        httpClient.processInterceptorsForDelay(httpRequest, mockk(), 0, completion)
 
         verifyOrder {
             mockInterceptor2.shouldRetry(httpRequest, any(), 0)
@@ -505,23 +520,22 @@ class HttpClientTests {
             mockInterceptor.shouldRetry(httpRequest, any(), 0)
         }
 
+        verify { completion(false) }
+
         confirmVerified(mockInterceptor1, mockInterceptor2)
     }
 
     @Test
-    fun shouldRetryReturnsTrueForSingleInterceptorsAndRemainingIgnored() = runBlocking {
+    fun shouldRetryReturnsTrueForSingleInterceptorsAndRemainingIgnored() {
+        val completion = mockk<(Boolean) -> Unit>(relaxed = true)
         val mockInterceptor1 = mockk<Interceptor>()
         val mockInterceptor2 = mockk<Interceptor>()
         val mockInterceptor3 = mockk<Interceptor>()
 
         every { mockInterceptor1.shouldRetry(any(), any(), any()) } returns DoNotRetry
-        every { mockInterceptor2.shouldRetry(any(), any(), any()) } returns RetryAfterDelay(1000)
+        every { mockInterceptor2.shouldRetry(any(), any(), any()) } returns RetryAfterDelay(100)
         every { mockInterceptor3.shouldRetry(any(), any(), any()) } returns DoNotRetry
 
-        mockWebServer = MockWebServer()
-        mockWebServer.start(port)
-        mockWebServer.url(urlString)
-
         httpClient.addInterceptor(mockInterceptor1)
         httpClient.addInterceptor(mockInterceptor2)
         httpClient.addInterceptor(mockInterceptor3)
@@ -531,45 +545,14 @@ class HttpClientTests {
             HttpMethod.Get
         )
 
-        httpClient.processInterceptorsForRetry(httpRequest, mockk(), 0)
+        httpClient.processInterceptorsForDelay(httpRequest, mockk(), 0, completion)
 
-        coVerify { mockInterceptor3.shouldRetry(httpRequest, any(), any()) }
-        coVerify { mockInterceptor2.shouldRetry(httpRequest, any(), any()) }
-        coVerify(exactly = 0) { mockInterceptor1.shouldRetry(httpRequest, any(), any()) }
-        coVerify(exactly = 0) { mockInterceptor.shouldRetry(httpRequest, any(), any()) }
+        verify { mockInterceptor3.shouldRetry(httpRequest, any(), any()) }
+        verify { mockInterceptor2.shouldRetry(httpRequest, any(), any()) }
+        verify(exactly = 0) { mockInterceptor1.shouldRetry(httpRequest, any(), any()) }
+        verify(exactly = 0) { mockInterceptor.shouldRetry(httpRequest, any(), any()) }
 
-        confirmVerified(mockInterceptor1, mockInterceptor2, mockInterceptor3)
-    }
-
-    @Test
-    fun interceptRequestReturnsTrueForSingleInterceptorsAndRemainingIgnored() = runBlocking {
-        val mockInterceptor1 = mockk<Interceptor>()
-        val mockInterceptor2 = mockk<Interceptor>()
-        val mockInterceptor3 = mockk<Interceptor>()
-
-        every { mockInterceptor1.shouldDelay(any()) } returns DoNotDelay
-        every { mockInterceptor2.shouldDelay(any()) } returns AfterDelay(1000)
-        every { mockInterceptor3.shouldDelay(any()) } returns DoNotDelay
-
-        mockWebServer = MockWebServer()
-        mockWebServer.start(port)
-        mockWebServer.url(urlString)
-
-        httpClient.addInterceptor(mockInterceptor1)
-        httpClient.addInterceptor(mockInterceptor2)
-        httpClient.addInterceptor(mockInterceptor3)
-
-        val httpRequest = HttpRequest(
-            urlString,
-            HttpMethod.Get
-        )
-
-        httpClient.processInterceptorsForDelay(httpRequest)
-
-        coVerify { mockInterceptor3.shouldDelay(httpRequest) }
-        coVerify { mockInterceptor2.shouldDelay(httpRequest) }
-        coVerify(exactly = 0) { mockInterceptor1.shouldDelay(httpRequest) }
-        coVerify(exactly = 0) { mockInterceptor.shouldDelay(httpRequest) }
+        verify(timeout = 1000) { completion(true) }
 
         confirmVerified(mockInterceptor1, mockInterceptor2, mockInterceptor3)
     }

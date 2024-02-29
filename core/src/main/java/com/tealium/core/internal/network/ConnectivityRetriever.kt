@@ -11,9 +11,9 @@ import com.tealium.core.BuildConfig
 import com.tealium.core.api.network.Connectivity
 import com.tealium.core.api.network.Connectivity.ConnectivityType
 import com.tealium.core.internal.Singleton
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.tealium.core.internal.observables.StateSubject
+import com.tealium.core.internal.observables.ObservableState
+import com.tealium.core.internal.observables.Observables
 
 /**
  * The [ConnectivityRetriever] is the default implementation of [Connectivity], making connectivity
@@ -29,15 +29,15 @@ class ConnectivityRetriever internal constructor(
         .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
         .addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
         .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED).build(),
-    private val statusFlow: MutableStateFlow<Connectivity.Status> =
-        MutableStateFlow(Connectivity.Status.NotConnected)
+    private val statusSubject: StateSubject<Connectivity.Status> =
+        Observables.stateSubject(Connectivity.Status.NotConnected)
 ) : Connectivity, ConnectivityManager.NetworkCallback() {
 
     private val connectivityManager =
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
-    override val onConnectionStatusUpdated: StateFlow<Connectivity.Status>
-        get() = statusFlow.asStateFlow()
+    override val onConnectionStatusUpdated: ObservableState<Connectivity.Status>
+        get() = statusSubject
 
     internal val activeNetworkCapabilities: NetworkCapabilities?
         get() = try {
@@ -48,7 +48,7 @@ class ConnectivityRetriever internal constructor(
         }
 
     override fun isConnected(): Boolean =
-        onConnectionStatusUpdated.value == Connectivity.Status.Connected
+        statusSubject.value == Connectivity.Status.Connected
 
     /**
      * Retrieves the type of the active network connection.
@@ -72,22 +72,22 @@ class ConnectivityRetriever internal constructor(
 
     override fun onAvailable(network: Network) {
         super.onAvailable(network)
-        statusFlow.value = Connectivity.Status.Connected
+        statusSubject.onNext(Connectivity.Status.Connected)
     }
 
     override fun onLosing(network: Network, maxMsToLive: Int) {
         super.onLosing(network, maxMsToLive)
-        statusFlow.value = Connectivity.Status.Unknown
+        statusSubject.onNext(Connectivity.Status.Unknown)
     }
 
     override fun onLost(network: Network) {
         super.onLost(network)
-        statusFlow.value = Connectivity.Status.NotConnected
+        statusSubject.onNext(Connectivity.Status.NotConnected)
     }
 
     override fun onUnavailable() {
         super.onUnavailable()
-        statusFlow.value = Connectivity.Status.NotConnected
+        statusSubject.onNext(Connectivity.Status.NotConnected)
     }
 
     private fun subscribe() {

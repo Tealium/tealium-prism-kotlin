@@ -1,6 +1,7 @@
 package com.tealium.core.api.network
 
 import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.listeners.Disposable
 import org.json.JSONObject
 
 /**
@@ -16,7 +17,7 @@ interface NetworkHelper {
      * @param url The Url to GET
      * @param etag Optional etag of the currently known resource
      */
-    suspend fun get(url: String, etag: String?): NetworkResult
+    fun get(url: String, etag: String?, completion: (NetworkResult) -> Unit) : Disposable
 
     /**
      * Asynchronously POSTs the [payload] to the given [url].
@@ -24,7 +25,7 @@ interface NetworkHelper {
      * @param url The Url to GET
      * @param payload The body to be POSTed
      */
-    suspend fun post(url: String, payload: TealiumBundle?): NetworkResult
+    fun post(url: String, payload: TealiumBundle?, completion: (NetworkResult) -> Unit): Disposable
 
     /**
      * Asynchronously fetches the given [url] and returns the payload parsed as a [JSONObject]
@@ -34,7 +35,7 @@ interface NetworkHelper {
      * @param url The Url to GET
      * @param etag Optional etag of the currently known resource
      */
-    suspend fun getJson(url: String, etag: String?): JSONObject?
+    fun getJson(url: String, etag: String?, completion: (JSONObject?) -> Unit): Disposable
 
     /**
      * Asynchronously fetches the given [url] and returns the payload parsed as a [TealiumBundle]
@@ -44,5 +45,5 @@ interface NetworkHelper {
      * @param url The Url to GET
      * @param etag Optional etag of the currently known resource
      */
-    suspend fun getTealiumBundle(url: String, etag: String?): TealiumBundle?
+    fun getTealiumBundle(url: String, etag: String?, completion: (TealiumBundle?) -> Unit): Disposable
 }

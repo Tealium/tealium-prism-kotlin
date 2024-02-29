@@ -7,9 +7,10 @@ import android.net.NetworkCapabilities
 import android.os.Build
 import com.tealium.core.api.network.Connectivity
 import com.tealium.core.api.network.Connectivity.ConnectivityType
+import com.tealium.core.internal.observables.Observables
+import com.tealium.core.internal.observables.StateSubject
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
-import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -36,7 +37,7 @@ class ConnectivityRetrieverTests {
     @MockK
     lateinit var mockCapabilities: NetworkCapabilities
 
-    private lateinit var connectionStatus: MutableStateFlow<Connectivity.Status>
+    private lateinit var connectionStatus: StateSubject<Connectivity.Status>
     private lateinit var connectivityRetriever: ConnectivityRetriever
 
     @Before
@@ -61,8 +62,8 @@ class ConnectivityRetrieverTests {
             } just Runs
         }
 
-        connectionStatus = MutableStateFlow(Connectivity.Status.Connected)
-        connectivityRetriever = ConnectivityRetriever(mockApplication, statusFlow = connectionStatus)
+        connectionStatus = Observables.stateSubject(Connectivity.Status.Connected)
+        connectivityRetriever = ConnectivityRetriever(mockApplication, statusSubject = connectionStatus)
     }
 
     @Test
@@ -75,14 +76,14 @@ class ConnectivityRetrieverTests {
 
     @Test
     fun connectivity_IsConnected() {
-        connectionStatus.value = Connectivity.Status.Connected
+        connectionStatus.onNext(Connectivity.Status.Connected)
 
         assertTrue(connectivityRetriever.isConnected())
     }
 
     @Test
     fun connectivity_IsNotConnected() {
-        connectionStatus.value = Connectivity.Status.NotConnected
+        connectionStatus.onNext(Connectivity.Status.NotConnected)
 
         assertFalse(connectivityRetriever.isConnected())
     }
@@ -99,7 +100,7 @@ class ConnectivityRetrieverTests {
     @Test
     fun onAvailableSetsStatusToAvailable() {
         val network: Network = mockk()
-        connectionStatus.value = Connectivity.Status.NotConnected
+        connectionStatus.onNext(Connectivity.Status.NotConnected)
 
         connectivityRetriever.onAvailable(network)
         assertEquals(
@@ -112,7 +113,7 @@ class ConnectivityRetrieverTests {
     @Test
     fun onLosingSetsStatusToUnknown() {
         val network: Network = mockk()
-        connectionStatus.value = Connectivity.Status.NotConnected
+        connectionStatus.onNext(Connectivity.Status.NotConnected)
 
         connectivityRetriever.onLosing(network, 100)
         assertEquals(
@@ -125,7 +126,7 @@ class ConnectivityRetrieverTests {
     @Test
     fun onLostSetsStatusToUnavailable() {
         val network: Network = mockk()
-        connectionStatus.value = Connectivity.Status.Connected
+        connectionStatus.onNext(Connectivity.Status.Connected)
 
         connectivityRetriever.onLost(network)
         assertEquals(
@@ -137,7 +138,7 @@ class ConnectivityRetrieverTests {
 
     @Test
     fun onUnavailableSetsStatusToUnavailable() {
-        connectionStatus.value = Connectivity.Status.Connected
+        connectionStatus.onNext(Connectivity.Status.Connected)
 
         connectivityRetriever.onUnavailable()
         assertEquals(
