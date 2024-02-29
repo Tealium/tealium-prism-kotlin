@@ -6,7 +6,7 @@ import com.tealium.core.api.Collector
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.Module
 import com.tealium.core.api.ModuleFactory
-import com.tealium.core.api.ModuleSettings
+import com.tealium.core.api.settings.ModuleSettings
 import com.tealium.core.api.data.TealiumBundle
 import java.security.SecureRandom
 import java.util.*

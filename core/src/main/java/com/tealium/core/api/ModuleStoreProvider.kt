@@ -23,4 +23,14 @@ interface ModuleStoreProvider {
      * @param module The module whose [DataStore] is required.
      */
     fun getModuleStore(module: Module): DataStore
+
+    /**
+     * Returns a [DataStore] that is not tied to a specific module, and therefore available for
+     * shared storage.
+     * Be mindful that this store can therefore be read from and written to by any code with access
+     * to it.
+     *
+     * It is also required to execute updates on the Tealium processing Thread.
+     */
+    fun getSharedDataStore(): DataStore
 }

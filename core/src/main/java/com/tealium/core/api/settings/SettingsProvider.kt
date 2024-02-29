@@ -1,0 +1,16 @@
+package com.tealium.core.api.settings
+
+import com.tealium.core.internal.SdkSettings
+import com.tealium.core.internal.observables.ObservableState
+
+/**
+ * The [SettingsProvider] interface defines the contract for providing access to
+ * SDK settings updates through the [onSdkSettingsUpdated] property.
+ */
+interface SettingsProvider {
+
+    /**
+     * An [ObservableState] that emits the latest SDK settings updates.
+     */
+    val onSdkSettingsUpdated: ObservableState<SdkSettings>
+}

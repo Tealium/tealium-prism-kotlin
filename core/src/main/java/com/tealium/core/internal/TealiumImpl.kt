@@ -10,6 +10,7 @@ import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.NetworkClient
 import com.tealium.core.api.network.NetworkUtilities
+import com.tealium.core.internal.settings.SettingsManager
 import com.tealium.core.internal.dispatch.BarrierCoordinatorImpl
 import com.tealium.core.internal.dispatch.DispatchManagerImpl
 import com.tealium.core.internal.dispatch.TransformerCoordinatorImpl
@@ -25,6 +26,8 @@ import com.tealium.core.internal.persistence.FileDatabaseProvider
 import com.tealium.core.internal.persistence.ModuleStoreProviderImpl
 import com.tealium.core.internal.persistence.ModulesRepository
 import com.tealium.core.internal.persistence.SQLModulesRepository
+import com.tealium.core.internal.settings.InternalSettingsProvider
+import com.tealium.core.internal.settings.SettingsProviderImpl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -49,11 +52,12 @@ class TealiumImpl(
     private val tealiumScope: CoroutineScope =
         CoroutineScope(backgroundService.asCoroutineDispatcher())
 
-    // SettingsRetriever to get settings
+    private val settingsProvider: InternalSettingsProvider = SettingsProviderImpl()
 
-    // TODO read level from file/config
-    private val logger: Logger =
-        LoggerImpl(logHandler = config.overrideLogHandler ?: LoggerImpl.ConsoleLogHandler)
+    private val logger: Logger = LoggerImpl(
+        logHandler = config.logHandler,
+        onSdkSettingsUpdated = settingsProvider.onSdkSettingsUpdated,
+    )
 
     private val networkClient: NetworkClient =
         HttpClient(
@@ -62,6 +66,12 @@ class TealiumImpl(
             networkService,
             interceptors = mutableListOf(ConnectivityInterceptor.getInstance(config.application))
         )
+
+    private val networkUtilities = NetworkUtilities(
+        connectivity = ConnectivityRetriever.getInstance(config.application),
+        networkClient = networkClient,
+        networkHelper = NetworkHelperImpl(networkClient, logger)
+    )
 
     init {
         makeTealiumDirectory(config).let { success ->
@@ -110,14 +120,21 @@ class TealiumImpl(
             return
         }
 
-        val modulesRepository =
-            SQLModulesRepository(dbProvider, tealiumScope = tealiumScope)
+        val modulesRepository = SQLModulesRepository(dbProvider, tealiumScope = tealiumScope)
+        val storage = ModuleStoreProviderImpl(dbProvider, modulesRepository)
+
+        val settingsManager = SettingsManager(
+            config,
+            networkUtilities,
+            storage.getSharedDataStore(),
+            settingsProvider,
+            logger
+        )
 
         val tealiumContext: TealiumContext =
             TealiumContext(
                 config.application,
-                // TODO - read from file instead.
-                config = config,
+                config,
                 dataLayer = dataLayer,
                 logger = logger,
                 // TODO - Visitor Storage not done yet, but EventStream requires a value for tealium_visitor_id
@@ -128,8 +145,9 @@ class TealiumImpl(
                 network = NetworkUtilities(
                     connectivity = ConnectivityRetriever.getInstance(config.application),
                     networkClient = networkClient,
-                    networkHelper = NetworkHelperImpl(networkClient)
+                    networkHelper = NetworkHelperImpl(networkClient, logger)
                 ),
+                settingsProvider = settingsProvider,
                 tealium = this
             )
 
@@ -148,7 +166,11 @@ class TealiumImpl(
 
         // TODO - needs registration to settings updates
         _moduleManager = ModuleManagerImpl(
-            tealiumContext, SdkSettings(emptyMap()), modules + config.modules, tealiumScope
+            tealiumContext,
+            settingsManager.currentSdkSettings,
+            modules + config.modules,
+            settingsProvider,
+            tealiumScope
         )
 
         _dispatchManager = DispatchManagerImpl(

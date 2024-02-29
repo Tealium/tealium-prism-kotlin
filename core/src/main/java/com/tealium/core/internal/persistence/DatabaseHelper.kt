@@ -3,10 +3,7 @@ package com.tealium.core.internal.persistence
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteException
 import android.database.sqlite.SQLiteOpenHelper
-import android.util.Log
-import com.tealium.core.BuildConfig
 import com.tealium.core.TealiumConfig
-import com.tealium.core.internal.DataLayerImpl
 import com.tealium.core.internal.persistence.Schema.DispatchTable.CREATE_DISPATCH_TABLE
 import com.tealium.core.internal.persistence.Schema.QueueTable.CREATE_QUEUE_TABLE
 import com.tealium.core.internal.persistence.Schema.DispatcherTable.CREATE_DISPATCHERS_TABLE

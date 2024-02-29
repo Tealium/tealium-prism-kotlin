@@ -4,6 +4,9 @@ import android.content.Context
 import com.tealium.core.api.*
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.NetworkUtilities
+import com.tealium.core.api.settings.SettingsProvider
+import com.tealium.core.internal.observables.Observable
+import com.tealium.core.internal.settings.CoreSettings
 
 class TealiumContext(
     val context: Context,
@@ -15,13 +18,18 @@ class TealiumContext(
     visitorId: String, // todo
     val storageProvider: ModuleStoreProvider,
     val network: NetworkUtilities,
+    private val settingsProvider: SettingsProvider,
     private val tealium: Tealium
 ) {
     private val _visitorId = visitorId
+    val onCoreSettings: Observable<CoreSettings>
+        get() = settingsProvider.onSdkSettingsUpdated.map { settings ->
+            settings.coreSettings
+        }
     val visitorId: String
         get() {
             //TODO()
-              //tealium.
+            //tealium.
             return _visitorId
         }
 

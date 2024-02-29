@@ -4,17 +4,20 @@ import android.net.Uri
 import com.tealium.core.BuildConfig
 import com.tealium.core.TealiumConfig
 import com.tealium.core.TealiumContext
-import com.tealium.core.api.*
+import com.tealium.core.api.Dispatch
+import com.tealium.core.api.Dispatcher
+import com.tealium.core.api.Module
+import com.tealium.core.api.ModuleFactory
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumList
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.NetworkHelper
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
+import com.tealium.core.api.settings.ModuleSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.merge
 
@@ -69,7 +72,6 @@ class CollectDispatcher(
             else sendBatch(visitorId, dispatches)
         }.merge()
     }
-
 
     private fun sendBatch(
         visitorId: String,
@@ -133,8 +135,9 @@ class CollectDispatcher(
         }.buffer(Channel.UNLIMITED)
     }
 
-    override fun updateSettings(coreSettings: CoreSettings, moduleSettings: ModuleSettings) {
+    override fun updateSettings(moduleSettings: ModuleSettings): Module? {
         collectDispatcherSettings = CollectDispatcherSettings.fromModuleSettings(moduleSettings)
+        return this // TODO or null if required settings not available
     }
 
     companion object {
@@ -225,13 +228,17 @@ class CollectDispatcher(
  * @param batchUrl The endpoint to dispatch batched events to
  * @param profile Optional - Tealium profile name to override on the payload
  */
-class CollectDispatcherSettings(
-    val url: String = DEFAULT_COLLECT_URL,
-    val batchUrl: String = DEFAULT_COLLECT_BATCH_URL,
-    val profile: String? = null,
+data class CollectDispatcherSettings(
+    val enabled: Boolean = true,
+    val dependencies: List<Any> = emptyList(),
+    var url: String = DEFAULT_COLLECT_URL,
+    var batchUrl: String = DEFAULT_COLLECT_BATCH_URL,
+    var profile: String? = null
 ) {
 
     companion object {
+        const val KEY_COLLECT_SETTINGS = "collect"
+
         const val MAX_BATCH_SIZE = 10
         const val DEFAULT_COLLECT_URL = "https://collect.tealiumiq.com/event"
         const val DEFAULT_COLLECT_BATCH_URL = "https://collect.tealiumiq.com/bulk-event"
@@ -262,18 +269,19 @@ class CollectDispatcherSettings(
         }
 
         fun fromModuleSettings(settings: ModuleSettings): CollectDispatcherSettings {
-            val domain = settings.settings[KEY_COLLECT_DOMAIN] as? String
+            val dependencies = settings.dependencies
+            val domain = settings.bundle.getString(KEY_COLLECT_DOMAIN)
 
-            val url = settings.settings[KEY_COLLECT_URL] as? String
+            val url = settings.bundle.getString(KEY_COLLECT_URL)
                 ?: configureDomain(DEFAULT_COLLECT_URL, domain)
                 ?: DEFAULT_COLLECT_URL
-            val batchUrl = settings.settings[KEY_COLLECT_BATCH_URL] as? String
+            val batchUrl = settings.bundle.getString(KEY_COLLECT_BATCH_URL)
                 ?: configureDomain(DEFAULT_COLLECT_BATCH_URL, domain)
                 ?: DEFAULT_COLLECT_BATCH_URL
-            val profile = settings.settings[KEY_COLLECT_PROFILE] as? String
+            val profile = settings.bundle.getString(KEY_COLLECT_PROFILE)
 
             return CollectDispatcherSettings(
-                url, batchUrl, profile
+                url = url, batchUrl = batchUrl, profile = profile, dependencies = dependencies
             )
         }
     }

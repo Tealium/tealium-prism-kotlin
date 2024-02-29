@@ -3,7 +3,6 @@ package com.tealium.core.api.data
 import org.json.JSONArray
 import org.json.JSONObject
 
-
 /**
  * Utility function to allow transforming a [JSONObject]'s values.
  */
@@ -20,7 +19,7 @@ fun <T> JSONObject.mapValues(block: (value: Any) -> T): Map<String, T> {
 /**
  * Utility function to allow [map] iterating on a [JSONArray]
  */
-fun <T> JSONArray.map(transform: (value: Any) -> T) : List<T> {
+fun <T> JSONArray.map(transform: (value: Any) -> T): List<T> {
     val list = mutableListOf<T>()
     this.forEach { value ->
         list.add(transform.invoke(value))
@@ -48,6 +47,54 @@ fun JSONArray.forEachIndexed(block: (value: Any, index: Int) -> Unit) {
     for (idx in 0 until size) {
         this.opt(idx)?.let { value ->
             block(value, idx)
+        }
+    }
+}
+
+/**
+ * Joins two [TealiumBundle] objects together, merging any [TealiumBundle] objects that exist at the
+ * same key in both objects.
+ *
+ * Keys from the right-hand-side (rhs) of this operator will be preferred over the left-hand-side (lhs).
+ * In almost all cases, key clashes will simply take the value from the right-hand-side.
+ *
+ * e.g.
+ * ```kotlin
+ * val lhs = TealiumBundle.create {
+ *     put("string", "value")
+ *     put("bundle", TealiumBundle.create {
+ *         put("key1", "string")
+ *         put("key2", true)
+ *     })
+ * }
+ *
+ * val rhs = TealiumBundle.create {
+ *     put("string", "new value")
+ *     put("bundle", TealiumBundle.create {
+ *         put("key1", "new string")
+ *         put("key3", "extra string")
+ *     })
+ * }
+ *
+ * val merged = lhs + rhs
+ *
+ * // merged will be the equivalent of this:
+ * TealiumBundle.create {
+ *     put("string", "new value")            // from rhs
+ *     put("bundle", TealiumBundle.create {
+ *         put("key1", "new string")         // from rhs
+ *         put("key3", "extra string")       // from rhs
+ *     })
+ * }
+ * ```
+ *
+ * @param other The incoming values to merge into this [TealiumBundle]
+ * @return A new [TealiumBundle] that contains the merged key-value pairs from both [TealiumBundle]s
+ */
+operator fun TealiumBundle.plus(other: TealiumBundle): TealiumBundle {
+    return this.copy {
+        for ((key, value) in other) {
+            put(key, value)
         }
     }
 }

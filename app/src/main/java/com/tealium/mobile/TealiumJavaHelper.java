@@ -25,7 +25,7 @@ public class TealiumJavaHelper {
     public static void init(Application app) {
         Tealium teal = Tealium.create(
                 "",
-                new TealiumConfig(app, "tealiummobile", "android", Environment.DEV, "tealium-settings.json",
+                new TealiumConfig(app, "tealiummobile", "android", Environment.DEV,
                         Collections.singletonList(Modules.Collect)), (tealium, error) -> {
                     Log.d("", "Ready");
                 });

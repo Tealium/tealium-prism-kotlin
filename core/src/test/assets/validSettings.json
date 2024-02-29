@@ -1,0 +1,10 @@
+{
+  "core":{
+    "batch_size":6,
+    "deep_link_tracking_enabled":false,
+    "log_level":"info",
+    "battery_saver":false,
+    "wifi_only":false,
+    "settings_update_interval":15
+  }
+}

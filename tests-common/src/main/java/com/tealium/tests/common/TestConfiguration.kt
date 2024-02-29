@@ -11,7 +11,6 @@ fun getDefaultConfig(
     accountName: String = "test",
     profileName: String = "test",
     environment: Environment = Environment.DEV,
-    fileName: String = "",
     modules: List<ModuleFactory> = listOf(),
     events: List<Listener> = listOf()
 ): TealiumConfig {
@@ -20,7 +19,6 @@ fun getDefaultConfig(
         accountName = accountName,
         profileName = profileName,
         environment = environment,
-        fileName = fileName,
         modules = modules,
         events = events
     )

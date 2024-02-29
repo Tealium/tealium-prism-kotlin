@@ -2,18 +2,21 @@ package com.tealium.mobile
 
 import android.app.Application
 import android.util.Log
-import com.tealium.core.*
+import com.tealium.core.Environment
+import com.tealium.core.LogLevel
+import com.tealium.core.Modules
+import com.tealium.core.Tealium
+import com.tealium.core.TealiumConfig
 import com.tealium.core.api.ConsentStatus
 import com.tealium.core.api.DataLayer
 import com.tealium.core.api.Dispatch
+import com.tealium.core.api.TealiumDispatchType
 import com.tealium.core.api.VisitorService
+import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.listeners.ConsentStatusUpdatedListener
 import com.tealium.core.api.listeners.DispatchDroppedListener
 import com.tealium.core.api.listeners.DispatchQueuedListener
 import com.tealium.core.api.listeners.DispatchReadyListener
-import com.tealium.core.Modules
-import com.tealium.core.api.TealiumDispatchType
-import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.network.Cancelled
 import com.tealium.core.api.network.DoNotRetry
 import com.tealium.core.api.network.Failure
@@ -26,6 +29,7 @@ import com.tealium.core.api.network.RetryAfterDelay
 import com.tealium.core.api.network.RetryPolicy
 import com.tealium.core.api.network.Success
 import com.tealium.core.api.network.UnexpectedError
+import com.tealium.core.api.settings.CoreSettingsBuilder
 
 object TealiumHelper :
     DispatchReadyListener,
@@ -58,11 +62,19 @@ object TealiumHelper :
         val config = TealiumConfig(
             application = application,
             modules = listOf(Modules.VisitorService, Modules.Collect),
-            fileName = "tealium-settings.json",
             accountName = "tealiummobile",
             profileName = "android",
             environment = Environment.DEV
-        )
+        ).apply {
+            useRemoteSettings = true
+            localSdkSettingsFileName = "tealium-settings.json"
+
+            addModuleSettings(
+                CoreSettingsBuilder()
+                    .setLogLevel(LogLevel.TRACE)
+                    .setBatchSize(8)
+            )
+        }
 
         Tealium.create(INSTANCE_NAME, config) { tealium, error ->
 //            it.events.subscribe(this)
@@ -167,6 +179,7 @@ class CustomInterceptor(private val delayInterval: Long) : Interceptor {
                     DoNotRetry
                 }
             }
+
             else -> DoNotRetry
         }
     }

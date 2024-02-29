@@ -1,10 +1,12 @@
 package com.tealium.core.api
 
+import com.tealium.core.api.settings.ModuleSettings
+
 interface Module {
     val name: String
     val version: String
 
-    fun updateSettings(coreSettings: CoreSettings, moduleSettings: ModuleSettings) {
-        //
+    fun updateSettings(moduleSettings: ModuleSettings) : Module? {
+        return this
     }
 }

@@ -1,18 +1,22 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.BuildConfig
+import com.tealium.core.TealiumConfig
 import com.tealium.core.TealiumContext
-import com.tealium.core.api.CoreSettings
 import com.tealium.core.api.DataStore
 import com.tealium.core.api.Module
 import com.tealium.core.api.ModuleFactory
-import com.tealium.core.api.ModuleSettings
 import com.tealium.core.api.VisitorProfile
 import com.tealium.core.api.VisitorService
 import com.tealium.core.api.listeners.Subscribable
 import com.tealium.core.internal.observables.Observables
 import com.tealium.core.internal.observables.StateSubject
 import java.util.*
+import com.tealium.core.api.settings.ModuleSettings
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import java.util.UUID
 
 class VisitorServiceImpl(
     private var settings: VisitorServiceSettings,
@@ -34,7 +38,6 @@ class VisitorServiceImpl(
     override fun resetVisitorId() {
         val newId = generateVisitorId()
 
-
 //        _visitorId.update(generateVisitorId())
     }
 
@@ -42,8 +45,9 @@ class VisitorServiceImpl(
         // TODO()
     }
 
-    override fun updateSettings(coreSettings: CoreSettings, moduleSettings: ModuleSettings) {
+    override fun updateSettings(moduleSettings: ModuleSettings): Module? {
         settings = VisitorServiceSettings.fromModuleSettings(moduleSettings)
+        return this // TODO or null if required settings are not available
     }
 
     override val name: String
@@ -52,7 +56,7 @@ class VisitorServiceImpl(
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
     companion object {
-        private const val moduleName = "VisitorService"
+        const val moduleName = "VisitorService"
 
         private fun generateVisitorId(uuid: UUID = UUID.randomUUID()): String {
             return uuid.toString().replace("-", "")
@@ -73,12 +77,16 @@ class VisitorServiceImpl(
 }
 
 class VisitorServiceSettings(
+    val enabled: Boolean = true,
+    val dependencies: List<Any> = emptyList(),
     val urlTemplate: String = DEFAULT_VISITOR_SERVICE_TEMPLATE,
     val profile: String? = null,
     val refreshIntervalSeconds: Long = DEFAULT_REFRESH_INTERVAL_SECONDS
 ) {
 
     companion object {
+        const val KEY_VISITOR_SERVICE_SETTINGS = "visitor_service"
+
         const val VISITOR_PROFILE_FILENAME = "visitor_profile.json"
         const val DEFAULT_REFRESH_INTERVAL_SECONDS = 300L
 
@@ -95,12 +103,17 @@ class VisitorServiceSettings(
         const val VISITOR_SERVICE_REFRESH_INTERVAL = "override_visitor_refresh_interval"
 
         fun fromModuleSettings(settings: ModuleSettings): VisitorServiceSettings {
+            val dependencies = settings.dependencies
+            val url = settings.bundle.getString(VISITOR_SERVICE_OVERRIDE_URL)
+                ?: DEFAULT_VISITOR_SERVICE_TEMPLATE
+            val profile = settings.bundle.getString(VISITOR_SERVICE_OVERRIDE_PROFILE)
+            val refreshInterval = settings.bundle.getLong(VISITOR_SERVICE_REFRESH_INTERVAL)
+                ?: DEFAULT_REFRESH_INTERVAL_SECONDS
             return VisitorServiceSettings(
-                settings.settings[VISITOR_SERVICE_OVERRIDE_URL] as? String
-                    ?: DEFAULT_VISITOR_SERVICE_TEMPLATE,
-                settings.settings[VISITOR_SERVICE_OVERRIDE_PROFILE] as? String,
-                settings.settings[VISITOR_SERVICE_REFRESH_INTERVAL] as? Long
-                    ?: DEFAULT_REFRESH_INTERVAL_SECONDS,
+                urlTemplate = url,
+                profile = profile,
+                refreshIntervalSeconds = refreshInterval,
+                dependencies = dependencies
             )
         }
     }

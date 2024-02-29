@@ -358,4 +358,119 @@ class TealiumBundleTests {
         assertEquals(6, addedTo.size)
         assertEquals(4, removedFrom.size)
     }
+
+    @Test
+    fun plus_WithNoClashes_ReturnsMergedTealiumBundle() {
+        val lhs = TealiumBundle.create {
+            put("string", "value")
+            put("long", 100L)
+            put("list", TealiumList.create {
+                add("string")
+                add(10)
+            })
+        }
+
+        val rhs = TealiumBundle.create {
+            put("int", 10)
+            put("double", 1.1)
+            put("bundle", TealiumBundle.create {
+                put("substring", "string")
+            })
+        }
+
+        val merged1 = lhs + rhs
+        val merged2 = rhs + lhs
+
+        listOf(merged1, merged2).forEach {
+            assertEquals(lhs.get("string"), it.get("string"))
+            assertEquals(lhs.get("long"), it.get("long"))
+            assertEquals(lhs.get("list"), it.get("list"))
+
+            assertEquals(rhs.get("int"), it.get("int"))
+            assertEquals(rhs.get("double"), it.get("double"))
+            assertEquals(rhs.get("bundle"), it.get("bundle"))
+        }
+    }
+
+    @Test
+    fun plus_WithClashes_PrefersIncoming() {
+        val lhs = TealiumBundle.create {
+            put("string", "value")
+            put("long", 100L)
+            put("list", TealiumList.create {
+                add("string")
+                add(10)
+            })
+        }
+
+        val rhs = TealiumBundle.create {
+            put("string", "new value")
+            put("long", 1000L)
+            put("list", TealiumList.create {
+                add("string2")
+                add(100)
+            })
+        }
+
+        val merged = lhs + rhs
+
+        println(merged.get("list"))
+
+        assertEquals(rhs.get("string"), merged.get("string"))
+        assertEquals(rhs.get("long"), merged.get("long"))
+        assertEquals(rhs.get("list"), merged.get("list"))
+    }
+
+    @Test
+    fun plus_WithBundleClash_MergesChildBundleProperties() {
+        val lhsChild = TealiumBundle.create {
+            put("key1", "string")
+            put("key2", true)
+            put("key3", 10)
+        }
+        val lhs = TealiumBundle.create {
+            put("bundle", lhsChild)
+        }
+
+        val rhsChild = TealiumBundle.create {
+            put("key1", "new string")
+            put("key4", "extra string")
+        }
+        val rhs = TealiumBundle.create {
+            put("bundle", rhsChild)
+        }
+
+        val merged = lhs + rhs
+        val bundle = merged.getBundle("bundle")!!
+
+        assertNull(bundle.get("key2"))
+        assertNull(bundle.get("key3"))
+        assertEquals(rhsChild.get("key1"), bundle.get("key1"))
+        assertEquals(rhsChild.get("key4"), bundle.get("key4"))
+    }
+
+    @Test
+    fun plus_WithIncomingBundle_OverwritesNonBundleProperties() {
+        val lhs = TealiumBundle.create {
+            put("key1", "string")
+            put("key2", 10)
+            put("key3", true)
+        }
+
+        val rhsChild = TealiumBundle.create {
+            put("key1", "new string")
+            put("key4", "extra string")
+        }
+        val rhs = TealiumBundle.create {
+            put("key1", rhsChild)
+            put("key2", rhsChild)
+            put("key3", rhsChild)
+        }
+
+        val merged = lhs + rhs
+
+        assertEquals(rhsChild, merged.getBundle("key1"))
+        assertEquals(rhsChild, merged.getBundle("key2"))
+        assertEquals(rhsChild, merged.getBundle("key3"))
+    }
 }

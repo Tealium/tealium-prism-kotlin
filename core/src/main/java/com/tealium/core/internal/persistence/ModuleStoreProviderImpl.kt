@@ -31,6 +31,10 @@ internal class ModuleStoreProviderImpl(
         return getModuleStoreForName(module.name)
     }
 
+    override fun getSharedDataStore(): DataStore {
+        return getModuleStoreForName(SHARED_STORE_NAME)
+    }
+
     private fun getModuleStoreForName(name: String): DataStore {
         val moduleId =
             moduleRepository.modules[name] ?: moduleRepository.registerModule(name)
@@ -44,5 +48,9 @@ internal class ModuleStoreProviderImpl(
         ).also {
             stores[moduleId] = it
         }
+    }
+
+    companion object {
+        const val SHARED_STORE_NAME = "shared"
     }
 }

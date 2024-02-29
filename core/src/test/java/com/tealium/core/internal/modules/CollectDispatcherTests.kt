@@ -10,6 +10,7 @@ import com.tealium.core.api.network.HttpResponse
 import com.tealium.core.api.network.NetworkHelper
 import com.tealium.core.api.network.NetworkResult
 import com.tealium.core.api.network.Success
+import com.tealium.core.internal.settings.ModuleSettingsImpl
 import io.mockk.MockKAnnotations
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -321,12 +322,11 @@ class CollectDispatcherTests {
 
         val url = "https://localhost/"
         collectDispatcher.updateSettings(
-            mockk(),
             ModuleSettingsImpl(
                 enabled = true,
-                mapOf(
-                    CollectDispatcherSettings.KEY_COLLECT_URL to url
-                )
+                bundle = TealiumBundle.create {
+                    put(CollectDispatcherSettings.KEY_COLLECT_URL, url)
+                }
             )
         )
         turbineScope {
@@ -354,12 +354,11 @@ class CollectDispatcherTests {
 
         val url = "https://localhost/"
         collectDispatcher.updateSettings(
-            mockk(),
             ModuleSettingsImpl(
                 enabled = true,
-                mapOf(
-                    CollectDispatcherSettings.KEY_COLLECT_BATCH_URL to url
-                )
+                bundle = TealiumBundle.create {
+                    put(CollectDispatcherSettings.KEY_COLLECT_BATCH_URL, url)
+                }
             )
         )
         turbineScope {
@@ -393,12 +392,11 @@ class CollectDispatcherTests {
 
         val overrideProfile = "override"
         collectDispatcher.updateSettings(
-            mockk(),
             ModuleSettingsImpl(
                 enabled = true,
-                mapOf(
-                    CollectDispatcherSettings.KEY_COLLECT_PROFILE to overrideProfile
-                )
+                bundle = TealiumBundle.create {
+                    put(CollectDispatcherSettings.KEY_COLLECT_PROFILE, overrideProfile)
+                }
             )
         )
         turbineScope {
@@ -419,11 +417,12 @@ class CollectDispatcherTests {
         val settings = CollectDispatcherSettings.fromModuleSettings(
             ModuleSettingsImpl(
                 enabled = true,
-                mapOf(
-                    CollectDispatcherSettings.KEY_COLLECT_URL to url,
-                    CollectDispatcherSettings.KEY_COLLECT_BATCH_URL to url,
-                    CollectDispatcherSettings.KEY_COLLECT_DOMAIN to "domain"
-                )
+                bundle = TealiumBundle.create {
+                    put(CollectDispatcherSettings.KEY_COLLECT_URL, url)
+                    put(CollectDispatcherSettings.KEY_COLLECT_BATCH_URL, url)
+                    put(CollectDispatcherSettings.KEY_COLLECT_DOMAIN, "domain")
+
+                }
             )
         )
 
@@ -436,9 +435,10 @@ class CollectDispatcherTests {
         val settings = CollectDispatcherSettings.fromModuleSettings(
             ModuleSettingsImpl(
                 enabled = true,
-                mapOf(
-                    CollectDispatcherSettings.KEY_COLLECT_DOMAIN to "domain"
-                )
+                bundle = TealiumBundle.create {
+                    put(CollectDispatcherSettings.KEY_COLLECT_DOMAIN, "domain")
+
+                }
             )
         )
 

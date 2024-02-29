@@ -3,12 +3,10 @@ package com.tealium.core.internal
 import android.util.Log
 import com.tealium.core.BuildConfig
 import com.tealium.core.LogLevel
-import com.tealium.core.api.CoreSettings
-import com.tealium.core.api.ModuleSettings
-import com.tealium.core.api.listeners.SettingsUpdatedListener
 import com.tealium.core.api.logger.LogHandler
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.logger.Logs
+import com.tealium.core.internal.observables.Observable
 
 /**
  * The [LoggerImpl] class is responsible for managing logging at various log levels,
@@ -20,8 +18,13 @@ import com.tealium.core.api.logger.Logs
  */
 class LoggerImpl(
     private val logHandler: LogHandler,
-    private var minLogLevel: LogLevel = LogLevel.DEBUG
-) : Logger, SettingsUpdatedListener {
+    private var minLogLevel: LogLevel = LogLevel.DEBUG,
+    onSdkSettingsUpdated: Observable<SdkSettings>,
+) : Logger {
+
+    init {
+        onSdkSettingsUpdated.subscribe(::onSettingsUpdated)
+    }
 
     /**
      * Determines if a log message should be logged based on the minimum log level.
@@ -56,7 +59,6 @@ class LoggerImpl(
     override val trace: Logs?
         get() = if (shouldLog(LogLevel.TRACE)) _trace else null
 
-
     override val debug: Logs?
         get() = if (shouldLog(LogLevel.DEBUG)) _debug else null
 
@@ -69,9 +71,8 @@ class LoggerImpl(
     override val error: Logs?
         get() = if (shouldLog(LogLevel.ERROR)) _error else null
 
-    override fun onSettingsUpdated(
-        coreSettings: CoreSettings, moduleSettings: Map<String, ModuleSettings>
-    ) {
+    internal fun onSettingsUpdated(settings: SdkSettings) {
+        val coreSettings = settings.coreSettings
         if (coreSettings.logLevel != minLogLevel) {
             minLogLevel = coreSettings.logLevel
         }

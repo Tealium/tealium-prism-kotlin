@@ -1,12 +1,17 @@
 package com.tealium.core.internal
 
-import com.tealium.core.Environment
 import com.tealium.core.LogLevel
+import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.logger.LogHandler
+import com.tealium.core.internal.settings.ModuleSettingsImpl
+import com.tealium.core.api.settings.SettingsProvider
+import com.tealium.core.internal.settings.CoreSettings
 import io.mockk.Called
 import io.mockk.MockKAnnotations
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.verify
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -21,10 +26,17 @@ class LoggerTests {
     @RelaxedMockK
     private lateinit var logHandler: LogHandler
 
+    @RelaxedMockK
+    private lateinit var settingsProvider: SettingsProvider
+
     @Before
     fun setup() {
         MockKAnnotations.init(this)
-        logger = LoggerImpl(logHandler, LogLevel.DEBUG)
+        logger = LoggerImpl(
+            logHandler,
+            LogLevel.DEBUG,
+            settingsProvider.onSdkSettingsUpdated,
+        )
     }
 
     @Test
@@ -66,12 +78,13 @@ class LoggerTests {
     @Test
     fun updateLogLevelToSilentReturnsNoLoggers() {
         logger.onSettingsUpdated(
-            coreSettings = CoreSettingsImpl(
-                "test",
-                "test",
-                Environment.DEV,
-                logLevel = LogLevel.SILENT
-            ), moduleSettings = emptyMap()
+            SdkSettings(
+                moduleSettings = mapOf(
+                    "core" to ModuleSettingsImpl(bundle = TealiumBundle.create {
+                        put(CoreSettings.KEY_LOG_LEVEL, LogLevel.SILENT)
+                    })
+                )
+            )
         )
         assertNull(logger.trace)
         assertNull(logger.debug)
@@ -85,12 +98,13 @@ class LoggerTests {
         val warnLogger = logger.warn!!
 
         logger.onSettingsUpdated(
-            coreSettings = CoreSettingsImpl(
-                "test",
-                "test",
-                Environment.DEV,
-                logLevel = LogLevel.SILENT
-            ), moduleSettings = emptyMap()
+            SdkSettings(
+                moduleSettings = mapOf(
+                    "core" to ModuleSettingsImpl(bundle = TealiumBundle.create {
+                        put(CoreSettings.KEY_LOG_LEVEL, LogLevel.SILENT)
+                    })
+                )
+            )
         )
         warnLogger.log("test", "test")
 

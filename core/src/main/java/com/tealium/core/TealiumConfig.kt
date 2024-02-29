@@ -4,6 +4,9 @@ import android.app.Application
 import com.tealium.core.api.ModuleFactory
 import com.tealium.core.api.listeners.Listener
 import com.tealium.core.api.logger.LogHandler
+import com.tealium.core.api.settings.ModuleSettings
+import com.tealium.core.api.settings.ModuleSettingsBuilder
+import com.tealium.core.internal.LoggerImpl
 import java.io.File
 
 class TealiumConfig @JvmOverloads constructor(
@@ -11,7 +14,6 @@ class TealiumConfig @JvmOverloads constructor(
     val accountName: String,
     val profileName: String,
     val environment: Environment,
-    val fileName: String,
     val modules: List<ModuleFactory>,
     val events: List<Listener> = emptyList(),
     val datasource: String? = null,
@@ -21,8 +23,31 @@ class TealiumConfig @JvmOverloads constructor(
         "${application.filesDir}${File.separatorChar}tealium${File.separatorChar}${accountName}${File.separatorChar}${profileName}${File.separatorChar}${environment.environment}"
     val tealiumDirectory: File = File(pathName)
 
+    var useRemoteSettings: Boolean = false
+
+    /**
+     * File name for local settings
+     */
+    var localSdkSettingsFileName: String? = null
+
+    /**
+     * Overrides remote URL to use when fetching remote settings
+     */
+    var sdkSettingsUrl: String? = null
+
     /**
      * Overrides default LogHandler. Default will log to the Android console.
      */
-    var overrideLogHandler: LogHandler? = null
+    var logHandler: LogHandler = LoggerImpl.ConsoleLogHandler
+
+    /**
+     * Holds settings configurations for core and integrated modules
+     */
+    internal val modulesSettings: MutableMap<String, ModuleSettings> = mutableMapOf()
+
+    fun addModuleSettings(vararg settings: ModuleSettingsBuilder) {
+        settings.forEach {
+            modulesSettings[it.moduleName] = it.build()
+        }
+    }
 }

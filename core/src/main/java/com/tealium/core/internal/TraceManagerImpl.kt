@@ -4,7 +4,7 @@ import com.tealium.core.TealiumContext
 import com.tealium.core.api.Module
 import com.tealium.core.api.ModuleFactory
 import com.tealium.core.api.ModuleManager
-import com.tealium.core.api.ModuleSettings
+import com.tealium.core.api.settings.ModuleSettings
 import com.tealium.core.api.TraceManager
 import java.lang.ref.WeakReference
 
@@ -52,7 +52,7 @@ class TraceManagerImpl: TraceManager, Module {
         override val name: String
             get() = moduleName
 
-        override fun create(context: TealiumContext, settings: ModuleSettings): Module {
+        override fun create(context: TealiumContext, settings: ModuleSettings): Module? {
             return TraceManagerImpl()
         }
     }

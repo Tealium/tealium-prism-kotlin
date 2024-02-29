@@ -31,7 +31,13 @@ interface Subject<T>: Observable<T>, Observer<T> {
  *
  * New values can be emitted to subscribers via the [Observer.onNext] method.
  */
-interface StateSubject<T>: Subject<T>, ObservableState<T>
+interface StateSubject<T>: Subject<T>, ObservableState<T> {
+
+    /**
+     * Returns the [StateSubject] as an [ObservableState] that therefore cannot be published to.
+     */
+    fun asObservableState() : ObservableState<T>
+}
 
 /**
  * A [ReplaySubject] is a specialized [Subject] that also maintains the latest N emissions
@@ -155,7 +161,7 @@ class StateSubjectImpl<T>(
         observer.onNext(value)
     }
 
-    fun asObservableState() : ObservableState<T> {
+    override fun asObservableState() : ObservableState<T> {
         return ObservableStateImpl(this)
     }
 }

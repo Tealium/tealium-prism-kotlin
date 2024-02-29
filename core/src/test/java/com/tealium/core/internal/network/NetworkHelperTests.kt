@@ -25,7 +25,7 @@ class NetworkHelperTests {
     @Before
     fun setup() {
         networkClient = mockk(relaxed = true)
-        networkHelper = NetworkHelperImpl(networkClient)
+        networkHelper = NetworkHelperImpl(networkClient, mockk())
     }
 
     /**
