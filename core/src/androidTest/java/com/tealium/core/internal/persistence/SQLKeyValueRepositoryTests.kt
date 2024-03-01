@@ -11,8 +11,6 @@ import com.tealium.core.api.data.TealiumValue
 import com.tealium.tests.common.TestModule
 import io.mockk.mockk
 import io.mockk.verify
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -53,7 +51,6 @@ class SQLKeyValueRepositoryTests {
         // Repositories
         moduleRepository = SQLModulesRepository(
             dbProvider,
-            tealiumScope = CoroutineScope(Dispatchers.Default)
         )
         module1Id = moduleRepository.registerModule(module1.name)
         module2Id = moduleRepository.registerModule(module2.name)

@@ -1,7 +1,8 @@
 package com.tealium.core.internal.persistence
 
-import app.cash.turbine.test
 import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.internal.observables.Observables
+import com.tealium.core.internal.observables.Subject
 import com.tealium.tests.common.TestModule
 import com.tealium.tests.common.TestModuleFactory
 import io.mockk.MockKAnnotations
@@ -9,8 +10,6 @@ import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
 import io.mockk.verify
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Before
@@ -31,13 +30,13 @@ class ModuleStoreProviderImplTests {
     private lateinit var keyValueRepositoryCreator: (DatabaseProvider, Long) -> SQLKeyValueRepository
 
     private lateinit var moduleStoreProviderImpl: ModuleStoreProviderImpl
-    private lateinit var onDataExpired: MutableSharedFlow<Map<Long, TealiumBundle>>
+    private lateinit var onDataExpired: Subject<Map<Long, TealiumBundle>>
 
     @Before
     fun setUp() {
         MockKAnnotations.init(this)
 
-        onDataExpired = MutableSharedFlow()
+        onDataExpired = Observables.publishSubject()
         moduleStoreProviderImpl =
             ModuleStoreProviderImpl(dbProvider, modulesRepository, keyValueRepositoryCreator)
 
@@ -82,24 +81,23 @@ class ModuleStoreProviderImplTests {
     }
 
     @Test
-    fun getModuleStore_FiltersExpiredData_ForCorrectModule() = runTest {
+    fun getModuleStore_FiltersExpiredData_ForCorrectModule() {
         val moduleId = 2L
         every { modulesRepository.modules } returns mapOf("test" to moduleId)
 
         val store1 = moduleStoreProviderImpl.getModuleStore(TestModule("test"))
 
-        store1.onDataRemoved.test {
-            onDataExpired.emit(mapOf(moduleId to TealiumBundle.create {
-                put("key1", "value1")
-                put("key2", "value2")
-            }, moduleId + 1 to TealiumBundle.create {
-                put("key3", "value3")
-            }))
-            val expired = awaitItem()
-
+        store1.onDataRemoved.subscribe { expired ->
             assertEquals(2, expired.size)
             assertEquals("key1", expired[0])
             assertEquals("key2", expired[1])
         }
+
+        onDataExpired.onNext(mapOf(moduleId to TealiumBundle.create {
+            put("key1", "value1")
+            put("key2", "value2")
+        }, moduleId + 1 to TealiumBundle.create {
+            put("key3", "value3")
+        }))
     }
 }

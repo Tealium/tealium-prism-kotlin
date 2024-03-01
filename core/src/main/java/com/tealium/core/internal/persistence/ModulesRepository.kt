@@ -2,7 +2,7 @@ package com.tealium.core.internal.persistence
 
 import com.tealium.core.api.Expiry
 import com.tealium.core.api.data.TealiumBundle
-import kotlinx.coroutines.flow.Flow
+import com.tealium.core.internal.observables.Observable
 
 /**
  * Repository class for registering and managing modules.
@@ -32,7 +32,7 @@ interface ModulesRepository {
      * Observable to notify of data expiration. The [Pair.first] will contain the relevant module
      * id and the [Pair.second] will contain the expired key-value pairs
      */
-    val onDataExpired: Flow<Map<Long, TealiumBundle>>
+    val onDataExpired: Observable<Map<Long, TealiumBundle>>
 
     /**
      * Registers a new module, returning the id to use for all data storage requests.

@@ -120,7 +120,8 @@ class TealiumImpl(
             return
         }
 
-        val modulesRepository = SQLModulesRepository(dbProvider, tealiumScope = tealiumScope)
+        val modulesRepository =
+            SQLModulesRepository(dbProvider)
         val storage = ModuleStoreProviderImpl(dbProvider, modulesRepository)
 
         val settingsManager = SettingsManager(

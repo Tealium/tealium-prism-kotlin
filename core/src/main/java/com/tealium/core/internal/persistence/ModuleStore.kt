@@ -5,31 +5,26 @@ import com.tealium.core.api.Expiry
 import com.tealium.core.api.PersistenceException
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumValue
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.merge
-import kotlinx.coroutines.launch
-import java.util.*
+import com.tealium.core.internal.observables.Observable
+import com.tealium.core.internal.observables.Observables
+import com.tealium.core.internal.observables.Subject
+import java.util.LinkedList
+import java.util.Queue
 
 class ModuleStore(
     private val keyValueRepository: KeyValueRepository,
-    private val onDataExpired: Flow<TealiumBundle> = MutableSharedFlow(),
-    onDataUpdated: MutableSharedFlow<TealiumBundle> = MutableSharedFlow(),
-    onDataRemoved: MutableSharedFlow<List<String>> = MutableSharedFlow(),
-    private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.Default)
+    private val onDataExpired: Observable<TealiumBundle> = Observables.publishSubject(),
+    onDataUpdated: Subject<TealiumBundle> = Observables.publishSubject(),
+    onDataRemoved: Subject<List<String>> = Observables.publishSubject(),
 ) : DataStore {
 
-    private val _onDataUpdated: MutableSharedFlow<TealiumBundle> = onDataUpdated
-    override val onDataUpdated: Flow<TealiumBundle>
-        get() = _onDataUpdated.asSharedFlow()
+    private val _onDataUpdated: Subject<TealiumBundle> = onDataUpdated
+    override val onDataUpdated: Observable<TealiumBundle>
+        get() = _onDataUpdated
 
-    private val _onDataRemoved: MutableSharedFlow<List<String>> = onDataRemoved
-    override val onDataRemoved: Flow<List<String>>
-        get() = merge(
+    private val _onDataRemoved: Subject<List<String>> = onDataRemoved
+    override val onDataRemoved: Observable<List<String>>
+        get() = Observables.merge(
             onDataExpired.map { it.getAll().keys.toList() },
             _onDataRemoved
         )
@@ -46,17 +41,13 @@ class ModuleStore(
                     }
                 }
 
-                coroutineScope.launch {
-                    _onDataUpdated.emit(bundle)
-                }
+                _onDataUpdated.onNext(bundle)
             }
 
             if (removals.isNotEmpty()) {
                 val keys = removals.map { it.key }
 
-                coroutineScope.launch {
-                    _onDataRemoved.emit(keys)
-                }
+                _onDataRemoved.onNext(keys)
             }
         }
 
@@ -139,6 +130,7 @@ class ModuleStore(
                             is Edit.Put -> {
                                 store.upsert(edit.key, edit.value, edit.expiry)
                             }
+
                             is Edit.Remove -> {
                                 store.delete(edit.key).toLong()
                             }

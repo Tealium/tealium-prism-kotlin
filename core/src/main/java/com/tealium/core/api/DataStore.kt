@@ -2,7 +2,7 @@ package com.tealium.core.api
 
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumValue
-import kotlinx.coroutines.flow.Flow
+import com.tealium.core.internal.observables.Observable
 
 /**
  * Generic data storage for storing and retrieving [TealiumValue] objects.
@@ -121,11 +121,11 @@ interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
     /**
      * Flow of key-value pairs from this [DataStore] that have been updated.
      */
-    val onDataUpdated: Flow<TealiumBundle>
+    val onDataUpdated: Observable<TealiumBundle>
 
     /**
      * Flow of keys from this [DataStore] that have been removed.
      */
-    val onDataRemoved: Flow<List<String>>
+    val onDataRemoved: Observable<List<String>>
 
 }

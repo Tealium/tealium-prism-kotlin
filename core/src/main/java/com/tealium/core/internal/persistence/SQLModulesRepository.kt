@@ -3,19 +3,16 @@ package com.tealium.core.internal.persistence
 import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
 import com.tealium.core.api.data.TealiumBundle
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.launch
+import com.tealium.core.internal.observables.Observable
+import com.tealium.core.internal.observables.Observables
+import com.tealium.core.internal.observables.Subject
 
 /**
  * This is the default implementation of [ModulesRepository] and is backed by a SQLite database
  */
 class SQLModulesRepository(
     private val dbProvider: DatabaseProvider,
-    onDataExpired: MutableSharedFlow<Map<Long, TealiumBundle>> = MutableSharedFlow(),
-    private val tealiumScope: CoroutineScope
+    onDataExpired: Subject<Map<Long, TealiumBundle>> = Observables.publishSubject(),
 ) : ModulesRepository {
 
     private val db: SQLiteDatabase
@@ -24,9 +21,9 @@ class SQLModulesRepository(
     override val modules: Map<String, Long>
         get() = readModules()
 
-    private val _onDataExpired: MutableSharedFlow<Map<Long, TealiumBundle>> = onDataExpired
-    override val onDataExpired: Flow<Map<Long, TealiumBundle>>
-        get() = _onDataExpired.asSharedFlow()
+    private val _onDataExpired: Subject<Map<Long, TealiumBundle>> = onDataExpired
+    override val onDataExpired: Observable<Map<Long, TealiumBundle>>
+        get() = _onDataExpired
 
     internal fun readModules(): Map<String, Long> {
         val modules = mutableMapOf<String, Long>()
@@ -106,13 +103,12 @@ class SQLModulesRepository(
             whereClause,
             whereArgs
         )
-        tealiumScope.launch {
-            notifyExpired(expiredData)
-        }
+
+        notifyExpired(expiredData)
     }
 
-    private suspend fun notifyExpired(expiredData: Map<Long, TealiumBundle>) {
-        _onDataExpired.emit(expiredData)
+    private fun notifyExpired(expiredData: Map<Long, TealiumBundle>) {
+        _onDataExpired.onNext(expiredData)
     }
 
     /**

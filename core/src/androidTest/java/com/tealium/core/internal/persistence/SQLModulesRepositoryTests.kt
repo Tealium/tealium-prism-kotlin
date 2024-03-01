@@ -4,19 +4,20 @@ import android.app.Application
 import android.database.sqlite.SQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import app.cash.turbine.test
 import com.tealium.core.Environment
 import com.tealium.core.TealiumConfig
 import com.tealium.core.api.DataStore
 import com.tealium.core.api.Expiry
 import com.tealium.core.api.Module
+import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumValue
 import com.tealium.tests.common.TestModule
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.spyk
+import io.mockk.verify
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -56,7 +57,6 @@ open class SQLModulesRepositoryTests {
         // Repositories
         moduleRepository = SQLModulesRepository(
             dbProvider,
-            tealiumScope = tealiumScope
         )
     }
 
@@ -99,7 +99,7 @@ open class SQLModulesRepositoryTests {
             every { mockDb.insert(any(), any(), any()) } returns -1
 
             val moduleRepository =
-                SQLModulesRepository(mockDbProvider, tealiumScope = tealiumScope)
+                SQLModulesRepository(mockDbProvider)
             moduleRepository.registerModule("any")
         }
 
@@ -210,17 +210,9 @@ open class SQLModulesRepositoryTests {
         }
 
         @Test
-        fun deleteExpired_NotifiesOnDataExpired_WithExpiredData() = runTest {
+        fun deleteExpired_NotifiesOnDataExpired_WithExpiredData() {
             val moduleIds = preregisterModules(listOf(module1, module2), true)
-
-            moduleRepository.onDataExpired.test {
-                moduleRepository.deleteExpired(
-                    expirationType,
-                    getTimestamp() + 2L
-                )
-
-                val expired = awaitItem()
-
+            val verifier = spyk<(Map<Long, TealiumBundle>) -> Unit>({ expired ->
                 assertEquals(moduleIds.count(), expired.keys.count())
                 assertTrue(expired.keys.containsAll(moduleIds))
 
@@ -228,6 +220,16 @@ open class SQLModulesRepositoryTests {
                     assertEquals(true, expired[it]!!.getBoolean("one_second"))
                     assertEquals(true, expired[it]!!.getBoolean(expectedRemoval))
                 }
+            })
+
+            moduleRepository.onDataExpired.subscribe(verifier)
+            moduleRepository.deleteExpired(
+                expirationType,
+                getTimestamp() + 2L
+            )
+
+            verify(exactly = 1) {
+                verifier(any())
             }
         }
     }

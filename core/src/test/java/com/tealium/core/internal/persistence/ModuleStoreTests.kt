@@ -1,22 +1,13 @@
-@file:OptIn(ExperimentalCoroutinesApi::class)
-
 package com.tealium.core.internal.persistence
 
-import app.cash.turbine.test
-import app.cash.turbine.turbineScope
 import com.tealium.core.api.Expiry
 import com.tealium.core.api.PersistenceException
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumValue
+import com.tealium.core.internal.observables.Observables
+import com.tealium.core.internal.observables.Subject
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.take
-import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -37,7 +28,7 @@ class ModuleStoreTests {
         put("double", 100.1)
     }
 
-    private lateinit var onDataExpired: MutableSharedFlow<TealiumBundle>
+    private lateinit var onDataExpired: Subject<TealiumBundle>
 
     @Before
     fun setUp() {
@@ -59,7 +50,7 @@ class ModuleStoreTests {
             transactionBlock.invoke(keyValueRepository)
         }
 
-        onDataExpired = MutableSharedFlow()
+        onDataExpired = Observables.publishSubject()
 
         dataStore = ModuleStore(keyValueRepository, onDataExpired)
     }
@@ -296,152 +287,152 @@ class ModuleStoreTests {
                         put("key2", "value2")
                     }, Expiry.SESSION)
                     .commit()
-            } catch (ignored: PersistenceException) { }
+            } catch (ignored: PersistenceException) {
+            }
         }
     }
 
     @Test
-    fun onDataRemoved_NotifiesExpiredData_WhenExpired() = runTest {
-        val emissions: MutableList<List<String>> = mutableListOf()
-        launch(UnconfinedTestDispatcher(testScheduler)) {
-            dataStore.onDataRemoved.take(1).toList(emissions)
+    fun onDataRemoved_NotifiesExpiredData_WhenExpired() {
+        dataStore.onDataRemoved.take(1).subscribe { removed ->
+            assertEquals(2, removed.size)
+            assertEquals("key", removed[0])
+            assertEquals("key2", removed[1])
         }
 
-        onDataExpired.emit(TealiumBundle.create {
+        onDataExpired.onNext(TealiumBundle.create {
             put("key", "value")
             put("key2", "value2")
         })
-
-        assertEquals(1, emissions.size)
-        assertEquals("key", emissions.first()[0])
-        assertEquals("key2", emissions.first()[1])
     }
 
     @Test
-    fun onDataRemoved_NotifiesRemovedData_WhenCommitted() = runTest {
+    fun onDataRemoved_NotifiesRemovedData_WhenCommitted() {
         every { keyValueRepository.delete(any()) } returns 1
 
-        dataStore.onDataRemoved.test {
-            dataStore.edit()
-                .remove("key1")
-                .remove("key2")
-                .commit()
-
-            val item = awaitItem()
-            assertEquals("key1", item[0])
-            assertEquals("key2", item[1])
+        dataStore.onDataRemoved.subscribe { removed ->
+            assertEquals("key1", removed[0])
+            assertEquals("key2", removed[1])
         }
+        dataStore.edit()
+            .remove("key1")
+            .remove("key2")
+            .commit()
     }
 
     @Test
-    fun onDataRemoved_DoesNot_NotifyRemovedData_WhenCommitted_ButKeyDoesNotExist() = runTest {
+    fun onDataRemoved_DoesNot_NotifyRemovedData_WhenCommitted_ButKeyDoesNotExist() {
         every { keyValueRepository.delete(any()) } returnsMany listOf(1, 0, 1)
 
-        dataStore.onDataRemoved.test {
-            dataStore.edit()
-                .remove("key1")
-                .remove("key100")
-                .commit()
-
-            val removed = awaitItem()
+        dataStore.onDataRemoved.subscribe { removed ->
             assertEquals(1, removed.size)
             assertTrue(removed.contains("key1"))
             assertFalse(removed.contains("key100"))
         }
+        dataStore.edit()
+            .remove("key1")
+            .remove("key100")
+            .commit()
     }
 
     @Test
-    fun onDataRemoved_NotifiesOfClearedKeys_WhenCommitted() = runTest {
+    fun onDataRemoved_NotifiesOfClearedKeys_WhenCommitted() {
         every { keyValueRepository.keys() } returns listOf("key1", "key2", "key3")
 
-        dataStore.onDataRemoved.test {
-            dataStore.edit()
-                .clear()
-                .commit()
+        dataStore.onDataRemoved.subscribe { cleared ->
 
-            val cleared = awaitItem()
             assertEquals("key1", cleared[0])
             assertEquals("key2", cleared[1])
             assertEquals("key3", cleared[2])
         }
+        dataStore.edit()
+            .clear()
+            .commit()
     }
 
     @Test
-    fun onDataRemoved_BlendsExpiredWithRemoved() = runTest {
+    fun onDataRemoved_BlendsExpiredWithRemoved() {
         every { keyValueRepository.delete("key1") } returns 1
         every { keyValueRepository.delete("key2") } returns 1
+        val verifier = mockk<(List<String>) -> Unit>(relaxed = true)
+        dataStore.onDataRemoved.subscribe(verifier)
 
-        dataStore.onDataRemoved.test {
-            dataStore.edit()
-                .remove("key1")
-                .remove("key2")
-                .commit()
+        dataStore.edit()
+            .remove("key1")
+            .remove("key2")
+            .commit()
 
-            val removed = awaitItem()
-            assertEquals("key1", removed[0])
-            assertEquals("key2", removed[1])
-
-            onDataExpired.emit(TealiumBundle.create {
-                put("expired1", TealiumValue.string("test"))
-                put("expired2", TealiumValue.string("test"))
+        verify {
+            verifier(match { removed ->
+                removed[0] == "key1" && removed[1] == "key2"
             })
-            val expired = awaitItem()
-            assertEquals("expired1", expired[0])
-            assertEquals("expired2", expired[1])
+        }
+
+        onDataExpired.onNext(TealiumBundle.create {
+            put("expired1", TealiumValue.string("test"))
+            put("expired2", TealiumValue.string("test"))
+        })
+        verify {
+            verifier(match { removed ->
+                removed[0] == "expired1" && removed[1] == "expired2"
+            })
         }
     }
 
     @Test
-    fun onDataUpdated_NotifiesUpdated_WhenCommittedSuccessfully() = runTest {
+    fun onDataUpdated_NotifiesUpdated_WhenCommittedSuccessfully() {
         every { keyValueRepository.upsert(any(), any(), any()) } returns 1
 
-        dataStore.onDataUpdated.test {
-            dataStore.edit()
-                .put("key1", TealiumValue.string("value1"), Expiry.SESSION)
-                .put("key2", TealiumValue.string("value2"), Expiry.SESSION)
-                .commit()
-
-            val emission = awaitItem()
+        dataStore.onDataUpdated.subscribe { emission ->
             assertEquals("value1", emission.get("key1")?.value)
             assertEquals("value2", emission.get("key2")?.value)
         }
+        dataStore.edit()
+            .put("key1", TealiumValue.string("value1"), Expiry.SESSION)
+            .put("key2", TealiumValue.string("value2"), Expiry.SESSION)
+            .commit()
     }
 
     @Test
-    fun onDataUpdated_DoesNot_NotifyUpdated_WhenCommitFailed() = runTest {
+    fun onDataUpdated_DoesNot_NotifyUpdated_WhenCommitFailed() {
         every { keyValueRepository.upsert(any(), any(), any()) } returns 0
+        val verifier = mockk<(TealiumBundle) -> Unit>(relaxed = true)
 
-        dataStore.onDataUpdated.test {
-            dataStore.edit()
-                .put("key1", TealiumValue.string("value1"), Expiry.SESSION)
-                .put("key2", TealiumValue.string("value2"), Expiry.SESSION)
-                .commit()
+        dataStore.onDataUpdated.subscribe(verifier)
+        dataStore.edit()
+            .put("key1", TealiumValue.string("value1"), Expiry.SESSION)
+            .put("key2", TealiumValue.string("value2"), Expiry.SESSION)
+            .commit()
 
-            expectNoEvents()
+        verify(inverse = true) {
+            verifier(any())
         }
     }
 
     @Test
-    fun onData_NotifiesUpdated_And_NotifiesRemoved_WhenCommitted() = runTest {
+    fun onData_NotifiesUpdated_And_NotifiesRemoved_WhenCommitted() {
         every { keyValueRepository.upsert("added", any(), Expiry.SESSION) } returns 1L
         every { keyValueRepository.delete("removed") } returns 1
 
-        turbineScope {
-            val updated = dataStore.onDataUpdated.testIn(backgroundScope)
-            val removed = dataStore.onDataRemoved.testIn(backgroundScope)
+        val onUpdated = mockk<(TealiumBundle) -> Unit>(relaxed = true)
+        val onRemoved = mockk<(List<String>) -> Unit>(relaxed = true)
 
-            dataStore.edit()
-                .put("added", TealiumValue.string("value"), Expiry.SESSION)
-                .remove("removed")
-                .commit()
+        dataStore.onDataUpdated.subscribe(onUpdated)
+        dataStore.onDataRemoved.subscribe(onRemoved)
 
-            val updatedItems = updated.awaitItem()
-            val removedKeys = removed.awaitItem()
+        dataStore.edit()
+            .put("added", TealiumValue.string("value"), Expiry.SESSION)
+            .remove("removed")
+            .commit()
 
-            assertEquals(1, updatedItems.size)
-            assertEquals("value", updatedItems.get("added")?.value)
+        verify {
+            onUpdated(match { updatedItems ->
+                updatedItems.size == 1 && updatedItems.get("added")?.value == "value"
+            })
 
-            assertEquals("removed", removedKeys.first())
+            onRemoved(match {  removedKeys ->
+                removedKeys.first() == "removed"
+            })
         }
     }
 }
