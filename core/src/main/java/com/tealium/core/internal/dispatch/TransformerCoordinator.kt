@@ -17,21 +17,20 @@ interface TransformerCoordinator {
      *
      * @param dispatch The [Dispatch] to be transformed
      * @param dispatchScope The [DispatchScope] used to look up applicable transformations
-     *
-     * @return The updated dispatch after transformation, or null if the [dispatch] is to be deleted.
+     * @param completion The block of code to execute with the updated dispatch after transformation,
+     * or null if the [dispatch] is to be deleted.
      */
-    suspend fun transform(dispatch: Dispatch, dispatchScope: DispatchScope): Dispatch?
+    fun transform(dispatch: Dispatch, dispatchScope: DispatchScope, completion: (Dispatch?) -> Unit)
 
     /**
      * Transforms all [dispatches] using any [Transformer]s that are scoped to the given [dispatchScope].
      *
      * @param dispatches The list of [Dispatch]es to be transformed
      * @param dispatchScope The [DispatchScope] used to look up applicable transformations
-     *
-     * @return The list of updated dispatches after transformation. Entries will be removed if any of
-     * the applicable transformations have returned null, indicating it is safe to remove that [Dispatch]
-     * from further processing
+     * @param completion The block of code to execute with the list of updated dispatches after
+     * transformation. Entries will be removed if any of the applicable transformations have
+     * returned null, indicating it is safe to remove that [Dispatch] from further processing
      */
-    suspend fun transform(dispatches: List<Dispatch>, dispatchScope: DispatchScope): List<Dispatch>
+    fun transform(dispatches: List<Dispatch>, dispatchScope: DispatchScope, completion: (List<Dispatch>) -> Unit)
 }
 

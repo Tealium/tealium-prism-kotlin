@@ -5,38 +5,27 @@ import com.tealium.core.api.ConsentDecision
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.DispatchScope
 import com.tealium.core.api.Dispatcher
+import com.tealium.core.api.listeners.Disposable
+import com.tealium.core.api.listeners.Observer
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.internal.consent.ConsentManager
-import com.tealium.core.internal.flatMapLatest
-import com.tealium.core.internal.flatMapMerge
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.mapNotNull
-import kotlinx.coroutines.flow.onCompletion
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.launch
+import com.tealium.core.internal.observables.DisposableContainer
+import com.tealium.core.internal.observables.Observable
+import com.tealium.core.internal.observables.Observables
+import com.tealium.core.internal.observables.StateSubject
+import com.tealium.core.internal.observables.addTo
 
 class DispatchManagerImpl(
     private val consentManager: ConsentManager,
     private val barrierCoordinator: BarrierCoordinator,
     private val transformerCoordinator: TransformerCoordinator,
     private val queueManager: QueueManager,
-    private val dispatchers: StateFlow<Set<Dispatcher>>,
-    private val tealiumScope: CoroutineScope,
+    private val dispatchers: StateSubject<Set<Dispatcher>>,
     private val logger: Logger,
     private val maxInFlightPerDispatcher: Int = MAXIMUM_INFLIGHT_EVENTS_PER_DISPATCHER
 ) {
 
-    private var dispatchLoop: Job? = null
+    private var dispatchLoop: Disposable? = null
 
     private fun tealiumPurposeExplicitlyBlocked(): Boolean {
         if (!consentManager.enabled)
@@ -49,7 +38,7 @@ class DispatchManagerImpl(
         return !consentManager.tealiumConsented(decision.purposes)
     }
 
-    suspend fun track(dispatch: Dispatch) {
+    fun track(dispatch: Dispatch) {
         if (tealiumPurposeExplicitlyBlocked()) {
             logger.info?.log(
                 "Dispatch",
@@ -58,25 +47,32 @@ class DispatchManagerImpl(
             return
         }
 
-        val transformed =
-            transformerCoordinator.transform(dispatch, DispatchScope.AfterCollectors) ?: return
+        transformerCoordinator.transform(
+            dispatch,
+            DispatchScope.AfterCollectors,
+            ::applyConsentOrEnqueue
+        )
+    }
+
+    private fun applyConsentOrEnqueue(transformedDispatch: Dispatch?) {
+        if (transformedDispatch == null) return
 
         if (consentManager.enabled) {
-            consentManager.applyConsent(transformed)
+            consentManager.applyConsent(transformedDispatch)
         } else {
-            queueManager.storeDispatch(dispatch, dispatchers.value)
+            queueManager.storeDispatch(transformedDispatch, dispatchers.value)
         }
     }
 
     internal fun stopDispatchLoop() {
-        dispatchLoop?.cancel()
+        dispatchLoop?.dispose()
     }
 
     internal fun startDispatchLoop() {
-        dispatchLoop = tealiumScope.launch {
+        dispatchLoop =
             dispatchers.flatMapLatest { dispatchers ->
-                dispatchers.asFlow()
-            }.flatMapMerge { dispatcher ->
+                Observables.fromIterable(dispatchers)
+            }.flatMap { dispatcher ->
                 barrierCoordinator.onBarriersState(dispatcher.name)
                     .flatMapLatest { active ->
                         logger.debug?.log(
@@ -84,45 +80,34 @@ class DispatchManagerImpl(
                             "BarrierState changed for ${dispatcher.name}: $active"
                         )
                         if (active == BarrierState.Open) {
-                            startTransformAndDispatchLoop(dispatcher)
+                            startDequeueLoop(dispatcher)
                         } else {
-                            emptyFlow()
+                            Observables.empty()
                         }
                     }.map { dispatcher to it }
-            }.onEach { (dispatcher, dispatches) ->
-                // Launch as a separate coroutine to keep dispatch
-                // in-flight even after the flow is cancelled
-                launch(SupervisorJob()) {
-                    dispatch(dispatcher, dispatches)
+            }.async { (dispatcher, dispatches), observer: Observer<List<Dispatch>> ->
+                transformAndDispatch(dispatches, dispatcher) { completed ->
+                    observer.onNext(completed)
                 }
-            }.collect { dispatches ->
+            }.subscribe { dispatches ->
                 logger.debug?.log(
                     "Dispatch",
-                    "Dispatched - ${dispatches.second.map { it.tealiumEvent }} to ${dispatches.first.name}"
+                    "Complete - ${dispatches.map { it.tealiumEvent }}"
                 )
             }
-        }
     }
 
-    /**
-     * Creates the queued events Flow for the given [dispatcher].
-     *
-     * The returned flow will emit batches of [Dispatch]es under the following circumstances:
-     *  - There are still some dispatches queued
-     *  - The limit for the number of dispatches "in-flight" is not yet reached
-     *
-     * The Dispatches emitted are already transformed, will there will be at most, [Dispatcher.dispatchLimit]
-     * dispatches in each batch. It could be fewer, due to the Transformers ability to drop dispatches.
-     *
-     * @param dispatcher The specific dispatcher for this Flow to be set up for
-     */
-    private fun startTransformAndDispatchLoop(dispatcher: Dispatcher): Flow<List<Dispatch>> {
-        return queueManager.onEnqueuedEvents.onStart { emit(Unit) }
-            .combine(queueManager.inFlightCount(dispatcher), ::extractCount)
-            .filter(::isLessThanMaxInFlight)
-            .mapNotNull { queueManager.getQueuedEvents(dispatcher, dispatcher.dispatchLimit) }
-            .filter { it.isNotEmpty() }
-            .map { transform(it, dispatcher) }
+    private fun startDequeueLoop(dispatcher: Dispatcher): Observable<List<Dispatch>> {
+        val onInflightLower = queueManager.inFlightCount(dispatcher)
+            .map(::isLessThanMaxInFlight)
+            .distinct()
+        return queueManager.onEnqueuedEvents.startWith(Unit)
+            .flatMapLatest { _ ->
+                onInflightLower
+                    .map { _ -> queueManager.getQueuedEvents(dispatcher, dispatcher.dispatchLimit) }
+                    .filter { it.isNotEmpty() }
+                    .resubscribingWhile { it.count() >= dispatcher.dispatchLimit } // Loops the `getQueuedEvents` as long as we pull `dispatchLimit` items from the queue
+            }
     }
 
     /**
@@ -132,14 +117,44 @@ class DispatchManagerImpl(
      * Any dispatches where the [transformerCoordinator] returns null, will be dropped from the batch.
      * Dropped dispatches will not be replaced in the batch to make up the numbers.
      */
-    private suspend fun transform(
+    private fun transformAndDispatch(
         dispatches: List<Dispatch>,
-        dispatcher: Dispatcher
-    ): List<Dispatch> {
-        val transformedDispatches =
-            transformerCoordinator.transform(dispatches, DispatchScope.Dispatcher(dispatcher.name))
+        dispatcher: Dispatcher,
+        completion: (List<Dispatch>) -> Unit
+    ): Disposable {
+        val container = DisposableContainer()
+        transformerCoordinator.transform(
+            dispatches,
+            DispatchScope.Dispatcher(dispatcher.name)
+        ) { transformedDispatches ->
+            if (container.isDisposed) return@transform
 
-        val missingDispatches = dispatches.filter { oldDispatch ->
+            deleteMissingDispatches(dispatches, transformedDispatches, dispatcher)
+
+            dispatcher.dispatch(transformedDispatches).subscribe { completed ->
+                if (container.isDisposed) return@subscribe
+
+                queueManager.deleteDispatches(
+                    completed,
+                    dispatcher
+                )
+                logger.debug?.log(
+                    "Dispatch",
+                    "${dispatcher.name}: Deleted: ${completed.map { it.tealiumEvent }}"
+                )
+                completion(transformedDispatches)
+            }.addTo(container)
+        }
+
+        return container
+    }
+
+    private fun deleteMissingDispatches(
+        original: List<Dispatch>,
+        transformedDispatches: List<Dispatch>,
+        dispatcher: Dispatcher
+    ) {
+        val missingDispatches = original.filter { oldDispatch ->
             transformedDispatches.firstOrNull { transformedDispatch -> oldDispatch.id == transformedDispatch.id } == null
         }
 
@@ -149,51 +164,13 @@ class DispatchManagerImpl(
                 dispatcher
             )
         }
-
-        return transformedDispatches
     }
 
-    /**
-     * Asynchronously dispatch the [dispatches] to the given [dispatcher].
-     *
-     * The coroutine will only continue once all Dispatches have been marked as completed by way of
-     * the [dispatcher] executing its completion block for all given [dispatches]
-     */
-    private suspend fun dispatch(
-        dispatcher: Dispatcher,
-        dispatches: List<Dispatch>,
-    ) {
-        val incomplete = dispatches.map { it.id }.toMutableList()
-
-        dispatcher.dispatch(dispatches)
-            .onCompletion {
-                if (incomplete.isNotEmpty()) {
-                    // TODO - delete incomplete? or leave in queue for next time?
-                    logger.info?.log(
-                        "Dispatch",
-                        "${dispatcher.name}: The following dispatches were not marked as completed: $incomplete"
-                    )
-                }
-            }
-            .collect { completed ->
-                queueManager.deleteDispatches(
-                    completed,
-                    dispatcher
-                )
-                logger.debug?.log(
-                    "Dispatch",
-                    "${dispatcher.name}: Deleted: ${completed.map { it.tealiumEvent }}"
-                )
-
-                incomplete.removeAll(completed.map { it.id })
-            }
-    }
     private fun isLessThanMaxInFlight(count: Int): Boolean =
         count < maxInFlightPerDispatcher
 
     companion object {
         const val MAXIMUM_INFLIGHT_EVENTS_PER_DISPATCHER = 50
-
 
         private fun extractCount(enqueuedEvents: Unit, count: Int) = count
     }

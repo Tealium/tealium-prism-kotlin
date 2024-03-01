@@ -1,11 +1,12 @@
 package com.tealium.core.internal.dispatch
 
-import app.cash.turbine.test
 import com.tealium.core.api.Barrier
 import com.tealium.core.api.BarrierState
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.tealium.core.internal.observables.Observable
+import com.tealium.core.internal.observables.Observables
+import com.tealium.core.internal.observables.Subject
+import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -16,11 +17,11 @@ import org.junit.Test
 
 class BarrierTests {
 
-    private lateinit var allState1: MutableStateFlow<BarrierState>
-    private lateinit var allState2: MutableStateFlow<BarrierState>
-    private lateinit var allState3: MutableStateFlow<BarrierState>
-    private lateinit var dispatcher1State: MutableStateFlow<BarrierState>
-    private lateinit var dispatcher2State: MutableStateFlow<BarrierState>
+    private lateinit var allState1: Subject<BarrierState>
+    private lateinit var allState2: Subject<BarrierState>
+    private lateinit var allState3: Subject<BarrierState>
+    private lateinit var dispatcher1State: Subject<BarrierState>
+    private lateinit var dispatcher2State: Subject<BarrierState>
     private lateinit var registeredBarriers: Set<Barrier>
     private lateinit var scopedBarriers: Set<ScopedBarrier>
     private lateinit var barrierCoordinator: BarrierCoordinatorImpl
@@ -28,17 +29,17 @@ class BarrierTests {
     @Before
     fun setUp() {
         // Default: all barriers Open
-        allState1 = MutableStateFlow(BarrierState.Open)
-        allState2 = MutableStateFlow(BarrierState.Open)
-        allState3 = MutableStateFlow(BarrierState.Open)
-        dispatcher1State = MutableStateFlow(BarrierState.Open)
-        dispatcher2State = MutableStateFlow(BarrierState.Open)
+        allState1 = Observables.stateSubject(BarrierState.Open)
+        allState2 = Observables.stateSubject(BarrierState.Open)
+        allState3 = Observables.stateSubject(BarrierState.Open)
+        dispatcher1State = Observables.stateSubject(BarrierState.Open)
+        dispatcher2State = Observables.stateSubject(BarrierState.Open)
         registeredBarriers = setOf(
-            barrier("all_1", allState1.asStateFlow()),
-            barrier("all_2", allState2.asStateFlow()),
-            barrier("all_3", allState3.asStateFlow()),
-            barrier("dispatcher_1", dispatcher1State.asStateFlow()),
-            barrier("dispatcher_2", dispatcher2State.asStateFlow()),
+            barrier("all_1", allState1),
+            barrier("all_2", allState2),
+            barrier("all_3", allState3),
+            barrier("dispatcher_1", dispatcher1State),
+            barrier("dispatcher_2", dispatcher2State),
         )
         scopedBarriers = setOf(
             ScopedBarrier("all_1", setOf(BarrierScope.All)),
@@ -109,144 +110,140 @@ class BarrierTests {
     }
 
     @Test
-    fun onBarrierState_IsOpen_WhenAllBarriersAreOpen() = runTest {
-        barrierCoordinator.onBarriersState("dispatcher_1").test {
-
-            val isOpen = awaitItem()
+    fun onBarrierState_IsOpen_WhenAllBarriersAreOpen() {
+        barrierCoordinator.onBarriersState("dispatcher_1").subscribe { isOpen ->
             assertEquals(BarrierState.Open, isOpen)
         }
     }
 
     @Test
     fun onBarrierState_IsOpen_WhenOtherDispatchersBarriersAreClosed() = runTest {
-        dispatcher2State.value = BarrierState.Closed
+        dispatcher2State.onNext(BarrierState.Closed)
 
-        barrierCoordinator.onBarriersState("dispatcher_1").test {
-            val isOpen = awaitItem()
+        barrierCoordinator.onBarriersState("dispatcher_1").subscribe { isOpen ->
             assertEquals(BarrierState.Open, isOpen)
         }
     }
 
     @Test
     fun onBarrierState_IsClosed_WhenAnyAllScopeBarrierIsClosed() = runTest {
-        allState1.value = BarrierState.Closed
+        allState1.onNext(BarrierState.Closed)
 
-        barrierCoordinator.onBarriersState("dispatcher_1").test {
-            val isOpen = awaitItem()
+        barrierCoordinator.onBarriersState("dispatcher_1").subscribe { isOpen ->
             assertEquals(BarrierState.Closed, isOpen)
         }
     }
 
     @Test
     fun onBarrierState_IsClosed_WhenDispatcherScopeBarrierIsClosed() = runTest {
-        dispatcher1State.value = BarrierState.Closed
+        dispatcher1State.onNext(BarrierState.Closed)
 
-        barrierCoordinator.onBarriersState("dispatcher_1").test {
-            val isOpen = awaitItem()
+        barrierCoordinator.onBarriersState("dispatcher_1").subscribe { isOpen ->
             assertEquals(BarrierState.Closed, isOpen)
         }
     }
 
     @Test
     fun onBarrierState_EmitsClosed_WhenAllScopeBarrier_BecomesClosed() = runTest {
-        barrierCoordinator.onBarriersState("dispatcher_1").test {
-            val isOpen = awaitItem()
-            assertEquals(BarrierState.Open, isOpen)
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
 
-            allState1.value = BarrierState.Closed
+        barrierCoordinator.onBarriersState("dispatcher_1")
+            .subscribe(verifier)
 
-            val isClosed = awaitItem()
-            assertEquals(BarrierState.Closed, isClosed)
+        allState1.onNext(BarrierState.Closed)
+
+        verify {
+            verifier(BarrierState.Open)
+            verifier(BarrierState.Closed)
         }
     }
 
     @Test
     fun onBarrierState_EmitsClosed_WhenDispatcherScopeBarrier_BecomesClosed() = runTest {
-        barrierCoordinator.onBarriersState("dispatcher_1").test {
-            val isOpen = awaitItem()
-            assertEquals(BarrierState.Open, isOpen)
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
 
-            dispatcher1State.value = BarrierState.Closed
+        barrierCoordinator.onBarriersState("dispatcher_1")
+            .subscribe(verifier)
 
-            val isClosed = awaitItem()
-            assertEquals(BarrierState.Closed, isClosed)
+        dispatcher1State.onNext(BarrierState.Closed)
+
+        verify {
+            verifier(BarrierState.Open)
+            verifier(BarrierState.Closed)
         }
     }
 
     @Test
     fun onBarrierState_EmitsOpen_WhenAllScopeBarrier_BecomesOpen() = runTest {
-        allState1.value = BarrierState.Closed
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+        allState1.onNext(BarrierState.Closed)
 
-        barrierCoordinator.onBarriersState("dispatcher_1").test {
-            val isClosed = awaitItem()
-            assertEquals(BarrierState.Closed, isClosed)
+        barrierCoordinator.onBarriersState("dispatcher_1").subscribe(verifier)
+        allState1.onNext(BarrierState.Open)
 
-            allState1.value = BarrierState.Open
-
-            val isOpen = awaitItem()
-            assertEquals(BarrierState.Open, isOpen)
+        verify {
+            verifier(BarrierState.Closed)
+            verifier(BarrierState.Open)
         }
     }
 
     @Test
     fun onBarrierState_EmitsOpen_WhenDispatcherScopeBarrier_BecomesOpen() = runTest {
-        dispatcher1State.value = BarrierState.Closed
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+        dispatcher1State.onNext(BarrierState.Closed)
 
-        barrierCoordinator.onBarriersState("dispatcher_1").test {
-            val isClosed = awaitItem()
-            assertEquals(BarrierState.Closed, isClosed)
+        barrierCoordinator.onBarriersState("dispatcher_1").subscribe(verifier)
+        dispatcher1State.onNext(BarrierState.Open)
 
-            dispatcher1State.value = BarrierState.Open
-
-            val isOpen = awaitItem()
-            assertEquals(BarrierState.Open, isOpen)
+        verify {
+            verifier(BarrierState.Closed)
+            verifier(BarrierState.Open)
         }
     }
 
     @Test
     fun onBarrierState_EmitsNothing_WhenScopedBarriersChange_ButResultHasNot() = runTest {
-        barrierCoordinator.onBarriersState("dispatcher_1").test {
-            dispatcher1State.value = BarrierState.Open
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+        dispatcher1State.onNext(BarrierState.Open)
+        barrierCoordinator.onBarriersState("dispatcher_1").subscribe(verifier)
 
-            val isOpen = awaitItem()
-            assertEquals(BarrierState.Open, isOpen)
+        barrierCoordinator.scopedBarriers.onNext(scopedBarriers.filter {
+            it.scope.contains(
+                BarrierScope.All
+            )
+        }.toSet())
 
-            barrierCoordinator.scopedBarriers.emit(scopedBarriers.filter {
-                it.scope.contains(
-                    BarrierScope.All
-                )
-            }.toSet())
-
-            expectNoEvents()
+        verify(exactly = 1) {
+            verifier(BarrierState.Open)
         }
     }
 
     @Test
     fun onBarrierState_EmitsUpdate_WhenScopedBarriersChange_AndResultHasToo() = runTest {
-        allState1.value = BarrierState.Closed
-        barrierCoordinator.scopedBarriers.emit(scopedBarriers.remove("all_1"))
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+        allState1.onNext(BarrierState.Closed)
+        barrierCoordinator.scopedBarriers.onNext(scopedBarriers.remove("all_1"))
 
-        barrierCoordinator.onBarriersState("dispatcher_1").test {
-            val isOpen = awaitItem()
-            assertEquals(BarrierState.Open, isOpen)
+        barrierCoordinator.onBarriersState("dispatcher_1").subscribe(verifier)
 
-            barrierCoordinator.scopedBarriers.emit(scopedBarriers)
+        barrierCoordinator.scopedBarriers.onNext(scopedBarriers)
 
-            val isClosed = awaitItem()
-            assertEquals(BarrierState.Closed, isClosed)
+        verify {
+            verifier(BarrierState.Closed)
+            verifier(BarrierState.Open)
         }
     }
 
     @Test
     fun onBarrierState_DoesNotEmitUpdate_WhenOldBarriersUpdate() = runTest {
-        barrierCoordinator.onBarriersState("dispatcher_1").test {
-            val isOpen = awaitItem()
-            assertEquals(BarrierState.Open, isOpen)
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+        barrierCoordinator.onBarriersState("dispatcher_1").subscribe(verifier)
 
-            barrierCoordinator.scopedBarriers.emit(scopedBarriers.remove("all_1"))
-            allState1.emit(BarrierState.Closed)
+        barrierCoordinator.scopedBarriers.onNext(scopedBarriers.remove("all_1"))
+        allState1.onNext(BarrierState.Closed)
 
-            expectNoEvents()
+        verify {
+            verifier(BarrierState.Open)
         }
     }
 
@@ -254,8 +251,7 @@ class BarrierTests {
     fun onBarrierState_EmitsOpen_WhenBarriersAreEmpty() = runTest {
         val barrierCoordinator = BarrierCoordinatorImpl(setOf(), scopedBarriers)
 
-        barrierCoordinator.onBarriersState("dispatcher_1").test {
-            val isOpen = awaitItem()
+        barrierCoordinator.onBarriersState("dispatcher_1").subscribe { isOpen ->
             assertEquals(BarrierState.Open, isOpen)
         }
     }
@@ -264,32 +260,30 @@ class BarrierTests {
     fun onBarrierState_EmitsOpen_WhenScopedBarriersAreEmpty() = runTest {
         val barrierCoordinator = BarrierCoordinatorImpl(registeredBarriers, setOf())
 
-        barrierCoordinator.onBarriersState("dispatcher_1").test {
-            val isOpen = awaitItem()
+        barrierCoordinator.onBarriersState("dispatcher_1").subscribe { isOpen ->
             assertEquals(BarrierState.Open, isOpen)
         }
     }
 
     @Test
     fun onBarrierState_EmitsClosed_WhenScopedBarriersWereEmpty_ButClosedIsAdded() = runTest {
-        allState1.emit(BarrierState.Closed)
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+        allState1.onNext(BarrierState.Closed)
         val barrierCoordinator = BarrierCoordinatorImpl(registeredBarriers, setOf())
 
-        barrierCoordinator.onBarriersState("dispatcher_1").test {
-            val isOpen = awaitItem()
-            assertEquals(BarrierState.Open, isOpen)
-
-            barrierCoordinator.scopedBarriers.emit(
-                setOf(
-                    ScopedBarrier(
-                        "all_1",
-                        setOf(BarrierScope.All)
-                    )
+        barrierCoordinator.onBarriersState("dispatcher_1").subscribe(verifier)
+        barrierCoordinator.scopedBarriers.onNext(
+            setOf(
+                ScopedBarrier(
+                    "all_1",
+                    setOf(BarrierScope.All)
                 )
             )
+        )
 
-            val isClosed = awaitItem()
-            assertEquals(BarrierState.Closed, isClosed)
+        verify {
+            verifier(BarrierState.Open)
+            verifier(BarrierState.Closed)
         }
     }
 
@@ -297,11 +291,11 @@ class BarrierTests {
         filterNot { it.barrierId == barrierId }.toSet()
 
 
-    private fun barrier(id: String, flow: Flow<BarrierState>): Barrier {
+    private fun barrier(id: String, flow: Observable<BarrierState>): Barrier {
         return object : Barrier {
             override val id: String
                 get() = id
-            override val onState: Flow<BarrierState>
+            override val onState: Observable<BarrierState>
                 get() = flow
         }
     }

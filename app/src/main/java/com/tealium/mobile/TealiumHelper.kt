@@ -67,7 +67,7 @@ object TealiumHelper :
             environment = Environment.DEV
         ).apply {
             useRemoteSettings = true
-            localSdkSettingsFileName = "tealium-settings.json"
+//            localSdkSettingsFileName = "tealium-settings.json"
 
             addModuleSettings(
                 CoreSettingsBuilder()

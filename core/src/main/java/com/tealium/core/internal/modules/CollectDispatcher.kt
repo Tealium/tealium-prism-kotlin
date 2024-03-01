@@ -12,9 +12,14 @@ import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumList
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.NetworkHelper
+import com.tealium.core.api.network.NetworkResult
+import com.tealium.core.api.network.Success
+import com.tealium.core.internal.observables.Observable
+import com.tealium.core.internal.observables.Observables
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
 import com.tealium.core.api.settings.ModuleSettings
+import com.tealium.core.internal.observables.merge
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
@@ -49,7 +54,7 @@ class CollectDispatcher(
     override val dispatchLimit: Int
         get() = CollectDispatcherSettings.MAX_BATCH_SIZE
 
-    override fun dispatch(dispatches: List<Dispatch>): Flow<List<Dispatch>> {
+    override fun dispatch(dispatches: List<Dispatch>): Observable<List<Dispatch>> {
         logger.trace?.log(
             "Dispatcher",
             "$moduleName dispatching events: ${dispatches.map { it.payload() }}"
@@ -64,11 +69,11 @@ class CollectDispatcher(
 
     private fun sendBatch(
         dispatches: List<Dispatch>,
-    ): Flow<List<Dispatch>> {
+    ): Observable<List<Dispatch>> {
         return dispatches.groupBy {
             it.payload().getString(Dispatch.Keys.TEALIUM_VISITOR_ID)
         }.mapNotNull { (visitorId, dispatches) ->
-            if (visitorId == null) flowOf(dispatches) // shouldn't happen
+            if (visitorId == null) Observables.just(dispatches) // shouldn't happen
             else sendBatch(visitorId, dispatches)
         }.merge()
     }
@@ -76,63 +81,50 @@ class CollectDispatcher(
     private fun sendBatch(
         visitorId: String,
         batch: List<Dispatch>
-    ): Flow<List<Dispatch>> {
+    ): Observable<List<Dispatch>> {
         logger.trace?.log(
             "Dispatcher",
             "$moduleName processing batch: ${batch.map { it.payload() }}"
         )
 
-        return if (batch.count() == 1) {
-            sendSingle(batch.first())
-        } else {
-            callbackFlow {
-                val compressed = compressDispatches(
-                    batch,
-                    visitorId,
-                    config.accountName,
-                    collectDispatcherSettings.profile ?: config.profileName
+        if (batch.count() == 1) {
+            return sendSingle(batch.first())
+        }
+
+        val compressed = compressDispatches(
+            batch,
+            visitorId,
+            config.accountName,
+            collectDispatcherSettings.profile ?: config.profileName
+        ) ?: return Observables.just(batch)
+
+        return Observables.async { observer ->
+            networkHelper.post(collectDispatcherSettings.batchUrl, compressed) { result ->
+                logger.debug?.log(
+                    "Dispatcher",
+                    "$moduleName NetworkResult was ${result.javaClass.simpleName} for batch: ${batch.map { it.payload() }}"
                 )
-                if (compressed == null) {
-                    trySend(batch)
-                } else {
-                    val disposable = networkHelper.post(collectDispatcherSettings.batchUrl, compressed) { result ->
-                        logger.debug?.log(
-                            "Dispatcher",
-                            "$moduleName NetworkResult was ${result.javaClass.simpleName} for batch: ${batch.map { it.payload() }}"
-                        )
-                        trySend(batch)
-                        close()
-                    }
-                    awaitClose {
-                        disposable.dispose()
-                    }
-                }
+                observer.onNext(batch)
             }
         }
     }
 
-    private fun sendSingle(dispatch: Dispatch): Flow<List<Dispatch>> {
+    private fun sendSingle(dispatch: Dispatch): Observable<List<Dispatch>> {
         collectDispatcherSettings.profile?.let { profile ->
             dispatch.addAll(TealiumBundle.create {
                 put(Dispatch.Keys.TEALIUM_PROFILE, profile)
             })
         }
 
-        return callbackFlow {
-
-            val disposable = networkHelper.post(collectDispatcherSettings.url, dispatch.payload()) { result ->
+        return Observables.async { observer ->
+            networkHelper.post(collectDispatcherSettings.url, dispatch.payload()) { result ->
                 logger.debug?.log(
                     "Dispatcher",
                     "$moduleName NetworkResult was ${result.javaClass.simpleName} for single: ${dispatch.payload()}"
                 )
-                trySend(listOf(dispatch))
-                close()
+                observer.onNext(listOf(dispatch))
             }
-
-            awaitClose {
-                disposable.dispose()
-            }
-        }.buffer(Channel.UNLIMITED)
+        }
     }
 
     override fun updateSettings(moduleSettings: ModuleSettings): Module? {

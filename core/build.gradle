@@ -32,12 +32,10 @@ android {
             testCoverageEnabled true
         }
     }
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
-    }
-    kotlinOptions {
-        jvmTarget = '1.8'
+    kotlin {
+        jvmToolchain {
+            languageVersion.set(JavaLanguageVersion.of(8))
+        }
     }
     testOptions {
         unitTests.returnDefaultValues = true
@@ -52,6 +50,12 @@ android {
     }
 
     namespace 'com.tealium.core'
+}
+
+tasks.withType(Test).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(11)
+    }
 }
 
 dependencies {

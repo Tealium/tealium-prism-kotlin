@@ -3,32 +3,36 @@ package com.tealium.core.internal.dispatch
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.DispatchScope
 import com.tealium.core.api.Transformer
+import com.tealium.core.internal.observables.Observables
+import com.tealium.core.internal.observables.StateSubject
 import io.mockk.MockKAnnotations
 import io.mockk.Ordering
-import io.mockk.coEvery
-import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
 import io.mockk.slot
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
+import io.mockk.verify
 import org.junit.Before
 import org.junit.Test
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
 
 class TransformerCoordinatorTests {
 
     @RelaxedMockK
     private lateinit var mockDispatch: Dispatch
 
+    @RelaxedMockK
+    private lateinit var onTransformed: (Dispatch?) -> Unit
+    @RelaxedMockK
+    private lateinit var onTransformedList: (List<Dispatch?>) -> Unit
+
+    private lateinit var executorService: ScheduledExecutorService
     private lateinit var mockTransformer1: Transformer
     private lateinit var mockTransformer2: Transformer
     private lateinit var mockTransformer3: Transformer
     private lateinit var registeredTransformers: Set<Transformer>
-    private lateinit var scopedTransformations: MutableStateFlow<Set<ScopedTransformation>>
+    private lateinit var scopedTransformations: StateSubject<Set<ScopedTransformation>>
     private lateinit var transformerCoordinator: TransformerCoordinatorImpl
 
     private val defaultScopedTransformations: Set<ScopedTransformation> = setOf(
@@ -60,6 +64,7 @@ class TransformerCoordinatorTests {
     @Before
     fun setUp() {
         MockKAnnotations.init(this)
+        executorService = Executors.newSingleThreadScheduledExecutor()
 
         mockTransformer1 = mockTransformer("transformer1")
         mockTransformer2 = mockTransformer("transformer2")
@@ -69,270 +74,308 @@ class TransformerCoordinatorTests {
             mockTransformer1, mockTransformer2, mockTransformer3
         )
 
-        scopedTransformations = MutableStateFlow(defaultScopedTransformations)
+        scopedTransformations = Observables.stateSubject(defaultScopedTransformations)
 
         transformerCoordinator =
-            TransformerCoordinatorImpl(registeredTransformers, scopedTransformations)
+            TransformerCoordinatorImpl(
+                registeredTransformers,
+                scopedTransformations,
+                executorService
+            )
     }
 
     @Test
-    fun transform_AppliesTransformations_FromTransformers_ScopedToAfterCollectors() =
-        runTest {
-            transformerCoordinator.transform(mockDispatch, DispatchScope.AfterCollectors)
+    fun transform_AppliesTransformations_FromTransformers_ScopedToAfterCollectors() {
+        transformerCoordinator.transform(mockDispatch, DispatchScope.AfterCollectors, onTransformed)
 
-            coVerify(ordering = Ordering.ORDERED) {
-                mockTransformer1.applyTransformation(
-                    "after_collectors",
-                    mockDispatch,
-                    DispatchScope.AfterCollectors
-                )
-            }
-        }
-
-    @Test
-    fun transform_DoesNotApplyTransformations_FromTransformers_NotScopedToAfterCollectors() =
-        runTest {
-            transformerCoordinator.transform(mockDispatch, DispatchScope.AfterCollectors)
-
-            coVerify(inverse = true) {
-                mockTransformer2.applyTransformation(
-                    any(),
-                    mockDispatch,
-                    DispatchScope.AfterCollectors
-                )
-                mockTransformer3.applyTransformation(
-                    any(),
-                    mockDispatch,
-                    DispatchScope.AfterCollectors
-                )
-            }
-        }
-
-    @Test
-    fun transform_AppliesTransformations_FromTransformers_ScopedToAfterCollectors_IncludingNewlyAdded() =
-        runTest {
-            scopedTransformations.emit(
-                defaultScopedTransformations + setOf(
-                    ScopedTransformation(
-                        "transformation5",
-                        "transformer2",
-                        setOf(TransformationScope.AfterCollectors)
-                    )
-                )
+        verify(ordering = Ordering.ORDERED) {
+            mockTransformer1.applyTransformation(
+                "after_collectors",
+                mockDispatch,
+                DispatchScope.AfterCollectors,
+                any()
             )
+        }
+    }
 
-            transformerCoordinator.transform(mockDispatch, DispatchScope.AfterCollectors)
+    @Test
+    fun transform_DoesNotApplyTransformations_FromTransformers_NotScopedToAfterCollectors() {
+        transformerCoordinator.transform(mockDispatch, DispatchScope.AfterCollectors, onTransformed)
 
-            coVerify(ordering = Ordering.ORDERED) {
-                mockTransformer1.applyTransformation(
-                    "after_collectors",
-                    mockDispatch,
-                    DispatchScope.AfterCollectors
-                )
-                mockTransformer2.applyTransformation(
+        verify(inverse = true) {
+            mockTransformer2.applyTransformation(
+                any(),
+                mockDispatch,
+                DispatchScope.AfterCollectors,
+                any()
+            )
+            mockTransformer3.applyTransformation(
+                any(),
+                mockDispatch,
+                DispatchScope.AfterCollectors,
+                any()
+            )
+        }
+    }
+
+    @Test
+    fun transform_AppliesTransformations_FromTransformers_ScopedToAfterCollectors_IncludingNewlyAdded() {
+        scopedTransformations.onNext(
+            defaultScopedTransformations + setOf(
+                ScopedTransformation(
                     "transformation5",
-                    mockDispatch,
-                    DispatchScope.AfterCollectors
-                )
-            }
-        }
-
-    @Test
-    fun transform_AppliesTransformations_FromTransformers_ScopedToAllDispatchers() =
-        runTest {
-            transformerCoordinator.transform(
-                listOf(mockDispatch),
-                DispatchScope.Dispatcher("dispatcher_1")
-            )
-
-            coVerify(ordering = Ordering.ORDERED) {
-                mockTransformer2.applyTransformation(
-                    "all_dispatchers",
-                    mockDispatch,
-                    DispatchScope.Dispatcher("dispatcher_1")
-                )
-                mockTransformer3.applyTransformation(
-                    "dispatcher_1",
-                    mockDispatch,
-                    DispatchScope.Dispatcher("dispatcher_1")
-                )
-                mockTransformer1.applyTransformation(
-                    "dispatcher_1_and_2",
-                    mockDispatch,
-                    DispatchScope.Dispatcher("dispatcher_1")
-                )
-            }
-        }
-
-    @Test
-    fun transform_DoesNotApplyTransformations_FromTransformers_NotScopedToDispatcher() =
-        runTest {
-            transformerCoordinator.transform(
-                listOf(mockDispatch),
-                DispatchScope.Dispatcher("dispatcher_1")
-            )
-
-            coVerify(inverse = true) {
-                mockTransformer1.applyTransformation(
-                    "after_collectors",
-                    mockDispatch,
-                    any()
-                )
-            }
-        }
-
-    @Test
-    fun transform_PrefersFirstTransformerId_WhenSameIdUsed() =
-        runTest {
-            val mockTransformerDuplicate = mockTransformer("transformer1")
-            val scopedTransformations = MutableStateFlow(
-                defaultScopedTransformations + setOf(
-                    ScopedTransformation(
-                        "after_collectors",
-                        "transformer1",
-                        setOf(TransformationScope.AfterCollectors)
-                    )
+                    "transformer2",
+                    setOf(TransformationScope.AfterCollectors)
                 )
             )
-            val transformerCoordinator = TransformerCoordinatorImpl(
-                registeredTransformers + setOf(mockTransformerDuplicate),
-                scopedTransformations
-            )
+        )
 
-            transformerCoordinator.transform(
+        transformerCoordinator.transform(mockDispatch, DispatchScope.AfterCollectors, onTransformed)
+
+        verify(ordering = Ordering.ORDERED) {
+            mockTransformer1.applyTransformation(
+                "after_collectors",
                 mockDispatch,
-                DispatchScope.AfterCollectors
+                DispatchScope.AfterCollectors,
+                any()
             )
-
-            coVerify(ordering = Ordering.ORDERED) {
-                mockTransformer1.applyTransformation(
-                    "after_collectors",
-                    mockDispatch,
-                    DispatchScope.AfterCollectors
-                )
-            }
-            coVerify(inverse = true) {
-                mockTransformerDuplicate.applyTransformation(
-                    "after_collectors",
-                    mockDispatch,
-                    any()
-                )
-            }
-        }
-
-    @Test
-    fun transform_ReturnsNull_WhenTransformerReturnsNull() =
-        runTest {
-            coEvery {
-                mockTransformer1.applyTransformation(
-                    any(),
-                    any(),
-                    any()
-                )
-            } returns null
-
-            val transformed = transformerCoordinator.transform(
+            mockTransformer2.applyTransformation(
+                "transformation5",
                 mockDispatch,
-                DispatchScope.AfterCollectors
+                DispatchScope.AfterCollectors,
+                any()
             )
+        }
+    }
 
-            assertNull(transformed)
+    @Test
+    fun transform_AppliesTransformations_FromTransformers_ScopedToAllDispatchers() {
+        transformerCoordinator.transform(
+            listOf(mockDispatch),
+            DispatchScope.Dispatcher("dispatcher_1"),
+            onTransformedList
+        )
 
-            coVerify(ordering = Ordering.ORDERED) {
-                mockTransformer1.applyTransformation(
+        verify(ordering = Ordering.ORDERED) {
+            mockTransformer2.applyTransformation(
+                "all_dispatchers",
+                mockDispatch,
+                DispatchScope.Dispatcher("dispatcher_1"),
+                any()
+            )
+            mockTransformer3.applyTransformation(
+                "dispatcher_1",
+                mockDispatch,
+                DispatchScope.Dispatcher("dispatcher_1"),
+                any()
+            )
+            mockTransformer1.applyTransformation(
+                "dispatcher_1_and_2",
+                mockDispatch,
+                DispatchScope.Dispatcher("dispatcher_1"),
+                any()
+            )
+        }
+    }
+
+    @Test
+    fun transform_DoesNotApplyTransformations_FromTransformers_NotScopedToDispatcher() {
+        transformerCoordinator.transform(
+            listOf(mockDispatch),
+            DispatchScope.Dispatcher("dispatcher_1"),
+            onTransformedList
+        )
+
+        verify(inverse = true) {
+            mockTransformer1.applyTransformation(
+                "after_collectors",
+                mockDispatch,
+                any(),
+                any()
+            )
+        }
+    }
+
+    @Test
+    fun transform_PrefersFirstTransformerId_WhenSameIdUsed() {
+        val mockTransformerDuplicate = mockTransformer("transformer1")
+        val scopedTransformations = Observables.stateSubject(
+            defaultScopedTransformations + setOf(
+                ScopedTransformation(
                     "after_collectors",
-                    mockDispatch,
-                    DispatchScope.AfterCollectors
+                    "transformer1",
+                    setOf(TransformationScope.AfterCollectors)
                 )
-            }
+            )
+        )
+        val transformerCoordinator = TransformerCoordinatorImpl(
+            registeredTransformers + setOf(mockTransformerDuplicate),
+            scopedTransformations,
+            executorService
+        )
+
+        transformerCoordinator.transform(
+            mockDispatch,
+            DispatchScope.AfterCollectors,
+            onTransformed
+        )
+
+        verify(ordering = Ordering.ORDERED) {
+            mockTransformer1.applyTransformation(
+                "after_collectors",
+                mockDispatch,
+                DispatchScope.AfterCollectors,
+                any()
+            )
         }
+        verify(inverse = true) {
+            mockTransformerDuplicate.applyTransformation(
+                "after_collectors",
+                mockDispatch,
+                any(),
+                any()
+            )
+        }
+    }
 
     @Test
-    fun transform_RemovesAllFromList_WhenTransformerReturnsNull() =
-        runTest {
-            val mockDispatch1 = mockk<Dispatch>(relaxed = true)
-            val mockDispatch2 = mockk<Dispatch>(relaxed = true)
-            val mockDispatch3 = mockk<Dispatch>(relaxed = true)
-            coEvery {
-                mockTransformer2.applyTransformation(
-                    any(),
-                    any(), // null for all dispatches
-                    any()
-                )
-            } returns null
-
-
-            val transformed = transformerCoordinator.transform(
-                listOf(mockDispatch1, mockDispatch2, mockDispatch3),
-                DispatchScope.Dispatcher("dispatcher_1")
+    fun transform_ReturnsNull_WhenTransformerReturnsNull() {
+        val completionCapture = slot<(Dispatch?) -> Unit>()
+        every {
+            mockTransformer1.applyTransformation(
+                any(),
+                any(),
+                any(),
+                capture(completionCapture)
             )
-
-            assertTrue(transformed.isEmpty())
+        } answers {
+            completionCapture.captured(null)
         }
+
+        transformerCoordinator.transform(
+            mockDispatch,
+            DispatchScope.AfterCollectors,
+            onTransformed
+        )
+
+//        assertNull(transformed)
+
+        verify(ordering = Ordering.ORDERED) {
+            mockTransformer1.applyTransformation(
+                "after_collectors",
+                mockDispatch,
+                DispatchScope.AfterCollectors,
+                any()
+            )
+            onTransformed(null)
+        }
+    }
 
     @Test
-    fun transform_RemovesFromList_WhenTransformerReturnsNull() =
-        runTest {
-            val mockDispatch1 = mockk<Dispatch>(relaxed = true)
-            val mockDispatch2 = mockk<Dispatch>(relaxed = true)
-            val mockDispatch3 = mockk<Dispatch>(relaxed = true)
-            coEvery {
-                mockTransformer2.applyTransformation(
-                    any(),
-                    mockDispatch2,
-                    any()
-                )
-            } returns null
-
-
-            val transformed = transformerCoordinator.transform(
-                listOf(mockDispatch1, mockDispatch2, mockDispatch3),
-                DispatchScope.Dispatcher("dispatcher_1")
+    fun transform_RemovesAllFromList_WhenTransformerReturnsNull() {
+        val mockDispatch1 = mockk<Dispatch>(relaxed = true)
+        val mockDispatch2 = mockk<Dispatch>(relaxed = true)
+        val mockDispatch3 = mockk<Dispatch>(relaxed = true)
+        val completionCapture = slot<(Dispatch?) -> Unit>()
+        every {
+            mockTransformer2.applyTransformation(
+                any(),
+                any(), // null for all dispatches
+                any(),
+                capture(completionCapture)
             )
-
-            assertTrue(transformed.contains(mockDispatch1))
-            assertFalse(transformed.contains(mockDispatch2))
-            assertTrue(transformed.contains(mockDispatch3))
+        } answers {
+            completionCapture.captured(null)
         }
+
+
+        transformerCoordinator.transform(
+            listOf(mockDispatch1, mockDispatch2, mockDispatch3),
+            DispatchScope.Dispatcher("dispatcher_1"),
+            onTransformedList
+        )
+
+        verify {
+            onTransformedList(match { it.isEmpty() })
+        }
+    }
 
     @Test
-    fun transform_StopsTransforming_AfterFirstTransformerReturnsNull() =
-        runTest {
-            coEvery {
-                mockTransformer2.applyTransformation(
-                    any(),
-                    mockDispatch,
-                    any()
-                )
-            } returns null
-
-
-            transformerCoordinator.transform(
-                listOf(mockDispatch),
-                DispatchScope.Dispatcher("dispatcher_1")
+    fun transform_RemovesFromList_WhenTransformerReturnsNull() {
+        val mockDispatch1 = mockk<Dispatch>(relaxed = true)
+        val mockDispatch2 = mockk<Dispatch>(relaxed = true)
+        val mockDispatch3 = mockk<Dispatch>(relaxed = true)
+        val completionCapture = slot<(Dispatch?) -> Unit>()
+        every {
+            mockTransformer2.applyTransformation(
+                any(),
+                mockDispatch2,
+                any(),
+                capture(completionCapture)
             )
-
-            coVerify {
-                mockTransformer2.applyTransformation(
-                    "all_dispatchers",
-                    mockDispatch,
-                    DispatchScope.Dispatcher("dispatcher_1")
-                )
-            }
-            coVerify(inverse = true) {
-                mockTransformer3.applyTransformation(
-                    "dispatcher_1",
-                    mockDispatch,
-                    DispatchScope.Dispatcher("dispatcher_1")
-                )
-                mockTransformer1.applyTransformation(
-                    "dispatcher_1_and_2",
-                    mockDispatch,
-                    DispatchScope.Dispatcher("dispatcher_1")
-                )
-            }
+        } answers {
+            completionCapture.captured(null)
         }
 
+
+        transformerCoordinator.transform(
+            listOf(mockDispatch1, mockDispatch2, mockDispatch3),
+            DispatchScope.Dispatcher("dispatcher_1"),
+            onTransformedList
+        )
+
+        verify {
+            onTransformedList(match {
+                it.contains(mockDispatch1)
+                        && !it.contains(mockDispatch2) // dropped
+                        && it.contains(mockDispatch3)
+            })
+        }
+    }
+
+    @Test
+    fun transform_StopsTransforming_AfterFirstTransformerReturnsNull() {
+        val completionCapture = slot<(Dispatch?) -> Unit>()
+        every {
+            mockTransformer2.applyTransformation(
+                any(),
+                mockDispatch,
+                any(),
+                capture(completionCapture)
+            )
+        } answers {
+            completionCapture.captured(null)
+        }
+
+        transformerCoordinator.transform(
+            listOf(mockDispatch),
+            DispatchScope.Dispatcher("dispatcher_1"),
+            onTransformedList
+        )
+
+        verify {
+            mockTransformer2.applyTransformation(
+                "all_dispatchers",
+                mockDispatch,
+                DispatchScope.Dispatcher("dispatcher_1"),
+                any()
+            )
+        }
+        verify(inverse = true) {
+            mockTransformer3.applyTransformation(
+                "dispatcher_1",
+                mockDispatch,
+                DispatchScope.Dispatcher("dispatcher_1"),
+                any()
+            )
+            mockTransformer1.applyTransformation(
+                "dispatcher_1_and_2",
+                mockDispatch,
+                DispatchScope.Dispatcher("dispatcher_1"),
+                any()
+            )
+        }
+    }
 
     /**
      * Returns a Mockk of a [Transformer] with the given [name]. The returned dispatcher's behaviour
@@ -341,15 +384,19 @@ class TransformerCoordinatorTests {
     private fun mockTransformer(name: String): Transformer {
         return mockk<Transformer>(relaxed = true).also {
             val dispatchSlot = slot<Dispatch>()
+            val completionSlot = slot<(Dispatch?) -> Unit>()
 
             every { it.id } returns name
-            coEvery {
+            every {
                 it.applyTransformation(
                     any(),
                     capture(dispatchSlot),
-                    any()
+                    any(),
+                    capture(completionSlot)
                 )
-            } answers { dispatchSlot.captured }
+            } answers {
+                completionSlot.captured(dispatchSlot.captured)
+            }
         }
     }
 }

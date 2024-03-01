@@ -1,6 +1,6 @@
 package com.tealium.core.api
 
-import kotlinx.coroutines.flow.Flow
+import com.tealium.core.internal.observables.Observable
 
 /**
  * The defined states that a [Barrier] implementation can have at any given time.
@@ -39,6 +39,6 @@ interface Barrier {
      * [BarrierState.Closed] should be emitted to disallow further processing, and [BarrierState.Open]
      * to allow processing again.
      */
-    val onState: Flow<BarrierState>
+    val onState: Observable<BarrierState>
 }
 

@@ -1,54 +1,52 @@
 package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.BarrierState
+import com.tealium.core.internal.observables.Observables
 import com.tealium.tests.common.TestDispatcher
-import io.mockk.coVerify
+import io.mockk.verify
 import io.mockk.every
 import io.mockk.spyk
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.test.runTest
 import org.junit.Test
+import java.util.concurrent.TimeUnit
 
 class DispatchManagerBarrierTests: DispatchManagerTestsBase() {
 
     @Test
-    fun dispatchManager_SendsDispatchesToDispatcher_WhenBarriersAreOpen() = runTest {
+    fun dispatchManager_SendsDispatchesToDispatcher_WhenBarriersAreOpen() {
         dispatchManager.startDispatchLoop()
 
         dispatchManager.track(dispatch1)
 
-        coVerify(timeout = 5000) {
+        verify(timeout = 5000) {
             dispatcher1.dispatch(listOf(dispatch1))
             queueManager.deleteDispatches(listOf(dispatch1), any())
         }
     }
 
     @Test
-    fun dispatchManager_DoesNotSendDispatchesToDispatcher_WhenBarriersAreClosed() = runTest {
-        barrierFlow.emit(BarrierState.Closed)
+    fun dispatchManager_DoesNotSendDispatchesToDispatcher_WhenBarriersAreClosed() {
+        barrierFlow.onNext(BarrierState.Closed)
 
         dispatchManager.startDispatchLoop()
 
         dispatchManager.track(dispatch1)
 
-        coVerify(timeout = 5000, inverse = true) {
+        verify(timeout = 5000, inverse = true) {
             dispatcher1.dispatch(listOf(dispatch1))
             queueManager.deleteDispatches(listOf(dispatch1), any())
         }
     }
 
     @Test
-    fun dispatchManager_SendQueuedDispatchesToDispatcher_WhenBarriersAreOpened() = runTest {
-        barrierFlow.emit(BarrierState.Closed)
+    fun dispatchManager_SendQueuedDispatchesToDispatcher_WhenBarriersAreOpened() {
+        barrierFlow.onNext(BarrierState.Closed)
         dispatchManager.startDispatchLoop()
 
         queue[dispatcher1.name] = mutableSetOf(dispatch1, dispatch2)
 
-        barrierFlow.emit(BarrierState.Open)
+        barrierFlow.onNext(BarrierState.Open)
 
-        coVerify(timeout = 5000) {
+        verify(timeout = 5000) {
             dispatcher1.dispatch(listOf(dispatch1))
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
             dispatcher1.dispatch(listOf(dispatch2))
@@ -57,66 +55,70 @@ class DispatchManagerBarrierTests: DispatchManagerTestsBase() {
     }
 
     @Test
-    fun dispatchManager_StopsSendingDispatchesToDispatcher_WhenBarriersGetClosed() = runTest {
+    fun dispatchManager_StopsSendingDispatchesToDispatcher_WhenBarriersGetClosed() {
         dispatcher1 = spyk(TestDispatcher("dispatcher_1") {
-            flow {
-                barrierFlow.emit(BarrierState.Closed)
+            Observables.callback { observer ->
+                barrierFlow.onNext(BarrierState.Closed)
                 dispatchManager.track(dispatch2)
-                delay(100)
-                emit(it)
+
+                executorService.schedule({
+                    observer.onNext(it)
+                }, 100, TimeUnit.MILLISECONDS)
             }
         })
-        dispatchers.emit(setOf(dispatcher1))
+        dispatchers.onNext(setOf(dispatcher1))
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1) // closes after first dispatch
 
-        coVerify(timeout = 5000) {
+        verify(timeout = 5000) {
             dispatcher1.dispatch(listOf(dispatch1))
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
         }
-        coVerify(timeout = 5000, inverse = true) {
+        verify(timeout = 5000, inverse = true) {
             dispatcher1.dispatch(listOf(dispatch2))
             queueManager.deleteDispatches(listOf(dispatch2), dispatcher1)
         }
     }
 
     @Test
-    fun dispatchManager_DoesNotCancelInflight_WhenBarriersGetClosed() = runTest {
+    fun dispatchManager_DoesNotCancelInflight_WhenBarriersGetClosed() {
         dispatcher1 = spyk(TestDispatcher("dispatcher_1") {
-            flow {
-                barrierFlow.emit(BarrierState.Closed)
-                delay(2000)
-                emit(it)
+            Observables.callback { observer ->
+                barrierFlow.onNext(BarrierState.Closed)
+
+                executorService.schedule({
+                    observer.onNext(it)
+                }, 2000, TimeUnit.MILLISECONDS)
             }
         })
-        dispatchers.emit(setOf(dispatcher1))
+        dispatchers.onNext(setOf(dispatcher1))
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1)
 
-        coVerify(timeout = 5000) {
+        verify(timeout = 5000) {
             dispatcher1.dispatch(listOf(dispatch1))
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
         }
     }
 
     @Test
-    fun dispatchManager_ClosedBarriers_DoNotInterfere_WithOtherDispatchers() = runTest {
+    fun dispatchManager_ClosedBarriers_DoNotInterfere_WithOtherDispatchers() {
         val dispatcher2 = spyk(TestDispatcher("dispatcher_2"))
-        every { barrierCoordinator.onBarriersState("dispatcher_2") } returns MutableStateFlow(
+        every { barrierCoordinator.onBarriersState("dispatcher_2") } returns Observables.stateSubject(
             BarrierState.Closed
         )
-        dispatchers.emit(setOf(dispatcher1, dispatcher2))
+        dispatchers.onNext(setOf(dispatcher1, dispatcher2))
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1)
 
-        coVerify(timeout = 5000) {
+        verify(timeout = 5000) {
             dispatcher1.dispatch(listOf(dispatch1))
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
         }
-        coVerify(timeout = 5000, inverse = true) {
+        verify(timeout = 5000, inverse = true) {
             dispatcher2.dispatch(listOf(dispatch2))
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher2)
         }

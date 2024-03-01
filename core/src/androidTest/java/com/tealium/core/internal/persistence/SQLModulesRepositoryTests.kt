@@ -47,7 +47,6 @@ open class SQLModulesRepositoryTests {
             "test",
             "test",
             Environment.DEV,
-            "",
             listOf()
         )
 

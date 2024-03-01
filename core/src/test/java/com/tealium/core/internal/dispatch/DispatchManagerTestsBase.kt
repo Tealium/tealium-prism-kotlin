@@ -8,6 +8,10 @@ import com.tealium.core.api.Transformer
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.internal.consent.ConsentManager
+import com.tealium.core.internal.observables.Observables
+import com.tealium.core.internal.observables.StateSubject
+import com.tealium.core.internal.observables.Subject
+import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.MockKAnnotations
 import io.mockk.Runs
@@ -16,13 +20,14 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.just
 import io.mockk.spyk
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import org.junit.After
+//import kotlinx.coroutines.CoroutineScope
+//import kotlinx.coroutines.asCoroutineDispatcher
 import org.junit.Before
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import kotlin.math.log
 
 /**
  * Test Base class to simplify test groups relating to the Dispatch Manager.
@@ -30,8 +35,6 @@ import java.util.concurrent.Executors
  */
 open class DispatchManagerTestsBase {
 
-    @RelaxedMockK
-    protected lateinit var logger: Logger
 
     @MockK
     protected lateinit var consentManager: ConsentManager
@@ -39,21 +42,19 @@ open class DispatchManagerTestsBase {
     @MockK
     protected lateinit var barrierCoordinator: BarrierCoordinator
 
-    protected val coroutineDispatcher =
-        Executors.newSingleThreadScheduledExecutor().asCoroutineDispatcher()
-    protected lateinit var tealiumScope: CoroutineScope
-
+    protected lateinit var logger: Logger
+    protected lateinit var executorService: ScheduledExecutorService
     protected lateinit var dispatcher1: Dispatcher
     protected lateinit var dispatcher2: Dispatcher
-    protected lateinit var dispatchers: MutableStateFlow<Set<Dispatcher>>
-    protected lateinit var barrierFlow: MutableStateFlow<BarrierState>
+    protected lateinit var dispatchers: StateSubject<Set<Dispatcher>>
+    protected lateinit var barrierFlow: Subject<BarrierState>
     protected lateinit var queueManager: QueueManager
     protected lateinit var queue: MutableMap<String, MutableSet<Dispatch>>
     protected lateinit var inFlightEvents: MutableMap<String, MutableSet<String>>
-    protected lateinit var onInFlightEvents: MutableSharedFlow<Map<String, Set<String>>>
+    protected lateinit var onInFlightEvents: Subject<Map<String, Set<String>>>
     protected lateinit var transformerCoordinator: TransformerCoordinator
     protected lateinit var transformers: MutableSet<Transformer>
-    protected lateinit var transformersFlow: MutableStateFlow<Set<ScopedTransformation>>
+    protected lateinit var transformersFlow: StateSubject<Set<ScopedTransformation>>
     protected lateinit var dispatchManager: DispatchManagerImpl
 
     protected val dispatch1: Dispatch =
@@ -65,7 +66,8 @@ open class DispatchManagerTestsBase {
     fun setUp() {
         MockKAnnotations.init(this)
 
-        tealiumScope = CoroutineScope(coroutineDispatcher)
+        logger = SystemLogger()
+        executorService = Executors.newSingleThreadScheduledExecutor()
 
         // Consent Defaulted to disabled
         every { consentManager.enabled } returns false
@@ -74,15 +76,15 @@ open class DispatchManagerTestsBase {
         // Two available test dispatchers
         dispatcher1 = spyk(TestDispatcher("dispatcher_1"))
         dispatcher2 = spyk(TestDispatcher("dispatcher_2"))
-        dispatchers = MutableStateFlow(setOf(dispatcher1, dispatcher2))
+        dispatchers = Observables.stateSubject(setOf(dispatcher1, dispatcher2))
 
         // Queue defaulted to empty
-        queue = mutableMapOf()
-        onInFlightEvents = MutableSharedFlow(replay = 1)
-        inFlightEvents = mutableMapOf()
+        // concurrent due to test async nature.
+        queue = ConcurrentHashMap()
+        inFlightEvents = ConcurrentHashMap()
+        onInFlightEvents = Observables.replaySubject(cacheSize = 1)
         queueManager = spyk(
             VolatileQueueManagerImpl(
-                scope = tealiumScope,
                 queue = queue,
                 _inFlightEvents = inFlightEvents,
                 _onInFlightEvents = onInFlightEvents
@@ -90,20 +92,25 @@ open class DispatchManagerTestsBase {
         )
 
         // Barriers defaulted to Open
-        barrierFlow = MutableStateFlow(BarrierState.Open)
+        barrierFlow = Observables.stateSubject(BarrierState.Open)
         every { barrierCoordinator.onBarriersState(any()) } returns barrierFlow
 
-        transformersFlow = MutableStateFlow(setOf())
+        transformersFlow = Observables.stateSubject(setOf())
         transformers = mutableSetOf()
         transformerCoordinator = spyk(
             TransformerCoordinatorImpl(
-                transformers, transformersFlow
+                transformers, transformersFlow, executorService
             )
         )
 
         dispatchManager = createDispatchManager()
 
         onAfterSetup()
+    }
+
+    @After
+    fun tearDown() {
+        executorService.shutdown()
     }
 
     /**
@@ -119,8 +126,7 @@ open class DispatchManagerTestsBase {
         barrierCoordinator: BarrierCoordinator = this.barrierCoordinator,
         transformerCoordinator: TransformerCoordinator = this.transformerCoordinator,
         queueManager: QueueManager = this.queueManager,
-        dispatchers: StateFlow<Set<Dispatcher>> = this.dispatchers,
-        tealiumScope: CoroutineScope = this.tealiumScope,
+        dispatchers: StateSubject<Set<Dispatcher>> = this.dispatchers,
         logger: Logger = this.logger,
         maxInFlight: Int = DispatchManagerImpl.MAXIMUM_INFLIGHT_EVENTS_PER_DISPATCHER
     ): DispatchManagerImpl = DispatchManagerImpl(
@@ -129,10 +135,8 @@ open class DispatchManagerTestsBase {
         transformerCoordinator,
         queueManager,
         dispatchers,
-        tealiumScope,
         logger,
         maxInFlight
     )
-
 
 }

@@ -2,6 +2,7 @@ package com.tealium.core.internal.observables
 
 import com.tealium.core.api.listeners.Disposable
 import com.tealium.core.api.listeners.Observer
+import com.tealium.core.internal.observables.impl.CallbackObservable
 import com.tealium.core.internal.observables.impl.CombineObservable
 import com.tealium.core.internal.observables.impl.CustomObservable
 import com.tealium.core.internal.observables.impl.IterableCombineObservable
@@ -63,12 +64,38 @@ object Observables {
     }
 
     /**
+     * Returns an observable that emits each item from the given [items] to any observer that
+     * subscribes.
+     */
+    @JvmStatic
+    fun <T> fromIterable(items: Iterable<T>): Observable<T> {
+        return IterableObservable(items)
+    }
+
+    /**
+     * Returns an observable that does not emit anything.
+     */
+    @JvmStatic
+    fun <T> empty(): Observable<T> {
+        return just()
+    }
+
+    /**
      * Returns an observable that emits all of the source emissions from all of the given
      * [observables].
      */
     @JvmStatic
     fun <T> merge(vararg observables: Observable<T>): Observable<T> {
         return just(*observables).flatMap { it }
+    }
+
+    /**
+     * Returns an observable that emits all of the source emissions from all of the given
+     * [observables].
+     */
+    @JvmStatic
+    fun <T> merge(observables: Iterable<Observable<T>>): Observable<T> {
+        return fromIterable(observables).flatMap { it }
     }
 
     /**
@@ -116,5 +143,38 @@ object Observables {
         combiner: (Iterable<T>) -> R
     ): Observable<R> {
         return combine(sources.asIterable(), combiner)
+    }
+
+    /**
+     * Returns an observable that emits only when the provided [block] of code has completed,
+     * This block will be executed whenever a new subscription is made.
+     *
+     * @param block The block of code to receive the observer with which to emit downstream.
+     */
+    @JvmStatic
+    fun <T> callback(
+        block: (Observer<T>) -> Unit
+    ): Observable<T> {
+        return CallbackObservable { observer ->
+            val subscription = Subscription()
+            block {
+                if (subscription.isDisposed) return@block
+                observer.onNext(it)
+            }
+            subscription
+        }
+    }
+
+    /**
+     * Returns an observable that emits only when the provided [block] of code has completed,
+     * This block will be executed whenever a new subscription is made.
+     *
+     * @param block The block of code to receive the observer with which to emit downstream.
+     */
+    @JvmStatic
+    fun <T> async(
+        block: (Observer<T>) -> Disposable
+    ): Observable<T> {
+        return CallbackObservable(block)
     }
 }

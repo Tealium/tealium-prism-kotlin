@@ -1,6 +1,6 @@
 package com.tealium.core.api
 
-import kotlinx.coroutines.flow.Flow
+import com.tealium.core.internal.observables.Observable
 
 interface ConsentManager {
     var consentStatus: ConsentStatus
@@ -19,6 +19,6 @@ data class ConsentDecision(
 
 interface ConsentManagementAdapter {
 
-    val onConsentDecision: Flow<ConsentDecision>
+    val onConsentDecision: Observable<ConsentDecision>
     fun getConsentDecision(): ConsentDecision?
 }

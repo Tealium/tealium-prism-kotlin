@@ -21,6 +21,7 @@ import com.tealium.core.internal.network.ConnectivityInterceptor
 import com.tealium.core.internal.network.ConnectivityRetriever
 import com.tealium.core.internal.network.HttpClient
 import com.tealium.core.internal.network.NetworkHelperImpl
+import com.tealium.core.internal.observables.Observables
 import com.tealium.core.internal.persistence.DatabaseProvider
 import com.tealium.core.internal.persistence.FileDatabaseProvider
 import com.tealium.core.internal.persistence.ModuleStoreProviderImpl
@@ -179,12 +180,11 @@ class TealiumImpl(
             // TODO - Load default barriers
             barrierCoordinator = BarrierCoordinatorImpl(setOf(), setOf()),
             // TODO - load transformers
-            transformerCoordinator = TransformerCoordinatorImpl(setOf(), MutableStateFlow(setOf())),
+            transformerCoordinator = TransformerCoordinatorImpl(setOf(), Observables.stateSubject(setOf()), backgroundService),
             // TODO - create flow from the ModulesManager
-            dispatchers = MutableStateFlow(_moduleManager.getModulesOfType(Dispatcher::class.java).toSet()),
+            dispatchers = Observables.stateSubject(_moduleManager.getModulesOfType(Dispatcher::class.java).toSet()),
             // TODO - hook this up to persistent storage
-            queueManager = VolatileQueueManagerImpl(scope = tealiumScope),
-            tealiumScope = tealiumScope,
+            queueManager = VolatileQueueManagerImpl(),
             logger = logger
         )
         _dispatchManager.startDispatchLoop()

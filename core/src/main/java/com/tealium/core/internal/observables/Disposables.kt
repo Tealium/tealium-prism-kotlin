@@ -94,3 +94,18 @@ class AsyncSubscription(
         super.dispose()
     }
 }
+
+/**
+ * Implementation of [Disposable] that holds a mutable underlying disposable.
+ */
+class SubscriptionWrapper(
+    var subscription: Disposable? = null
+): BaseDisposable(), Disposable {
+
+    override fun dispose() {
+        if (isDisposed) return
+
+        subscription?.dispose()
+        super.dispose()
+    }
+}

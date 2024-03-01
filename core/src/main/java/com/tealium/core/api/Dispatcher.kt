@@ -1,6 +1,6 @@
 package com.tealium.core.api
 
-import kotlinx.coroutines.flow.Flow
+import com.tealium.core.internal.observables.Observable
 
 /**
  * A [Dispatcher] is a specialized [Module] that is the destination for any [Dispatch]es tracked
@@ -25,7 +25,7 @@ interface Dispatcher : Module {
      * dispatches that have been processed each time.
      *
      * @param dispatches The batch of dispatches to be processed by this [Dispatcher]
-     * @return A [Flow] of the processed dispatches
+     * @return An [Observable] of the processed dispatches
      */
-    fun dispatch(dispatches: List<Dispatch>): Flow<List<Dispatch>>
+    fun dispatch(dispatches: List<Dispatch>): Observable<List<Dispatch>>
 }

@@ -1,19 +1,18 @@
 package com.tealium.core.internal.dispatch
 
+import com.tealium.core.internal.observables.Observables
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.coVerify
 import io.mockk.spyk
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.test.runTest
 import org.junit.Test
+import java.util.concurrent.TimeUnit
 
 class DispatchManagerDispatchersListTests : DispatchManagerTestsBase() {
 
     @Test
-    fun dispatchManager_SendsDispatches_ToAllDispatchers() = runTest {
+    fun dispatchManager_SendsDispatches_ToAllDispatchers() {
         val dispatcher2 = spyk(TestDispatcher("dispatcher_2"))
-        dispatchers.emit(setOf(dispatcher1, dispatcher2))
+        dispatchers.onNext(setOf(dispatcher1, dispatcher2))
 
         dispatchManager.startDispatchLoop()
 
@@ -28,18 +27,19 @@ class DispatchManagerDispatchersListTests : DispatchManagerTestsBase() {
     }
 
     @Test
-    fun dispatchManager_ContinuesSendingDispatches_ToEnabledDispatchers_WhenOneGetsDisabled() =
-        runTest {
+    fun dispatchManager_ContinuesSendingDispatches_ToEnabledDispatchers_WhenOneGetsDisabled() {
             val dispatcher2 = spyk(TestDispatcher("dispatcher_2"))
             dispatcher1 = spyk(TestDispatcher("dispatcher_1") {
-                flow {
-                    dispatchers.emit(setOf(dispatcher2))
+                Observables.callback { observer ->
+                    dispatchers.onNext(setOf(dispatcher2))
                     dispatchManager.track(dispatch2)
-                    delay(100)
-                    emit(it)
+
+                    executorService.schedule({
+                        observer.onNext(it)
+                    }, 100, TimeUnit.MILLISECONDS)
                 }
             })
-            dispatchers.emit(setOf(dispatcher1, dispatcher2))
+            dispatchers.onNext(setOf(dispatcher1, dispatcher2))
 
             dispatchManager.startDispatchLoop()
             dispatchManager.track(dispatch1) // dispatcher1 removed after first dispatch
@@ -59,16 +59,18 @@ class DispatchManagerDispatchersListTests : DispatchManagerTestsBase() {
         }
 
     @Test
-    fun dispatchManager_StopsSendingDispatchesToDispatcher_WhenDispatcherGetsDisabled() = runTest {
+    fun dispatchManager_StopsSendingDispatchesToDispatcher_WhenDispatcherGetsDisabled() {
         dispatcher1 = spyk(TestDispatcher("dispatcher_1") {
-            flow {
-                dispatchers.emit(setOf())
+            Observables.callback { observer ->
+                dispatchers.onNext(setOf())
                 dispatchManager.track(dispatch2)
-                delay(100)
-                emit(it)
+
+                executorService.schedule({
+                    observer.onNext(it)
+                }, 100, TimeUnit.MILLISECONDS)
             }
         })
-        dispatchers.emit(setOf(dispatcher1))
+        dispatchers.onNext(setOf(dispatcher1))
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1) // dispatcher1 removed after first dispatch
@@ -84,15 +86,17 @@ class DispatchManagerDispatchersListTests : DispatchManagerTestsBase() {
     }
 
     @Test
-    fun dispatchManager_DoesNotCancelInflight_WhenDispatcherGetsDisabled() = runTest {
+    fun dispatchManager_DoesNotCancelInflight_WhenDispatcherGetsDisabled() {
         dispatcher1 = spyk(TestDispatcher("dispatcher_1") {
-            flow {
-                dispatchers.emit(setOf())
-                delay(2000)
-                emit(it)
+            Observables.callback { observer ->
+                dispatchers.onNext(setOf())
+
+                executorService.schedule({
+                    observer.onNext(it)
+                }, 2000, TimeUnit.MILLISECONDS)
             }
         })
-        dispatchers.emit(setOf(dispatcher1))
+        dispatchers.onNext(setOf(dispatcher1))
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1)

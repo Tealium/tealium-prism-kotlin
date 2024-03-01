@@ -5,8 +5,7 @@ import com.tealium.core.api.TealiumDispatchType
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.Ordering
-import io.mockk.coVerify
-import kotlinx.coroutines.test.runTest
+import io.mockk.verify
 import org.junit.Test
 
 class DispatchManagerQueueTests : DispatchManagerTestsBase() {
@@ -19,11 +18,11 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
         Dispatch.create("test5", TealiumDispatchType.Event, TealiumBundle.EMPTY_BUNDLE)
 
     @Test
-    fun dispatchManager_SendsIndividualDispatches_ToAllDispatcher() = runTest {
+    fun dispatchManager_SendsIndividualDispatches_ToAllDispatcher() {
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1)
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             dispatcher1.dispatch(listOf(dispatch1))
             dispatcher2.dispatch(listOf(dispatch1))
 
@@ -33,9 +32,9 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
     }
 
     @Test
-    fun dispatchManager_SendsBatchesOfDispatchesToDispatcher_WhenQueued() = runTest {
+    fun dispatchManager_SendsBatchesOfDispatchesToDispatcher_WhenQueued() {
         dispatcher1 = TestDispatcher.mock("dispatcher1", dispatchLimit = 2)
-        dispatchers.emit(setOf(dispatcher1))
+        dispatchers.onNext(setOf(dispatcher1))
         queue[dispatcher1.name] = mutableSetOf(
             dispatch1,
             dispatch2,
@@ -44,10 +43,12 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
             dispatch5,
         )
 
-        dispatchManager.startDispatchLoop()
-        dispatchManager.track(dispatch1)
+        executorService.execute {
+            dispatchManager.startDispatchLoop()
+            dispatchManager.track(dispatch1)
+        }
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             dispatcher1.dispatch(listOf(dispatch1, dispatch2))
             dispatcher1.dispatch(listOf(dispatch3, dispatch4))
             dispatcher1.dispatch(listOf(dispatch5))
@@ -59,20 +60,20 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
     }
 
     @Test
-    fun dispatchManager_SendsBatchesOfDispatchesToDispatcher_WhenMultipleSent() = runTest {
+    fun dispatchManager_SendsBatchesOfDispatchesToDispatcher_WhenMultipleSent() {
         dispatcher1 = TestDispatcher.mock("dispatcher1", dispatchLimit = 2)
-        dispatchers.emit(setOf(dispatcher1))
+        dispatchers.onNext(setOf(dispatcher1))
         queue[dispatcher1.name] = mutableSetOf(
             dispatch1,
             dispatch2,
-            dispatch3
+            dispatch3,
+            dispatch4,
         )
-
-        dispatchManager.startDispatchLoop()
-        dispatchManager.track(dispatch4)
-        dispatchManager.track(dispatch5)
-
-        coVerify(timeout = 1000) {
+        executorService.execute {
+            dispatchManager.startDispatchLoop()
+            dispatchManager.track(dispatch5)
+        }
+        verify(timeout = 1000) {
             dispatcher1.dispatch(listOf(dispatch1, dispatch2))
             dispatcher1.dispatch(listOf(dispatch3, dispatch4))
             dispatcher1.dispatch(listOf(dispatch5))
@@ -84,29 +85,31 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
     }
 
     @Test
-    fun dispatchManager_DispatchesEvent_WhenQueueWasEmpty() = runTest {
+    fun dispatchManager_DispatchesEvent_WhenQueueWasEmpty() {
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1)
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             dispatcher1.dispatch(listOf(dispatch1))
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
         }
     }
 
     @Test
-    fun dispatchManager_SendsDispatchesToDispatcher_InOrder() = runTest {
+    fun dispatchManager_SendsDispatchesToDispatcher_InOrder() {
         queue[dispatcher1.name] = mutableSetOf(
             dispatch1,
             dispatch2,
             dispatch3
         )
 
-        dispatchManager.startDispatchLoop()
-        dispatchManager.track(dispatch4)
-        dispatchManager.track(dispatch5)
+        executorService.execute {
+            dispatchManager.startDispatchLoop()
+            dispatchManager.track(dispatch4)
+            dispatchManager.track(dispatch5)
+        }
 
-        coVerify(timeout = 1000, ordering = Ordering.ORDERED) {
+        verify(timeout = 1000, ordering = Ordering.ORDERED) {
             dispatcher1.dispatch(listOf(dispatch1))
             dispatcher1.dispatch(listOf(dispatch2))
             dispatcher1.dispatch(listOf(dispatch3))
@@ -116,9 +119,9 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
     }
 
     @Test
-    fun dispatchManager_SendsBatchesToDispatcher_InOrder() = runTest {
+    fun dispatchManager_SendsBatchesToDispatcher_InOrder() {
         dispatcher1 = TestDispatcher.mock("dispatcher1", dispatchLimit = 2)
-        dispatchers.emit(setOf(dispatcher1))
+        dispatchers.onNext(setOf(dispatcher1))
         queue[dispatcher1.name] = mutableSetOf(
             dispatch1,
             dispatch2,
@@ -126,10 +129,12 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
             dispatch4
         )
 
-        dispatchManager.startDispatchLoop()
-        dispatchManager.track(dispatch5)
+        executorService.execute {
+            dispatchManager.startDispatchLoop()
+            dispatchManager.track(dispatch5)
+        }
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             dispatcher1.dispatch(listOf(dispatch1, dispatch2))
             dispatcher1.dispatch(listOf(dispatch3, dispatch4))
             dispatcher1.dispatch(listOf(dispatch5))
@@ -141,7 +146,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
     }
 
     @Test
-    fun dispatchManager_SendsQueuedEvents_ToCorrectDispatcher() = runTest {
+    fun dispatchManager_SendsQueuedEvents_ToCorrectDispatcher() {
         queue[dispatcher1.name] = mutableSetOf(
             dispatch1,
         )
@@ -152,7 +157,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch3) // both receive 3
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             dispatcher1.dispatch(listOf(dispatch1))
             dispatcher1.dispatch(listOf(dispatch3))
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
@@ -163,7 +168,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
             queueManager.deleteDispatches(listOf(dispatch2), dispatcher2)
             queueManager.deleteDispatches(listOf(dispatch3), dispatcher2)
         }
-        coVerify(timeout = 1000, inverse = true) {
+        verify(timeout = 1000, inverse = true) {
             dispatcher1.dispatch(listOf(dispatch2))
             dispatcher2.dispatch(listOf(dispatch1))
         }

@@ -3,13 +3,12 @@ package com.tealium.core.internal.dispatch
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.TealiumDispatchType
 import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.internal.observables.Observables
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.coVerify
 import io.mockk.verify
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.test.runTest
 import org.junit.Test
+import java.util.concurrent.TimeUnit
 
 class DispatchManagerTrackTests : DispatchManagerTestsBase() {
 
@@ -17,26 +16,30 @@ class DispatchManagerTrackTests : DispatchManagerTestsBase() {
         Dispatch.create("test3", TealiumDispatchType.Event, TealiumBundle.EMPTY_BUNDLE)
 
     @Test
-    fun dispatchManager_SlowDispatcher_DoesNotDelayOthers() = runTest {
+    fun dispatchManager_SlowDispatcher_DoesNotDelayOthers() {
         val slowDispatcher = TestDispatcher.mock("dispatcher2") { dispatches ->
-            flow {
-                delay(500)
-                emit(dispatches)
+            Observables.callback { observer ->
+                executorService.schedule({
+                    observer.onNext(dispatches)
+                }, 500, TimeUnit.MILLISECONDS)
             }
         }
-        dispatchers.emit(setOf(dispatcher1, slowDispatcher))
-        queue[dispatcher1.name] = mutableSetOf(
-            dispatch1,
-            dispatch2
-        )
-        queue[slowDispatcher.name] = mutableSetOf(
-            dispatch1,
-            dispatch2
-        )
 
-        dispatchManager.startDispatchLoop()
+        executorService.execute {
+            dispatchers.onNext(setOf(dispatcher1, slowDispatcher))
+            queue[dispatcher1.name] = mutableSetOf(
+                dispatch1,
+                dispatch2
+            )
+            queue[slowDispatcher.name] = mutableSetOf(
+                dispatch1,
+                dispatch2
+            )
 
-        dispatchManager.track(dispatch3)
+            dispatchManager.startDispatchLoop()
+
+            dispatchManager.track(dispatch3)
+        }
 
         coVerify(timeout = 1000) {
             dispatcher1.dispatch(listOf(dispatch1))
@@ -59,21 +62,25 @@ class DispatchManagerTrackTests : DispatchManagerTestsBase() {
     }
 
     @Test
-    fun dispatchManager_SendsMultipleDispatchesInFlight_WhenDelayed() = runTest {
+    fun dispatchManager_SendsMultipleDispatchesInFlight_WhenDelayed() {
         dispatcher1 = TestDispatcher.mock("dispatcher1") { dispatches ->
-            flow {
-                delay(500)
-                emit(dispatches)
+            Observables.callback { observer ->
+                executorService.schedule({
+                    observer.onNext(dispatches)
+                }, 500, TimeUnit.MILLISECONDS)
             }
         }
-        dispatchers.emit(setOf(dispatcher1))
-        queue[dispatcher1.name] = mutableSetOf(
-            dispatch1,
-            dispatch2
-        )
 
-        dispatchManager.startDispatchLoop()
-        dispatchManager.track(dispatch3)
+        executorService.execute {
+            dispatchers.onNext(setOf(dispatcher1))
+            queue[dispatcher1.name] = mutableSetOf(
+                dispatch1,
+                dispatch2
+            )
+
+            dispatchManager.startDispatchLoop()
+            dispatchManager.track(dispatch3)
+        }
 
         coVerify(timeout = 1000) {
             dispatcher1.dispatch(listOf(dispatch1))

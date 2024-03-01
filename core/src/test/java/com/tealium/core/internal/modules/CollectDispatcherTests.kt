@@ -1,7 +1,5 @@
 package com.tealium.core.internal.modules
 
-import app.cash.turbine.test
-import app.cash.turbine.turbineScope
 import com.tealium.core.TealiumConfig
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.data.TealiumBundle
@@ -12,15 +10,12 @@ import com.tealium.core.api.network.NetworkResult
 import com.tealium.core.api.network.Success
 import com.tealium.core.internal.settings.ModuleSettingsImpl
 import io.mockk.MockKAnnotations
-import io.mockk.coEvery
-import io.mockk.coVerify
+import io.mockk.verify
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
 import io.mockk.slot
-import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -47,7 +42,7 @@ class CollectDispatcherTests {
         MockKAnnotations.init(this)
 
         val completionCapture = slot<(NetworkResult) -> Unit>()
-        coEvery { networkHelper.post(any(), any(), capture(completionCapture)) } answers {
+        every { networkHelper.post(any(), any(), capture(completionCapture)) } answers {
             completionCapture.captured.invoke(
                 Success(
                     HttpResponse(
@@ -61,144 +56,156 @@ class CollectDispatcherTests {
     }
 
     @Test
-    fun dispatch_Individually_SendsJson_ToConfiguredEndpoint() = runTest {
+    fun dispatch_Individually_SendsJson_ToConfiguredEndpoint() {
         collectDispatcher = createCollectDispatcher()
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
         val dispatch = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch)).test {
-            assertEquals(dispatch.id, awaitItem().first().id)
-            awaitComplete()
-        }
+        collectDispatcher.dispatch(listOf(dispatch))
+            .subscribe(observer)
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, dispatch.payload(), any())
+            observer(match {
+                it.first().id == dispatch.id
+            })
         }
     }
 
     @Test
-    fun dispatch_Individually_OverridesUrl_WhenUrlIsOverridden() = runTest {
+    fun dispatch_Individually_OverridesUrl_WhenUrlIsOverridden() {
         collectDispatcher = createCollectDispatcher(
             settings = CollectDispatcherSettings(url = "http://localhost/")
         )
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
         val dispatch = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch)).test {
-            assertEquals(dispatch.id, awaitItem().first().id)
-            awaitComplete()
-        }
+        collectDispatcher.dispatch(listOf(dispatch))
+            .subscribe(observer)
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             networkHelper.post("http://localhost/", any(), any())
+            observer(match {
+                it.first().id == dispatch.id
+            })
         }
     }
 
     @Test
-    fun dispatch_Individually_OverridesProfile_WhenProfileIsOverridden() = runTest {
+    fun dispatch_Individually_OverridesProfile_WhenProfileIsOverridden() {
         collectDispatcher = createCollectDispatcher(
             settings = CollectDispatcherSettings(
                 profile = "override"
             )
         )
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
         val dispatch = createTestDispatch("test", profile = "default")
 
-        collectDispatcher.dispatch(listOf(dispatch)).test {
-            assertEquals(dispatch.id, awaitItem().first().id)
-            awaitComplete()
-        }
+        collectDispatcher.dispatch(listOf(dispatch))
+            .subscribe(observer)
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, match {
                 it.getString(Dispatch.Keys.TEALIUM_PROFILE) == "override"
             }, any())
+            observer(match {
+                it.first().id == dispatch.id
+            })
         }
     }
 
     @Test
-    fun dispatch_Batches_SendsJson_ToConfiguredEndpoint() = runTest {
+    fun dispatch_Batches_SendsJson_ToConfiguredEndpoint() {
         collectDispatcher = createCollectDispatcher()
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
         val dispatch1 = createTestDispatch("test")
         val dispatch2 = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch2)).test {
-            val processed = awaitItem()
-            assertEquals(dispatch1.id, processed[0].id)
-            assertEquals(dispatch2.id, processed[1].id)
-            awaitComplete()
-        }
+        collectDispatcher.dispatch(listOf(dispatch1, dispatch2))
+            .subscribe(observer)
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, any(), any())
+            observer(match {
+                it[0].id == dispatch1.id
+                        && it[1].id == dispatch2.id
+            })
         }
     }
 
     @Test
-    fun dispatch_Batches_SendsIndividually_IfBatchOfOne() = runTest {
+    fun dispatch_Batches_SendsIndividually_IfBatchOfOne() {
         collectDispatcher = createCollectDispatcher()
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
         val dispatch = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch)).test {
-            assertEquals(dispatch.id, awaitItem().first().id)
-            awaitComplete()
-        }
+        collectDispatcher.dispatch(listOf(dispatch))
+            .subscribe(observer)
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, dispatch.payload(), any())
+            observer(match {
+                it.first().id == dispatch.id
+            })
         }
     }
 
     @Test
-    fun dispatch_Batches_OverridesUrl_WhenUrlIsOverridden() = runTest {
+    fun dispatch_Batches_OverridesUrl_WhenUrlIsOverridden() {
         collectDispatcher = createCollectDispatcher(
             settings = CollectDispatcherSettings(batchUrl = "http://localhost/")
         )
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
         val dispatch1 = createTestDispatch("test")
         val dispatch2 = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch2)).test {
-            val processed = awaitItem()
-            assertEquals(dispatch1.id, processed[0].id)
-            assertEquals(dispatch2.id, processed[1].id)
-            awaitComplete()
-        }
+        collectDispatcher.dispatch(listOf(dispatch1, dispatch2))
+            .subscribe(observer)
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             networkHelper.post("http://localhost/", any(), any())
+            observer(match {
+                it[0].id == dispatch1.id
+                        && it[1].id == dispatch2.id
+            })
         }
     }
 
     @Test
-    fun dispatch_Batches_OverridesProfile_WhenProfileIsOverridden() = runTest {
+    fun dispatch_Batches_OverridesProfile_WhenProfileIsOverridden() {
         collectDispatcher = createCollectDispatcher(
             settings = CollectDispatcherSettings(
                 profile = "override"
             )
         )
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
         val dispatch1 = createTestDispatch("test", profile = "default")
         val dispatch2 = createTestDispatch("test", profile = "default")
 
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch2)).test {
-            val processed = awaitItem()
-            assertEquals(dispatch1.id, processed[0].id)
-            assertEquals(dispatch2.id, processed[1].id)
-            awaitComplete()
-        }
+        collectDispatcher.dispatch(listOf(dispatch1, dispatch2))
+            .subscribe(observer)
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, match {
                 it.getBundle(CollectDispatcher.KEY_SHARED)!!
                     .getString(Dispatch.Keys.TEALIUM_PROFILE) == "override"
             }, any())
+            observer(match {
+                it[0].id == dispatch1.id
+                        && it[1].id == dispatch2.id
+            })
         }
     }
 
     @Test
-    fun dispatch_Batches_CompressesCommonKeys_And_LeavesUniqueKeys() = runTest {
+    fun dispatch_Batches_CompressesCommonKeys_And_LeavesUniqueKeys() {
         collectDispatcher = createCollectDispatcher()
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
         val dispatch1 = createTestDispatch("test", data = testBundle.copy {
             put("key_1", "string1")
@@ -209,11 +216,10 @@ class CollectDispatcherTests {
             put("key_4", "string4")
         })
 
-        turbineScope {
-            collectDispatcher.dispatch(listOf(dispatch1, dispatch2)).testIn(backgroundScope)
-        }
+        collectDispatcher.dispatch(listOf(dispatch1, dispatch2))
+            .subscribe(observer)
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, match {
                 val shared = it.getBundle(CollectDispatcher.KEY_SHARED)!!
                 val events = it.getList(CollectDispatcher.KEY_EVENTS)!!
@@ -235,12 +241,13 @@ class CollectDispatcherTests {
     }
 
     @Test
-    fun dispatch_Batches_OverridesProfile_InSharedDataOnly() = runTest {
+    fun dispatch_Batches_OverridesProfile_InSharedDataOnly() {
         collectDispatcher = createCollectDispatcher(
             settings = CollectDispatcherSettings(
                 profile = "override"
             )
         )
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
         val dispatch1 = createTestDispatch("test", data = testBundle.copy {
             put("key_1", "string1")
             put("key_2", "string2")
@@ -250,11 +257,10 @@ class CollectDispatcherTests {
             put("key_4", "string4")
         })
 
-        turbineScope {
-            collectDispatcher.dispatch(listOf(dispatch1, dispatch2)).testIn(backgroundScope)
-        }
+        collectDispatcher.dispatch(listOf(dispatch1, dispatch2))
+            .subscribe(observer)
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, match {
                 val shared = it.getBundle(CollectDispatcher.KEY_SHARED)!!
                 val events = it.getList(CollectDispatcher.KEY_EVENTS)!!
@@ -269,54 +275,46 @@ class CollectDispatcherTests {
     }
 
     @Test
-    fun dispatch_Splits_WhenMultipleUniqueVisitorId() = runTest {
+    fun dispatch_Splits_WhenMultipleUniqueVisitorId() {
         collectDispatcher = createCollectDispatcher()
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
         val dispatch1 = createTestDispatch("test", visitorId = "visitor_1")
         val dispatch2 = createTestDispatch("test", visitorId = "visitor_2")
         val dispatch3 = createTestDispatch("test2", visitorId = "visitor_2")
 
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch2, dispatch3)).test {
-            val visitor1 = awaitItem()
-            assertEquals(
-                "visitor_1",
-                visitor1.first().payload().getString(Dispatch.Keys.TEALIUM_VISITOR_ID)
-            )
+        collectDispatcher.dispatch(listOf(dispatch1, dispatch2, dispatch3))
+            .subscribe(observer)
 
-            val visitor2 = awaitItem()
-            assertEquals(
-                "visitor_2",
-                visitor2.first().payload().getString(Dispatch.Keys.TEALIUM_VISITOR_ID)
-            )
-            assertEquals(
-                "visitor_2",
-                visitor2[1].payload().getString(Dispatch.Keys.TEALIUM_VISITOR_ID)
-            )
-
-            awaitComplete()
-        }
-
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, match {
                 it.getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_1"
             }, any())
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, match {
                 it.getBundle(CollectDispatcher.KEY_SHARED)!!.getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_2"
             }, any())
+
+            observer(match { dispatches ->
+                dispatches.first().payload().getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_1"
+            })
+            observer(match { dispatches ->
+                dispatches[0].payload().getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_2"
+                        && dispatches[1].payload().getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_2"
+            })
         }
     }
 
     @Test
-    fun updateSettings_UpdatesIndividualUrl() = runTest {
+    fun updateSettings_UpdatesIndividualUrl() {
         collectDispatcher = createCollectDispatcher()
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
         val dispatch1 = createTestDispatch("test")
 
-        turbineScope {
-            collectDispatcher.dispatch(listOf(dispatch1)).testIn(backgroundScope)
-        }
+        collectDispatcher.dispatch(listOf(dispatch1))
+            .subscribe(observer)
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, any(), any())
         }
 
@@ -329,26 +327,25 @@ class CollectDispatcherTests {
                 }
             )
         )
-        turbineScope {
-            collectDispatcher.dispatch(listOf(dispatch1)).testIn(backgroundScope)
-        }
+        collectDispatcher.dispatch(listOf(dispatch1))
+            .subscribe(observer)
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             networkHelper.post(url, any(), any())
         }
     }
 
     @Test
-    fun updateSettings_UpdatesBatchUrl() = runTest {
+    fun updateSettings_UpdatesBatchUrl() {
         collectDispatcher = createCollectDispatcher()
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
         val dispatch1 = createTestDispatch("test")
 
-        turbineScope {
-            collectDispatcher.dispatch(listOf(dispatch1, dispatch1)).testIn(backgroundScope)
-        }
+        collectDispatcher.dispatch(listOf(dispatch1, dispatch1))
+            .subscribe(observer)
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, any(), any())
         }
 
@@ -361,30 +358,29 @@ class CollectDispatcherTests {
                 }
             )
         )
-        turbineScope {
-            collectDispatcher.dispatch(listOf(dispatch1, dispatch1)).testIn(backgroundScope)
-        }
+        collectDispatcher.dispatch(listOf(dispatch1, dispatch1))
+            .subscribe(observer)
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             networkHelper.post(url, any(), any())
         }
     }
 
     @Test
-    fun updateSettings_UpdatesProfileOverride_ForIndividualEvents() = runTest {
+    fun updateSettings_UpdatesProfileOverride_ForIndividualEvents() {
         collectDispatcher = createCollectDispatcher(
             settings = CollectDispatcherSettings(
                 profile = "default"
             )
         )
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
         val dispatch1 = createTestDispatch("test")
 
-        turbineScope {
-            collectDispatcher.dispatch(listOf(dispatch1)).testIn(backgroundScope)
-        }
+        collectDispatcher.dispatch(listOf(dispatch1))
+            .subscribe(observer)
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, match {
                 it.getString(Dispatch.Keys.TEALIUM_PROFILE) == "default"
             }, any())
@@ -399,17 +395,15 @@ class CollectDispatcherTests {
                 }
             )
         )
-        turbineScope {
-            collectDispatcher.dispatch(listOf(dispatch1)).testIn(backgroundScope)
-        }
+        collectDispatcher.dispatch(listOf(dispatch1))
+            .subscribe(observer)
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             networkHelper.post(any(), match {
                 it.getString(Dispatch.Keys.TEALIUM_PROFILE) == overrideProfile
             }, any())
         }
     }
-
 
     @Test
     fun fromModuleSettings_PrefersUrlOverrides_ToDomainOverride() {

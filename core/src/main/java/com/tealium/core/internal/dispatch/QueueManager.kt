@@ -2,21 +2,18 @@ package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.Dispatcher
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
+import com.tealium.core.internal.observables.Observable
+import com.tealium.core.internal.observables.Observables
+import com.tealium.core.internal.observables.Subject
 import kotlin.math.min
 
 interface QueueManager {
 
     val inFlightEvents: Map<String, Set<String>>
-    val onInFlightEvents: Flow<Map<String, Set<String>>>
-    val onEnqueuedEvents: Flow<Unit>
+    val onInFlightEvents: Observable<Map<String, Set<String>>>
+    val onEnqueuedEvents: Observable<Unit>
 
-    fun inFlightCount(dispatcher: Dispatcher): Flow<Int>
+    fun inFlightCount(dispatcher: Dispatcher): Observable<Int>
 
     fun getQueuedEvents(dispatcher: Dispatcher, limit: Int): List<Dispatch>
 
@@ -29,25 +26,22 @@ interface QueueManager {
 class VolatileQueueManagerImpl(
     private val queue: MutableMap<String, MutableSet<Dispatch>> = mutableMapOf(),
     private var _inFlightEvents: MutableMap<String, MutableSet<String>> = mutableMapOf(),
-    private val _onInFlightEvents: MutableSharedFlow<Map<String, Set<String>>> = MutableSharedFlow(
-        replay = 1
-    ),
-    private val _onEnqueuedEvents: MutableSharedFlow<Unit> = MutableSharedFlow(replay = 1),
-    private val scope: CoroutineScope
+    private val _onInFlightEvents: Subject<Map<String, Set<String>>> = Observables.replaySubject(1),
+    private val _onEnqueuedEvents: Subject<Unit> = Observables.replaySubject(1),
 ) : QueueManager {
 
     override val inFlightEvents: Map<String, Set<String>>
         get() = _inFlightEvents.toMap()
 
-    override val onInFlightEvents: Flow<Map<String, Set<String>>>
-        get() = _onInFlightEvents.asSharedFlow()
-    override val onEnqueuedEvents: Flow<Unit>
-        get() = _onEnqueuedEvents.asSharedFlow()
+    override val onInFlightEvents: Observable<Map<String, Set<String>>>
+        get() = _onInFlightEvents.asObservable()
+    override val onEnqueuedEvents: Observable<Unit>
+        get() = _onEnqueuedEvents.asObservable()
 
-    override fun inFlightCount(dispatcher: Dispatcher): Flow<Int> {
+    override fun inFlightCount(dispatcher: Dispatcher): Observable<Int> {
         return _onInFlightEvents.map {
             _inFlightEvents[dispatcher.name]?.size ?: 0
-        }//.distinctUntilChanged()
+        }.distinct()
     }
 
     init {
@@ -76,9 +70,7 @@ class VolatileQueueManagerImpl(
             } ?: mutableSetOf(dispatch)
         }
 
-        scope.launch {
-            _onEnqueuedEvents.emit(Unit)
-        }
+        _onEnqueuedEvents.onNext(Unit)
     }
 
     override fun deleteDispatches(dispatches: List<Dispatch>, dispatcher: Dispatcher) {
@@ -117,8 +109,6 @@ class VolatileQueueManagerImpl(
     }
 
     private fun notifyInFlightChange() {
-        scope.launch {
-            _onInFlightEvents.emit(_inFlightEvents)
-        }
+        _onInFlightEvents.onNext(_inFlightEvents)
     }
 }

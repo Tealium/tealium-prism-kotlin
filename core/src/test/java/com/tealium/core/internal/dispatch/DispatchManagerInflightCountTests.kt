@@ -1,12 +1,11 @@
 package com.tealium.core.internal.dispatch
 
+import com.tealium.core.internal.observables.Observables
 import com.tealium.tests.common.TestDispatcher
-import io.mockk.coVerify
+import io.mockk.verify
 import io.mockk.spyk
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.test.runTest
 import org.junit.Test
+import java.util.concurrent.TimeUnit
 
 class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
 
@@ -15,35 +14,40 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
     }
 
     @Test
-    fun dispatchManager_StopsDispatchingEvents_WhenMaximumExceeded() = runTest {
+    fun dispatchManager_StopsDispatchingEvents_WhenMaximumExceeded() {
         dispatcher1 = spyk(TestDispatcher("dispatcher_1") {
-            flow {
-                delay(2000)
-                emit(it)
+            Observables.callback { observer ->
+                executorService.schedule({
+                    observer.onNext(it)
+                }, 2000, TimeUnit.MILLISECONDS)
             }
         })
-        dispatchers.emit(setOf(dispatcher1))
-        queue[dispatcher1.name] = mutableSetOf(dispatch1, dispatch2)
+        executorService.execute {
+            dispatchers.onNext(setOf(dispatcher1))
+            queue[dispatcher1.name] = mutableSetOf(dispatch1, dispatch2)
 
-        dispatchManager.startDispatchLoop()
+            dispatchManager = createDispatchManager(maxInFlight = 1)
+            dispatchManager.startDispatchLoop()
 
-        coVerify(timeout = 1000) {
-            dispatcher1.dispatch(listOf(dispatch1))
+            verify(timeout = 1000) {
+                dispatcher1.dispatch(listOf(dispatch1))
+            }
         }
         // delay in dispatcher emission will mean dispatch1 is in-flight for 2seconds
-        coVerify(timeout = 1000, inverse = true) {
+        verify(timeout = 1000, inverse = true) {
             dispatcher1.dispatch(listOf(dispatch2))
         }
     }
 
     @Test
-    fun dispatchManager_DoesNotSendNewEvents_WhenMaximumExceeded() = runTest {
-        onInFlightEvents.emit(mapOf(dispatcher1.name to setOf("event1", "event2")))
+    fun dispatchManager_DoesNotSendNewEvents_WhenMaximumExceeded() {
+        executorService.execute {
+            onInFlightEvents.onNext(mapOf(dispatcher1.name to setOf("event1", "event2")))
 
-        dispatchManager.startDispatchLoop()
-        dispatchManager.track(dispatch1)
-
-        coVerify(timeout = 1000, inverse = true) {
+            dispatchManager.startDispatchLoop()
+            dispatchManager.track(dispatch1)
+        }
+        verify(timeout = 1000, inverse = true) {
             queueManager.getQueuedEvents(dispatcher1, 1)
             dispatcher1.dispatch(listOf(dispatch1))
             dispatcher1.dispatch(listOf(dispatch2))
@@ -51,19 +55,21 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
     }
 
     @Test
-    fun dispatchManager_StartsSendingEventsAgain_WhenInflightReturnsBelowMaximum() = runTest {
-        onInFlightEvents.emit(mapOf(dispatcher1.name to setOf("event1", "event2")))
+    fun dispatchManager_StartsSendingEventsAgain_WhenInflightReturnsBelowMaximum() {
+        executorService.execute {
+            onInFlightEvents.onNext(mapOf(dispatcher1.name to setOf("event1", "event2")))
 
-        dispatchManager.startDispatchLoop()
-        dispatchManager.track(dispatch1)
-
-        coVerify(timeout = 1000, inverse = true) {
+            dispatchManager.startDispatchLoop()
+            dispatchManager.track(dispatch1)
+        }
+        verify(timeout = 1000, inverse = true) {
             dispatcher1.dispatch(listOf(dispatch1))
         }
 
-        onInFlightEvents.emit(mapOf(dispatcher1.name to setOf()))
-
-        coVerify(timeout = 1000) {
+        executorService.execute {
+            onInFlightEvents.onNext(mapOf(dispatcher1.name to setOf()))
+        }
+        verify(timeout = 1000) {
             dispatcher1.dispatch(listOf(dispatch1))
         }
     }

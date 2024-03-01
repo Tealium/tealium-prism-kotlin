@@ -1,5 +1,7 @@
 package com.tealium.core.internal.observables
 
+import com.tealium.core.api.listeners.Disposable
+import com.tealium.core.api.listeners.Observer
 import com.tealium.core.api.listeners.Subscribable
 import com.tealium.core.internal.observables.impl.BufferedObservable
 import com.tealium.core.internal.observables.impl.DistinctObservable
@@ -9,6 +11,7 @@ import com.tealium.core.internal.observables.impl.FlatMapObservable
 import com.tealium.core.internal.observables.impl.MapNotNullObservable
 import com.tealium.core.internal.observables.impl.MapObservable
 import com.tealium.core.internal.observables.impl.ObserveOnObservable
+import com.tealium.core.internal.observables.impl.StartWithObservable
 import com.tealium.core.internal.observables.impl.SubscribeOnObservable
 import com.tealium.core.internal.observables.impl.TakeObservable
 import com.tealium.core.internal.observables.impl.TakeWhileObservable
@@ -142,5 +145,71 @@ interface Observable<T> : Subscribable<T> {
      */
     fun <T2, R> combine(other: Observable<T2>, combiner: (T, T2) -> R): Observable<R> {
         return Observables.combine(this, other, combiner)
+    }
+
+
+    /**
+     * Returns an observable that will emit all the given [item] values before making a subscription
+     * to the source observable.
+     */
+    fun startWith(vararg item: T) : Observable<T> {
+        return StartWithObservable(this, item.asIterable())
+    }
+
+    /**
+     * Returns an observable that will emit values in a possibly asynchronous manner determined by
+     * the given [block].
+     *
+     * @param block a block of code, to be executed with the next value from the source, along with
+     * the observer with which to emit downstream.
+     */
+    fun <R> async(block: (T, Observer<R>) -> Disposable): Observable<R> {
+        return flatMap { value ->
+            Observables.async { observer ->
+                block(value, observer)
+            }
+        }
+    }
+
+    /**
+     * Returns an observable that will emit values in a possibly asynchronous manner determined by
+     * the given [block].
+     *
+     * @param block a block of code, to be executed with the next value from the source, along with
+     * the observer with which to emit downstream.
+     */
+    fun <R> callback(block: (T, Observer<R>) -> Unit): Observable<R> {
+        return flatMap { value ->
+            Observables.callback { observer ->
+                block(value, observer)
+            }
+        }
+    }
+
+    fun resubscribingWhile(predicate: (T) -> Boolean) : Observable<T> {
+        fun subscribeOnceInfiniteLoop(
+            observer: Observer<T>,
+            subscription: SubscriptionWrapper
+        ): Disposable {
+            return this.subscribeOnce { element ->
+                if (subscription.isDisposed) return@subscribeOnce
+
+                subscription.subscription?.dispose()
+                observer.onNext(element)
+                if (predicate(element)) {
+                    subscription.subscription = subscribeOnceInfiniteLoop(
+                        observer,
+                        subscription
+                    )
+                }
+            }
+        }
+        return Observables.create { observer ->
+            val subscription = SubscriptionWrapper()
+            subscription.subscription =
+                subscribeOnceInfiniteLoop(observer, subscription)
+
+            subscription
+        }
     }
 }

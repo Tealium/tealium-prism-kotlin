@@ -2,25 +2,22 @@ package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.Barrier
 import com.tealium.core.api.BarrierState
-import com.tealium.core.internal.flatMapLatest
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flowOf
+import com.tealium.core.internal.observables.Observable
+import com.tealium.core.internal.observables.Observables
+import com.tealium.core.internal.observables.Subject
 
 class BarrierCoordinatorImpl(
     private val registeredBarriers: Set<Barrier>,
     initialBarriers: Set<ScopedBarrier>,
-    val scopedBarriers: MutableStateFlow<Set<ScopedBarrier>> =
-        MutableStateFlow(initialBarriers)
+    val scopedBarriers: Subject<Set<ScopedBarrier>> =
+        Observables.stateSubject(initialBarriers)
 ) : BarrierCoordinator {
 
-    override fun onBarriersState(dispatcherId: String): Flow<BarrierState> {
+    override fun onBarriersState(dispatcherId: String): Observable<BarrierState> {
         return scopedBarriers
             .flatMapLatest {
                 areBarriersOpen(getAllBarriers(it, dispatcherId))
-            }.distinctUntilChanged()
+            }.distinct()
     }
 
     internal fun getAllBarriers(
@@ -43,10 +40,10 @@ class BarrierCoordinatorImpl(
 
     private fun areBarriersOpen(
         barriers: Set<Barrier>
-    ): Flow<BarrierState> {
-        if (barriers.isEmpty()) return flowOf(BarrierState.Open)
+    ): Observable<BarrierState> {
+        if (barriers.isEmpty()) return Observables.just(BarrierState.Open)
 
-        return combine(
+        return Observables.combine(
             barriers.map { it.onState }
         ) { barrierStates ->
             barrierStates.firstOrNull { it == BarrierState.Closed } ?: BarrierState.Open

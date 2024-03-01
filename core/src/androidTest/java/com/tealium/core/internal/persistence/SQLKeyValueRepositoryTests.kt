@@ -42,7 +42,6 @@ class SQLKeyValueRepositoryTests {
             "test",
             "test",
             Environment.DEV,
-            "",
             listOf()
         )
 

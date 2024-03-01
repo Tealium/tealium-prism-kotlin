@@ -5,7 +5,7 @@ package com.tealium.core.api
  *
  * @see Transformer
  */
-sealed class DispatchScope() {
+sealed class DispatchScope {
 
     /**
      * This scope happens after data has been collected by any [Collector] implementations in
@@ -36,13 +36,14 @@ interface Transformer {
      * @param transformationId The id of the transformation to apply
      * @param dispatch The [Dispatch] that is being transformed.
      * @param scope The [DispatchScope] that identifies when this transformation is happening.
-     *
-     * @return The mutated, or non-mutated [dispatch] if it should proceed through the system.
-     * Return null to delete this [dispatch] and stop any further processing.
+     * @param completion Block to execute with the mutated, or non-mutated [dispatch] if it should
+     * proceed through the system. Return null to this completion to delete this [dispatch] and stop
+     * any further processing.
      */
-    suspend fun applyTransformation(
+    fun applyTransformation(
         transformationId: String,
         dispatch: Dispatch,
-        scope: DispatchScope
-    ): Dispatch?
+        scope: DispatchScope,
+        completion: (Dispatch?) -> Unit
+    )
 }

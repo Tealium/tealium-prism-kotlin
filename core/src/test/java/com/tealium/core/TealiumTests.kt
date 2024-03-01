@@ -4,9 +4,7 @@ import android.app.Application
 import com.tealium.core.internal.persistence.DatabaseProvider
 import com.tealium.tests.common.awaitCreateTealiumImpl
 import com.tealium.tests.common.getDefaultConfig
-import io.mockk.MockKAnnotations
 import io.mockk.every
-import io.mockk.impl.annotations.MockK
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -15,20 +13,16 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import java.io.File
+import org.robolectric.RuntimeEnvironment
 
 @RunWith(RobolectricTestRunner::class)
 class TealiumTests {
 
-    @MockK
     lateinit var app: Application
 
     @Before
     fun setUp() {
-        MockKAnnotations.init(this)
-
-        every { app.filesDir } returns File("")
-        every { app.applicationContext } returns app
+        app = RuntimeEnvironment.getApplication()
     }
 
     @Test

@@ -1,25 +1,24 @@
 package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.ConsentDecision
+import com.tealium.core.api.Dispatch
 import com.tealium.core.api.DispatchScope
 import io.mockk.Called
-import io.mockk.coEvery
-import io.mockk.coVerify
 import io.mockk.every
+import io.mockk.slot
 import io.mockk.verify
-import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
-class DispatchManagerConsentTests: DispatchManagerTestsBase() {
+class DispatchManagerConsentTests : DispatchManagerTestsBase() {
 
     @Test
-    fun track_StoresDispatch_WhenConsentIsDisabled() = runTest {
+    fun track_StoresDispatch_WhenConsentIsDisabled() {
         every { consentManager.enabled } returns false
 
         dispatchManager.track(dispatch1)
 
-        coVerify {
-            transformerCoordinator.transform(dispatch1, DispatchScope.AfterCollectors)
+        verify {
+            transformerCoordinator.transform(dispatch1, DispatchScope.AfterCollectors, any())
             queueManager.storeDispatch(dispatch1, any())
         }
         verify(inverse = true) {
@@ -28,7 +27,7 @@ class DispatchManagerConsentTests: DispatchManagerTestsBase() {
     }
 
     @Test
-    fun track_AppliesConsent_WhenDecision_IsImplicit() = runTest {
+    fun track_AppliesConsent_WhenDecision_IsImplicit() {
         every { consentManager.enabled } returns true
         every { consentManager.getConsentDecision() } returns ConsentDecision(
             ConsentDecision.DecisionType.Implicit,
@@ -37,14 +36,14 @@ class DispatchManagerConsentTests: DispatchManagerTestsBase() {
 
         dispatchManager.track(dispatch1)
 
-        coVerify {
+        verify {
             consentManager.applyConsent(dispatch1)
             queueManager wasNot Called
         }
     }
 
     @Test
-    fun track_DoesNothing_WhenTealiumPurposeIsNotConsented() = runTest {
+    fun track_DoesNothing_WhenTealiumPurposeIsNotConsented() {
         every { consentManager.enabled } returns true
         every { consentManager.getConsentDecision() } returns ConsentDecision(
             ConsentDecision.DecisionType.Explicit,
@@ -54,14 +53,14 @@ class DispatchManagerConsentTests: DispatchManagerTestsBase() {
 
         dispatchManager.track(dispatch1)
 
-        coVerify {
+        verify {
             queueManager wasNot Called
             transformerCoordinator wasNot Called
         }
     }
 
     @Test
-    fun track_RunsTransformations_WhenTealiumPurposeIsNotBlocked() = runTest {
+    fun track_RunsTransformations_WhenTealiumPurposeIsNotBlocked() {
         every { consentManager.enabled } returns true
         every { consentManager.getConsentDecision() } returns ConsentDecision(
             ConsentDecision.DecisionType.Explicit,
@@ -71,25 +70,34 @@ class DispatchManagerConsentTests: DispatchManagerTestsBase() {
 
         dispatchManager.track(dispatch1)
 
-        coVerify {
-            transformerCoordinator.transform(dispatch1, DispatchScope.AfterCollectors)
+        verify {
+            transformerCoordinator.transform(dispatch1, DispatchScope.AfterCollectors, any())
             consentManager.applyConsent(dispatch1)
             queueManager wasNot Called
         }
     }
 
     @Test
-    fun track_DropsDispatch_WhenTransformerReturnsNull() = runTest {
+    fun track_DropsDispatch_WhenTransformerReturnsNull() {
         every { consentManager.enabled } returns false
-        coEvery { transformerCoordinator.transform(dispatch1, DispatchScope.AfterCollectors) } returns null
+        val completionCapture = slot<(Dispatch?) -> Unit>()
+        every {
+            transformerCoordinator.transform(
+                dispatch1,
+                DispatchScope.AfterCollectors,
+                capture(completionCapture)
+            )
+        } answers {
+            completionCapture.captured(null)
+        }
 
         dispatchManager.track(dispatch1)
 
-        coVerify {
-            transformerCoordinator.transform(dispatch1, DispatchScope.AfterCollectors)
+        verify {
+            transformerCoordinator.transform(dispatch1, DispatchScope.AfterCollectors, any())
             queueManager wasNot Called
         }
-        coVerify(inverse = true) {
+        verify(inverse = true) {
             consentManager.applyConsent(dispatch1)
         }
     }
