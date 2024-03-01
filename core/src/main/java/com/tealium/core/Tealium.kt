@@ -1,6 +1,7 @@
 package com.tealium.core
 
 import com.tealium.core.api.*
+import com.tealium.core.api.listeners.TrackResultListener
 import com.tealium.core.internal.*
 
 interface Tealium {
@@ -21,6 +22,8 @@ interface Tealium {
     val visitorService: VisitorService?
 
     fun track(dispatch: Dispatch)
+    fun track(dispatch: Dispatch, onComplete: TrackResultListener)
+
     fun flushEventQueue()
 
     companion object {

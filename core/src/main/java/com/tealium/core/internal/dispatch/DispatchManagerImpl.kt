@@ -4,9 +4,11 @@ import com.tealium.core.api.BarrierState
 import com.tealium.core.api.ConsentDecision
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.DispatchScope
+import com.tealium.core.api.TrackResult
 import com.tealium.core.api.Dispatcher
 import com.tealium.core.api.listeners.Disposable
 import com.tealium.core.api.listeners.Observer
+import com.tealium.core.api.listeners.TrackResultListener
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.internal.consent.ConsentManager
 import com.tealium.core.internal.observables.DisposableContainer
@@ -38,29 +40,30 @@ class DispatchManagerImpl(
         return !consentManager.tealiumConsented(decision.purposes)
     }
 
-    fun track(dispatch: Dispatch) {
+    fun track(dispatch: Dispatch, onComplete: TrackResultListener? = null) {
         if (tealiumPurposeExplicitlyBlocked()) {
             logger.info?.log(
                 "Dispatch",
                 "Tealium Purpose is explicitly blocked. Dispatch will not be sent."
             )
+            onComplete?.onTrackResultReady(dispatch, TrackResult.Dropped)
             return
         }
 
-        transformerCoordinator.transform(
-            dispatch,
-            DispatchScope.AfterCollectors,
-            ::applyConsentOrEnqueue
-        )
-    }
+        transformerCoordinator.transform(dispatch, DispatchScope.AfterCollectors) { transformed ->
+            if (transformed == null) {
+                onComplete?.onTrackResultReady(dispatch, TrackResult.Dropped)
+                return@transform
+            }
 
-    private fun applyConsentOrEnqueue(transformedDispatch: Dispatch?) {
-        if (transformedDispatch == null) return
-
-        if (consentManager.enabled) {
-            consentManager.applyConsent(transformedDispatch)
-        } else {
-            queueManager.storeDispatch(transformedDispatch, dispatchers.value)
+            if (consentManager.enabled) {
+                consentManager.applyConsent(transformed)
+                // TODO - This call may need to be moved into the Consent Manager implementation once it's done.
+                onComplete?.onTrackResultReady(transformed, TrackResult.Accepted)
+            } else {
+                queueManager.storeDispatch(transformed, dispatchers.value)
+                onComplete?.onTrackResultReady(dispatch, TrackResult.Accepted)
+            }
         }
     }
 

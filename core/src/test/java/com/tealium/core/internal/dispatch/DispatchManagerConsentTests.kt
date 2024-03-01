@@ -3,9 +3,13 @@ package com.tealium.core.internal.dispatch
 import com.tealium.core.api.ConsentDecision
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.DispatchScope
+import com.tealium.core.api.TrackResult
 import io.mockk.Called
+import io.mockk.Runs
 import io.mockk.every
 import io.mockk.slot
+import io.mockk.just
+import io.mockk.mockk
 import io.mockk.verify
 import org.junit.Test
 
@@ -99,6 +103,34 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
         }
         verify(inverse = true) {
             consentManager.applyConsent(dispatch1)
+        }
+    }
+
+    @Test
+    fun track_Notifies_DispatchAccepted_WhenDispatchQueued_ForConsent() {
+        every { consentManager.enabled } returns true
+        every { consentManager.getConsentDecision() } returns null
+        every { consentManager.applyConsent(any()) } just Runs
+        val onComplete: (Dispatch, TrackResult) -> Unit = mockk(relaxed = true)
+
+        dispatchManager.track(dispatch1, onComplete)
+
+        verify {
+            onComplete(dispatch1, TrackResult.Accepted)
+        }
+    }
+
+    @Test
+    fun track_Notifies_DispatchDropped_WhenTealiumConsent_Denied() {
+        every { consentManager.enabled } returns true
+        every { consentManager.getConsentDecision() } returns ConsentDecision(ConsentDecision.DecisionType.Explicit, setOf())
+        every { consentManager.tealiumConsented(any()) } returns false
+        val onComplete: (Dispatch, TrackResult) -> Unit = mockk(relaxed = true)
+
+        dispatchManager.track(dispatch1, onComplete)
+
+        verify {
+            onComplete(dispatch1, TrackResult.Dropped)
         }
     }
 }

@@ -51,6 +51,12 @@ public class TealiumJavaHelper {
                 TealiumDispatchType.Event,
                 TealiumBundle.EMPTY_BUNDLE));
 
+        tealium.track(Dispatch.create("",
+                TealiumDispatchType.Event,
+                TealiumBundle.EMPTY_BUNDLE), (dispatch, status) -> {
+            Log.d("TealiumJavaHelper", "Processing status: " + dispatch.getTealiumEvent() + " - " + status);
+        });
+
         tealium.track(
                 Dispatches.event("")
                         .putContextData(new TealiumBundle.Builder()

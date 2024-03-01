@@ -30,6 +30,7 @@ import com.tealium.core.api.network.RetryPolicy
 import com.tealium.core.api.network.Success
 import com.tealium.core.api.network.UnexpectedError
 import com.tealium.core.api.settings.CoreSettingsBuilder
+import com.tealium.core.api.TrackResult
 
 object TealiumHelper :
     DispatchReadyListener,
@@ -130,7 +131,7 @@ object TealiumHelper :
         type: TealiumDispatchType = TealiumDispatchType.Event,
         data: TealiumBundle = TealiumBundle.EMPTY_BUNDLE
     ) {
-        shared?.track(Dispatch.create(event, type, data))
+        shared?.track(Dispatch.create(event, type, data), ::onTracked)
     }
 
     override fun onDispatchDropped(dispatch: Dispatch) {
@@ -147,6 +148,10 @@ object TealiumHelper :
 
     override fun onConsentStatusUpdated(status: ConsentStatus) {
         Log.d("TealiumHelper", "Status: $status")
+    }
+
+    private fun onTracked(dispatch: Dispatch, status: TrackResult) {
+        Log.d("TealiumHelper", "ProcessingStatus: ${dispatch.tealiumEvent} - ${status::class.simpleName}")
     }
 }
 

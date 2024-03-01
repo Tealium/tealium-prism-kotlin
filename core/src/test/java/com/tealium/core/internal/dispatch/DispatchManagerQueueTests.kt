@@ -1,10 +1,12 @@
 package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.Dispatch
+import com.tealium.core.api.TrackResult
 import com.tealium.core.api.TealiumDispatchType
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.Ordering
+import io.mockk.mockk
 import io.mockk.verify
 import org.junit.Test
 
@@ -171,6 +173,17 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
         verify(timeout = 1000, inverse = true) {
             dispatcher1.dispatch(listOf(dispatch2))
             dispatcher2.dispatch(listOf(dispatch1))
+        }
+    }
+
+    @Test
+    fun track_Notifies_DispatchAccepted_WhenDispatch_IsQueued() {
+        val onComplete: (Dispatch, TrackResult) -> Unit = mockk(relaxed = true)
+
+        dispatchManager.track(dispatch1, onComplete)
+
+        verify {
+            onComplete(dispatch1, TrackResult.Accepted)
         }
     }
 }

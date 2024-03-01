@@ -13,6 +13,7 @@ import com.tealium.core.api.network.NetworkUtilities
 import com.tealium.core.internal.settings.SettingsManager
 import com.tealium.core.internal.dispatch.BarrierCoordinatorImpl
 import com.tealium.core.internal.dispatch.DispatchManagerImpl
+import com.tealium.core.api.listeners.TrackResultListener
 import com.tealium.core.internal.dispatch.TransformerCoordinatorImpl
 import com.tealium.core.internal.dispatch.VolatileQueueManagerImpl
 import com.tealium.core.internal.modules.ModuleManagerImpl
@@ -219,8 +220,15 @@ class TealiumImpl(
     override val visitorService: VisitorService?
         get() = modules.getModuleOfType(VisitorService::class.java)
 
-    @Suppress("NAME_SHADOWING")
     override fun track(dispatch: Dispatch) {
+        trackInternal(dispatch, null)
+    }
+
+    override fun track(dispatch: Dispatch, onComplete: TrackResultListener) {
+        trackInternal(dispatch, onComplete)
+    }
+
+    private fun trackInternal(dispatch: Dispatch, onComplete: TrackResultListener?) {
         tealiumScope.launch {
 
             Dispatch.create(dispatch).let { dispatch ->
@@ -231,29 +239,14 @@ class TealiumImpl(
                 }
                 dispatch.addAll(builder.getBundle())
 
-                // Transform
-//                _moduleManager.getModulesOfType(Transformer::class.java).forEach {
-//                    it.transform(dispatch)
-//                }
-
                 logger.debug?.log(
                     BuildConfig.TAG,
                     "Dispatch(${dispatch.id.substring(0, 5)}) Ready - ${dispatch.payload()}"
                 )
 
-                // Validation
-                // todo
-
-//        if (false) { // TODO - if queued
-
-//        } else if (false) { // TODO - if dropped
-
-//        }
-
                 // Dispatch
                 // TODO - this might have been queued/batched.
-//            val dispatches = listOf(dispatch, dispatch, dispatch, dispatch, dispatch) // Testing.
-                _dispatchManager.track(dispatch)
+                _dispatchManager.track(dispatch, onComplete)
             }
         }
     }
