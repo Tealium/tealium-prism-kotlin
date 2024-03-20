@@ -1,9 +1,11 @@
 package com.tealium.core.internal.observables
 
 import com.tealium.core.api.listeners.Observer
+import com.tealium.core.internal.TealiumScheduler
 import com.tealium.core.internal.observables.ObservableUtils.assertNoSubscribers
 import com.tealium.core.internal.observables.ObservableUtils.getMockObserver
 import com.tealium.core.internal.observables.ObservableUtils.getSubject
+import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.spyk
 import io.mockk.verify
 import org.junit.After
@@ -12,14 +14,15 @@ import org.junit.Before
 import org.junit.Test
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
 
 class ObserveOnObservableTests {
     lateinit var observeThread: Thread
-    lateinit var observerExecutorService: ExecutorService
+    lateinit var observerExecutorService: ScheduledExecutorService
 
     @Before
     fun setUp() {
-        observerExecutorService = Executors.newSingleThreadExecutor {
+        observerExecutorService = Executors.newSingleThreadScheduledExecutor {
             observeThread = Thread(it, "observeThread")
             observeThread
         }
@@ -41,7 +44,7 @@ class ObserveOnObservableTests {
         )
 
         val observer = getMockObserver<Int>()
-        subject.observeOn(observerExecutorService)
+        subject.observeOn(testTealiumScheduler)
             .subscribe(observer)
 
         verify(exactly = 1, timeout = 1000) {
@@ -51,13 +54,13 @@ class ObserveOnObservableTests {
 
     @Test
     fun observeOn_EmitsValues_OnProvidedThread() {
-
+        val scheduler = TealiumScheduler(observerExecutorService)
         val observer = getMockObserver<Int>(onNextHandler = {
             assertEquals(observeThread, Thread.currentThread())
         })
 
         val subject = Observables.publishSubject<Int>()
-        subject.observeOn(observerExecutorService)
+        subject.observeOn(testTealiumScheduler)
             .subscribe(observer)
 
         subject.onNext(1)
@@ -74,7 +77,7 @@ class ObserveOnObservableTests {
     fun observeOn_DoesNot_EmitValues_WhenSubscriptionDisposed() {
         val observer = getMockObserver<Int>()
         val subject = Observables.publishSubject<Int>()
-        val disposable = subject.observeOn(observerExecutorService)
+        val disposable = subject.observeOn(testTealiumScheduler)
             .subscribe(observer)
 
         disposable.dispose()

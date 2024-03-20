@@ -3,6 +3,7 @@ package com.tealium.core.internal.dispatch
 import com.tealium.core.api.BarrierState
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.Dispatcher
+import com.tealium.core.api.Scheduler
 import com.tealium.core.api.TealiumDispatchType
 import com.tealium.core.api.Transformer
 import com.tealium.core.api.data.TealiumBundle
@@ -13,21 +14,17 @@ import com.tealium.core.internal.observables.StateSubject
 import com.tealium.core.internal.observables.Subject
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestDispatcher
+import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.MockKAnnotations
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
-import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.just
 import io.mockk.spyk
 import org.junit.After
-//import kotlinx.coroutines.CoroutineScope
-//import kotlinx.coroutines.asCoroutineDispatcher
 import org.junit.Before
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledExecutorService
-import kotlin.math.log
 
 /**
  * Test Base class to simplify test groups relating to the Dispatch Manager.
@@ -43,7 +40,7 @@ open class DispatchManagerTestsBase {
     protected lateinit var barrierCoordinator: BarrierCoordinator
 
     protected lateinit var logger: Logger
-    protected lateinit var executorService: ScheduledExecutorService
+    protected lateinit var scheduler: Scheduler
     protected lateinit var dispatcher1: Dispatcher
     protected lateinit var dispatcher2: Dispatcher
     protected lateinit var dispatchers: StateSubject<Set<Dispatcher>>
@@ -67,7 +64,7 @@ open class DispatchManagerTestsBase {
         MockKAnnotations.init(this)
 
         logger = SystemLogger()
-        executorService = Executors.newSingleThreadScheduledExecutor()
+        scheduler = testTealiumScheduler
 
         // Consent Defaulted to disabled
         every { consentManager.enabled } returns false
@@ -99,7 +96,7 @@ open class DispatchManagerTestsBase {
         transformers = mutableSetOf()
         transformerCoordinator = spyk(
             TransformerCoordinatorImpl(
-                transformers, transformersFlow, executorService
+                transformers, transformersFlow, testTealiumScheduler
             )
         )
 
@@ -108,10 +105,6 @@ open class DispatchManagerTestsBase {
         onAfterSetup()
     }
 
-    @After
-    fun tearDown() {
-        executorService.shutdown()
-    }
 
     /**
      * JUnit won't guarantee the execution order of multiple @Before annotated methods.

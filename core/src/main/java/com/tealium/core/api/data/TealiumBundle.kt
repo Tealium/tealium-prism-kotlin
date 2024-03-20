@@ -191,6 +191,13 @@ class TealiumBundle private constructor(
         return builder.getBundle()
     }
 
+    /**
+     * Convenience method to create a new [Builder] containing all the values in this [TealiumBundle]
+     */
+    fun buildUpon() : Builder {
+        return Builder(this)
+    }
+
     override fun asTealiumValue(): TealiumValue {
         return TealiumValue.convert(this)
     }

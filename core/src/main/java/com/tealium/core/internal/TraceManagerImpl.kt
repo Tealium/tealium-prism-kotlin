@@ -6,39 +6,47 @@ import com.tealium.core.api.ModuleFactory
 import com.tealium.core.api.ModuleManager
 import com.tealium.core.api.settings.ModuleSettings
 import com.tealium.core.api.TraceManager
-import java.lang.ref.WeakReference
+import com.tealium.core.internal.modules.ModuleProxy
 
 class TraceManagerWrapper(
-    private val moduleManager: WeakReference<ModuleManager>
-): TraceManager {
-    private val delegate: TraceManager?
-        get() = moduleManager.get()?.getModuleOfType(TraceManager::class.java)
+    private val moduleProxy: ModuleProxy<TraceManagerImpl>
+) : TraceManager {
+
+    constructor(
+        moduleManager: ModuleManager
+    ) : this(ModuleProxy(TraceManagerImpl::class.java, moduleManager))
 
     override fun killVisitorSession() {
-        delegate?.killVisitorSession()
+        moduleProxy.getModule { trace ->
+            trace?.killVisitorSession()
+        }
     }
 
     override fun join(id: String) {
-        delegate?.join(id)
+        moduleProxy.getModule { trace ->
+            trace?.join(id)
+        }
     }
 
     override fun leave() {
-        delegate?.leave()
+        moduleProxy.getModule { trace ->
+            trace?.leave()
+        }
     }
 }
 
-class TraceManagerImpl: TraceManager, Module {
+class TraceManagerImpl : TraceManager, Module {
 
     override fun killVisitorSession() {
-        TODO("Not yet implemented")
+//        TODO("Not yet implemented")
     }
 
     override fun join(id: String) {
-        TODO("Not yet implemented")
+//        TODO("Not yet implemented")
     }
 
     override fun leave() {
-        TODO("Not yet implemented")
+//        TODO("Not yet implemented")
     }
 
     override val name: String
@@ -46,7 +54,7 @@ class TraceManagerImpl: TraceManager, Module {
     override val version: String
         get() = ""
 
-    companion object: ModuleFactory {
+    companion object : ModuleFactory {
         private const val moduleName = "TraceManager"
 
         override val name: String

@@ -1,14 +1,13 @@
 package com.tealium.core
 
 import android.app.Application
-import com.tealium.core.internal.persistence.DatabaseProvider
-import com.tealium.tests.common.awaitCreateTealiumImpl
+import com.tealium.core.api.TealiumResult
+import com.tealium.core.api.listeners.TealiumCallback
 import com.tealium.tests.common.getDefaultConfig
 import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.runBlocking
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
+import io.mockk.verify
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,16 +25,44 @@ class TealiumTests {
     }
 
     @Test
-    fun tealium_ReturnsErrorOnReady_WhenDatabaseFailsToInitialize() = runBlocking {
-        val exception = Exception()
-        val mockDbProvider = mockk<DatabaseProvider>()
-        every { mockDbProvider.database } throws exception
+    fun tealium_ReturnsTealiumInstance_WhenReady() {
+        val callback = mockk<TealiumCallback<TealiumResult<Tealium>>>(relaxed = true)
+        Tealium.create("main", getDefaultConfig(app), callback)
 
-        awaitCreateTealiumImpl(getDefaultConfig(app), mockDbProvider) { _, err ->
-            assertNotNull(err)
-            assertEquals(exception, err)
+        verify(timeout = 2000) {
+            callback.onComplete(match { result ->
+                result.isSuccess
+                        && result.getOrNull() != null
+            })
+        }
+    }
+
+    @Test
+    fun tealium_MultipleInstances_ShareProcessingThread() {
+        val threads = mutableSetOf<Thread>()
+
+        val callback = mockk<TealiumCallback<TealiumResult<Tealium>>>()
+        every { callback.onComplete(any()) } answers {
+            threads.add(Thread.currentThread())
         }
 
-        Unit
+        val tealium1 = Tealium.create(
+            "instance1",
+            getDefaultConfig(app, accountName = "tealium1"),
+            callback
+        )
+        val tealium2 = Tealium.create(
+            "instance2",
+            getDefaultConfig(app, accountName = "tealium2"),
+            callback
+        )
+
+        verify(timeout = 2000, exactly = 2) {
+            callback.onComplete(match { result ->
+                result.isSuccess
+                        && result.getOrNull() != null
+            })
+        }
+        assertTrue(threads.count() == 1) // Set de-duplicated
     }
 }

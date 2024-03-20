@@ -10,6 +10,7 @@ import com.tealium.core.TealiumConfig
 import com.tealium.core.api.ConsentStatus
 import com.tealium.core.api.DataLayer
 import com.tealium.core.api.Dispatch
+import com.tealium.core.api.Expiry
 import com.tealium.core.api.TealiumDispatchType
 import com.tealium.core.api.VisitorService
 import com.tealium.core.api.data.TealiumBundle
@@ -31,31 +32,35 @@ import com.tealium.core.api.network.Success
 import com.tealium.core.api.network.UnexpectedError
 import com.tealium.core.api.settings.CoreSettingsBuilder
 import com.tealium.core.api.TrackResult
+import com.tealium.core.api.data.TealiumValue
 
 object TealiumHelper :
     DispatchReadyListener,
     DispatchQueuedListener,
     DispatchDroppedListener,
-    ConsentStatusUpdatedListener,
-//    DataLayer.DataLayerListener
-    DataLayer.DataLayerUpdatedListener,
-    DataLayer.DataLayerRemovedListener,
-    VisitorService.VisitorIdUpdatedListener {
+    ConsentStatusUpdatedListener {
 
     private const val INSTANCE_NAME = "main"
 
     private val shared: Tealium?
         get() = Tealium[INSTANCE_NAME]
 
-    override fun onVisitorIdUpdated(visitorId: String) {
+    private fun onVisitorIdUpdated(visitorId: String) {
+        Log.d("OnMain?", "Executing on ${Thread.currentThread().name}")
         Log.d("Helper", "This Updated VisitorId: $visitorId")
     }
 
-    override fun onDataUpdated(key: String, value: Any) {
+    private fun onDataUpdated(bundle: TealiumBundle) {
+        for (entry in bundle) {
+            onDataUpdated(entry.key, entry.value)
+        }
+    }
+
+    private fun onDataUpdated(key: String, value: Any) {
         Log.d("Helper", "DataUpdated $key : $value")
     }
 
-    override fun onDataRemoved(keys: Set<String>) {
+    private fun onDataRemoved(keys: List<String>) {
         Log.d("Helper", "DataRemoved ${keys.joinToString(", ")}")
     }
 
@@ -67,7 +72,7 @@ object TealiumHelper :
             profileName = "android",
             environment = Environment.DEV
         ).apply {
-            useRemoteSettings = true
+            useRemoteSettings = false
 //            localSdkSettingsFileName = "tealium-settings.json"
 
             addModuleSettings(
@@ -77,36 +82,32 @@ object TealiumHelper :
             )
         }
 
-        Tealium.create(INSTANCE_NAME, config) { tealium, error ->
+        Tealium.create(INSTANCE_NAME, config) { result ->
+            val tealium = result.getOrNull() ?: return@create
+
 //            it.events.subscribe(this)
 //            it.track("", TealiumDispatchType.Event) {
 //                put
 //            }
-            tealium.dataLayer.onDataUpdated.subscribe(this)
-            tealium.dataLayer.onDataRemoved.subscribe(this)
+            tealium.dataLayer.onDataUpdated.subscribe(::onDataUpdated)
+            tealium.dataLayer.onDataRemoved.subscribe(::onDataRemoved)
             tealium.dataLayer.onDataRemoved.subscribe {
                 it.forEach {
                     Log.d("Lambda", "Removed: key: $it")
                 }
             }
 
-            tealium.dataLayer.put("key", "value")
-            tealium.dataLayer.put("key2", "value2")
-            tealium.dataLayer.remove("key")
-            tealium.dataLayer.remove("key2")
+            tealium.dataLayer.edit {
+                it.put("key", TealiumValue.string("value"), Expiry.SESSION)
+                it.put("key2", TealiumValue.string("value2"), Expiry.SESSION)
+                it.remove("key2")
+            }
+            tealium.dataLayer.get("key") {
+                Log.d("DataLayer", "Retrieved key with value: $it")
+            }
 
             tealium.visitorService?.let { vs ->
-//                val vId = vs.visitorId.get()
-//                Log.d("VisitorId", /**/"vId = $vId")
-//                vs.visitorId.subscribe {
-//                    Log.d("OnMain?", "Executing on ${Thread.currentThread().name}")
-//                    Log.d("VisitorId", "Updated VisitorId: $it")
-//                }
-                vs.resetVisitorId()
-                vs.resetVisitorId()
-                vs.resetVisitorId()
-                vs.resetVisitorId()
-//                vs.visitorId.subscribe(this)
+                vs.onVisitorIdUpdated.subscribe(::onVisitorIdUpdated)
                 vs.resetVisitorId()
             }
 

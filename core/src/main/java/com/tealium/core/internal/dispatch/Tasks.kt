@@ -1,8 +1,8 @@
 package com.tealium.core.internal.dispatch
 
+import com.tealium.core.api.Scheduler
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
-import java.util.concurrent.ExecutorService
 
 /**
  * Models an asynchronous task, in that the callback provided will signal that the task is completed
@@ -29,12 +29,12 @@ object Tasks {
      * Resulting notification will be in the same order as the tasks were provided - although if any
      * tasks return a null result, then it will be omitted from the results.
      *
-     * @param notifyOn The [ExecutorService] to use when notifying the [notify] block
+     * @param notifyOn The [Scheduler] to use when notifying the [notify] block
      * @param completableTasks The list of tasks to execute
      * @param notify The block of code to call once all [completableTasks] have been completed
      */
     fun <T> execute(
-        notifyOn: ExecutorService,
+        notifyOn: Scheduler,
         completableTasks: List<CompletableTask<T>>,
         notify: (List<T>) -> Unit
     ) {

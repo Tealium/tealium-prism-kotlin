@@ -6,6 +6,6 @@ import java.util.concurrent.TimeUnit
  * Class denoting a length of time that is easily convertible into any required time units
  */
 data class TimeFrame(
-    val number: Int,
+    val number: Long,
     val unit: TimeUnit
 )

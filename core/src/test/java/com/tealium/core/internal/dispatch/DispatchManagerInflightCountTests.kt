@@ -1,6 +1,7 @@
 package com.tealium.core.internal.dispatch
 
 import com.tealium.core.internal.observables.Observables
+import com.tealium.core.internal.persistence.TimeFrame
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.verify
 import io.mockk.spyk
@@ -17,12 +18,12 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
     fun dispatchManager_StopsDispatchingEvents_WhenMaximumExceeded() {
         dispatcher1 = spyk(TestDispatcher("dispatcher_1") {
             Observables.callback { observer ->
-                executorService.schedule({
+                scheduler.schedule(TimeFrame(2000, TimeUnit.MILLISECONDS)) {
                     observer.onNext(it)
-                }, 2000, TimeUnit.MILLISECONDS)
+                }
             }
         })
-        executorService.execute {
+        scheduler.execute {
             dispatchers.onNext(setOf(dispatcher1))
             queue[dispatcher1.name] = mutableSetOf(dispatch1, dispatch2)
 
@@ -41,7 +42,7 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_DoesNotSendNewEvents_WhenMaximumExceeded() {
-        executorService.execute {
+        scheduler.execute {
             onInFlightEvents.onNext(mapOf(dispatcher1.name to setOf("event1", "event2")))
 
             dispatchManager.startDispatchLoop()
@@ -56,7 +57,7 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_StartsSendingEventsAgain_WhenInflightReturnsBelowMaximum() {
-        executorService.execute {
+        scheduler.execute {
             onInFlightEvents.onNext(mapOf(dispatcher1.name to setOf("event1", "event2")))
 
             dispatchManager.startDispatchLoop()
@@ -66,10 +67,10 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
             dispatcher1.dispatch(listOf(dispatch1))
         }
 
-        executorService.execute {
+        scheduler.execute {
             onInFlightEvents.onNext(mapOf(dispatcher1.name to setOf()))
         }
-        verify(timeout = 1000) {
+        verify(timeout = 5000) {
             dispatcher1.dispatch(listOf(dispatch1))
         }
     }

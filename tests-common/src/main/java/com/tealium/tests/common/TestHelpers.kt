@@ -2,39 +2,40 @@ package com.tealium.tests.common
 
 import com.tealium.core.Tealium
 import com.tealium.core.TealiumConfig
-import com.tealium.core.internal.TealiumImpl
+import com.tealium.core.api.TealiumResult
+import com.tealium.core.api.Scheduler
+import com.tealium.core.api.listeners.TealiumCallback
+import com.tealium.core.internal.IoScheduler
+import com.tealium.core.internal.TealiumProxy
+import com.tealium.core.internal.TealiumScheduler
 import com.tealium.core.internal.persistence.DatabaseProvider
-import kotlinx.coroutines.suspendCancellableCoroutine
-import java.util.concurrent.ScheduledExecutorService
-import kotlin.coroutines.resumeWithException
+import java.util.concurrent.Executors
+
+private val tealiumExecutor = Executors.newSingleThreadScheduledExecutor()
+private val networkExecutor = Executors.newCachedThreadPool()
+
+val testTealiumScheduler = TealiumScheduler(tealiumExecutor)
+val testNetworkScheduler = IoScheduler(networkExecutor, tealiumExecutor)
 
 /**
  * Convenience method that awaits the execution of the [onReady] callback before returning it.
  */
-suspend fun awaitCreateTealiumImpl(
+fun createTealiumProxy(
     config: TealiumConfig,
-    databaseProvider: DatabaseProvider? = null,
-    executorService: ScheduledExecutorService? = null,
-    onReady: (Tealium, Exception?) -> Unit = { _, _ -> },
+    databaseProvider: DatabaseProvider?,
+    tealiumScheduler: Scheduler = testTealiumScheduler,
+    networkSchedulerSupplier: () -> Scheduler = { testNetworkScheduler },
+    onReady: TealiumCallback<TealiumResult<Tealium>> = TealiumCallback { }
 ): Tealium {
-    return suspendCancellableCoroutine { cont ->
-        val callback = Tealium.OnTealiumReady { tealium, error ->
-            try {
-                onReady.invoke(tealium, error)
-                cont.resume(tealium, null)
-            } catch (e: Exception) {
-                cont.resumeWithException(e)
-            }
-        }
-
-        if (databaseProvider != null && executorService != null) {
-            TealiumImpl(config, callback, databaseProvider, executorService)
-        } else if (databaseProvider != null && executorService == null) {
-            TealiumImpl(config, callback, dbProvider = databaseProvider)
-        } else if (databaseProvider == null && executorService != null) {
-            TealiumImpl(config, callback, backgroundService = executorService)
-        } else {
-            TealiumImpl(config, callback)
-        }
+    return if (databaseProvider != null) {
+        TealiumProxy(
+            config,
+            onReady,
+            tealiumScheduler,
+            networkSchedulerSupplier,
+            databaseProvider = databaseProvider
+        )
+    } else {
+        TealiumProxy(config, onReady, tealiumScheduler, networkSchedulerSupplier)
     }
 }

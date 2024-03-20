@@ -4,14 +4,12 @@ import com.tealium.core.LogLevel
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.logger.LogHandler
 import com.tealium.core.internal.settings.ModuleSettingsImpl
-import com.tealium.core.api.settings.SettingsProvider
+import com.tealium.core.internal.settings.SettingsProvider
 import com.tealium.core.internal.settings.CoreSettings
 import io.mockk.Called
 import io.mockk.MockKAnnotations
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.verify
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test

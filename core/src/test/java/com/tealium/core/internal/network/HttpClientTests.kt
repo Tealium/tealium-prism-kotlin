@@ -15,8 +15,9 @@ import com.tealium.core.api.network.RetryAfterEvent
 import com.tealium.core.api.network.Success
 import com.tealium.core.api.network.UnexpectedError
 import com.tealium.core.internal.network.*
-import com.tealium.core.internal.observables.Observable
 import com.tealium.core.internal.observables.Observables
+import com.tealium.tests.common.testNetworkScheduler
+import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.*
 import kotlinx.coroutines.*
 import okhttp3.mockwebserver.MockResponse
@@ -33,8 +34,6 @@ import java.util.concurrent.ScheduledExecutorService
 @RunWith(RobolectricTestRunner::class)
 class HttpClientTests {
 
-    lateinit var executorService: ScheduledExecutorService
-    lateinit var tealiumService: ScheduledExecutorService
     lateinit var mockWebServer: MockWebServer
 
     private val mockInterceptor: Interceptor = mockk(relaxed = true)
@@ -53,10 +52,8 @@ class HttpClientTests {
 
     @Before
     fun setUp() {
-        executorService = Executors.newSingleThreadScheduledExecutor()
-        tealiumService = Executors.newSingleThreadScheduledExecutor()
 
-        httpClient = HttpClient(mockLogger, tealiumService, executorService)
+        httpClient = HttpClient(mockLogger, testTealiumScheduler, testNetworkScheduler)
         httpClient.addInterceptor(mockInterceptor)
 
         val captureRequest = slot<HttpRequest>()
@@ -467,8 +464,8 @@ class HttpClientTests {
     fun delayRequestIfInterceptorReturnsAfterEvent() {
         val subject = Observables.publishSubject<Unit>()
         val event = subject
-            .subscribeOn(executorService)
-            .observeOn(executorService)
+            .subscribeOn(testNetworkScheduler)
+            .observeOn(testNetworkScheduler)
 
         every { mockInterceptor.shouldRetry(any(), any(), any()) } returns RetryAfterEvent(
             event

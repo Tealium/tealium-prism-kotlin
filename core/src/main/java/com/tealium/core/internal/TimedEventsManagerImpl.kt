@@ -6,46 +6,58 @@ import com.tealium.core.api.ModuleFactory
 import com.tealium.core.api.ModuleManager
 import com.tealium.core.api.settings.ModuleSettings
 import com.tealium.core.api.TimedEventsManager
-import java.lang.ref.WeakReference
+import com.tealium.core.api.listeners.TealiumCallback
+import com.tealium.core.internal.modules.ModuleProxy
 
 class TimedEventsManagerWrapper(
-    private val moduleManager: WeakReference<ModuleManager>
+    private val moduleProxy: ModuleProxy<TimedEventsManagerImpl>
 ): TimedEventsManager {
-    private val delegate: TimedEventsManager?
-        get() = moduleManager.get()?.getModuleOfType(TimedEventsManager::class.java)
+    constructor(
+        moduleManager: ModuleManager
+    ) : this(ModuleProxy(TimedEventsManagerImpl::class.java, moduleManager))
+
+
 
     override fun start(name: String, data: Map<String, Any>?) {
-        delegate?.start(name, data)
+        moduleProxy.getModule { timedEvents ->
+            timedEvents?.start(name, data)
+        }
     }
 
     override fun stop(name: String) {
-        delegate?.stop(name)
+        moduleProxy.getModule { timedEvents ->
+            timedEvents?.stop(name)
+        }
     }
 
     override fun cancel(name: String) {
-        delegate?.cancel(name)
+        moduleProxy.getModule { timedEvents ->
+            timedEvents?.cancel(name)
+        }
     }
 
     override fun cancelAll() {
-        delegate?.cancelAll()
+        moduleProxy.getModule { timedEvents ->
+            timedEvents?.cancelAll()
+        }
     }
 }
 
 class TimedEventsManagerImpl: TimedEventsManager, Module {
     override fun start(name: String, data: Map<String, Any>?) {
-        TODO("Not yet implemented")
+//        TODO("Not yet implemented")
     }
 
     override fun stop(name: String) {
-        TODO("Not yet implemented")
+//        TODO("Not yet implemented")
     }
 
     override fun cancel(name: String) {
-        TODO("Not yet implemented")
+//        TODO("Not yet implemented")
     }
 
     override fun cancelAll() {
-        TODO("Not yet implemented")
+//        TODO("Not yet implemented")
     }
 
     override val name: String

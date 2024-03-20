@@ -4,160 +4,137 @@ import com.tealium.core.TealiumConfig
 import com.tealium.core.api.ActivityManager
 import com.tealium.core.api.ActivityManagerImpl
 import com.tealium.core.api.DataStore
+import com.tealium.core.api.Expiry
 import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.TealiumValue
 import com.tealium.core.api.data.plus
+import com.tealium.core.api.listeners.Disposable
 import com.tealium.core.api.logger.Logger
-import com.tealium.core.api.network.NetworkUtilities
+import com.tealium.core.api.network.NetworkHelper
 import com.tealium.core.internal.SdkSettings
+import com.tealium.core.internal.observables.Observable
+import com.tealium.core.internal.observables.ObservableState
+import com.tealium.core.internal.observables.Observables
+import com.tealium.core.internal.observables.StateSubject
+import com.tealium.core.internal.persistence.getTimestampMilliseconds
+import java.io.IOException
 import kotlin.properties.Delegates
 
 /**
  * Manages the retrieval and merging of Tealium SDK Settings, both remote and local.
  *
- * The [SettingsManager] coordinates the loading of settings through a [SettingsRetriever],
- * merges the retrieved settings, and updates an [InternalSettingsProvider] with the final
- * settings. It also takes into account the application's lifecycle to determine when
- * the settings should be refreshed.
+ * The [SettingsManager] coordinates the loading of settings and merges the retrieved settings. It
+ * also takes into account the application's lifecycle to determine when the settings should be
+ * refreshed.
  *
  * @param config The Tealium configuration specifying settings retrieval details.
- * @param network The utility class providing network-related functionality.
- * @param settingsDataStore The data store for storing and retrieving Tealium settings.
- * @param settingsProvider The provider for managing the internal SDK settings.
+ * @param networkHelper The utility class providing network-related functionality.
+ * @param dataStore The data store for storing and retrieving Tealium settings.
  * @param logger The logger for logging information.
- * @param activityManager The manager tracking the application's lifecycle (default is [ActivityManagerImpl]).
- * @param settingsRetriever The retriever responsible for fetching remote and local settings.
+ * @param sdkSettings Subject to publish updated [SdkSettings] to.
+ * @param activities The manager tracking the application's lifecycle (default is [ActivityManagerImpl]).
+ * @param lastRefreshTime Sets the initial lastRefreshTime; should only be used for testing
+ * @param refreshTimeout Sets the timeout in milliseconds before a new refresh of the settings is allowed
+ * @param timingProvider Sets the source to retrieve the current time in milliseconds
  */
 class SettingsManager(
     private val config: TealiumConfig,
-    private val network: NetworkUtilities,
-    private val settingsDataStore: DataStore,
-    private val settingsProvider: InternalSettingsProvider,
+    private val networkHelper: NetworkHelper,
+    private val dataStore: DataStore,
     private val logger: Logger,
-    private val activityManager: ActivityManager = ActivityManagerImpl(),
-    private val settingsRetriever: SettingsRetriever = SettingsRetriever(
-        config,
-        network,
-        settingsDataStore,
-        logger
+    private val sdkSettings: StateSubject<SdkSettings> = Observables.stateSubject(
+        loadInitialSettings(config, dataStore)
     ),
-) {
+    private val activities: Observable<ActivityManager.ApplicationStatus> = Observables.publishSubject(),
+    private var lastRefreshTime: Long = 0L,
+    private var refreshTimeout: Long = REFRESH_INTERVAL_MILLIS,
+    private val timingProvider: () -> Long = ::getTimestampMilliseconds
+) : SettingsProvider {
 
-    private var remoteSettings: SdkSettings? by Delegates.observable(
+    private var localSettings: TealiumBundle? = null
+
+    override val onSdkSettingsUpdated: ObservableState<SdkSettings>
+        get() = sdkSettings.asObservableState()
+
+    private var remoteSettings: TealiumBundle? by Delegates.observable(
         initialValue = loadCachedSettings(),
         onChange = { _, _, _ ->
-            _currentSdkSettings = loadSettings()
+            sdkSettings.onNext(loadSettings())
         }
     )
-    private var _currentSdkSettings: SdkSettings = loadSettings()
-    val currentSdkSettings: SdkSettings
-        get() = _currentSdkSettings
 
-    init {
-        fetchRemote()
-        refreshSettings()
+    fun loadSettings(): SdkSettings {
+        logger.debug?.log("SettingsManager", "Loading Settings")
+
+        val localSettings = loadLocalSettings()
+        return mergeSettings(config, remoteSettings, localSettings)
     }
 
-    internal fun loadSettings(): SdkSettings {
-        logger.debug?.log("SettingsRetriever", "Loading Settings")
+    private fun loadCachedSettings(): TealiumBundle? {
+        return loadFromCache(config, dataStore).also { settings ->
+            logger.debug?.log("SettingsManager", "Settings loaded from cache")
 
-        val localSettings = settingsRetriever.loadLocalSettings()
-        val settings = mergeSettings(remoteSettings, localSettings)
-
-        // notify of merged remote/local settings
-        settingsProvider.updateSdkSettings(settings)
-        return settings
-    }
-
-    private fun loadCachedSettings(): SdkSettings? {
-        if (!config.useRemoteSettings) {
-            return null
-        }
-
-        return settingsRetriever.loadFromCache().also {
-            logger.debug?.log("SettingsRetriever", "Settings loaded from cache")
+            if (settings == null) {
+                // parse failure; remove
+                removeFromDataStore(dataStore)
+            }
         }
     }
 
-    private fun fetchRemote() {
-        if (!config.useRemoteSettings) {
+    fun refreshRemote() {
+        val currentTime = timingProvider()
+        val url = config.sdkSettingsUrl
+        if (!config.useRemoteSettings || url == null || !isTimedOut(
+                currentTime,
+                getLastRefreshTime(),
+                refreshTimeout
+            )
+        ) {
             return
         }
 
-        settingsProvider.updateLastRefreshTime(System.currentTimeMillis())
-        settingsRetriever.fetchRemoteSettings { newRemoteSettings ->
+        setLastRefreshTime(currentTime)
+
+        fetchRemoteSettings(
+            url,
+            loadCachedEtag(dataStore)?.getString(),
+            networkHelper
+        ) { newRemoteSettings ->
             if (newRemoteSettings == null) {
                 return@fetchRemoteSettings
             }
 
-            logger.debug?.log("SettingsRetriever", "Received new remote settings: $newRemoteSettings")
+            val etag = newRemoteSettings.get("etag")
+            addToDataStore(etag, newRemoteSettings, dataStore)
+
+            logger.debug?.log(
+                "SettingsManager",
+                "Received new remote settings: $newRemoteSettings"
+            )
             remoteSettings = newRemoteSettings
         }
     }
 
-    /**
-     * Merges the retrieved remote and local settings.
-     */
-    internal fun mergeSettings(
-        remoteSettings: SdkSettings? = null,
-        localSettings: SdkSettings? = null
-    ): SdkSettings {
-        val localBundle = localSettings?.asTealiumValue()?.getBundle()
-        val remoteBundle = remoteSettings?.asTealiumValue()?.getBundle()
-
-        val merged = if (remoteBundle != null && localBundle != null) {
-            localBundle + remoteBundle
-        } else remoteBundle ?: localBundle
-
-        val mergedProgrammaticSettings = mergeProgrammaticSettings(merged)
-        val finalSettings = mergedProgrammaticSettings?.asTealiumValue()
-            ?.let { SdkSettings.Deserializer.deserialize(it) } ?: SdkSettings()
-
-        logger.debug?.log("SettingsRetriever", "Settings Merged: $finalSettings")
-        return finalSettings
-    }
-
-    /**
-     * Merges the programmatic settings provided by modules in the TealiumConfig.
-     */
-    private fun mergeProgrammaticSettings(sdkBundle: TealiumBundle?): TealiumBundle? {
-        var merged = sdkBundle
-        config.modulesSettings.forEach { module ->
-            val bundle = merged?.getBundle(module.key)
-            val moduleBundle = module.value.bundle
-            merged = if (bundle != null) {
-                merged?.copy {
-                    put(module.key, bundle + moduleBundle)
-                }
-
-            } else {
-                merged?.copy {
-                    put(module.key, moduleBundle)
-                }
-            }
-        }
-
-        return merged
-    }
-
-    private fun refreshSettings() {
-        activityManager.applicationStatus.subscribe { newStatus ->
+    fun subscribeToActivityUpdates(): Disposable {
+        return activities.subscribe { newStatus ->
             when (newStatus) {
                 ActivityManager.ApplicationStatus.Init -> {
                     logger.debug?.log(
-                        "SettingsRetriever",
+                        "SettingsManager",
                         "Loading Settings on ApplicationStatus.Init"
                     )
-                    fetchRemote()
+                    refreshRemote()
                 }
 
                 ActivityManager.ApplicationStatus.Foregrounded -> {
-                    val lastRefreshTime = settingsProvider.getLastRefreshTime()
-                    if (System.currentTimeMillis() - lastRefreshTime >= REFRESH_INTERVAL_MILLIS) {
+                    val lastRefreshTime = getLastRefreshTime()
+                    val currentTime = timingProvider()
+                    if (isTimedOut(currentTime, lastRefreshTime, refreshTimeout)) {
                         logger.debug?.log(
-                            "SettingsRetriever",
+                            "SettingsManager",
                             "Refreshing Settings on ApplicationStatus.Foregrounded"
                         )
-                        fetchRemote()
+                        refreshRemote()
                     }
                 }
 
@@ -168,10 +145,154 @@ class SettingsManager(
         }
     }
 
+    private fun loadLocalSettings(): TealiumBundle? {
+        if (localSettings != null) return localSettings
+
+        return loadFromAsset(config)?.also {
+            localSettings = it
+        }
+    }
+
+    internal fun setLastRefreshTime(timestamp: Long = timingProvider()) {
+        lastRefreshTime = timestamp
+    }
+
+    internal fun getLastRefreshTime(): Long {
+        return lastRefreshTime
+    }
+
     companion object {
         /**
          * The refresh interval for settings in milliseconds (15 minutes by default).
          */
-        private const val REFRESH_INTERVAL_MILLIS = 15 * 60 * 1000L // 15 minutes
+        internal const val REFRESH_INTERVAL_MILLIS = 15 * 60 * 1000L // 15 minutes
+        internal const val KEY_SDK_SETTINGS = "sdk_settings"
+        internal const val KEY_SETTINGS_ETAG = "settings_etag"
+
+        /**
+         * Reads the settings file from a configured Asset, given by [TealiumConfig.localSdkSettingsFileName]
+         * and merges any cached settings from the given [dataStore] into it.
+         * The result is subsequently merged with any settings configured on the given [config]
+         *
+         * The result of this method is only valid for the initial startup of the SDK, and continual
+         * updates should be requested from [SettingsManager.onSdkSettingsUpdated] as this will provide
+         * the subscriber with the merged settings from any newly updated remote settings if configured.
+         */
+        fun loadInitialSettings(config: TealiumConfig, dataStore: DataStore): SdkSettings {
+            val localSettings = loadFromAsset(config)
+            val cachedSettings = loadFromCache(config, dataStore)
+            return mergeSettings(config, cachedSettings, localSettings)
+        }
+
+        /**
+         * Merges the retrieved remote and local settings.
+         */
+        fun mergeSettings(
+            config: TealiumConfig,
+            remoteSettings: TealiumBundle? = null,
+            localSettings: TealiumBundle? = null
+        ): SdkSettings {
+            val localBundle = localSettings?.asTealiumValue()?.getBundle()
+            val remoteBundle = remoteSettings?.asTealiumValue()?.getBundle()
+
+            val merged = if (remoteBundle != null && localBundle != null) {
+                localBundle + remoteBundle
+            } else remoteBundle ?: localBundle ?: TealiumBundle.EMPTY_BUNDLE
+
+            val mergedProgrammaticSettings = mergeProgrammaticSettings(config, merged)
+            return mergedProgrammaticSettings.asTealiumValue().let {
+                SdkSettings.Deserializer.deserialize(it)
+            } ?: SdkSettings()
+        }
+
+        /**
+         * Merges the programmatic settings provided by modules in the TealiumConfig.
+         */
+        private fun mergeProgrammaticSettings(
+            config: TealiumConfig,
+            sdkBundle: TealiumBundle
+        ): TealiumBundle {
+            var merged = sdkBundle
+            config.modulesSettings.forEach { module ->
+                val bundle = merged.getBundle(module.key)
+                val moduleBundle = module.value.bundle
+                val mergedBundle = if (bundle != null) {
+                    bundle + moduleBundle
+                } else {
+                    moduleBundle
+                }
+                merged = merged.buildUpon()
+                    .put(key = module.key, mergedBundle)
+                    .getBundle()
+            }
+
+            return merged
+        }
+
+        internal fun loadCachedEtag(dataStore: DataStore): TealiumValue? {
+            return dataStore.get(KEY_SETTINGS_ETAG)
+        }
+
+        internal fun addToDataStore(
+            etag: TealiumValue?,
+            settings: TealiumBundle,
+            dataStore: DataStore
+        ) {
+            dataStore.edit().apply {
+                put(KEY_SETTINGS_ETAG, etag ?: TealiumValue.NULL, Expiry.FOREVER)
+                put(KEY_SDK_SETTINGS, settings.asTealiumValue(), Expiry.FOREVER)
+            }.commit()
+        }
+
+        internal fun removeFromDataStore(dataStore: DataStore) {
+            dataStore.edit().apply {
+                remove(KEY_SETTINGS_ETAG)
+                remove(KEY_SDK_SETTINGS)
+            }.commit()
+        }
+
+        internal fun loadFromAsset(config: TealiumConfig): TealiumBundle? {
+            val fileName = config.localSdkSettingsFileName ?: return null
+
+            return try {
+                config.application.assets.open(fileName).bufferedReader().use {
+                    TealiumBundle.fromString(it.readText())
+                }
+            } catch (ioe: IOException) {
+                null
+            }
+        }
+
+        internal fun loadFromCache(config: TealiumConfig, dataStore: DataStore): TealiumBundle? {
+            if (!config.useRemoteSettings) {
+                return null
+            }
+
+            return dataStore.get(KEY_SDK_SETTINGS)?.getBundle()
+        }
+
+        internal fun fetchRemoteSettings(
+            urlString: String,
+            etag: String?,
+            network: NetworkHelper,
+            completion: (TealiumBundle?) -> Unit
+        ) {
+            network.getTealiumBundle(urlString, etag) { bundle ->
+                if (bundle == null) {
+                    completion(null)
+                    return@getTealiumBundle
+                }
+
+                completion(bundle)
+            }
+        }
+
+        internal fun isTimedOut(
+            timestamp: Long,
+            lastRefreshTime: Long,
+            refreshTimeout: Long
+        ): Boolean {
+            return refreshTimeout < timestamp - lastRefreshTime
+        }
     }
 }

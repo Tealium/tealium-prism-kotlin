@@ -1,6 +1,7 @@
 package com.tealium.core.internal.network
 
 import com.tealium.core.BuildConfig
+import com.tealium.core.api.Scheduler
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.Cancelled
 import com.tealium.core.api.network.Failure
@@ -20,13 +21,12 @@ import com.tealium.core.internal.observables.DisposableContainer
 import com.tealium.core.internal.observables.Observable
 import com.tealium.core.internal.observables.addTo
 import com.tealium.core.internal.observables.AsyncSubscription
+import com.tealium.core.internal.persistence.TimeFrame
 import java.io.DataOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.ExecutorService
-import java.util.concurrent.Future
-import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
@@ -39,8 +39,8 @@ import java.util.zip.GZIPOutputStream
  */
 class HttpClient(
     private val logger: Logger,
-    private val tealiumExecutor: ExecutorService,
-    private val networkExecutor: ScheduledExecutorService,
+    private val tealiumScheduler: Scheduler,
+    private val networkScheduler: Scheduler,
     internal val interceptors: MutableList<Interceptor> = mutableListOf()
 ) : NetworkClient {
 
@@ -59,7 +59,7 @@ class HttpClient(
         completion: (NetworkResult) -> Unit
     ): Disposable {
         val disposableContainer = DisposableContainer()
-        send(request, networkExecutor, tealiumExecutor) { result ->
+        send(request, networkScheduler, tealiumScheduler) { result ->
             notifyInterceptors(request, result)
             processInterceptorsForDelay(request, result, retryCount) { shouldRetry ->
                 if (disposableContainer.isDisposed) {
@@ -77,7 +77,7 @@ class HttpClient(
             }
         }
 
-        return AsyncSubscription(tealiumExecutor, disposableContainer)
+        return AsyncSubscription(tealiumScheduler, disposableContainer)
     }
 
     private fun notifyInterceptors(request: HttpRequest, result: NetworkResult) {
@@ -124,10 +124,10 @@ class HttpClient(
 
     private fun delayRequest(interval: Long, request: HttpRequest, completion: () -> Unit) {
         logger.debug?.log(BuildConfig.TAG, "Delaying request: $request")
-        networkExecutor.schedule({
+        networkScheduler.schedule(TimeFrame(interval, TimeUnit.MILLISECONDS)) {
             logger.debug?.log(BuildConfig.TAG, "End delay request: $request")
             completion()
-        }, interval, TimeUnit.MILLISECONDS)
+        }
     }
 
     private fun <T> delayRequest(
@@ -155,10 +155,15 @@ class HttpClient(
         /**
          * Submits the job onto the background queue,
          */
-        private fun send(request: HttpRequest, executeOn: ExecutorService, resumeOn: ExecutorService,  completion: (NetworkResult) -> Unit): Future<*> {
-            return executeOn.submit {
+        private fun send(
+            request: HttpRequest,
+            executeOn: Scheduler,
+            resumeOn: Scheduler,
+            completion: (NetworkResult) -> Unit
+        ) {
+            return executeOn.execute {
                 val result = executeRequest(request)
-                resumeOn.submit {
+                resumeOn.execute {
                     completion(result)
                 }
             }

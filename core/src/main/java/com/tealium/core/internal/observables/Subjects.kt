@@ -173,7 +173,7 @@ class StateSubjectImpl<T>(
  * */
 class ReplaySubjectImpl<T>(
     private val cacheSize: Int,
-    private val cache: Queue<T> = ArrayDeque(cacheSize)
+    private val cache: Queue<T> = LinkedList()
 ) : BaseSubjectImpl<T>(), ReplaySubject<T> {
 
     override fun clear() {

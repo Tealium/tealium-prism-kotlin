@@ -1,27 +1,53 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.BuildConfig
-import com.tealium.core.TealiumConfig
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.DataStore
 import com.tealium.core.api.Module
 import com.tealium.core.api.ModuleFactory
+import com.tealium.core.api.ModuleManager
 import com.tealium.core.api.VisitorProfile
 import com.tealium.core.api.VisitorService
 import com.tealium.core.api.listeners.Subscribable
+import com.tealium.core.api.listeners.TealiumCallback
 import com.tealium.core.internal.observables.Observables
 import com.tealium.core.internal.observables.StateSubject
-import java.util.*
 import com.tealium.core.api.settings.ModuleSettings
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.tealium.core.internal.observables.Observable
 import java.util.UUID
+
+class VisitorServiceWrapper(
+    private val moduleProxy: ModuleProxy<VisitorServiceImpl>
+) : VisitorService {
+
+    constructor(
+        moduleManager: ModuleManager
+    ) : this(ModuleProxy(VisitorServiceImpl::class.java, moduleManager))
+
+    override val onVisitorIdUpdated: Subscribable<String>
+        get() = moduleProxy.getModule()
+            .flatMap { it.onVisitorIdUpdated }
+    override val onVisitorProfileUpdated: Subscribable<VisitorProfile>
+        get() = moduleProxy.getModule()
+            .flatMap { it.onVisitorProfileUpdated }
+
+    override fun resetVisitorId() {
+        moduleProxy.getModule { visitorService ->
+            visitorService?.resetVisitorId()
+        }
+    }
+
+    override fun clearStoredVisitorIds() {
+        moduleProxy.getModule { visitorService ->
+            visitorService?.clearStoredVisitorIds()
+        }
+    }
+}
 
 class VisitorServiceImpl(
     private var settings: VisitorServiceSettings,
     private val dataStore: DataStore
-) : VisitorService, Module {
+) : Module {
 
     private val visitorIdSubject: StateSubject<String> =
         Observables.stateSubject(generateVisitorId()) // TODO load from storage
@@ -29,19 +55,19 @@ class VisitorServiceImpl(
         VisitorProfile() // TODO load latest
     )
 
-    override val onVisitorIdUpdated: Subscribable<String>
+    val onVisitorIdUpdated: Observable<String>
         get() = visitorIdSubject.asObservable()
 
-    override val onVisitorProfileUpdated: Subscribable<VisitorProfile>
+    val onVisitorProfileUpdated: Observable<VisitorProfile>
         get() = visitorProfileFlow.asObservable()
 
-    override fun resetVisitorId() {
+    fun resetVisitorId() {
         val newId = generateVisitorId()
 
 //        _visitorId.update(generateVisitorId())
     }
 
-    override fun clearStoredVisitorIds() {
+    fun clearStoredVisitorIds() {
         // TODO()
     }
 

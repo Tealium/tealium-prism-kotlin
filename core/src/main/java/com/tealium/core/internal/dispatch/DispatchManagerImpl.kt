@@ -14,7 +14,6 @@ import com.tealium.core.internal.consent.ConsentManager
 import com.tealium.core.internal.observables.DisposableContainer
 import com.tealium.core.internal.observables.Observable
 import com.tealium.core.internal.observables.Observables
-import com.tealium.core.internal.observables.StateSubject
 import com.tealium.core.internal.observables.addTo
 
 class DispatchManagerImpl(
@@ -22,12 +21,19 @@ class DispatchManagerImpl(
     private val barrierCoordinator: BarrierCoordinator,
     private val transformerCoordinator: TransformerCoordinator,
     private val queueManager: QueueManager,
-    private val dispatchers: StateSubject<Set<Dispatcher>>,
+    private val dispatchers: Observable<Set<Dispatcher>>,
     private val logger: Logger,
     private val maxInFlightPerDispatcher: Int = MAXIMUM_INFLIGHT_EVENTS_PER_DISPATCHER
-) {
+): DispatchManager {
 
     private var dispatchLoop: Disposable? = null
+    private var _dispatchers: Set<Dispatcher> = setOf()
+
+    init {
+        dispatchers.subscribe {
+            _dispatchers = it
+        }
+    }
 
     private fun tealiumPurposeExplicitlyBlocked(): Boolean {
         if (!consentManager.enabled)
@@ -40,7 +46,11 @@ class DispatchManagerImpl(
         return !consentManager.tealiumConsented(decision.purposes)
     }
 
-    fun track(dispatch: Dispatch, onComplete: TrackResultListener? = null) {
+    override fun track(dispatch: Dispatch) {
+        track(dispatch, null)
+    }
+
+    override fun track(dispatch: Dispatch, onComplete: TrackResultListener?) {
         if (tealiumPurposeExplicitlyBlocked()) {
             logger.info?.log(
                 "Dispatch",
@@ -61,7 +71,7 @@ class DispatchManagerImpl(
                 // TODO - This call may need to be moved into the Consent Manager implementation once it's done.
                 onComplete?.onTrackResultReady(transformed, TrackResult.Accepted)
             } else {
-                queueManager.storeDispatch(transformed, dispatchers.value)
+                queueManager.storeDispatch(transformed, _dispatchers)
                 onComplete?.onTrackResultReady(dispatch, TrackResult.Accepted)
             }
         }

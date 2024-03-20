@@ -2,14 +2,14 @@ package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.DispatchScope
+import com.tealium.core.api.Scheduler
 import com.tealium.core.api.Transformer
 import com.tealium.core.internal.observables.StateSubject
-import java.util.concurrent.ExecutorService
 
 class TransformerCoordinatorImpl(
     private val registeredTransformers: Set<Transformer>,
     private val scopedTransformations: StateSubject<Set<ScopedTransformation>>,
-    private val executorService: ExecutorService
+    private val scheduler: Scheduler
 ) : TransformerCoordinator {
 
     override fun transform(
@@ -30,7 +30,7 @@ class TransformerCoordinatorImpl(
         dispatchScope: DispatchScope,
         completion: (List<Dispatch>) -> Unit
     ) {
-        Tasks.execute(executorService, dispatches.map { dispatch ->
+        Tasks.execute(scheduler, dispatches.map { dispatch ->
             CompletableTask { onComplete: (Dispatch?) -> Unit ->
                 transform(dispatch, dispatchScope) { transformed ->
                     onComplete(transformed)

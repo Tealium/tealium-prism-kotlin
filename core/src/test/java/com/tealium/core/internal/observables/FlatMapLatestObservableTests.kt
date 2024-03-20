@@ -1,6 +1,7 @@
 package com.tealium.core.internal.observables
 
 import com.tealium.core.internal.observables.ObservableUtils.assertNoSubscribers
+import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.Test
@@ -11,14 +12,12 @@ class FlatMapLatestObservableTests {
 
     @Test
     fun flatMapLatest_EmitsOnlyLatest() {
-        val observerExecutorService: ExecutorService = Executors.newSingleThreadExecutor()
-
         val onNext = mockk<(Int) -> Unit>(relaxed = true)
 
         Observables.just(1, 2, 3)
             .flatMapLatest {
                 Observables.just(it)
-                    .observeOn(observerExecutorService)
+                    .observeOn(testTealiumScheduler)
             }.subscribe(onNext)
 
         verify(inverse = true, timeout = 1000) {

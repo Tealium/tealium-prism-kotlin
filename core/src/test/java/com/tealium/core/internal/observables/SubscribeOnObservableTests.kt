@@ -1,9 +1,12 @@
 package com.tealium.core.internal.observables
 
 import com.tealium.core.api.listeners.Observer
+import com.tealium.core.internal.TealiumScheduler
 import com.tealium.core.internal.observables.ObservableUtils.assertNoSubscribers
 import com.tealium.core.internal.observables.ObservableUtils.getMockObserver
 import com.tealium.core.internal.observables.ObservableUtils.getSubject
+import com.tealium.tests.common.testNetworkScheduler
+import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.spyk
 import io.mockk.verify
 import org.junit.After
@@ -12,14 +15,15 @@ import org.junit.Before
 import org.junit.Test
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
 
 class SubscribeOnObservableTests {
     lateinit var subscribeThread: Thread
-    lateinit var subscribeExecutorService: ExecutorService
+    lateinit var subscribeExecutorService: ScheduledExecutorService
 
     @Before
     fun setUp() {
-        subscribeExecutorService = Executors.newSingleThreadExecutor {
+        subscribeExecutorService = Executors.newSingleThreadScheduledExecutor() {
             subscribeThread = Thread(it, "subscribeThread")
             subscribeThread
         }
@@ -32,6 +36,7 @@ class SubscribeOnObservableTests {
 
     @Test
     fun subscribeOn_Subscribes_OnProvidedThread() {
+        val scheduler = TealiumScheduler(subscribeExecutorService)
         val subscribeHandler: (Observer<Int>) -> Unit = spyk({
             Assert.assertEquals(subscribeThread, Thread.currentThread())
         })
@@ -40,7 +45,7 @@ class SubscribeOnObservableTests {
         )
 
         val observer = getMockObserver<Int>()
-        subject.subscribeOn(subscribeExecutorService)
+        subject.subscribeOn(scheduler)
             .subscribe(observer)
 
         verify(exactly = 1, timeout = 1000) {
@@ -56,7 +61,7 @@ class SubscribeOnObservableTests {
         })
 
         val subject = Observables.publishSubject<Int>()
-        subject.subscribeOn(subscribeExecutorService)
+        subject.subscribeOn(testTealiumScheduler)
             .subscribe(observer)
 
         Thread.sleep(100)
@@ -75,7 +80,7 @@ class SubscribeOnObservableTests {
     fun subscribeOn_DoesNot_EmitValues_WhenSubscriptionDisposed() {
         val observer = getMockObserver<Int>()
         val subject = Observables.publishSubject<Int>()
-        val disposable = subject.subscribeOn(subscribeExecutorService)
+        val disposable = subject.subscribeOn(TealiumScheduler(subscribeExecutorService))
             .subscribe(observer)
 
 

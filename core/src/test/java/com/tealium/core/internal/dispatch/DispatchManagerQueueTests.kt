@@ -45,7 +45,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
             dispatch5,
         )
 
-        executorService.execute {
+        scheduler.execute {
             dispatchManager.startDispatchLoop()
             dispatchManager.track(dispatch1)
         }
@@ -71,7 +71,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
             dispatch3,
             dispatch4,
         )
-        executorService.execute {
+        scheduler.execute {
             dispatchManager.startDispatchLoop()
             dispatchManager.track(dispatch5)
         }
@@ -105,7 +105,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
             dispatch3
         )
 
-        executorService.execute {
+        scheduler.execute {
             dispatchManager.startDispatchLoop()
             dispatchManager.track(dispatch4)
             dispatchManager.track(dispatch5)
@@ -131,7 +131,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
             dispatch4
         )
 
-        executorService.execute {
+        scheduler.execute {
             dispatchManager.startDispatchLoop()
             dispatchManager.track(dispatch5)
         }

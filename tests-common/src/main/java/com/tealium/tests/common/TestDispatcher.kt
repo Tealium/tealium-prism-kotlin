@@ -26,7 +26,7 @@ class TestDispatcher(
             version: String = "1.0",
             dispatchLimit: Int = 1,
             dispatchHandler: ((List<Dispatch>) -> Observable<List<Dispatch>>)? = null
-        ): Dispatcher {
+        ): TestDispatcher {
             return if (dispatchHandler == null)
                 spyk(TestDispatcher(name, version, dispatchLimit))
             else spyk(TestDispatcher(name, version, dispatchLimit, dispatchHandler))

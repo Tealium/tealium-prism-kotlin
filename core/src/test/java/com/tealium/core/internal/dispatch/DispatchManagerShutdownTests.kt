@@ -1,6 +1,7 @@
 package com.tealium.core.internal.dispatch
 
 import com.tealium.core.internal.observables.Observables
+import com.tealium.core.internal.persistence.TimeFrame
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.verify
 import org.junit.Test
@@ -12,9 +13,9 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
     fun dispatchManager_StopsDispatching_WhenLoopCancelled() {
         dispatcher1 = TestDispatcher.mock("dispatcher1") { dispatches ->
             Observables.callback { observer ->
-                executorService.schedule({
+                scheduler.schedule(TimeFrame(500, TimeUnit.MILLISECONDS)) {
                     observer.onNext(dispatches)
-                }, 500, TimeUnit.MILLISECONDS)
+                }
             }
         }
         dispatchers.onNext(setOf(dispatcher1))
@@ -24,7 +25,7 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
 
         dispatchManager = createDispatchManager(maxInFlight = 1)
 
-        executorService.execute {
+        scheduler.execute {
             dispatchManager.startDispatchLoop()
             dispatchManager.track(dispatch2)
             dispatchManager.stopDispatchLoop()
@@ -44,9 +45,9 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
             Observables.callback { observer ->
                 dispatchManager.stopDispatchLoop()
 
-                executorService.schedule({
+                scheduler.schedule(TimeFrame(500, TimeUnit.MILLISECONDS)) {
                     observer.onNext(dispatches)
-                }, 500, TimeUnit.MILLISECONDS)
+                }
             }
         }
         dispatchers.onNext(setOf(dispatcher1))
@@ -60,7 +61,7 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
         dispatchManager.track(dispatch2)
 
         // TODO - maybe a better test than this.
-        executorService.shutdownNow()
+//        scheduler.shutdownNow()
 
         verify(inverse = true, timeout = 5000) {
             dispatcher1.dispatch(listOf(dispatch1))

@@ -26,8 +26,12 @@ public class TealiumJavaHelper {
         Tealium teal = Tealium.create(
                 "",
                 new TealiumConfig(app, "tealiummobile", "android", Environment.DEV,
-                        Collections.singletonList(Modules.Collect)), (tealium, error) -> {
-                    Log.d("", "Ready");
+                        Collections.singletonList(Modules.Collect)), (result) -> {
+                    if(result.isSuccess()) {
+                        Log.d("", "Ready");
+                    } else {
+                        Log.d("", "Tealium failed", result.exceptionOrNull());
+                    }
                 });
         teal.getTrace().join("");
     }

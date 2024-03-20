@@ -15,7 +15,7 @@ class ConsentManagerWrapper(
     private val moduleManager: WeakReference<ModuleManager>
 ) : ConsentManager {
     private val delegate: ConsentManager?
-        get() = moduleManager.get()?.getModuleOfType(ConsentManager::class.java)
+        get() = TODO()//moduleManager.get()?.getModuleOfType(ConsentManager::class.java)
 
     override var consentStatus: ConsentStatus
         get() = delegate?.consentStatus ?: ConsentStatus.Unknown

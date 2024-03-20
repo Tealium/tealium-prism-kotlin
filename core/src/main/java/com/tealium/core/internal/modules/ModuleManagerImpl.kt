@@ -3,134 +3,75 @@ package com.tealium.core.internal.modules
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.Module
 import com.tealium.core.api.ModuleFactory
-import com.tealium.core.api.ModuleManager
+import com.tealium.core.api.Scheduler
+import com.tealium.core.api.listeners.TealiumCallback
 import com.tealium.core.api.settings.ModuleSettings
-import com.tealium.core.internal.settings.ModuleSettingsImpl
-import com.tealium.core.api.settings.SettingsProvider
 import com.tealium.core.internal.SdkSettings
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
-import java.util.concurrent.locks.Lock
-import java.util.concurrent.locks.ReentrantReadWriteLock
+import com.tealium.core.internal.observables.ObservableState
+import com.tealium.core.internal.observables.Observables
+import com.tealium.core.internal.observables.StateSubject
+import com.tealium.core.internal.settings.ModuleSettingsImpl
 
 class ModuleManagerImpl(
-    private val context: TealiumContext,
-    initialSdkSettings: SdkSettings,
     private val moduleFactories: List<ModuleFactory>,
-    private val settingsProvider: SettingsProvider,
-    private val tealiumScope: CoroutineScope
-) : ModuleManager {
+    private val scheduler: Scheduler,
+    private val modulesSubject: StateSubject<Set<Module>> = Observables.stateSubject(setOf())
+) : InternalModuleManager {
 
-    private val updateLock = ReentrantReadWriteLock()
-    private val readLock = updateLock.readLock()
-    private val writeLock = updateLock.writeLock()
+    private var _modules: Map<String, Module> = emptyMap()
 
-    private var modules: Map<String, Module> =
-        createModules(context, initialSdkSettings.moduleSettings, moduleFactories)
-
-    init {
-        logEnabledModules()
-    }
+    override val modules: ObservableState<Set<Module>>
+        get() = modulesSubject.asObservableState()
 
     override fun <T> getModulesOfType(clazz: Class<T>): List<T> {
-        lock(readLock)
-        return try {
-            modules.values.filterIsInstance(clazz)
-        } finally {
-            unlock(readLock)
-        }
+        return _modules.values.filterIsInstance(clazz)
     }
 
     override fun <T> getModuleOfType(clazz: Class<T>): T? {
-        return getModulesOfType(clazz).firstOrNull()
+        for (module in _modules.values) {
+            if (clazz.isInstance(module)) {
+                return clazz.cast(module)
+            }
+        }
+
+        return null
     }
 
-    override fun <T> getModuleOfType(clazz: Class<T>, block: (T?) -> Unit) {
-        tealiumScope.launch {
-            block.invoke(getModuleOfType(clazz))
+    override fun <T> getModuleOfType(clazz: Class<T>, callback: TealiumCallback<T?>) {
+        scheduler.execute {
+            callback.onComplete(getModuleOfType(clazz))
         }
     }
 
-    init {
-        settingsProvider.onSdkSettingsUpdated
-            .subscribe(::updateModuleSettings)
-    }
+    override fun updateModuleSettings(context: TealiumContext, settings: SdkSettings) {
+        // iterate all factories to preserve insertion order
+        val oldModules = _modules
+        val newModules = mutableMapOf<String, Module>()
+        for (factory in moduleFactories) {
+            val oldModule = oldModules[factory.name]
+            val newModule = if (oldModule != null) {
+                // update all existing module settings in case disabled modules need to shut
+                // anything down
+                val updatedModuleSettings = settings.moduleSettings.getOrDefault(factory.name)
+                oldModule.updateSettings(updatedModuleSettings)
+            } else {
+                createModule(
+                    context,
+                    settings.moduleSettings.getOrDefault(factory.name),
+                    factory
+                )
+            }
 
-    private fun updateModuleSettings(settings: SdkSettings) {
-        lock(writeLock)
-
-        try {
-            // iterate all factories to preserve insertion order
-            modules = moduleFactories.mapNotNull { factory ->
-                val module = modules[factory.name]?.let { module ->
-                    // update all existing module settings in case disabled modules need to shut
-                    // anything down
-                    val updatedModuleSettings = settings.moduleSettings.getOrDefault(factory.name)
-                    module.updateSettings(updatedModuleSettings)
-
-                    if (updatedModuleSettings.enabled) module else null
-                } ?: run {
-                    // module was previously disabled, needs creating.
-                    createModule(
-                        context,
-                        settings.moduleSettings.getOrDefault(factory.name),
-                        factory
-                    )
-                }
-
-                if (module != null)
-                    factory.name to module
-                else null
-            }.toMap()
-
-            logEnabledModules()
-        } finally {
-            unlock(writeLock)
+            if (newModule != null) {
+                newModules[factory.name] = newModule
+            }
         }
-    }
+        _modules = newModules
 
-    private fun logEnabledModules() {
-        context.logger.info?.log(
-            "ModuleManager",
-            "Enabled modules: [${modules.keys.joinToString(", ")}]"
-        )
-    }
-
-    /**
-     * Locks a Lock implementation.
-     */
-    private fun lock(lock: Lock) {
-        lock.lock()
-    }
-
-    /**
-     * Unlocks a Lock implementation, discarding any exceptions
-     */
-    private fun unlock(lock: Lock) {
-        try {
-            lock.unlock()
-        } catch (ex: IllegalMonitorStateException) {
-            context.logger.error?.log("Modules", "Unlocking Thread was not the lock owner.")
-        } catch (ex: Exception) {
-            context.logger.error?.log("Modules", "Unlocking failed: ${ex.message}")
-        }
+        modulesSubject.onNext(_modules.values.toSet())
     }
 
     companion object {
-        /**
-         * Instantiates modules from their factories and associates them with the factory name.
-         *
-         * If a module is disabled according to the settings, then it will not be created.
-         */
-        private fun createModules(
-            context: TealiumContext,
-            modulesConfigs: Map<String, ModuleSettings>,
-            factories: List<ModuleFactory>
-        ): Map<String, Module> {
-            return factories.mapNotNull {
-                createModule(context, modulesConfigs.getOrDefault(it.name), it)
-            }.associateBy { it.name }
-        }
 
         private fun createModule(
             context: TealiumContext,

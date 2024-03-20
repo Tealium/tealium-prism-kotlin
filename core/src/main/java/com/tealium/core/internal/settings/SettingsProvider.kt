@@ -1,4 +1,4 @@
-package com.tealium.core.api.settings
+package com.tealium.core.internal.settings
 
 import com.tealium.core.internal.SdkSettings
 import com.tealium.core.internal.observables.ObservableState

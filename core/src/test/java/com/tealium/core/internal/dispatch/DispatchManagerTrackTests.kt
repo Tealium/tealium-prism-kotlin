@@ -4,6 +4,7 @@ import com.tealium.core.api.Dispatch
 import com.tealium.core.api.TealiumDispatchType
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.internal.observables.Observables
+import com.tealium.core.internal.persistence.TimeFrame
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.coVerify
 import io.mockk.verify
@@ -19,13 +20,13 @@ class DispatchManagerTrackTests : DispatchManagerTestsBase() {
     fun dispatchManager_SlowDispatcher_DoesNotDelayOthers() {
         val slowDispatcher = TestDispatcher.mock("dispatcher2") { dispatches ->
             Observables.callback { observer ->
-                executorService.schedule({
+                scheduler.schedule(TimeFrame(500, TimeUnit.MILLISECONDS)) {
                     observer.onNext(dispatches)
-                }, 500, TimeUnit.MILLISECONDS)
+                }
             }
         }
 
-        executorService.execute {
+        scheduler.execute {
             dispatchers.onNext(setOf(dispatcher1, slowDispatcher))
             queue[dispatcher1.name] = mutableSetOf(
                 dispatch1,
@@ -65,13 +66,13 @@ class DispatchManagerTrackTests : DispatchManagerTestsBase() {
     fun dispatchManager_SendsMultipleDispatchesInFlight_WhenDelayed() {
         dispatcher1 = TestDispatcher.mock("dispatcher1") { dispatches ->
             Observables.callback { observer ->
-                executorService.schedule({
+                scheduler.schedule(TimeFrame(500, TimeUnit.MILLISECONDS)) {
                     observer.onNext(dispatches)
-                }, 500, TimeUnit.MILLISECONDS)
+                }
             }
         }
 
-        executorService.execute {
+        scheduler.execute {
             dispatchers.onNext(setOf(dispatcher1))
             queue[dispatcher1.name] = mutableSetOf(
                 dispatch1,

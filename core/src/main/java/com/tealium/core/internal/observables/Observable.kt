@@ -1,5 +1,6 @@
 package com.tealium.core.internal.observables
 
+import com.tealium.core.api.Scheduler
 import com.tealium.core.api.listeners.Disposable
 import com.tealium.core.api.listeners.Observer
 import com.tealium.core.api.listeners.Subscribable
@@ -16,7 +17,6 @@ import com.tealium.core.internal.observables.impl.SubscribeOnObservable
 import com.tealium.core.internal.observables.impl.TakeObservable
 import com.tealium.core.internal.observables.impl.TakeWhileObservable
 import java.util.Objects
-import java.util.concurrent.ExecutorService
 
 /**
  * Base class for observable implementations - provides methods for built in intermediate operations.
@@ -124,17 +124,17 @@ interface Observable<T> : Subscribable<T> {
     }
 
     /**
-     * Returns an observable that performs the subscription on the given [executor]
+     * Returns an observable that performs the subscription on the given [scheduler]
      */
-    fun subscribeOn(executor: ExecutorService): Observable<T> {
-        return SubscribeOnObservable(this, executor)
+    fun subscribeOn(scheduler: Scheduler): Observable<T> {
+        return SubscribeOnObservable(this, scheduler)
     }
 
     /**
-     * Returns an observable that propagates emissions downstream on the given [executor]
+     * Returns an observable that propagates emissions downstream on the given [scheduler]
      */
-    fun observeOn(executor: ExecutorService): Observable<T> {
-        return ObserveOnObservable(this, executor)
+    fun observeOn(scheduler: Scheduler): Observable<T> {
+        return ObserveOnObservable(this, scheduler)
     }
 
     /**

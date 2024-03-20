@@ -1,5 +1,6 @@
 package com.tealium.core.internal.observables
 
+import com.tealium.core.api.Scheduler
 import com.tealium.core.api.listeners.Disposable
 import java.util.concurrent.ExecutorService
 
@@ -81,14 +82,14 @@ class Subscription(
  * Implementation of [Disposable] that disposes of the subscription on the given [ExecutorService]
  */
 class AsyncSubscription(
-    private val disposeOn: ExecutorService,
+    private val disposeOn: Scheduler,
     var subscription: Disposable? = null
-): BaseDisposable(), Disposable {
+): BaseDisposable() {
 
     override fun dispose() {
         if (isDisposed) return
 
-        disposeOn.submit {
+        disposeOn.execute {
             subscription?.dispose()
         }
         super.dispose()
@@ -107,5 +108,22 @@ class SubscriptionWrapper(
 
         subscription?.dispose()
         super.dispose()
+    }
+}
+
+/**
+ * Simple [Disposable] implementation that wraps a [Runnable]. Disposal will cancel future execution
+ * of the wrapped [Runnable] but it will not interrupt it if currently executing or has already
+ * finished executing.
+ */
+class DisposableRunnable(
+    private val wrappedRunnable: Runnable
+    //TODO - consider possible callback to also remove from executor/handler queue
+) : BaseDisposable(), Runnable {
+
+    override fun run() {
+        if (isDisposed) return
+
+        wrappedRunnable.run()
     }
 }

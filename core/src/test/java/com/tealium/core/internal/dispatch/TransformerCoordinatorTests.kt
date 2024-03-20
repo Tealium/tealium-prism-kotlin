@@ -5,6 +5,7 @@ import com.tealium.core.api.DispatchScope
 import com.tealium.core.api.Transformer
 import com.tealium.core.internal.observables.Observables
 import com.tealium.core.internal.observables.StateSubject
+import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.MockKAnnotations
 import io.mockk.Ordering
 import io.mockk.every
@@ -80,7 +81,7 @@ class TransformerCoordinatorTests {
             TransformerCoordinatorImpl(
                 registeredTransformers,
                 scopedTransformations,
-                executorService
+                testTealiumScheduler
             )
     }
 
@@ -211,7 +212,7 @@ class TransformerCoordinatorTests {
         val transformerCoordinator = TransformerCoordinatorImpl(
             registeredTransformers + setOf(mockTransformerDuplicate),
             scopedTransformations,
-            executorService
+            testTealiumScheduler
         )
 
         transformerCoordinator.transform(

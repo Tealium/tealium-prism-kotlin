@@ -2,6 +2,7 @@ package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.BarrierState
 import com.tealium.core.internal.observables.Observables
+import com.tealium.core.internal.persistence.TimeFrame
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.verify
 import io.mockk.every
@@ -61,9 +62,9 @@ class DispatchManagerBarrierTests: DispatchManagerTestsBase() {
                 barrierFlow.onNext(BarrierState.Closed)
                 dispatchManager.track(dispatch2)
 
-                executorService.schedule({
+                scheduler.schedule(TimeFrame(100, TimeUnit.MILLISECONDS)) {
                     observer.onNext(it)
-                }, 100, TimeUnit.MILLISECONDS)
+                }
             }
         })
         dispatchers.onNext(setOf(dispatcher1))
@@ -87,9 +88,9 @@ class DispatchManagerBarrierTests: DispatchManagerTestsBase() {
             Observables.callback { observer ->
                 barrierFlow.onNext(BarrierState.Closed)
 
-                executorService.schedule({
+                scheduler.schedule(TimeFrame(2000, TimeUnit.MILLISECONDS)) {
                     observer.onNext(it)
-                }, 2000, TimeUnit.MILLISECONDS)
+                }
             }
         })
         dispatchers.onNext(setOf(dispatcher1))

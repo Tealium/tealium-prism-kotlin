@@ -25,6 +25,26 @@ class TakeObservableTests {
     }
 
     @Test
+    fun take_AutomaticallyDisposes_And_StopsEmitting() {
+        val subject = Observables.publishSubject<Int>()
+        val onNext = mockk<(Int) -> Unit>(relaxed = true)
+
+        subject.take(1)
+            .subscribe(onNext)
+
+        subject.onNext(1)
+        subject.onNext(2)
+
+        subject.assertNoSubscribers()
+        verify {
+            onNext(1)
+        }
+        verify(inverse = true) {
+            onNext(2)
+        }
+    }
+
+    @Test
     fun take_Dispose_StopsEmitting() {
         val subject = Observables.publishSubject<Int>()
         val onNext = mockk<(Int) -> Unit>(relaxed = true)
@@ -43,7 +63,6 @@ class TakeObservableTests {
         }
         verify(inverse = true) {
             onNext(2)
-            onNext(3)
         }
     }
 }

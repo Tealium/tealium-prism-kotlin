@@ -2,213 +2,95 @@ package com.tealium.core.internal
 
 import com.tealium.core.BuildConfig
 import com.tealium.core.TealiumContext
+import com.tealium.core.api.Collector
 import com.tealium.core.api.DataLayer
+import com.tealium.core.api.DataStore
+import com.tealium.core.api.Expiry
 import com.tealium.core.api.Module
 import com.tealium.core.api.ModuleFactory
 import com.tealium.core.api.ModuleManager
 import com.tealium.core.api.settings.ModuleSettings
-import com.tealium.core.api.Subscribable
 import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumList
 import com.tealium.core.api.data.TealiumValue
-import org.json.JSONArray
-import org.json.JSONObject
-import java.lang.ref.WeakReference
+import com.tealium.core.api.listeners.Subscribable
+import com.tealium.core.api.listeners.TealiumCallback
+import com.tealium.core.internal.modules.ModuleProxy
+import com.tealium.core.internal.observables.Observable
 
 class DataLayerWrapper(
-    private val moduleManager: WeakReference<ModuleManager>
+    private val moduleProxy: ModuleProxy<DataLayerImpl>
 ) : DataLayer {
-    private val delegate: DataLayer?
-        get() = moduleManager.get()?.getModuleOfType(DataLayer::class.java)
+    constructor(
+        moduleManager: ModuleManager
+    ) : this(ModuleProxy(DataLayerImpl::class.java, moduleManager))
 
-    override fun put(key: String, value: TealiumValue) {
-        delegate?.put(key, value)
+    override fun edit(block: TealiumCallback<DataStore.Editor>) {
+        moduleProxy.getModule { dataLayer ->
+            dataLayer?.edit {
+                block.onComplete(it)
+            }
+        }
     }
 
-    override fun put(key: String, value: String) {
-        delegate?.put(key, value)
+    override fun put(bundle: TealiumBundle, expiry: Expiry) {
+        moduleProxy.getModule { dataLayer ->
+            dataLayer?.edit {
+                it.putAll(bundle, expiry)
+            }
+        }
     }
 
-    override fun put(key: String, value: Int) {
-        delegate?.put(key, value)
-    }
-
-    override fun put(key: String, value: Float) {
-        delegate?.put(key, value)
-    }
-
-    override fun put(key: String, value: Long) {
-        delegate?.put(key, value)
-    }
-
-    override fun put(key: String, value: Double) {
-        delegate?.put(key, value)
-    }
-
-    override fun put(key: String, value: Boolean) {
-        delegate?.put(key, value)
-    }
-
-    override fun put(key: String, value: TealiumBundle) {
-        delegate?.put(key, value)
-    }
-
-    override fun put(key: String, value: TealiumList) {
-        delegate?.put(key, value)
-    }
-
-    override fun put(key: String, value: JSONObject) {
-        delegate?.put(key, value)
-    }
-
-    override fun put(key: String, value: JSONArray) {
-        delegate?.put(key, value)
-    }
-
-    override fun put(bundle: TealiumBundle) {
-        delegate?.put(bundle)
-    }
-
-    override fun put(block: TealiumBundle.Builder.() -> Unit) {
-        delegate?.put(block)
-    }
-
-    override fun put(key: String, value: Array<String>) {
-        delegate?.put(key, value)
-    }
-
-    override fun put(key: String, value: Array<Float>) {
-        delegate?.put(key, value)
-    }
-
-    override fun put(key: String, value: Array<Long>) {
-        delegate?.put(key, value)
-    }
-
-    override fun put(key: String, value: Array<Double>) {
-        delegate?.put(key, value)
-    }
-
-    override fun put(key: String, value: Array<Int>) {
-        delegate?.put(key, value)
-    }
-
-    override fun put(key: String, value: Array<Boolean>) {
-        delegate?.put(key, value)
+    override fun get(key: String, callback: TealiumCallback<TealiumValue?>) {
+        moduleProxy.getModule { dataLayer ->
+            val value = dataLayer?.get(key)
+            callback.onComplete(value)
+        }
     }
 
     override fun remove(key: String) {
-        delegate?.remove(key)
+        moduleProxy.getModule { dataLayer ->
+            dataLayer?.edit {
+                remove(key)
+            }
+        }
     }
 
-    override val onDataUpdated: Subscribable<DataLayer.DataLayerUpdatedListener>
-        get() = delegate?.onDataUpdated ?: throw Exception()
-    override val onDataRemoved: Subscribable<DataLayer.DataLayerRemovedListener>
-        get() = delegate?.onDataRemoved ?: throw Exception()
+    override val onDataUpdated: Subscribable<TealiumBundle>
+        get() = moduleProxy.getModule()
+            .flatMap { it.onDataUpdated }
+
+    override val onDataRemoved: Subscribable<List<String>>
+        get() = moduleProxy.getModule()
+            .flatMap { it.onDataRemoved }
 }
 
 class DataLayerImpl(
-    context: TealiumContext
-) : DataLayer, Module {
-    private val data = mutableMapOf<String, Any>()
+    private val dataStore: DataStore,
+) : Collector {
 
-    override val onDataUpdated: Subscribable<DataLayer.DataLayerUpdatedListener>
-        get() = TODO () //_onDataUpdated
-    override val onDataRemoved: Subscribable<DataLayer.DataLayerRemovedListener>
-        get() =  TODO () //_onDataRemoved
-
-    override fun put(key: String, value: TealiumValue) {
-
-    }
-
-    override fun put(key: String, value: String) {
-        data[key] = value
-    }
-
-    override fun put(key: String, value: Int) {
-
-    }
-
-    override fun put(key: String, value: Float) {
-
-    }
-
-    override fun put(key: String, value: Long) {
-
-    }
-
-    override fun put(key: String, value: Double) {
-
-    }
-
-    override fun put(key: String, value: Boolean) {
-
-    }
-
-    override fun put(key: String, value: TealiumBundle) {
-
-    }
-
-    override fun put(key: String, value: TealiumList) {
-
-    }
-
-    override fun put(key: String, value: JSONObject) {
-
-    }
-
-    override fun put(key: String, value: JSONArray) {
-
-    }
-
-    override fun put(bundle: TealiumBundle) {
-        // do something
-    }
-
-    // TODO - could separate to a `-ktx` module
-    override fun put(block: TealiumBundle.Builder.() -> Unit) {
-        val builder = TealiumBundle.Builder()
-        block.invoke(builder)
-        put(builder.getBundle())
-    }
-
-    override fun put(key: String, value: Array<String>) {
-        TODO("Not yet implemented")
-    }
-
-    override fun put(key: String, value: Array<Float>) {
-        TODO("Not yet implemented")
-    }
-
-    override fun put(key: String, value: Array<Long>) {
-        TODO("Not yet implemented")
-    }
-
-    override fun put(key: String, value: Array<Double>) {
-        TODO("Not yet implemented")
-    }
-
-    override fun put(key: String, value: Array<Int>) {
-        TODO("Not yet implemented")
-    }
-
-    override fun put(key: String, value: Array<Boolean>) {
-        TODO("Not yet implemented")
-    }
-
-    override fun remove(key: String) {
-        val removed = data.remove(key)
-
-        if (removed != null) {
-
-        }
-    }
+    val onDataUpdated: Observable<TealiumBundle>
+        get() = dataStore.onDataUpdated
+    val onDataRemoved: Observable<List<String>>
+        get() = dataStore.onDataRemoved
 
     override val name: String
         get() = moduleName
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
+    fun edit(block: (DataStore.Editor) -> Unit) {
+        dataStore.edit()
+            .apply(block)
+            .commit()
+    }
+
+    override fun collect(): TealiumBundle {
+        return dataStore.getAll()
+    }
+
+    fun get(key: String): TealiumValue? {
+        return dataStore.get(key)
+    }
 
     companion object : ModuleFactory {
         private const val moduleName = "DataLayer"
@@ -217,7 +99,8 @@ class DataLayerImpl(
             get() = moduleName
 
         override fun create(context: TealiumContext, settings: ModuleSettings): Module? {
-            return DataLayerImpl(context)
+            val dataStore = context.storageProvider.getModuleStore(this)
+            return DataLayerImpl(dataStore)
         }
     }
 }

@@ -1,5 +1,7 @@
 package com.tealium.core.internal.dispatch
 
+import com.tealium.core.internal.TealiumScheduler
+import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.mockk
 import io.mockk.spyk
 import io.mockk.verify
@@ -42,15 +44,16 @@ class TasksTests {
     @Test
     fun taskGroup_NotifiesOn_GivenExecutor() {
         var notifyThread: Thread? = null
-        val executorService = Executors.newSingleThreadExecutor {
+        val executorService = Executors.newSingleThreadScheduledExecutor() {
             notifyThread = Thread(it, "notifyThread")
             notifyThread!!
         }
+        val scheduler = TealiumScheduler(executorService)
         val notify: (List<Int>) -> Unit = spyk({
             Assert.assertEquals(notifyThread, Thread.currentThread())
         })
 
-        Tasks.execute(notifyOn = executorService, listOf(
+        Tasks.execute(notifyOn = scheduler, listOf(
             syncTask(1),
             syncTask(2),
             syncTask(3)
@@ -65,7 +68,7 @@ class TasksTests {
     fun taskGroup_ExecutesSynchronously_WhenPossible() {
         val notify = mockk<(List<Int>) -> Unit>()
 
-        Tasks.execute(notifyOn = executorService, listOf(
+        Tasks.execute(notifyOn = testTealiumScheduler, listOf(
             syncTask(1),
             syncTask(2),
             syncTask(3)
@@ -80,7 +83,7 @@ class TasksTests {
     fun taskGroup_Notifies_When_AllTasksAreCompleted() {
         val notify = mockk<(List<Int>) -> Unit>()
 
-        Tasks.execute(notifyOn = executorService, listOf(
+        Tasks.execute(notifyOn = testTealiumScheduler, listOf(
             asyncTask(1, 1000, TimeUnit.MILLISECONDS),
             syncTask(2),
             syncTask(3)
@@ -98,7 +101,7 @@ class TasksTests {
     fun taskGroup_NotifiesResults_InOriginalOrder() {
         val notify = mockk<(List<Int>) -> Unit>()
 
-        Tasks.execute(notifyOn = executorService, listOf(
+        Tasks.execute(notifyOn = testTealiumScheduler, listOf(
             asyncTask(1, 100, TimeUnit.MILLISECONDS),
             asyncTask(2, 200, TimeUnit.MILLISECONDS),
             asyncTask(3, 300, TimeUnit.MILLISECONDS),

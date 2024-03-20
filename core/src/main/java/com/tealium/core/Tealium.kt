@@ -1,17 +1,14 @@
 package com.tealium.core
 
 import com.tealium.core.api.*
+import com.tealium.core.api.listeners.TealiumCallback
 import com.tealium.core.api.listeners.TrackResultListener
 import com.tealium.core.internal.*
+import java.util.concurrent.Executors
 
 interface Tealium {
 
-    fun interface OnTealiumReady {
-        fun onReady(tealium: Tealium, exception: Exception?)
-    }
-
     val modules: ModuleManager
-
     val trace: TraceManager
     val deeplink: DeeplinkManager
     val timedEvents: TimedEventsManager
@@ -27,20 +24,47 @@ interface Tealium {
     fun flushEventQueue()
 
     companion object {
-        private val instances = mutableMapOf<String, TealiumImpl>()
+        private val instances = mutableMapOf<String, TealiumProxy>()
+        private val tealiumExecutor by lazy {
+            Executors.newSingleThreadScheduledExecutor()
+        }
+        private val ioExecutor by lazy {
+            Executors.newCachedThreadPool()
+        }
 
         @JvmStatic
         fun default(): Tealium? {
             return instances.values.firstOrNull()
         }
 
+        /**
+         * Creates a new [Tealium] instance
+         */
         @JvmStatic
         fun create(
             name: String,
             config: TealiumConfig,
-            onReady: OnTealiumReady
         ): Tealium {
-            return TealiumImpl(config, onReady).also {
+            return create(name, config, null)
+        }
+
+        /**
+         * Creates a new [Tealium] instance
+         */
+        @JvmStatic
+        fun create(
+            name: String,
+            config: TealiumConfig,
+            onReady: TealiumCallback<TealiumResult<Tealium>>?
+        ): Tealium {
+            return TealiumProxy(
+                config,
+                onReady,
+                TealiumScheduler(tealiumExecutor),
+                {
+                    IoScheduler(ioExecutor, tealiumExecutor)
+                }
+            ).also {
                 instances[name] = it
             }
         }

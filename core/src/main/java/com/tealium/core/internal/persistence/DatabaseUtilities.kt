@@ -4,6 +4,7 @@ package com.tealium.core.internal.persistence
 
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
+import com.tealium.core.internal.persistence.Serialization
 
 /**
  * Handles all begin/end transaction calls, wrapping all SQL statements made by the [block] in a

@@ -1,6 +1,7 @@
 package com.tealium.core.internal.dispatch
 
 import com.tealium.core.internal.observables.Observables
+import com.tealium.core.internal.persistence.TimeFrame
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.coVerify
 import io.mockk.spyk
@@ -34,9 +35,9 @@ class DispatchManagerDispatchersListTests : DispatchManagerTestsBase() {
                     dispatchers.onNext(setOf(dispatcher2))
                     dispatchManager.track(dispatch2)
 
-                    executorService.schedule({
+                    scheduler.schedule(TimeFrame(100, TimeUnit.MILLISECONDS)) {
                         observer.onNext(it)
-                    }, 100, TimeUnit.MILLISECONDS)
+                    }
                 }
             })
             dispatchers.onNext(setOf(dispatcher1, dispatcher2))
@@ -65,9 +66,9 @@ class DispatchManagerDispatchersListTests : DispatchManagerTestsBase() {
                 dispatchers.onNext(setOf())
                 dispatchManager.track(dispatch2)
 
-                executorService.schedule({
+                scheduler.schedule(TimeFrame(100, TimeUnit.MILLISECONDS)) {
                     observer.onNext(it)
-                }, 100, TimeUnit.MILLISECONDS)
+                }
             }
         })
         dispatchers.onNext(setOf(dispatcher1))
@@ -91,9 +92,9 @@ class DispatchManagerDispatchersListTests : DispatchManagerTestsBase() {
             Observables.callback { observer ->
                 dispatchers.onNext(setOf())
 
-                executorService.schedule({
+                scheduler.schedule(TimeFrame(2000, TimeUnit.MILLISECONDS)) {
                     observer.onNext(it)
-                }, 2000, TimeUnit.MILLISECONDS)
+                }
             }
         })
         dispatchers.onNext(setOf(dispatcher1))
