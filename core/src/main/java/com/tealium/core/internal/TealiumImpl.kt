@@ -13,12 +13,16 @@ import com.tealium.core.api.listeners.TrackResultListener
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.NetworkUtilities
 import com.tealium.core.internal.dispatch.BarrierCoordinatorImpl
+import com.tealium.core.internal.dispatch.BarrierScope
 import com.tealium.core.internal.dispatch.DispatchManagerImpl
+import com.tealium.core.internal.dispatch.ScopedBarrier
 import com.tealium.core.internal.dispatch.TransformerCoordinatorImpl
 import com.tealium.core.internal.dispatch.VolatileQueueManagerImpl
+import com.tealium.core.internal.modules.CollectDispatcher
 import com.tealium.core.internal.modules.InternalModuleManager
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import com.tealium.core.internal.modules.TealiumCollector
+import com.tealium.core.internal.network.ConnectivityBarrier
 import com.tealium.core.internal.network.ConnectivityInterceptor
 import com.tealium.core.internal.network.ConnectivityRetriever
 import com.tealium.core.internal.network.HttpClient
@@ -101,7 +105,13 @@ class TealiumImpl(
         dispatchManager = DispatchManagerImpl(
             consentManager = com.tealium.core.internal.consent.ConsentManagerImpl(),
             // TODO - Load default barriers
-            barrierCoordinator = BarrierCoordinatorImpl(setOf(), setOf()),
+            barrierCoordinator = BarrierCoordinatorImpl(
+                setOf(
+                    ConnectivityBarrier(ConnectivityRetriever.getInstance(config.application).onConnectionStatusUpdated)
+                ), setOf(
+                    ScopedBarrier(ConnectivityBarrier.BARRIER_ID, setOf(BarrierScope.Dispatcher(CollectDispatcher.moduleName)))
+                )
+            ),
             // TODO - load transformers
             transformerCoordinator = TransformerCoordinatorImpl(
                 setOf(),
