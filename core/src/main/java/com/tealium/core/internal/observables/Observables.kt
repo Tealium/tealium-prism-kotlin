@@ -11,7 +11,7 @@ import com.tealium.core.internal.observables.impl.IterableObservable
 object Observables {
     @JvmStatic
     fun <T> create(subscriptionHandler: (Observer<T>) -> Disposable): Observable<T> {
-        return CustomObservable<T>(subscriptionHandler)
+        return CustomObservable<T>(null, subscriptionHandler)
     }
 
     /**
@@ -41,10 +41,25 @@ object Observables {
      *
      * When subscribing, new subscribers will receive up to [cacheSize] past emissions, in
      * sequential order.
+     *
+     * @param cacheSize The maximum number of entries to replay to subscribers. Negative values will
+     * be treated as an unbounded cache.
      */
     @JvmStatic
     fun <T> replaySubject(cacheSize: Int): ReplaySubject<T> {
         return ReplaySubjectImpl(cacheSize)
+    }
+
+    /**
+     * Returns an observable subject that emits values to any subscribers at the time of the
+     * emission.
+     *
+     * When subscribing, new subscribers will receive all past emissions, in sequential order.
+     * The cache size is unbounded.
+     */
+    @JvmStatic
+    fun <T> replaySubject(): ReplaySubject<T> {
+        return ReplaySubjectImpl(-1)
     }
 
     /**

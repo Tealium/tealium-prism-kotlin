@@ -3,6 +3,7 @@ package com.tealium.core.internal
 import com.tealium.core.BuildConfig
 import com.tealium.core.TealiumConfig
 import com.tealium.core.TealiumContext
+import com.tealium.core.api.ActivityManager
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.Dispatcher
 import com.tealium.core.api.ModuleFactory
@@ -51,6 +52,7 @@ class TealiumImpl(
         getDefaultModules() + config.modules,
         tealiumScheduler
     ),
+    private val activityManager: ActivityManager = ActivityManagerProxy()
 ) {
     private val schedulers: Schedulers
     private val settings: StateSubject<SdkSettings>
@@ -140,7 +142,8 @@ class TealiumImpl(
                 network = networkUtilities,
                 settingsProvider = settingsManager,
                 tracker = tracker,
-                schedulers = schedulers
+                schedulers = schedulers,
+                activityManager = activityManager
             )
 
         moduleManager.updateModuleSettings(tealiumContext, settings.value)

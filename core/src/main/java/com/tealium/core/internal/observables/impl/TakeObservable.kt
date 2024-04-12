@@ -33,11 +33,11 @@ class TakeObservable<T>(
         override fun onNext(value: T) {
             if (disposable.isDisposed) return
 
-            if (++observed <= count) {
-                observer.onNext(value)
-            } else {
+            if (++observed >= count) {
                 disposable.dispose()
             }
+
+            observer.onNext(value)
         }
     }
 }

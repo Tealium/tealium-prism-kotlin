@@ -46,7 +46,22 @@ interface StateSubject<T>: Subject<T>, ObservableState<T> {
  * New values can be emitted to subscribers via the [Observer.onNext] method.
  */
 interface ReplaySubject<T>: Subject<T> {
+
+    /**
+     * Removes all currently cached values from this [Subject]. Future subscribers will no longer
+     * received the current entries upon subscribing.
+     */
     fun clear()
+
+    /**
+     * Resizes the max cache size to the given [size]. If the new [size] is smaller than the current
+     * cache size, then old entries will be evicted to make space.
+     *
+     * Negative values will be treated as an unbounded replay cache.
+     *
+     * @param size the new max size of the replay cache
+     */
+    fun resize(size: Int)
 }
 
 
@@ -172,15 +187,35 @@ class StateSubjectImpl<T>(
  * subscription
  * */
 class ReplaySubjectImpl<T>(
-    private val cacheSize: Int,
+    cacheSize: Int,
     private val cache: Queue<T> = LinkedList()
 ) : BaseSubjectImpl<T>(), ReplaySubject<T> {
 
+    private var cacheSize = standardizeSize(cacheSize)
+
     override fun clear() {
-        cache.clear()
+        synchronized(this) {
+            cache.clear()
+        }
+    }
+
+    override fun resize(size: Int) {
+        synchronized(this) {
+            val newSize = standardizeSize(size)
+
+            while (cache.size > newSize) {
+                cache.poll() ?: break
+            }
+
+            cacheSize = newSize
+        }
     }
 
     override fun onBeforeNext(t: T) {
+        if (cacheSize == 0) {
+            return
+        }
+
         if (cache.size >= cacheSize) {
             cache.poll()
         }
@@ -192,6 +227,13 @@ class ReplaySubjectImpl<T>(
         for (value in cache) {
             observer.onNext(value)
         }
+    }
+
+    /**
+     * Returns a non-negative value for the given [size].
+     */
+    private fun standardizeSize(size: Int): Int {
+        return if (size < 0) Int.MAX_VALUE else size
     }
 }
 

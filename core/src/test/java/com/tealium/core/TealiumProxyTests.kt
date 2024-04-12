@@ -1,12 +1,20 @@
 package com.tealium.core
 
+import android.app.Activity
 import android.app.Application
+import com.tealium.core.api.ActivityManager
+import com.tealium.core.api.Module
 import com.tealium.core.api.PersistenceException
 import com.tealium.core.api.TealiumResult
+import com.tealium.core.api.listeners.Observer
 import com.tealium.core.api.listeners.TealiumCallback
+import com.tealium.core.internal.ActivityManagerImpl
+import com.tealium.core.internal.observables.Observable
 import com.tealium.core.internal.persistence.DatabaseProvider
+import com.tealium.tests.common.TestModuleFactory
 import com.tealium.tests.common.createTealiumProxy
 import com.tealium.tests.common.getDefaultConfig
+import io.mockk.Ordering
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -20,10 +28,12 @@ import org.robolectric.RuntimeEnvironment
 class TealiumProxyTests {
 
     lateinit var app: Application
+
     @Before
     fun setUp() {
         app = RuntimeEnvironment.getApplication()
     }
+
     @Test
     fun tealium_ReturnsErrorOnReady_WhenDatabaseFailsToInitialize() {
         val exception = Exception()
@@ -40,6 +50,86 @@ class TealiumProxyTests {
                         && thrown is PersistenceException
                         && thrown.cause == exception
             })
+        }
+    }
+
+    @Test
+    fun tealium_Notifies_ApplicationSubscriberModules_IfSubscribed_AtLaunch() {
+        val appObserver = mockk<Observer<ActivityManager.ApplicationStatus>>(relaxed = true)
+        val appAwareModuleFactory = TestModuleFactory("app-aware-module") { ctx, _ ->
+            ObserverModule(
+                ctx.activityManager.applicationStatus,
+                appObserver
+            )
+        }
+
+        val activityCallbacks = ActivityManagerImpl.ActivityCallbacks(app)
+        val activityManager = ActivityManagerImpl(app, activityMonitor = activityCallbacks)
+        val activity = mockk<Activity>()
+        every { activity.isChangingConfigurations } returns false
+
+        // pre-load an init foregrounded, and backgrounded event
+        activityCallbacks.onActivityResumed(activity)
+        activityCallbacks.onActivityStopped(activity)
+
+        createTealiumProxy(
+            getDefaultConfig(app, modules = listOf(appAwareModuleFactory)),
+            null,
+            activityManager = activityManager
+        )
+
+        verify(timeout = 2500, ordering = Ordering.ORDERED) {
+            appObserver.onNext(match { it is ActivityManager.ApplicationStatus.Init })
+            appObserver.onNext(match { it is ActivityManager.ApplicationStatus.Foregrounded })
+            appObserver.onNext(match { it is ActivityManager.ApplicationStatus.Backgrounded })
+        }
+    }
+
+    @Test
+    fun tealium_Notifies_ActivitySubscriberModules_IfSubscribed_AtLaunch() {
+        val appObserver = mockk<Observer<ActivityManager.ActivityStatus>>(relaxed = true)
+        val appAwareModuleFactory = TestModuleFactory("activity-aware-module") { ctx, _ ->
+            ObserverModule(
+                ctx.activityManager.activities,
+                appObserver
+            )
+        }
+
+        val activityCallbacks = ActivityManagerImpl.ActivityCallbacks(app)
+        val activityManager = ActivityManagerImpl(app, activityMonitor = activityCallbacks)
+        val activity = mockk<Activity>()
+        every { activity.isChangingConfigurations } returns false
+
+        // pre-load an init foregrounded, and backgrounded event
+        activityCallbacks.onActivityResumed(activity)
+        activityCallbacks.onActivityStopped(activity)
+
+        createTealiumProxy(
+            getDefaultConfig(app, modules = listOf(appAwareModuleFactory)),
+            null,
+            activityManager = activityManager
+        )
+
+        verify(timeout = 2500, ordering = Ordering.ORDERED) {
+            appObserver.onNext(match {
+                it.activity == activity
+                        && it.type == ActivityManager.ActivityLifecycleType.Resumed
+            })
+            appObserver.onNext(match {
+                it.activity == activity
+                        && it.type == ActivityManager.ActivityLifecycleType.Stopped
+            })
+        }
+    }
+
+    private class ObserverModule<T>(
+        observable: Observable<T>,
+        private val observer: Observer<T>,
+        override val name: String = "observer",
+        override val version: String = "1.0.0"
+    ) : Module, Observer<T> by observer {
+        init {
+            observable.subscribe(this)
         }
     }
 }

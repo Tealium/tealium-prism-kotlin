@@ -2,7 +2,6 @@ package com.tealium.core.internal.settings
 
 import com.tealium.core.TealiumConfig
 import com.tealium.core.api.ActivityManager
-import com.tealium.core.api.ActivityManagerImpl
 import com.tealium.core.api.DataStore
 import com.tealium.core.api.Expiry
 import com.tealium.core.api.data.TealiumBundle
@@ -118,15 +117,14 @@ class SettingsManager(
     fun subscribeToActivityUpdates(): Disposable {
         return activities.subscribe { newStatus ->
             when (newStatus) {
-                ActivityManager.ApplicationStatus.Init -> {
+                is ActivityManager.ApplicationStatus.Init -> {
                     logger.debug?.log(
                         "SettingsManager",
                         "Loading Settings on ApplicationStatus.Init"
                     )
                     refreshRemote()
                 }
-
-                ActivityManager.ApplicationStatus.Foregrounded -> {
+                is ActivityManager.ApplicationStatus.Foregrounded -> {
                     val lastRefreshTime = getLastRefreshTime()
                     val currentTime = timingProvider()
                     if (isTimedOut(currentTime, lastRefreshTime, refreshTimeout)) {

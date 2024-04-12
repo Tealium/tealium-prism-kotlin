@@ -18,7 +18,8 @@ class TealiumContext(
     val network: NetworkUtilities,
     settingsProvider: SettingsProvider,
     val tracker: Tracker,
-    val schedulers: Schedulers
+    val schedulers: Schedulers,
+    val activityManager: ActivityManager
 ) {
     private val _visitorId = visitorId
     val onCoreSettings: Observable<CoreSettings> =

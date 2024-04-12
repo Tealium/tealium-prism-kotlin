@@ -36,6 +36,9 @@ android {
         jvmToolchain {
             languageVersion.set(JavaLanguageVersion.of(8))
         }
+        kotlinOptions {
+            freeCompilerArgs += "-Xjvm-default=all"
+        }
     }
     testOptions {
         unitTests.returnDefaultValues = true

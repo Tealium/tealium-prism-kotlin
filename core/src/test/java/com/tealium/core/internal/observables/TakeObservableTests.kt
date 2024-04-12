@@ -3,6 +3,7 @@ package com.tealium.core.internal.observables
 import com.tealium.core.internal.observables.ObservableUtils.assertNoSubscribers
 import io.mockk.mockk
 import io.mockk.verify
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TakeObservableTests {
@@ -29,10 +30,12 @@ class TakeObservableTests {
         val subject = Observables.publishSubject<Int>()
         val onNext = mockk<(Int) -> Unit>(relaxed = true)
 
-        subject.take(1)
+        val disposable = subject.take(1)
             .subscribe(onNext)
 
         subject.onNext(1)
+        assertTrue(disposable.isDisposed)
+
         subject.onNext(2)
 
         subject.assertNoSubscribers()

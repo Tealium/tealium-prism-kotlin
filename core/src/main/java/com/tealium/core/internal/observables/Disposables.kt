@@ -53,6 +53,8 @@ class DisposableContainer(
     }
 
     override fun add(disposable: Disposable) {
+        if (disposable.isDisposed) return
+
         if (isDisposed) {
             disposable.dispose()
             return
