@@ -12,6 +12,7 @@ import com.tealium.core.api.Scheduler
 import com.tealium.core.api.Schedulers
 import com.tealium.core.api.listeners.TrackResultListener
 import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.network.Connectivity
 import com.tealium.core.api.network.NetworkUtilities
 import com.tealium.core.internal.dispatch.BarrierCoordinatorImpl
 import com.tealium.core.internal.dispatch.BarrierScope
@@ -62,6 +63,7 @@ class TealiumImpl(
     private val tracker: TrackerImpl
     private val tealiumContext: TealiumContext
     private val disposables: CompositeDisposable = DisposableContainer()
+    private val connectivityRetriever: ConnectivityRetriever
 
     init {
         val directoryCreated = makeTealiumDirectory(config)
@@ -96,7 +98,11 @@ class TealiumImpl(
             tealium = tealiumScheduler,
             io = networkScheduler
         )
-        networkUtilities = createNetworkUtilities(config, logger, schedulers)
+
+        connectivityRetriever = ConnectivityRetriever(config.application, tealiumScheduler, logger = logger)
+        connectivityRetriever.subscribe()
+        networkUtilities = createNetworkUtilities(logger, schedulers, connectivityRetriever)
+
         val settingsManager = SettingsManager(
             config,
             networkUtilities.networkHelper,
@@ -109,9 +115,12 @@ class TealiumImpl(
             // TODO - Load default barriers
             barrierCoordinator = BarrierCoordinatorImpl(
                 setOf(
-                    ConnectivityBarrier(ConnectivityRetriever.getInstance(config.application).onConnectionStatusUpdated)
+                    ConnectivityBarrier(connectivityRetriever.onConnectionStatusUpdated)
                 ), setOf(
-                    ScopedBarrier(ConnectivityBarrier.BARRIER_ID, setOf(BarrierScope.Dispatcher(CollectDispatcher.moduleName)))
+                    ScopedBarrier(
+                        ConnectivityBarrier.BARRIER_ID,
+                        setOf(BarrierScope.Dispatcher(CollectDispatcher.moduleName))
+                    )
                 )
             ),
             // TODO - load transformers
@@ -180,6 +189,7 @@ class TealiumImpl(
 
         disposables.dispose()
         dispatchManager.stopDispatchLoop()
+        connectivityRetriever.unsubscribe()
     }
 
     companion object {
@@ -196,18 +206,18 @@ class TealiumImpl(
         }
 
         fun createNetworkUtilities(
-            config: TealiumConfig,
             logger: Logger,
-            schedulers: Schedulers
+            schedulers: Schedulers,
+            connectivity: Connectivity
         ): NetworkUtilities {
             val networkClient = HttpClient(
                 logger = logger,
                 schedulers.tealium,
                 schedulers.io,
-                interceptors = mutableListOf(ConnectivityInterceptor.getInstance(config.application))
+                interceptors = mutableListOf(ConnectivityInterceptor(connectivity))
             )
             return NetworkUtilities(
-                connectivity = ConnectivityRetriever.getInstance(config.application),
+                connectivity = connectivity,
                 networkClient = networkClient,
                 networkHelper = NetworkHelperImpl(networkClient, logger)
             )

@@ -38,17 +38,6 @@ class ConnectivityInterceptorTests {
     }
 
     @Test
-    fun connectivityInterceptor_InstanceIsTheSame() {
-        mockkObject(ConnectivityRetriever.Companion)
-        every { ConnectivityRetriever.getInstance(any()) } returns mockk()
-
-        val interceptor1 = ConnectivityInterceptor.getInstance(mockk())
-        val interceptor2 = ConnectivityInterceptor.getInstance(mockk())
-
-        assertSame(interceptor1, interceptor2)
-    }
-
-    @Test
     fun shouldRetryReturnsRetryAfterEventForNoConnection() {
         val result: NetworkResult = Failure(IOError(mockk()))
         every { connectivity.isConnected() } returns false

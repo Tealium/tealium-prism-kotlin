@@ -5,13 +5,14 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.Build
+import com.tealium.core.api.Scheduler
 import com.tealium.core.api.network.Connectivity
 import com.tealium.core.api.network.Connectivity.ConnectivityType
 import com.tealium.core.internal.observables.Observables
 import com.tealium.core.internal.observables.StateSubject
+import com.tealium.tests.common.SynchronousScheduler
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
-import org.junit.Assert
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -39,6 +40,7 @@ class ConnectivityRetrieverTests {
 
     private lateinit var connectionStatus: StateSubject<Connectivity.Status>
     private lateinit var connectivityRetriever: ConnectivityRetriever
+    private val synchronousScheduler: Scheduler = SynchronousScheduler()
 
     @Before
     fun setup() {
@@ -63,15 +65,7 @@ class ConnectivityRetrieverTests {
         }
 
         connectionStatus = Observables.stateSubject(Connectivity.Status.Connected)
-        connectivityRetriever = ConnectivityRetriever(mockApplication, statusSubject = connectionStatus)
-    }
-
-    @Test
-    fun connectivityReceiver_InstanceIsTheSame() {
-        val connectivity1 = ConnectivityRetriever.getInstance(mockApplication)
-        val connectivity2 = ConnectivityRetriever.getInstance(mockApplication)
-
-        Assert.assertSame(connectivity1, connectivity2)
+        connectivityRetriever = ConnectivityRetriever(mockApplication, statusSubject = connectionStatus, scheduler = synchronousScheduler)
     }
 
     @Test

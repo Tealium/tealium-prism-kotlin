@@ -1,6 +1,5 @@
 package com.tealium.core.internal.network
 
-import android.content.Context
 import com.tealium.core.api.network.Connectivity
 import com.tealium.core.api.network.DoNotRetry
 import com.tealium.core.api.network.Failure
@@ -9,7 +8,6 @@ import com.tealium.core.api.network.Interceptor
 import com.tealium.core.api.network.NetworkResult
 import com.tealium.core.api.network.RetryAfterEvent
 import com.tealium.core.api.network.RetryPolicy
-import com.tealium.core.internal.Singleton
 
 /**
  * The [ConnectivityInterceptor] is an [Interceptor] implementation that uses [Connectivity] to
@@ -18,11 +16,8 @@ import com.tealium.core.internal.Singleton
  * For failures resulting from loss of connectivity, it will await the return of connectivity before
  * retrying.
  *
- * Note. The internal constructor is for testing purposes only, and access to the [ConnectivityInterceptor]
- * should typically be via its [Companion] singleton instead as it is safe to share this between
- * Tealium instances
  */
-class ConnectivityInterceptor internal constructor(
+class ConnectivityInterceptor(
     private val connectivity: Connectivity
 ) : Interceptor {
 
@@ -48,8 +43,4 @@ class ConnectivityInterceptor internal constructor(
     override fun didComplete(request: HttpRequest, result: NetworkResult) {
         // do nothing
     }
-
-    companion object : Singleton<ConnectivityInterceptor, Context>({ context ->
-        ConnectivityInterceptor(ConnectivityRetriever.getInstance(context))
-    })
 }
