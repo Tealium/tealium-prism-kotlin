@@ -67,7 +67,7 @@ object TealiumHelper :
     fun init(application: Application) {
         val config = TealiumConfig(
             application = application,
-            modules = listOf(Modules.VisitorService, Modules.Collect),
+            modules = listOf(Modules.VisitorService, Modules.Collect, Modules.ConnectivityCollector),
             accountName = "tealiummobile",
             profileName = "android",
             environment = Environment.DEV
