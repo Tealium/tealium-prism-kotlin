@@ -1,17 +1,22 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.BarrierState
+import com.tealium.core.api.barriers.BarrierState
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.Dispatcher
 import com.tealium.core.api.Scheduler
 import com.tealium.core.api.TealiumDispatchType
-import com.tealium.core.api.Transformer
+import com.tealium.core.api.transformations.Transformer
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.transformations.ScopedTransformation
 import com.tealium.core.internal.consent.ConsentManager
+import com.tealium.core.internal.modules.InternalModuleManager
 import com.tealium.core.internal.observables.Observables
 import com.tealium.core.internal.observables.StateSubject
 import com.tealium.core.internal.observables.Subject
+import com.tealium.core.internal.persistence.QueueRepository
+import com.tealium.core.internal.persistence.VolatileQueueRepository
+import com.tealium.core.internal.settings.CoreSettings
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestDispatcher
 import com.tealium.tests.common.testTealiumScheduler
@@ -21,10 +26,8 @@ import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.just
 import io.mockk.spyk
-import org.junit.After
 import org.junit.Before
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
 
 /**
  * Test Base class to simplify test groups relating to the Dispatch Manager.
@@ -39,19 +42,27 @@ open class DispatchManagerTestsBase {
     @MockK
     protected lateinit var barrierCoordinator: BarrierCoordinator
 
+    @MockK
+    protected lateinit var moduleManager: InternalModuleManager
+
     protected lateinit var logger: Logger
     protected lateinit var scheduler: Scheduler
+    protected lateinit var dispatcher1Name: String
+    protected lateinit var dispatcher2Name: String
     protected lateinit var dispatcher1: Dispatcher
     protected lateinit var dispatcher2: Dispatcher
     protected lateinit var dispatchers: StateSubject<Set<Dispatcher>>
     protected lateinit var barrierFlow: Subject<BarrierState>
+    protected lateinit var processors: Subject<Set<String>>
     protected lateinit var queueManager: QueueManager
     protected lateinit var queue: MutableMap<String, MutableSet<Dispatch>>
-    protected lateinit var inFlightEvents: MutableMap<String, MutableSet<String>>
+    protected lateinit var queueRepository: QueueRepository
+    protected lateinit var inFlightEvents: StateSubject<Map<String, Set<Dispatch>>>
     protected lateinit var onInFlightEvents: Subject<Map<String, Set<String>>>
     protected lateinit var transformerCoordinator: TransformerCoordinator
     protected lateinit var transformers: MutableSet<Transformer>
     protected lateinit var transformersFlow: StateSubject<Set<ScopedTransformation>>
+    protected lateinit var coreSettings: StateSubject<CoreSettings>
     protected lateinit var dispatchManager: DispatchManagerImpl
 
     protected val dispatch1: Dispatch =
@@ -69,22 +80,29 @@ open class DispatchManagerTestsBase {
         // Consent Defaulted to disabled
         every { consentManager.enabled } returns false
         every { consentManager.applyConsent(any()) } just Runs
+        every { moduleManager.getModuleOfType(ConsentManager::class.java) } returns consentManager
 
         // Two available test dispatchers
-        dispatcher1 = spyk(TestDispatcher("dispatcher_1"))
-        dispatcher2 = spyk(TestDispatcher("dispatcher_2"))
+        dispatcher1Name = "dispatcher_1" // Workaround; spyk in verify blocks fails on `Dispatcher.name`
+        dispatcher2Name = "dispatcher_2" // but direct string values dont.
+        dispatcher1 = spyk(TestDispatcher(dispatcher1Name))
+        dispatcher2 = spyk(TestDispatcher(dispatcher2Name))
         dispatchers = Observables.stateSubject(setOf(dispatcher1, dispatcher2))
 
         // Queue defaulted to empty
         // concurrent due to test async nature.
         queue = ConcurrentHashMap()
-        inFlightEvents = ConcurrentHashMap()
+        queueRepository = VolatileQueueRepository(queue)
+        inFlightEvents = Observables.stateSubject(mutableMapOf())
         onInFlightEvents = Observables.replaySubject(cacheSize = 1)
+        processors = Observables.replaySubject(1)
+        coreSettings = Observables.stateSubject(CoreSettings())
         queueManager = spyk(
-            VolatileQueueManagerImpl(
-                queue = queue,
-                _inFlightEvents = inFlightEvents,
-                _onInFlightEvents = onInFlightEvents
+            QueueManagerImpl(
+                queueRepository = queueRepository,
+                settings = coreSettings,
+                processors = processors,
+                inFlightDispatches = inFlightEvents,
             )
         )
 
@@ -115,7 +133,7 @@ open class DispatchManagerTestsBase {
     }
 
     protected fun createDispatchManager(
-        consentManager: ConsentManager = this.consentManager,
+        moduleManager: InternalModuleManager = this.moduleManager,
         barrierCoordinator: BarrierCoordinator = this.barrierCoordinator,
         transformerCoordinator: TransformerCoordinator = this.transformerCoordinator,
         queueManager: QueueManager = this.queueManager,
@@ -123,7 +141,7 @@ open class DispatchManagerTestsBase {
         logger: Logger = this.logger,
         maxInFlight: Int = DispatchManagerImpl.MAXIMUM_INFLIGHT_EVENTS_PER_DISPATCHER
     ): DispatchManagerImpl = DispatchManagerImpl(
-        consentManager,
+        moduleManager,
         barrierCoordinator,
         transformerCoordinator,
         queueManager,

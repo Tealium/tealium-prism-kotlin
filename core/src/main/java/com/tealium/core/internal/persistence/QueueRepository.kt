@@ -1,14 +1,21 @@
 package com.tealium.core.internal.persistence
 
 import com.tealium.core.api.Dispatch
-import com.tealium.core.api.Dispatcher
+import com.tealium.core.internal.settings.CoreSettings
 
+/**
+ * A repository for managing the persistence of [Dispatch] items to ensure they are not dropped when
+ * a processor is unable to process them immediately.
+ *
+ * This repository supports creating, reading, and deleting [Dispatch] items, associated to given
+ * processors.
+ */
 interface QueueRepository {
 
     /**
      * Returns the current size of the queue considering all dispatches that have not been fully
      * processed.
-     * If a dispatch has remained unprocessed by any of the Dispatchers it is registered for, then
+     * If a dispatch has remained unprocessed by any of the processors it is registered for, then
      * this property will include it in the returned size.
      *
      * @returns The number of dispatches that are not completely processed
@@ -16,61 +23,65 @@ interface QueueRepository {
     val size: Int
 
     /**
-     * Sets the given [dispatchers] as active, deleting any dispatchers not in this list - all queued
-     * Dispatches are also removed for disabled dispatchers
-     *
-     * @param dispatchers The dispatchers to start receiving events.
-     */
-    fun updateDispatchers(dispatchers: List<Dispatcher>)
-
-    /**
-     * Adds the [dispatch]es to the queue, creating entries for all [Dispatcher]s that are currently
-     * registered.
-     *
-     * @param dispatch The dispatch to persist in case we can't yet send it.
-     */
-    fun enqueue(dispatch: Dispatch)
-
-    /**
-     * Adds the [dispatches] to the queue, creating entries for all [Dispatcher]s that are currently
-     * registered.
+     * Adds the [dispatches] to the queue, creating entries for all [processors]s provided.
+     * Note. when executed with existing [dispatches], any entries currently in the queue will be
+     * removed.
      *
      * @param dispatches The dispatches to persist in case we can't yet send them.
+     * @param processors The list of processors to save the [dispatches] for
      */
-    fun enqueue(dispatches: List<Dispatch>)
+    fun storeDispatch(dispatches: List<Dispatch>, processors: Set<String>)
 
     /**
-     * Returns the oldest [count] dispatches for the given [dispatcher].
+     * Returns the oldest [count] dispatches for the given [processor].
      *
      * @param count The maximum number of queued [Dispatch]es to return. If value is negative, then all
      * entries will be returned.
+     * @param processor The name of the processor whose dispatches are being retrieved
      */
-    fun getQueuedDispatches(count: Int, dispatcher: Dispatcher): List<Dispatch>
+    fun getQueuedDispatches(count: Int, processor: String): List<Dispatch>
 
     /**
-     * Removes the given [dispatches] from the queue. This will remove all entries that it has for
-     * all [Dispatcher]s
+     * Returns the oldest [count] dispatches for the given [processor].
      *
-     * @param dispatches The [Dispatch] to remove from the queue
+     * @param count The maximum number of queued [Dispatch]es to return. If value is negative, then all
+     * entries will be returned.
+     * @param excluding The list of dispatches not to be included in the results
+     * @param processor The name of the processor whose dispatches are being retrieved
      */
-    // TODO - not sure this is actually required yet.
-    fun deleteDispatches(dispatches: List<Dispatch>)
+    fun getQueuedDispatches(count: Int, excluding: Set<Dispatch>, processor: String): List<Dispatch>
 
     /**
-     * Removes the given [dispatches] from the queue, only for the given [dispatcher].
+     * Removes the given [dispatch] from the queue, only for the given [processor].
      *
-     *
-     * @param dispatches The [Dispatch] to remove from the queue
+     * @param dispatch The [Dispatch] to remove from the queue
+     * @param processor The name of the processor whose dispatches are to be removed
      */
-    fun deleteDispatch(dispatcher: Dispatcher, dispatch: Dispatch)
+    fun deleteDispatch(dispatch: Dispatch, processor: String)
 
     /**
-     * Removes the given [dispatches] from the queue, only for the given [dispatcher].
+     * Removes the given [dispatches] from the queue, only for the given [processor].
      *
-     *
-     * @param dispatches The [Dispatch] to remove from the queue
+     * @param dispatches The list of [Dispatch] to remove from the queue
+     * @param processor The name of the processor whose dispatches are to be removed
      */
-    fun deleteDispatches(dispatcher: Dispatcher, dispatches: List<Dispatch>)
+    fun deleteDispatches(dispatches: List<Dispatch>, processor: String)
+
+    /**
+     * Removes all [Dispatch] entries currently stored for the given [processor]
+     *
+     * @param processor The name of the processor to clear all stored dispatches.
+     */
+    fun deleteAllDispatches(processor: String)
+
+    /**
+     * Removes all queue entries for any processor **not** in the given list of [forProcessorsNotIn] processors.
+     * That is, it should be called with the current set of processors, thus removing queue entries
+     * for processors that are no longer in use.
+     *
+     * @param forProcessorsNotIn The current set of processors
+     */
+    fun deleteQueues(forProcessorsNotIn: Set<String>)
 
     /**
      * Updates the maximum queue size, deleting the oldest entries where necessary
@@ -78,5 +89,13 @@ interface QueueRepository {
      * @param newSize The new maximum size that the queue can extend to.
      */
     fun resize(newSize: Int)
+
+    /**
+     * Updates the Dispatch expiration that determines how long a Dispatch can remain in the queue
+     * for.
+     *
+     * @see [CoreSettings.expiration]
+     */
+    fun setExpiration(expiration: TimeFrame)
 }
 

@@ -14,7 +14,7 @@ data class SdkSettings(
 
     val coreSettings: CoreSettings
         get() = moduleSettings[CoreSettings.moduleName]?.let {
-            CoreSettings.fromModuleSettings(it)
+            CoreSettings.fromBundle(it.bundle)
         } ?: CoreSettings()
 
     override fun asTealiumValue(): TealiumValue {

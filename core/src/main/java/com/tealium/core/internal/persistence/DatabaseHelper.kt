@@ -5,11 +5,10 @@ import android.database.sqlite.SQLiteException
 import android.database.sqlite.SQLiteOpenHelper
 import com.tealium.core.TealiumConfig
 import com.tealium.core.internal.persistence.Schema.DispatchTable.CREATE_DISPATCH_TABLE
+import com.tealium.core.internal.persistence.Schema.DispatchTable.CREATE_INDEX_TIMESTAMP
 import com.tealium.core.internal.persistence.Schema.QueueTable.CREATE_QUEUE_TABLE
-import com.tealium.core.internal.persistence.Schema.DispatcherTable.CREATE_DISPATCHERS_TABLE
 import com.tealium.core.internal.persistence.Schema.ModuleStorageTable.CREATE_MODULE_STORAGE_TABLE
 import com.tealium.core.internal.persistence.Schema.ModuleTable.CREATE_MODULE_TABLE
-import com.tealium.core.internal.persistence.Schema.DispatchTable.CREATE_TRIGGER_ADD_TO_QUEUE
 import com.tealium.core.internal.persistence.Schema.QueueTable.CREATE_TRIGGER_REMOVE_PROCESSED_DISPATCHES
 import java.io.File
 
@@ -97,12 +96,11 @@ internal class DatabaseHelper(
         }
 
         private fun createV3Tables(db: SQLiteDatabase) {
-            db.execSQL(CREATE_DISPATCHERS_TABLE)
             db.execSQL(CREATE_DISPATCH_TABLE)
+            db.execSQL(CREATE_INDEX_TIMESTAMP)
             db.execSQL(CREATE_QUEUE_TABLE)
             db.execSQL(CREATE_MODULE_TABLE)
             db.execSQL(CREATE_MODULE_STORAGE_TABLE)
-            db.execSQL(CREATE_TRIGGER_ADD_TO_QUEUE)
             db.execSQL(CREATE_TRIGGER_REMOVE_PROCESSED_DISPATCHES)
         }
 

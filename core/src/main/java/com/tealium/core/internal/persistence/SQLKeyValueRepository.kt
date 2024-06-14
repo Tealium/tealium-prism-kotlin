@@ -173,17 +173,11 @@ internal class SQLKeyValueRepository(
         } ?: false
     }
 
-    override fun transactionally(block: (KeyValueRepository) -> Unit) {
-        transactionally({
-            throw it
-        }, block)
-    }
-
+    @Throws(PersistenceException::class)
     override fun transactionally(
-        exceptionHandler: (Exception) -> Unit,
         block: (KeyValueRepository) -> Unit
     ) {
-        db.transaction(exceptionHandler = exceptionHandler) {
+        db.transaction {
             block(this@SQLKeyValueRepository)
         }
     }

@@ -1,16 +1,22 @@
 package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.Dispatch
-import com.tealium.core.api.DispatchScope
 import com.tealium.core.api.Scheduler
-import com.tealium.core.api.Transformer
-import com.tealium.core.internal.observables.StateSubject
+import com.tealium.core.api.transformations.DispatchScope
+import com.tealium.core.api.transformations.ScopedTransformation
+import com.tealium.core.api.transformations.Transformer
+import com.tealium.core.internal.observables.ObservableState
 
 class TransformerCoordinatorImpl(
-    private val registeredTransformers: Set<Transformer>,
-    private val scopedTransformations: StateSubject<Set<ScopedTransformation>>,
+    private var registeredTransformers: Set<Transformer>,
+    private val scopedTransformations: ObservableState<Set<ScopedTransformation>>,
     private val scheduler: Scheduler
 ) : TransformerCoordinator {
+
+    private var additionalTransformations: Set<ScopedTransformation> = setOf()
+
+    private val allTransformations: Set<ScopedTransformation>
+        get() = scopedTransformations.value + additionalTransformations
 
     override fun transform(
         dispatch: Dispatch,
@@ -42,7 +48,7 @@ class TransformerCoordinatorImpl(
     }
 
     private fun getTransformations(scope: DispatchScope): Set<ScopedTransformation> {
-        return scopedTransformations.value.filter { it.matchesScope(scope) }.toSet()
+        return allTransformations.filter { it.matchesScope(scope) }.toSet()
     }
 
     private fun recursiveSerialApply(
@@ -85,5 +91,29 @@ class TransformerCoordinatorImpl(
             scope,
             completion
         )
+    }
+
+    override fun registerTransformer(transformer: Transformer) {
+        registeredTransformers = registeredTransformers.toMutableSet().apply {
+            add(transformer)
+        }
+    }
+
+    override fun unregisterTransformer(transformer: Transformer) {
+        registeredTransformers = registeredTransformers.toMutableSet().apply {
+            remove(transformer)
+        }
+    }
+
+    override fun registerScopedTransformation(transformation: ScopedTransformation) {
+        additionalTransformations = additionalTransformations.toMutableSet().apply {
+            add(transformation)
+        }
+    }
+
+    override fun unregisterScopedTransformation(transformation: ScopedTransformation) {
+        additionalTransformations = additionalTransformations.toMutableSet().apply {
+            remove(transformation)
+        }
     }
 }

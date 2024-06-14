@@ -1,6 +1,7 @@
-package com.tealium.core.internal.dispatch
+package com.tealium.core.api.barriers
 
-import com.tealium.core.api.Barrier
+import com.tealium.core.api.data.TealiumSerializable
+import com.tealium.core.api.data.TealiumValue
 
 /**
  * The [BarrierScope] defines the available scopes that can be assigned to a [Barrier] via a [ScopedBarrier]
@@ -14,11 +15,11 @@ import com.tealium.core.api.Barrier
  * A [Barrier] scoped to [Dispatcher] will only be checked for its state for the specific [Dispatcher]
  * as identified by the given [Dispatcher] name.
  */
-sealed class BarrierScope() {
+sealed class BarrierScope(val value: String): TealiumSerializable {
     /**
      * This [BarrierScope] will affect all [Dispatcher] implementations.
      */
-    object All : BarrierScope()
+    object All : BarrierScope("all")
 
     /**
      * This [BarrierScope] will affect only the [Dispatcher] implementation identified by the provided
@@ -26,7 +27,9 @@ sealed class BarrierScope() {
      *
      * @param dispatcher The name of the dispatcher this [BarrierScope] will be guarding.
      */
-    data class Dispatcher(val dispatcher: String) : BarrierScope()
+    data class Dispatcher(val dispatcher: String) : BarrierScope(dispatcher)
 
-    // TODO - TealiumSerializable to assist reading from Settings JSON
+    override fun asTealiumValue(): TealiumValue {
+        return TealiumValue.string(value)
+    }
 }

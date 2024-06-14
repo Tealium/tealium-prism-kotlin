@@ -5,7 +5,6 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import com.tealium.core.TealiumConfig
 import org.junit.Assert.fail
-import java.sql.Timestamp
 import java.util.UUID
 
 object DatabaseTestUtils {
@@ -95,7 +94,6 @@ object DatabaseTestUtils {
         assertTableNotExists(db, Schema.LegacyTables.VISITORS_TABLE_NAME)
 
         assertTableNotExists(db, Schema.DispatchTable.TABLE_NAME)
-        assertTableNotExists(db, Schema.DispatcherTable.TABLE_NAME)
         assertTableNotExists(db, Schema.QueueTable.TABLE_NAME)
         assertTableNotExists(db, Schema.ModuleTable.TABLE_NAME)
         assertTableNotExists(db, Schema.ModuleStorageTable.TABLE_NAME)
@@ -110,7 +108,6 @@ object DatabaseTestUtils {
         assertTableExists(db, Schema.LegacyTables.VISITORS_TABLE_NAME)
 
         assertTableNotExists(db, Schema.DispatchTable.TABLE_NAME)
-        assertTableNotExists(db, Schema.DispatcherTable.TABLE_NAME)
         assertTableNotExists(db, Schema.QueueTable.TABLE_NAME)
         assertTableNotExists(db, Schema.ModuleTable.TABLE_NAME)
         assertTableNotExists(db, Schema.ModuleStorageTable.TABLE_NAME)
@@ -121,7 +118,6 @@ object DatabaseTestUtils {
      */
     fun assertV3TablesExist(db: SQLiteDatabase) {
         assertTableExists(db, Schema.DispatchTable.TABLE_NAME)
-        assertTableExists(db, Schema.DispatcherTable.TABLE_NAME)
         assertTableExists(db, Schema.QueueTable.TABLE_NAME)
         assertTableExists(db, Schema.ModuleTable.TABLE_NAME)
         assertTableExists(db, Schema.ModuleStorageTable.TABLE_NAME)

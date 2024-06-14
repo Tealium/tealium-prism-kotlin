@@ -1,6 +1,6 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.BarrierState
+import com.tealium.core.api.barriers.BarrierState
 import com.tealium.core.internal.observables.Observables
 import com.tealium.core.internal.persistence.TimeFrame
 import com.tealium.tests.common.TestDispatcher
@@ -49,9 +49,9 @@ class DispatchManagerBarrierTests: DispatchManagerTestsBase() {
 
         verify(timeout = 5000) {
             dispatcher1.dispatch(listOf(dispatch1))
-            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
             dispatcher1.dispatch(listOf(dispatch2))
-            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1)
+            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
         }
     }
 
@@ -74,11 +74,11 @@ class DispatchManagerBarrierTests: DispatchManagerTestsBase() {
 
         verify(timeout = 5000) {
             dispatcher1.dispatch(listOf(dispatch1))
-            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
         }
         verify(timeout = 5000, inverse = true) {
             dispatcher1.dispatch(listOf(dispatch2))
-            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1)
+            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
         }
     }
 
@@ -100,7 +100,7 @@ class DispatchManagerBarrierTests: DispatchManagerTestsBase() {
 
         verify(timeout = 5000) {
             dispatcher1.dispatch(listOf(dispatch1))
-            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
         }
     }
 
@@ -117,11 +117,11 @@ class DispatchManagerBarrierTests: DispatchManagerTestsBase() {
 
         verify(timeout = 5000) {
             dispatcher1.dispatch(listOf(dispatch1))
-            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
         }
         verify(timeout = 5000, inverse = true) {
             dispatcher2.dispatch(listOf(dispatch2))
-            queueManager.deleteDispatches(listOf(dispatch1), dispatcher2)
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher2Name)
         }
     }
 }

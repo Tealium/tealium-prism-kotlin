@@ -12,7 +12,7 @@ package com.tealium.core.api.data
  * @see [TealiumValue]
  * @see [TealiumDeserializable]
  */
-interface TealiumSerializable {
+fun interface TealiumSerializable {
 
     /**
      * Should return an instance of a [TealiumValue] that represents all required properties of the

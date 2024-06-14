@@ -1,21 +1,7 @@
-package com.tealium.core.api
+package com.tealium.core.api.barriers
 
 import com.tealium.core.internal.observables.Observable
-
-/**
- * The defined states that a [Barrier] implementation can have at any given time.
- */
-enum class BarrierState {
-    /**
-     * Indicates that a [Barrier] is currently closed.
-     */
-    Closed,
-
-    /**
-     * Indicates that a [Barrier] is currently open.
-     */
-    Open
-}
+import com.tealium.core.api.Dispatcher
 
 /**
  * Defines a utility that can influence whether or not it is safe to continue processing events for

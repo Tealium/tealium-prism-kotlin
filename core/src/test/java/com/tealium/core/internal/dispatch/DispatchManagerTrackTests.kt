@@ -18,7 +18,7 @@ class DispatchManagerTrackTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_SlowDispatcher_DoesNotDelayOthers() {
-        val slowDispatcher = TestDispatcher.mock("dispatcher2") { dispatches ->
+        val slowDispatcher = TestDispatcher.mock(dispatcher2Name) { dispatches ->
             Observables.callback { observer ->
                 scheduler.schedule(TimeFrame(500, TimeUnit.MILLISECONDS)) {
                     observer.onNext(dispatches)
@@ -28,6 +28,7 @@ class DispatchManagerTrackTests : DispatchManagerTestsBase() {
 
         scheduler.execute {
             dispatchers.onNext(setOf(dispatcher1, slowDispatcher))
+
             queue[dispatcher1.name] = mutableSetOf(
                 dispatch1,
                 dispatch2
@@ -47,24 +48,24 @@ class DispatchManagerTrackTests : DispatchManagerTestsBase() {
             dispatcher1.dispatch(listOf(dispatch2))
             dispatcher1.dispatch(listOf(dispatch3))
 
-            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
-            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1)
-            queueManager.deleteDispatches(listOf(dispatch3), dispatcher1)
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch3), dispatcher1Name)
         }
         verify(timeout = 5000) {
             slowDispatcher.dispatch(listOf(dispatch1))
             slowDispatcher.dispatch(listOf(dispatch2))
             slowDispatcher.dispatch(listOf(dispatch3))
 
-            queueManager.deleteDispatches(listOf(dispatch1), slowDispatcher)
-            queueManager.deleteDispatches(listOf(dispatch2), slowDispatcher)
-            queueManager.deleteDispatches(listOf(dispatch3), slowDispatcher)
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher2Name)
+            queueManager.deleteDispatches(listOf(dispatch2), dispatcher2Name)
+            queueManager.deleteDispatches(listOf(dispatch3), dispatcher2Name)
         }
     }
 
     @Test
     fun dispatchManager_SendsMultipleDispatchesInFlight_WhenDelayed() {
-        dispatcher1 = TestDispatcher.mock("dispatcher1") { dispatches ->
+        dispatcher1 = TestDispatcher.mock(dispatcher1Name) { dispatches ->
             Observables.callback { observer ->
                 scheduler.schedule(TimeFrame(500, TimeUnit.MILLISECONDS)) {
                     observer.onNext(dispatches)
@@ -88,9 +89,9 @@ class DispatchManagerTrackTests : DispatchManagerTestsBase() {
             dispatcher1.dispatch(listOf(dispatch2))
             dispatcher1.dispatch(listOf(dispatch3))
 
-            queueManager.deleteDispatches(listOf(dispatch1), any())
-            queueManager.deleteDispatches(listOf(dispatch2), any())
-            queueManager.deleteDispatches(listOf(dispatch3), any())
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch3), dispatcher1Name)
         }
     }
 }

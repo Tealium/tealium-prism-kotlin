@@ -36,7 +36,6 @@ class ModuleStoreTests {
         val transactionBlock = slot<(KeyValueRepository) -> Unit>()
         every {
             keyValueRepository.transactionally(
-                exceptionHandler = any(),
                 block = capture(transactionBlock)
             )
         } answers {

@@ -22,6 +22,10 @@ class Dispatch private constructor(
         }
     }
 
+    fun logDescription(): String {
+        return "${id.substring(0, 5)}-${tealiumEvent}"
+    }
+
     companion object {
 
         /**
@@ -178,11 +182,17 @@ class Dispatch private constructor(
         const val TIMESTAMP_EPOCH = "timestamp_epoch"
 
         // ConsentManager
+        // TODO - tidy up?
         const val CONSENT_POLICY = "policy"
         const val CONSENT_STATUS = "consent_status"
         const val CONSENT_CATEGORIES = "consent_categories"
         const val CONSENT_DO_NOT_SELL = "do_not_sell"
         const val CONSENT_LAST_UPDATED = "consent_last_updated"
+        // new consent manager
+        const val CONSENT_TYPE = "consent_type"
+        const val PURPOSES_WITH_CONSENT_ALL = "purposes_with_consent_all"
+        const val PURPOSES_WITH_CONSENT_PROCESSED = "purposes_with_consent_processed"
+        const val PURPOSES_WITH_CONSENT_UNPROCESSED = "purposes_with_consent_unprocessed"
 
         // TimedEvents
         const val TIMED_EVENT_NAME = "timed_event_name"

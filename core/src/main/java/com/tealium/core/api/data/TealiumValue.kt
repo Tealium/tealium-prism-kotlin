@@ -148,13 +148,12 @@ class TealiumValue private constructor(
     }
 
     /**
-     * Returns the contained value as a [String] if the contained value is a [String], or can be
-     * coerced to a [String]
+     * Returns the contained value as a [String] if the contained value is a [String].
      *
-     * @return [value] as a [String]; else the result of calling [toString] on the [value]
+     * @return [value] as a [String]; else null
      */
     fun getString(): String? {
-        return if (isString()) value as String else value.toString()
+        return if (isString()) value as String else null
     }
 
     /**

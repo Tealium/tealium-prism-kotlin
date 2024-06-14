@@ -2,7 +2,9 @@ package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.TrackResult
-import com.tealium.core.api.Transformer
+import com.tealium.core.api.transformations.ScopedTransformation
+import com.tealium.core.api.transformations.TransformationScope
+import com.tealium.core.api.transformations.Transformer
 import io.mockk.every
 import io.mockk.verify
 import io.mockk.impl.annotations.MockK
@@ -39,9 +41,6 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
         verify(timeout = 5000, inverse = true) {
             dispatcher1.dispatch(listOf(dispatch1))
         }
-        verify(timeout = 5000) {
-            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
-        }
     }
 
     @Test
@@ -57,7 +56,7 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
 
         verify(timeout = 5000, inverse = true) {
             dispatcher1.dispatch(listOf(dispatch1))
-            queueManager.storeDispatch(dispatch1, any())
+            queueManager.storeDispatches(listOf(dispatch1), any())
         }
     }
 

@@ -2,13 +2,16 @@ package com.tealium.core.internal.modules
 
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.Module
+import com.tealium.core.api.ModuleFactory
 import com.tealium.core.api.ModuleManager
 import com.tealium.core.internal.SdkSettings
-import com.tealium.core.internal.observables.ObservableState
 
 interface InternalModuleManager: ModuleManager {
 
-    val modules: ObservableState<Set<Module>>
+    /**
+     * Adds a [ModuleFactory] to the list of available factories
+     */
+    fun addModuleFactory(vararg moduleFactory: ModuleFactory)
 
     /**
      * Updates the modules based on the latest set of settings.

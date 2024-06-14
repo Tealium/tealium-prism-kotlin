@@ -1,9 +1,7 @@
 package com.tealium.core.api
 
 import com.tealium.core.Tealium
-import com.tealium.core.TealiumContext
 import com.tealium.core.api.listeners.TealiumCallback
-import com.tealium.core.internal.SdkSettings
 import com.tealium.core.internal.observables.ObservableState
 
 /**
@@ -12,6 +10,11 @@ import com.tealium.core.internal.observables.ObservableState
  * // TODO - complete
  */
 interface ModuleManager {
+
+    /**
+     * Observable stream of all [Module] implementations in the system.
+     */
+    val modules: ObservableState<Set<Module>>
 
     /**
      * Returns the first [Module] implementation that implements or extends the given [Class].

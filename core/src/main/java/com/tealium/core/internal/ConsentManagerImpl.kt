@@ -2,7 +2,7 @@ package com.tealium.core.internal
 
 import com.tealium.core.BuildConfig
 import com.tealium.core.TealiumContext
-import com.tealium.core.api.ConsentManager
+import com.tealium.core.api.consent.ConsentManager
 import com.tealium.core.api.ConsentStatus
 import com.tealium.core.api.Module
 import com.tealium.core.api.ModuleFactory

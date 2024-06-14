@@ -1,9 +1,9 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.BarrierState
-import com.tealium.core.api.ConsentDecision
+import com.tealium.core.api.barriers.BarrierState
+import com.tealium.core.api.consent.ConsentDecision
 import com.tealium.core.api.Dispatch
-import com.tealium.core.api.DispatchScope
+import com.tealium.core.api.transformations.DispatchScope
 import com.tealium.core.api.TrackResult
 import com.tealium.core.api.Dispatcher
 import com.tealium.core.api.listeners.Disposable
@@ -11,23 +11,27 @@ import com.tealium.core.api.listeners.Observer
 import com.tealium.core.api.listeners.TrackResultListener
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.internal.consent.ConsentManager
+import com.tealium.core.internal.modules.InternalModuleManager
 import com.tealium.core.internal.observables.DisposableContainer
 import com.tealium.core.internal.observables.Observable
 import com.tealium.core.internal.observables.Observables
 import com.tealium.core.internal.observables.addTo
 
 class DispatchManagerImpl(
-    private val consentManager: ConsentManager,
+    private val moduleManager: InternalModuleManager,
     private val barrierCoordinator: BarrierCoordinator,
     private val transformerCoordinator: TransformerCoordinator,
     private val queueManager: QueueManager,
     private val dispatchers: Observable<Set<Dispatcher>>,
-    private val logger: Logger,
+    private val logger: Logger? = null,
     private val maxInFlightPerDispatcher: Int = MAXIMUM_INFLIGHT_EVENTS_PER_DISPATCHER
-): DispatchManager {
+) : DispatchManager {
 
     private var dispatchLoop: Disposable? = null
     private var _dispatchers: Set<Dispatcher> = setOf()
+
+    private val consentManager: ConsentManager?
+        get() = moduleManager.getModuleOfType(ConsentManager::class.java)
 
     init {
         dispatchers.subscribe {
@@ -36,6 +40,8 @@ class DispatchManagerImpl(
     }
 
     private fun tealiumPurposeExplicitlyBlocked(): Boolean {
+        val consentManager = consentManager ?: return false
+
         if (!consentManager.enabled)
             return false
 
@@ -52,9 +58,9 @@ class DispatchManagerImpl(
 
     override fun track(dispatch: Dispatch, onComplete: TrackResultListener?) {
         if (tealiumPurposeExplicitlyBlocked()) {
-            logger.info?.log(
+            logger?.info?.log(
                 "Dispatch",
-                "Tealium Purpose is explicitly blocked. Dispatch will not be sent."
+                "Tealium consent purpose is explicitly blocked. Dispatch will not be sent."
             )
             onComplete?.onTrackResultReady(dispatch, TrackResult.Dropped)
             return
@@ -66,13 +72,17 @@ class DispatchManagerImpl(
                 return@transform
             }
 
-            if (consentManager.enabled) {
+            val consentManager = consentManager
+            if (consentManager != null && consentManager.enabled) {
                 consentManager.applyConsent(transformed)
                 // TODO - This call may need to be moved into the Consent Manager implementation once it's done.
                 onComplete?.onTrackResultReady(transformed, TrackResult.Accepted)
             } else {
-                queueManager.storeDispatch(transformed, _dispatchers)
-                onComplete?.onTrackResultReady(dispatch, TrackResult.Accepted)
+                queueManager.storeDispatches(
+                    listOf(transformed),
+                    _dispatchers.map(Dispatcher::name).toSet()
+                )
+                onComplete?.onTrackResultReady(transformed, TrackResult.Accepted)
             }
         }
     }
@@ -88,7 +98,7 @@ class DispatchManagerImpl(
             }.flatMap { dispatcher ->
                 barrierCoordinator.onBarriersState(dispatcher.name)
                     .flatMapLatest { active ->
-                        logger.debug?.log(
+                        logger?.debug?.log(
                             "Dispatch",
                             "BarrierState changed for ${dispatcher.name}: $active"
                         )
@@ -103,7 +113,7 @@ class DispatchManagerImpl(
                     observer.onNext(completed)
                 }
             }.subscribe { dispatches ->
-                logger.debug?.log(
+                logger?.debug?.log(
                     "Dispatch",
                     "Complete - ${dispatches.map { it.tealiumEvent }}"
                 )
@@ -111,13 +121,21 @@ class DispatchManagerImpl(
     }
 
     private fun startDequeueLoop(dispatcher: Dispatcher): Observable<List<Dispatch>> {
-        val onInflightLower = queueManager.inFlightCount(dispatcher)
+        val onInflightLower = queueManager.inFlightCount(dispatcher.name)
             .map(::isLessThanMaxInFlight)
             .distinct()
-        return queueManager.onEnqueuedEvents.startWith(Unit)
+        return queueManager.enqueuedDispatchesForProcessors
+            .filter { processors -> processors.contains(dispatcher.name) }
+            .startWith(setOf())
             .flatMapLatest { _ ->
                 onInflightLower
-                    .map { _ -> queueManager.getQueuedEvents(dispatcher, dispatcher.dispatchLimit) }
+                    .filter { it }
+                    .map { _ ->
+                        queueManager.getQueuedDispatches(
+                            dispatcher.dispatchLimit,
+                            dispatcher.name
+                        )
+                    }
                     .filter { it.isNotEmpty() }
                     .resubscribingWhile { it.count() >= dispatcher.dispatchLimit } // Loops the `getQueuedEvents` as long as we pull `dispatchLimit` items from the queue
             }
@@ -149,11 +167,7 @@ class DispatchManagerImpl(
 
                 queueManager.deleteDispatches(
                     completed,
-                    dispatcher
-                )
-                logger.debug?.log(
-                    "Dispatch",
-                    "${dispatcher.name}: Deleted: ${completed.map { it.tealiumEvent }}"
+                    dispatcher.name
                 )
                 completion(transformedDispatches)
             }.addTo(container)
@@ -174,7 +188,7 @@ class DispatchManagerImpl(
         if (missingDispatches.isNotEmpty()) {
             queueManager.deleteDispatches(
                 missingDispatches,
-                dispatcher
+                dispatcher.name
             )
         }
     }

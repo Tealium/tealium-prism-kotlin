@@ -1,7 +1,9 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.Barrier
-import com.tealium.core.api.BarrierState
+import com.tealium.core.api.barriers.Barrier
+import com.tealium.core.api.barriers.BarrierScope
+import com.tealium.core.api.barriers.BarrierState
+import com.tealium.core.api.barriers.ScopedBarrier
 import com.tealium.core.internal.observables.Observable
 import com.tealium.core.internal.observables.Observables
 import com.tealium.core.internal.observables.Subject
@@ -24,6 +26,7 @@ class BarrierTests {
     private lateinit var dispatcher2State: Subject<BarrierState>
     private lateinit var registeredBarriers: Set<Barrier>
     private lateinit var scopedBarriers: Set<ScopedBarrier>
+    private lateinit var scopedBarriersSubject: Subject<Set<ScopedBarrier>>
     private lateinit var barrierCoordinator: BarrierCoordinatorImpl
 
     @Before
@@ -48,9 +51,10 @@ class BarrierTests {
             ScopedBarrier("dispatcher_1", setOf(BarrierScope.Dispatcher("dispatcher_1"))),
             ScopedBarrier("dispatcher_2", setOf(BarrierScope.Dispatcher("dispatcher_2")))
         )
+        scopedBarriersSubject = Observables.stateSubject(scopedBarriers)
 
         barrierCoordinator = BarrierCoordinatorImpl(
-            registeredBarriers, scopedBarriers
+            registeredBarriers, scopedBarriersSubject
         )
     }
 
@@ -100,7 +104,7 @@ class BarrierTests {
         val barrierCoordinator = BarrierCoordinatorImpl(
             setOf(
                 allState1, allState1Duplicate
-            ), setOf()
+            ), scopedBarriersSubject
         )
 
         val barriers = barrierCoordinator.getBarriers(barrierScopes, BarrierScope.All)
@@ -207,7 +211,7 @@ class BarrierTests {
         dispatcher1State.onNext(BarrierState.Open)
         barrierCoordinator.onBarriersState("dispatcher_1").subscribe(verifier)
 
-        barrierCoordinator.scopedBarriers.onNext(scopedBarriers.filter {
+        scopedBarriersSubject.onNext(scopedBarriers.filter {
             it.scope.contains(
                 BarrierScope.All
             )
@@ -222,11 +226,11 @@ class BarrierTests {
     fun onBarrierState_EmitsUpdate_WhenScopedBarriersChange_AndResultHasToo() = runTest {
         val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
         allState1.onNext(BarrierState.Closed)
-        barrierCoordinator.scopedBarriers.onNext(scopedBarriers.remove("all_1"))
+        scopedBarriersSubject.onNext(scopedBarriers.remove("all_1"))
 
         barrierCoordinator.onBarriersState("dispatcher_1").subscribe(verifier)
 
-        barrierCoordinator.scopedBarriers.onNext(scopedBarriers)
+        scopedBarriersSubject.onNext(scopedBarriers)
 
         verify {
             verifier(BarrierState.Closed)
@@ -239,7 +243,7 @@ class BarrierTests {
         val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
         barrierCoordinator.onBarriersState("dispatcher_1").subscribe(verifier)
 
-        barrierCoordinator.scopedBarriers.onNext(scopedBarriers.remove("all_1"))
+        scopedBarriersSubject.onNext(scopedBarriers.remove("all_1"))
         allState1.onNext(BarrierState.Closed)
 
         verify {
@@ -249,7 +253,7 @@ class BarrierTests {
 
     @Test
     fun onBarrierState_EmitsOpen_WhenBarriersAreEmpty() = runTest {
-        val barrierCoordinator = BarrierCoordinatorImpl(setOf(), scopedBarriers)
+        val barrierCoordinator = BarrierCoordinatorImpl(setOf(), scopedBarriersSubject)
 
         barrierCoordinator.onBarriersState("dispatcher_1").subscribe { isOpen ->
             assertEquals(BarrierState.Open, isOpen)
@@ -258,7 +262,8 @@ class BarrierTests {
 
     @Test
     fun onBarrierState_EmitsOpen_WhenScopedBarriersAreEmpty() = runTest {
-        val barrierCoordinator = BarrierCoordinatorImpl(registeredBarriers, setOf())
+        val barrierCoordinator = BarrierCoordinatorImpl(registeredBarriers, Observables.stateSubject(
+            setOf()))
 
         barrierCoordinator.onBarriersState("dispatcher_1").subscribe { isOpen ->
             assertEquals(BarrierState.Open, isOpen)
@@ -269,10 +274,11 @@ class BarrierTests {
     fun onBarrierState_EmitsClosed_WhenScopedBarriersWereEmpty_ButClosedIsAdded() = runTest {
         val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
         allState1.onNext(BarrierState.Closed)
-        val barrierCoordinator = BarrierCoordinatorImpl(registeredBarriers, setOf())
+        scopedBarriersSubject = Observables.stateSubject(setOf())
+        val barrierCoordinator = BarrierCoordinatorImpl(registeredBarriers, scopedBarriersSubject)
 
         barrierCoordinator.onBarriersState("dispatcher_1").subscribe(verifier)
-        barrierCoordinator.scopedBarriers.onNext(
+        scopedBarriersSubject.onNext(
             setOf(
                 ScopedBarrier(
                     "all_1",

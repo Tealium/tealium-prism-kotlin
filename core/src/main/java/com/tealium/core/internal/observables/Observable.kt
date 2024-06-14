@@ -11,7 +11,9 @@ import com.tealium.core.internal.observables.impl.FlatMapLatestObservable
 import com.tealium.core.internal.observables.impl.FlatMapObservable
 import com.tealium.core.internal.observables.impl.MapNotNullObservable
 import com.tealium.core.internal.observables.impl.MapObservable
+import com.tealium.core.internal.observables.impl.ObservableStateValue
 import com.tealium.core.internal.observables.impl.ObserveOnObservable
+import com.tealium.core.internal.observables.impl.ResubscribingObservable
 import com.tealium.core.internal.observables.impl.StartWithObservable
 import com.tealium.core.internal.observables.impl.SubscribeOnObservable
 import com.tealium.core.internal.observables.impl.TakeObservable
@@ -186,30 +188,32 @@ interface Observable<T> : Subscribable<T> {
         }
     }
 
+    /**
+     * Returns an observable that will continually resubscribe until the [predicate] returns false.
+     *
+     * @param predicate The test to decide when to stop subscribing.
+     */
     fun resubscribingWhile(predicate: (T) -> Boolean) : Observable<T> {
-        fun subscribeOnceInfiniteLoop(
-            observer: Observer<T>,
-            subscription: SubscriptionWrapper
-        ): Disposable {
-            return this.subscribeOnce { element ->
-                if (subscription.isDisposed) return@subscribeOnce
+        return ResubscribingObservable(this, predicate)
+    }
 
-                subscription.subscription?.dispose()
-                observer.onNext(element)
-                if (predicate(element)) {
-                    subscription.subscription = subscribeOnceInfiniteLoop(
-                        observer,
-                        subscription
-                    )
-                }
-            }
-        }
-        return Observables.create { observer ->
-            val subscription = SubscriptionWrapper()
-            subscription.subscription =
-                subscribeOnceInfiniteLoop(observer, subscription)
+    /**
+     * Converts a standard [Observable] into one that maintains the current value as state.
+     *
+     * The [ObservableState.value] of the returned [Observable] is derived from the given [observableState]
+     * until there have been emissions from the source.
+     */
+    fun withState(observableState: ObservableState<T>): ObservableState<T> {
+        return ObservableStateValue(this, observableState::value)
+    }
 
-            subscription
-        }
+    /**
+     * Converts a standard [Observable] into one that maintains the current value as state.
+     *
+     * The [ObservableState.value] of the returned [Observable] is derived from the given [valueSupplier]
+     * until there have been emissions from the source.
+     */
+    fun withState(valueSupplier: () -> T): ObservableState<T> {
+        return ObservableStateValue(this, valueSupplier)
     }
 }

@@ -14,7 +14,7 @@ import com.tealium.core.api.Deserializer
  *
  * @see TealiumSerializable
  */
-interface TealiumDeserializable<T> : Deserializer<TealiumValue, T?> {
+fun interface TealiumDeserializable<T> : Deserializer<TealiumValue, T?> {
 
     /**
      * Should return an instance of [T] using the data provided by [value].

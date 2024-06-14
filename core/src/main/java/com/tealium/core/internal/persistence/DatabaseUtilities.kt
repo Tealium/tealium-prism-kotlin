@@ -4,14 +4,14 @@ package com.tealium.core.internal.persistence
 
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
-import com.tealium.core.internal.persistence.Serialization
+import com.tealium.core.api.PersistenceException
+import kotlin.math.max
 
 /**
  * Handles all begin/end transaction calls, wrapping all SQL statements made by the [block] in a
  * single database transaction.
  */
-internal fun SQLiteDatabase.transaction(
-    exceptionHandler: ((Exception) -> Unit)? = null,
+internal inline fun SQLiteDatabase.transaction(
     block: SQLiteDatabase.() -> Unit
 ) {
     try {
@@ -21,12 +21,12 @@ internal fun SQLiteDatabase.transaction(
 
             setTransactionSuccessful()
         } catch (e: Exception) {
-            exceptionHandler?.invoke(e)
+            throw PersistenceException("Error during transaction.", e)
         } finally {
             endTransaction()
         }
     } catch (e: Exception) {
-        exceptionHandler?.invoke(e)
+        throw PersistenceException("Error starting/completing transaction", e)
     }
 }
 
@@ -103,8 +103,12 @@ internal fun SQLiteDatabase.dropTableIfExists(tableName: String) {
  * placeholders for the number of items in the Collection.
  * e.g. a collection of two elements will return "(?, ?)"
  */
-internal fun Collection<*>.placeholderList(): String {
-    return this.joinToString(prefix = "(", postfix = ")", separator = ",") { "?" }
+internal fun Collection<*>.placeholderList(
+    prefix: String = "(",
+    postfix: String = ")",
+    separator: String = ","
+): String {
+    return this.joinToString(prefix = prefix, postfix = postfix, separator = separator) { "?" }
 }
 
 /**
@@ -134,4 +138,16 @@ private val serializationLookupByCode = Serialization.values()
  */
 internal fun serializationFor(code: Int): Serialization? {
     return serializationLookupByCode[code]
+}
+
+/**
+ * Returns the last [count] entries in the list.
+ *
+ * Negative [count] returns all entries.
+ * Zero [count] returns zero entries
+ */
+fun <E> List<E>.tail(count: Int): List<E> {
+    if (count < 0) return this
+
+    return subList(max(0, size - count), size)
 }

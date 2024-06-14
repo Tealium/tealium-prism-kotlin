@@ -1,7 +1,10 @@
 package com.tealium.core.internal.settings
 
 import com.tealium.core.LogLevel
-import com.tealium.core.api.settings.ModuleSettings
+import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.transformations.ScopedTransformation
+import com.tealium.core.internal.Deserializers
+import com.tealium.core.api.barriers.ScopedBarrier
 
 data class CoreSettings(
     val logLevel: LogLevel = LogLevel.DEBUG,
@@ -13,7 +16,9 @@ data class CoreSettings(
     val wifiOnly: Boolean = false,
     val refreshInterval: Int = 900,
     val deepLinkTrackingEnabled: Boolean = true,
-    val disableLibrary: Boolean = false
+    val disableLibrary: Boolean = false,
+    val barriers: Set<ScopedBarrier> = setOf(),
+    val transformations: Set<ScopedTransformation> = setOf(),
 ) {
 
     companion object {
@@ -28,29 +33,40 @@ data class CoreSettings(
         const val KEY_REFRESH_INTERVAL = "refresh_interval"
         const val KEY_DEEPLINK_TRACKING_ENABLED = "deeplink_tracking_enabled"
         const val KEY_DISABLE_LIBRARY = "disable_library"
+        const val KEY_BARRIERS = "barriers"
+        const val KEY_TRANSFORMATIONS = "transformations"
 
         private const val REGEX_TIME_AMOUNT = "\\d+"
         private const val REGEX_TIME_UNIT = "[hmds]$"
 
         const val maxBatchSize = 10
 
-        fun fromModuleSettings(settings: ModuleSettings?): CoreSettings? {
-            val logs = settings?.bundle?.get(KEY_LOG_LEVEL, LogLevel.Deserializer)
-            val dataSource = settings?.bundle?.getString(KEY_DATA_SOURCE)
-            var batchSize = settings?.bundle?.getInt(KEY_BATCH_SIZE)
-            batchSize = if (batchSize != null && batchSize > maxBatchSize) maxBatchSize else batchSize
-            val maxQueueSize = settings?.bundle?.getInt(KEY_MAX_QUEUE_SIZE)
+        fun fromBundle(settings: TealiumBundle): CoreSettings {
+            val logs = settings.get(KEY_LOG_LEVEL, LogLevel.Deserializer)
+            val dataSource = settings.getString(KEY_DATA_SOURCE)
+            var batchSize = settings.getInt(KEY_BATCH_SIZE)
+            batchSize =
+                if (batchSize != null && batchSize > maxBatchSize) maxBatchSize else batchSize
+            val maxQueueSize = settings.getInt(KEY_MAX_QUEUE_SIZE)
 
-            val expiration = settings?.bundle?.getString(KEY_EXPIRATION)?.let {
+            val expiration = settings.getString(KEY_EXPIRATION)?.let {
                 timeConverter(it)
             }
-            val batterySaver = settings?.bundle?.getBoolean(KEY_BATTERY_SAVER)
-            val wifiOnly = settings?.bundle?.getBoolean(KEY_WIFI_ONLY)
-            val interval = settings?.bundle?.getString(KEY_REFRESH_INTERVAL)?.let {
+            val batterySaver = settings.getBoolean(KEY_BATTERY_SAVER)
+            val wifiOnly = settings.getBoolean(KEY_WIFI_ONLY)
+            val interval = settings.getString(KEY_REFRESH_INTERVAL)?.let {
                 timeConverter(it)
             }
-            val deepLinkTrackingEnabled = settings?.bundle?.getBoolean(KEY_DEEPLINK_TRACKING_ENABLED)
-            val disableLibrary = settings?.bundle?.getBoolean(KEY_DISABLE_LIBRARY)
+            val deepLinkTrackingEnabled = settings.getBoolean(KEY_DEEPLINK_TRACKING_ENABLED)
+            val disableLibrary = settings.getBoolean(KEY_DISABLE_LIBRARY)
+
+            val barriers = settings.getList(KEY_BARRIERS)
+                ?.mapNotNull(Deserializers.ScopedBarrierDeserializable::deserialize)
+                ?.toSet()
+
+            val transformations = settings.getList(KEY_TRANSFORMATIONS)
+                ?.mapNotNull(Deserializers.ScopedTransformationDeserializable::deserialize)
+                ?.toSet()
 
             return CoreSettings(
                 logLevel = logs ?: LogLevel.ERROR,
@@ -63,6 +79,8 @@ data class CoreSettings(
                 refreshInterval = interval ?: 900,
                 deepLinkTrackingEnabled = deepLinkTrackingEnabled ?: true, // TODO
                 disableLibrary = disableLibrary ?: false,
+                barriers = barriers ?: setOf(),
+                transformations = transformations ?: setOf()
             )
         }
 

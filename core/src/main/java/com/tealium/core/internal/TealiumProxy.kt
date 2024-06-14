@@ -5,7 +5,7 @@ import com.tealium.core.BuildConfig
 import com.tealium.core.Tealium
 import com.tealium.core.TealiumConfig
 import com.tealium.core.api.ActivityManager
-import com.tealium.core.api.ConsentManager
+import com.tealium.core.api.consent.ConsentManager
 import com.tealium.core.api.DataLayer
 import com.tealium.core.api.DeeplinkManager
 import com.tealium.core.api.Dispatch
@@ -44,8 +44,6 @@ class TealiumProxy(
     private val activityManager: ActivityManager = ActivityManagerImpl.getInstance(config.application)
 ) : Tealium {
 
-    override val modules: ModuleManager
-        get() = moduleManager // TODO - make a wrapper to stop casting
     override val trace: TraceManager = TraceManagerWrapper(moduleManager)
     override val deeplink: DeeplinkManager = DeepLinkManagerWrapper(moduleManager)
     override val timedEvents: TimedEventsManager = TimedEventsManagerWrapper(moduleManager)
@@ -145,6 +143,9 @@ class TealiumProxy(
     override fun flushEventQueue() = onTealiumImplReady { tealium ->
         tealium?.flushEventQueue()
     }
+
+    override fun <T> getModule(clazz: Class<T>, callback: TealiumCallback<T?>) =
+        moduleManager.getModuleOfType(clazz, callback)
 
     internal fun shutdown() = onTealiumImplReady { tealium ->
         disposable.dispose()

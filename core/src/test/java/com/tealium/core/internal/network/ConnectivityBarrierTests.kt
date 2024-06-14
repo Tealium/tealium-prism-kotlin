@@ -1,6 +1,6 @@
 package com.tealium.core.internal.network
 
-import com.tealium.core.api.BarrierState
+import com.tealium.core.api.barriers.BarrierState
 import com.tealium.core.api.network.Connectivity
 import com.tealium.core.internal.observables.Observables
 import com.tealium.core.internal.observables.StateSubject

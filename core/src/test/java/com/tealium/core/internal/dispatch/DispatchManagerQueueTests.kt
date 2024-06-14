@@ -28,14 +28,14 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
             dispatcher1.dispatch(listOf(dispatch1))
             dispatcher2.dispatch(listOf(dispatch1))
 
-            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
-            queueManager.deleteDispatches(listOf(dispatch1), dispatcher2)
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher2Name)
         }
     }
 
     @Test
     fun dispatchManager_SendsBatchesOfDispatchesToDispatcher_WhenQueued() {
-        dispatcher1 = TestDispatcher.mock("dispatcher1", dispatchLimit = 2)
+        dispatcher1 = TestDispatcher.mock(dispatcher1Name, dispatchLimit = 2)
         dispatchers.onNext(setOf(dispatcher1))
         queue[dispatcher1.name] = mutableSetOf(
             dispatch1,
@@ -55,15 +55,15 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
             dispatcher1.dispatch(listOf(dispatch3, dispatch4))
             dispatcher1.dispatch(listOf(dispatch5))
 
-            queueManager.deleteDispatches(listOf(dispatch1, dispatch2), any())
-            queueManager.deleteDispatches(listOf(dispatch3, dispatch4), any())
-            queueManager.deleteDispatches(listOf(dispatch5), dispatcher1)
+            queueManager.deleteDispatches(listOf(dispatch1, dispatch2), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch3, dispatch4), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch5), dispatcher1Name)
         }
     }
 
     @Test
     fun dispatchManager_SendsBatchesOfDispatchesToDispatcher_WhenMultipleSent() {
-        dispatcher1 = TestDispatcher.mock("dispatcher1", dispatchLimit = 2)
+        dispatcher1 = TestDispatcher.mock(dispatcher1Name, dispatchLimit = 2)
         dispatchers.onNext(setOf(dispatcher1))
         queue[dispatcher1.name] = mutableSetOf(
             dispatch1,
@@ -80,9 +80,9 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
             dispatcher1.dispatch(listOf(dispatch3, dispatch4))
             dispatcher1.dispatch(listOf(dispatch5))
 
-            queueManager.deleteDispatches(listOf(dispatch1, dispatch2), dispatcher1)
-            queueManager.deleteDispatches(listOf(dispatch3, dispatch4), dispatcher1)
-            queueManager.deleteDispatches(listOf(dispatch5), dispatcher1)
+            queueManager.deleteDispatches(listOf(dispatch1, dispatch2), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch3, dispatch4), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch5), dispatcher1Name)
         }
     }
 
@@ -93,7 +93,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
 
         verify(timeout = 1000) {
             dispatcher1.dispatch(listOf(dispatch1))
-            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
         }
     }
 
@@ -122,7 +122,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_SendsBatchesToDispatcher_InOrder() {
-        dispatcher1 = TestDispatcher.mock("dispatcher1", dispatchLimit = 2)
+        dispatcher1 = TestDispatcher.mock(dispatcher1Name, dispatchLimit = 2)
         dispatchers.onNext(setOf(dispatcher1))
         queue[dispatcher1.name] = mutableSetOf(
             dispatch1,
@@ -141,9 +141,9 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
             dispatcher1.dispatch(listOf(dispatch3, dispatch4))
             dispatcher1.dispatch(listOf(dispatch5))
 
-            queueManager.deleteDispatches(listOf(dispatch1, dispatch2), any())
-            queueManager.deleteDispatches(listOf(dispatch3, dispatch4), any())
-            queueManager.deleteDispatches(listOf(dispatch5), any())
+            queueManager.deleteDispatches(listOf(dispatch1, dispatch2), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch3, dispatch4), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch5), dispatcher1Name)
         }
     }
 
@@ -162,13 +162,13 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
         verify(timeout = 1000) {
             dispatcher1.dispatch(listOf(dispatch1))
             dispatcher1.dispatch(listOf(dispatch3))
-            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
-            queueManager.deleteDispatches(listOf(dispatch3), dispatcher1)
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch3), dispatcher1Name)
 
             dispatcher2.dispatch(listOf(dispatch2))
             dispatcher2.dispatch(listOf(dispatch3))
-            queueManager.deleteDispatches(listOf(dispatch2), dispatcher2)
-            queueManager.deleteDispatches(listOf(dispatch3), dispatcher2)
+            queueManager.deleteDispatches(listOf(dispatch2), dispatcher2Name)
+            queueManager.deleteDispatches(listOf(dispatch3), dispatcher2Name)
         }
         verify(timeout = 1000, inverse = true) {
             dispatcher1.dispatch(listOf(dispatch2))

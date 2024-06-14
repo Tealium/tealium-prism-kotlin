@@ -1,10 +1,7 @@
 package com.tealium.tests.common
 
 import com.tealium.core.api.Collector
-import com.tealium.core.api.Dispatch
-import com.tealium.core.api.Dispatcher
 import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.internal.observables.Observable
 import io.mockk.spyk
 
 class TestCollector(

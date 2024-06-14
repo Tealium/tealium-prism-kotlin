@@ -34,25 +34,6 @@ class DatabaseUtilitiesTests {
     }
 
     @Test
-    fun transaction_NotifiesErrorHandler_AndEndsTransaction() {
-        val errorHandler = mockk<(Exception) -> Unit>(relaxed = true)
-        val error = Exception()
-        mockDb.transaction(errorHandler) {
-            throw error
-        }
-
-        verify {
-            mockDb.beginTransactionNonExclusive()
-            errorHandler.invoke(error)
-            mockDb.endTransaction()
-        }
-
-        verify(exactly = 0) {
-            mockDb.setTransactionSuccessful()
-        }
-    }
-
-    @Test
     fun dropTable_DropsNamedTable() {
         mockDb.dropTable("")
         mockDb.dropTable("   ")
@@ -88,5 +69,55 @@ class DatabaseUtilitiesTests {
 
         assertEquals("(?)", listOf1)
         assertEquals("(?,?,?,?,?)", listOf5)
+    }
+
+
+    @Test
+    fun tail_Returns_Last_X_Entries() {
+        val list = listOf(1, 2, 3)
+        val tail = list.tail(2)
+
+        assertEquals(2, tail.size)
+        assertEquals(2, tail[0])
+        assertEquals(3, tail[1])
+    }
+
+    @Test
+    fun tail_Returns_Last_Entry() {
+        val list = listOf(1, 2, 3)
+        val tail = list.tail(1)
+
+        assertEquals(1, tail.size)
+        assertEquals(3, tail[0])
+    }
+
+    @Test
+    fun tail_Returns_All_Entries_When_Count_Bigger_Than_Size() {
+        val list = listOf(1, 2, 3)
+        val tail = list.tail(10)
+
+        assertEquals(3, tail.size)
+        assertEquals(1, tail[0])
+        assertEquals(2, tail[1])
+        assertEquals(3, tail[2])
+    }
+
+    @Test
+    fun tail_Returns_All_Entries_When_Count_Is_Negative() {
+        val list = listOf(1, 2, 3)
+        val tail = list.tail(-5)
+
+        assertEquals(3, tail.size)
+        assertEquals(1, tail[0])
+        assertEquals(2, tail[1])
+        assertEquals(3, tail[2])
+    }
+
+    @Test
+    fun tail_Returns_No_Entries_When_Count_Is_Zero() {
+        val list = listOf(1, 2, 3)
+        val tail = list.tail(0)
+
+        assertEquals(0, tail.size)
     }
 }

@@ -33,9 +33,9 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
 
         verify(inverse = true, timeout = 5000) {
             dispatcher1.dispatch(listOf(dispatch1))
-            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
             dispatcher1.dispatch(listOf(dispatch2))
-            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1)
+            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
         }
     }
 
@@ -67,8 +67,8 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
             dispatcher1.dispatch(listOf(dispatch1))
             dispatcher1.dispatch(listOf(dispatch2))
 
-            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
-            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1)
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
         }
     }
 }

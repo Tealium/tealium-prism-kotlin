@@ -1,8 +1,8 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.ConsentDecision
+import com.tealium.core.api.consent.ConsentDecision
 import com.tealium.core.api.Dispatch
-import com.tealium.core.api.DispatchScope
+import com.tealium.core.api.transformations.DispatchScope
 import com.tealium.core.api.TrackResult
 import io.mockk.Called
 import io.mockk.Runs
@@ -23,7 +23,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
 
         verify {
             transformerCoordinator.transform(dispatch1, DispatchScope.AfterCollectors, any())
-            queueManager.storeDispatch(dispatch1, any())
+            queueManager.storeDispatches(listOf(dispatch1), any())
         }
         verify(inverse = true) {
             consentManager.getConsentDecision()

@@ -19,11 +19,6 @@ import com.tealium.core.api.data.TealiumValue
 interface KeyValueRepository {
 
     /**
-     * Runs all methods in a single transaction, and be notified of exceptions.
-     */
-    fun transactionally(exceptionHandler: (Exception) -> Unit, block: (KeyValueRepository) -> Unit)
-
-    /**
      * Runs all methods in a single transaction.
      */
     @Throws(PersistenceException::class)

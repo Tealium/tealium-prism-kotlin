@@ -203,14 +203,14 @@ class TealiumValueTests {
     }
 
     @Test
-    fun getString_ReturnsToString_WhenValueIsNotString() {
-        assertEquals("10", intValue.getString())
-        assertEquals("111.111", doubleValue.getString())
-        assertEquals("100", longValue.getString())
-        assertEquals("false", falseValue.getString())
-        assertEquals("true", trueValue.getString())
-        assertEquals("[1]", listValue.getString())
-        assertEquals("{\"string\":\"value\"}", bundleValue.getString())
+    fun getString_ReturnsNull_WhenValueIsNotString() {
+        assertNull(intValue.getString())
+        assertNull(doubleValue.getString())
+        assertNull(longValue.getString())
+        assertNull(falseValue.getString())
+        assertNull(trueValue.getString())
+        assertNull(listValue.getString())
+        assertNull(bundleValue.getString())
     }
 
     @Test

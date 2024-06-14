@@ -422,20 +422,6 @@ class SQLKeyValueRepositoryTests {
         assertNotNull(exception)
     }
 
-    @Test
-    fun transactionally_DoesNotThrowException_OnSqlException_WhenHandlerProvided() {
-        val storage = getEmptyStorage(module1Id)
-        val handler: (Exception) -> Unit = mockk(relaxed = true)
-
-        storage.transactionally(handler) {
-            throw SQLException("Failure")
-        }
-
-        verify {
-            handler.invoke(any())
-        }
-    }
-
     private fun getEmptyStorage(moduleId: Long): SQLKeyValueRepository {
         return SQLKeyValueRepository(dbProvider, moduleId).also {
             it.assertEmpty()
@@ -460,9 +446,7 @@ class SQLKeyValueRepositoryTests {
         bundle: TealiumBundle,
         expiry: Expiry = Expiry.SESSION
     ) {
-        transactionally({
-            fail(it.message)
-        }) {
+        transactionally {
             bundle.forEach {
                 upsert(it.key, it.value, expiry)
             }

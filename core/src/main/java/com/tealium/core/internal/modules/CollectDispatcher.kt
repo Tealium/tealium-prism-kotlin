@@ -12,19 +12,10 @@ import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumList
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.NetworkHelper
-import com.tealium.core.api.network.NetworkResult
-import com.tealium.core.api.network.Success
 import com.tealium.core.internal.observables.Observable
 import com.tealium.core.internal.observables.Observables
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.awaitClose
 import com.tealium.core.api.settings.ModuleSettings
 import com.tealium.core.internal.observables.merge
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.buffer
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.merge
 
 /**
  * The [CollectDispatcher]

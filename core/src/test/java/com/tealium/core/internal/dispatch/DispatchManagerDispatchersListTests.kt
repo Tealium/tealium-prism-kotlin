@@ -22,8 +22,8 @@ class DispatchManagerDispatchersListTests : DispatchManagerTestsBase() {
         coVerify(timeout = 5000) {
             dispatcher1.dispatch(listOf(dispatch1))
             dispatcher2.dispatch(listOf(dispatch1))
-            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
-            queueManager.deleteDispatches(listOf(dispatch1), dispatcher2)
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher2Name)
         }
     }
 
@@ -49,13 +49,13 @@ class DispatchManagerDispatchersListTests : DispatchManagerTestsBase() {
                 dispatcher1.dispatch(listOf(dispatch1))
                 dispatcher2.dispatch(listOf(dispatch1))
                 dispatcher2.dispatch(listOf(dispatch2))
-                queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
-                queueManager.deleteDispatches(listOf(dispatch1), dispatcher2)
-                queueManager.deleteDispatches(listOf(dispatch2), dispatcher2)
+                queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+                queueManager.deleteDispatches(listOf(dispatch1), dispatcher2Name)
+                queueManager.deleteDispatches(listOf(dispatch2), dispatcher2Name)
             }
             coVerify(timeout = 5000, inverse = true) {
                 dispatcher1.dispatch(listOf(dispatch2))
-                queueManager.deleteDispatches(listOf(dispatch2), dispatcher1)
+                queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
             }
         }
 
@@ -78,11 +78,11 @@ class DispatchManagerDispatchersListTests : DispatchManagerTestsBase() {
 
         coVerify(timeout = 5000) {
             dispatcher1.dispatch(listOf(dispatch1))
-            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
         }
         coVerify(timeout = 5000, inverse = true) {
             dispatcher1.dispatch(listOf(dispatch2))
-            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1)
+            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
         }
     }
 
@@ -104,7 +104,7 @@ class DispatchManagerDispatchersListTests : DispatchManagerTestsBase() {
 
         coVerify(timeout = 5000) {
             dispatcher1.dispatch(listOf(dispatch1))
-            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.tealium.core
 
 import com.tealium.core.api.*
+import com.tealium.core.api.consent.ConsentManager
 import com.tealium.core.api.listeners.TealiumCallback
 import com.tealium.core.api.listeners.TrackResultListener
 import com.tealium.core.internal.*
@@ -8,7 +9,6 @@ import java.util.concurrent.Executors
 
 interface Tealium {
 
-    val modules: ModuleManager
     val trace: TraceManager
     val deeplink: DeeplinkManager
     val timedEvents: TimedEventsManager
@@ -17,6 +17,14 @@ interface Tealium {
 
     // Optionals
     val visitorService: VisitorService?
+
+    /**
+     * Returns the first [Module] implementation that implements or extends the given [Class].
+     *
+     * @param clazz The Class or Interface to match against
+     * @param callback The block of code to receive the [Module]
+     */
+    fun <T> getModule(clazz: Class<T>, callback: TealiumCallback<T?>)
 
     fun track(dispatch: Dispatch)
     fun track(dispatch: Dispatch, onComplete: TrackResultListener)

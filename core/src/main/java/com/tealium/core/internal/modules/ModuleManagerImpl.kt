@@ -13,15 +13,20 @@ import com.tealium.core.internal.observables.StateSubject
 import com.tealium.core.internal.settings.ModuleSettingsImpl
 
 class ModuleManagerImpl(
-    private val moduleFactories: List<ModuleFactory>,
+    moduleFactories: List<ModuleFactory>,
     private val scheduler: Scheduler,
     private val modulesSubject: StateSubject<Set<Module>> = Observables.stateSubject(setOf())
 ) : InternalModuleManager {
 
+    private val moduleFactories: MutableList<ModuleFactory> = moduleFactories.toMutableList()
     private var _modules: Map<String, Module> = emptyMap()
 
     override val modules: ObservableState<Set<Module>>
         get() = modulesSubject.asObservableState()
+
+    override fun addModuleFactory(vararg moduleFactory: ModuleFactory) {
+        moduleFactories.addAll(moduleFactory)
+    }
 
     override fun <T> getModulesOfType(clazz: Class<T>): List<T> {
         return _modules.values.filterIsInstance(clazz)

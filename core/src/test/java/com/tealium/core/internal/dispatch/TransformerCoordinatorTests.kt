@@ -1,8 +1,10 @@
 package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.Dispatch
-import com.tealium.core.api.DispatchScope
-import com.tealium.core.api.Transformer
+import com.tealium.core.api.transformations.DispatchScope
+import com.tealium.core.api.transformations.ScopedTransformation
+import com.tealium.core.api.transformations.TransformationScope
+import com.tealium.core.api.transformations.Transformer
 import com.tealium.core.internal.observables.Observables
 import com.tealium.core.internal.observables.StateSubject
 import com.tealium.tests.common.testTealiumScheduler

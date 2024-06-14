@@ -49,7 +49,7 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
             dispatchManager.track(dispatch1)
         }
         verify(timeout = 1000, inverse = true) {
-            queueManager.getQueuedEvents(dispatcher1, 1)
+            queueManager.getQueuedDispatches(1, dispatcher1Name)
             dispatcher1.dispatch(listOf(dispatch1))
             dispatcher1.dispatch(listOf(dispatch2))
         }
