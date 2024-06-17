@@ -1,10 +1,9 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.internal.observables.Observables
 import com.tealium.core.internal.persistence.TimeFrame
 import com.tealium.tests.common.TestDispatcher
-import io.mockk.verify
 import io.mockk.spyk
+import io.mockk.verify
 import org.junit.Test
 import java.util.concurrent.TimeUnit
 
@@ -16,11 +15,9 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_StopsDispatchingEvents_WhenMaximumExceeded() {
-        dispatcher1 = spyk(TestDispatcher("dispatcher_1") {
-            Observables.callback { observer ->
-                scheduler.schedule(TimeFrame(2000, TimeUnit.MILLISECONDS)) {
-                    observer.onNext(it)
-                }
+        dispatcher1 = spyk(TestDispatcher("dispatcher_1") { dispatches, callback ->
+            scheduler.schedule(TimeFrame(2000, TimeUnit.MILLISECONDS)) {
+                callback.onComplete(dispatches)
             }
         })
         scheduler.execute {
@@ -31,12 +28,12 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
             dispatchManager.startDispatchLoop()
 
             verify(timeout = 1000) {
-                dispatcher1.dispatch(listOf(dispatch1))
+                dispatcher1.dispatch(listOf(dispatch1), any())
             }
         }
         // delay in dispatcher emission will mean dispatch1 is in-flight for 2seconds
         verify(timeout = 1000, inverse = true) {
-            dispatcher1.dispatch(listOf(dispatch2))
+            dispatcher1.dispatch(listOf(dispatch2), any())
         }
     }
 
@@ -50,8 +47,8 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
         }
         verify(timeout = 1000, inverse = true) {
             queueManager.getQueuedDispatches(1, dispatcher1Name)
-            dispatcher1.dispatch(listOf(dispatch1))
-            dispatcher1.dispatch(listOf(dispatch2))
+            dispatcher1.dispatch(listOf(dispatch1), any())
+            dispatcher1.dispatch(listOf(dispatch2), any())
         }
     }
 
@@ -64,14 +61,14 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
             dispatchManager.track(dispatch1)
         }
         verify(timeout = 1000, inverse = true) {
-            dispatcher1.dispatch(listOf(dispatch1))
+            dispatcher1.dispatch(listOf(dispatch1), any())
         }
 
         scheduler.execute {
             onInFlightEvents.onNext(mapOf(dispatcher1.name to setOf()))
         }
         verify(timeout = 5000) {
-            dispatcher1.dispatch(listOf(dispatch1))
+            dispatcher1.dispatch(listOf(dispatch1), any())
         }
     }
 }

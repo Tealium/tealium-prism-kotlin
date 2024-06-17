@@ -59,7 +59,7 @@ class DispatchManagerImpl(
     override fun track(dispatch: Dispatch, onComplete: TrackResultListener?) {
         if (tealiumPurposeExplicitlyBlocked()) {
             logger?.info?.log(
-                "Dispatch",
+                "DispatchManager",
                 "Tealium consent purpose is explicitly blocked. Dispatch will not be sent."
             )
             onComplete?.onTrackResultReady(dispatch, TrackResult.Dropped)
@@ -99,7 +99,7 @@ class DispatchManagerImpl(
                 barrierCoordinator.onBarriersState(dispatcher.name)
                     .flatMapLatest { active ->
                         logger?.debug?.log(
-                            "Dispatch",
+                            "DispatchManager",
                             "BarrierState changed for ${dispatcher.name}: $active"
                         )
                         if (active == BarrierState.Open) {
@@ -107,14 +107,14 @@ class DispatchManagerImpl(
                         } else {
                             Observables.empty()
                         }
-                    }.map { dispatcher to it }
-            }.async { (dispatcher, dispatches), observer: Observer<List<Dispatch>> ->
-                transformAndDispatch(dispatches, dispatcher) { completed ->
-                    observer.onNext(completed)
-                }
+                    }.async { dispatches, observer: Observer<List<Dispatch>> ->
+                        transformAndDispatch(dispatches, dispatcher) { completed ->
+                            observer.onNext(completed)
+                        }
+                    }
             }.subscribe { dispatches ->
                 logger?.debug?.log(
-                    "Dispatch",
+                    "DispatchManager",
                     "Complete - ${dispatches.map { it.tealiumEvent }}"
                 )
             }
@@ -162,12 +162,16 @@ class DispatchManagerImpl(
 
             deleteMissingDispatches(dispatches, transformedDispatches, dispatcher)
 
-            dispatcher.dispatch(transformedDispatches).subscribe { completed ->
-                if (container.isDisposed) return@subscribe
+            dispatcher.dispatch(transformedDispatches) { completed ->
+                if (container.isDisposed) return@dispatch
 
                 queueManager.deleteDispatches(
                     completed,
                     dispatcher.name
+                )
+                logger?.debug?.log(
+                    "DispatchManager",
+                    "${dispatcher.name}: Deleted: ${completed.map { it.tealiumEvent }}"
                 )
                 completion(transformedDispatches)
             }.addTo(container)

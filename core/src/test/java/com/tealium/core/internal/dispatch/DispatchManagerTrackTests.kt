@@ -3,7 +3,6 @@ package com.tealium.core.internal.dispatch
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.TealiumDispatchType
 import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.internal.observables.Observables
 import com.tealium.core.internal.persistence.TimeFrame
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.coVerify
@@ -18,11 +17,9 @@ class DispatchManagerTrackTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_SlowDispatcher_DoesNotDelayOthers() {
-        val slowDispatcher = TestDispatcher.mock(dispatcher2Name) { dispatches ->
-            Observables.callback { observer ->
-                scheduler.schedule(TimeFrame(500, TimeUnit.MILLISECONDS)) {
-                    observer.onNext(dispatches)
-                }
+        val slowDispatcher = TestDispatcher.mock(dispatcher2Name) { dispatches, callback ->
+            scheduler.schedule(TimeFrame(500, TimeUnit.MILLISECONDS)) {
+                callback.onComplete(dispatches)
             }
         }
 
@@ -44,18 +41,18 @@ class DispatchManagerTrackTests : DispatchManagerTestsBase() {
         }
 
         coVerify(timeout = 1000) {
-            dispatcher1.dispatch(listOf(dispatch1))
-            dispatcher1.dispatch(listOf(dispatch2))
-            dispatcher1.dispatch(listOf(dispatch3))
+            dispatcher1.dispatch(listOf(dispatch1), any())
+            dispatcher1.dispatch(listOf(dispatch2), any())
+            dispatcher1.dispatch(listOf(dispatch3), any())
 
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
             queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
             queueManager.deleteDispatches(listOf(dispatch3), dispatcher1Name)
         }
         verify(timeout = 5000) {
-            slowDispatcher.dispatch(listOf(dispatch1))
-            slowDispatcher.dispatch(listOf(dispatch2))
-            slowDispatcher.dispatch(listOf(dispatch3))
+            slowDispatcher.dispatch(listOf(dispatch1), any())
+            slowDispatcher.dispatch(listOf(dispatch2), any())
+            slowDispatcher.dispatch(listOf(dispatch3), any())
 
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher2Name)
             queueManager.deleteDispatches(listOf(dispatch2), dispatcher2Name)
@@ -65,11 +62,9 @@ class DispatchManagerTrackTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_SendsMultipleDispatchesInFlight_WhenDelayed() {
-        dispatcher1 = TestDispatcher.mock(dispatcher1Name) { dispatches ->
-            Observables.callback { observer ->
-                scheduler.schedule(TimeFrame(500, TimeUnit.MILLISECONDS)) {
-                    observer.onNext(dispatches)
-                }
+        dispatcher1 = TestDispatcher.mock(dispatcher1Name) { dispatches, callback ->
+            scheduler.schedule(TimeFrame(500, TimeUnit.MILLISECONDS)) {
+                callback.onComplete(dispatches)
             }
         }
 
@@ -85,9 +80,9 @@ class DispatchManagerTrackTests : DispatchManagerTestsBase() {
         }
 
         coVerify(timeout = 1000) {
-            dispatcher1.dispatch(listOf(dispatch1))
-            dispatcher1.dispatch(listOf(dispatch2))
-            dispatcher1.dispatch(listOf(dispatch3))
+            dispatcher1.dispatch(listOf(dispatch1), any())
+            dispatcher1.dispatch(listOf(dispatch2), any())
+            dispatcher1.dispatch(listOf(dispatch3), any())
 
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
             queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)

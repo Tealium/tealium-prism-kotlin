@@ -20,7 +20,14 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
     override fun onAfterSetup() {
         val completionCapture = slot<(Dispatch?) -> Unit>()
         every { droppingTransformer.id } returns "drop"
-        every { droppingTransformer.applyTransformation(any(), any(), any(), capture(completionCapture)) } answers {
+        every {
+            droppingTransformer.applyTransformation(
+                any(),
+                any(),
+                any(),
+                capture(completionCapture)
+            )
+        } answers {
             completionCapture.captured(null)
         }
 
@@ -39,7 +46,7 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
         dispatchManager.track(dispatch1)
 
         verify(timeout = 5000, inverse = true) {
-            dispatcher1.dispatch(listOf(dispatch1))
+            dispatcher1.dispatch(listOf(dispatch1), any())
         }
     }
 
@@ -55,7 +62,7 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
         dispatchManager.track(dispatch1)
 
         verify(timeout = 5000, inverse = true) {
-            dispatcher1.dispatch(listOf(dispatch1))
+            dispatcher1.dispatch(listOf(dispatch1), any())
             queueManager.storeDispatches(listOf(dispatch1), any())
         }
     }

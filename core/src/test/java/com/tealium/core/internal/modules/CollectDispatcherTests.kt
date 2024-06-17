@@ -62,11 +62,14 @@ class CollectDispatcherTests {
 
         val dispatch = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch))
-            .subscribe(observer)
+        collectDispatcher.dispatch(listOf(dispatch), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, dispatch.payload(), any())
+            networkHelper.post(
+                CollectDispatcherSettings.DEFAULT_COLLECT_URL,
+                dispatch.payload(),
+                any()
+            )
             observer(match {
                 it.first().id == dispatch.id
             })
@@ -82,8 +85,7 @@ class CollectDispatcherTests {
 
         val dispatch = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch))
-            .subscribe(observer)
+        collectDispatcher.dispatch(listOf(dispatch), observer)
 
         verify(timeout = 1000) {
             networkHelper.post("http://localhost/", any(), any())
@@ -103,8 +105,7 @@ class CollectDispatcherTests {
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
         val dispatch = createTestDispatch("test", profile = "default")
 
-        collectDispatcher.dispatch(listOf(dispatch))
-            .subscribe(observer)
+        collectDispatcher.dispatch(listOf(dispatch), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, match {
@@ -124,8 +125,7 @@ class CollectDispatcherTests {
         val dispatch1 = createTestDispatch("test")
         val dispatch2 = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch2))
-            .subscribe(observer)
+        collectDispatcher.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, any(), any())
@@ -143,11 +143,14 @@ class CollectDispatcherTests {
 
         val dispatch = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch))
-            .subscribe(observer)
+        collectDispatcher.dispatch(listOf(dispatch), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, dispatch.payload(), any())
+            networkHelper.post(
+                CollectDispatcherSettings.DEFAULT_COLLECT_URL,
+                dispatch.payload(),
+                any()
+            )
             observer(match {
                 it.first().id == dispatch.id
             })
@@ -164,8 +167,7 @@ class CollectDispatcherTests {
         val dispatch1 = createTestDispatch("test")
         val dispatch2 = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch2))
-            .subscribe(observer)
+        collectDispatcher.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
             networkHelper.post("http://localhost/", any(), any())
@@ -187,8 +189,7 @@ class CollectDispatcherTests {
         val dispatch1 = createTestDispatch("test", profile = "default")
         val dispatch2 = createTestDispatch("test", profile = "default")
 
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch2))
-            .subscribe(observer)
+        collectDispatcher.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, match {
@@ -216,8 +217,7 @@ class CollectDispatcherTests {
             put("key_4", "string4")
         })
 
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch2))
-            .subscribe(observer)
+        collectDispatcher.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, match {
@@ -257,8 +257,7 @@ class CollectDispatcherTests {
             put("key_4", "string4")
         })
 
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch2))
-            .subscribe(observer)
+        collectDispatcher.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, match {
@@ -283,23 +282,25 @@ class CollectDispatcherTests {
         val dispatch2 = createTestDispatch("test", visitorId = "visitor_2")
         val dispatch3 = createTestDispatch("test2", visitorId = "visitor_2")
 
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch2, dispatch3))
-            .subscribe(observer)
+        collectDispatcher.dispatch(listOf(dispatch1, dispatch2, dispatch3), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, match {
                 it.getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_1"
             }, any())
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, match {
-                it.getBundle(CollectDispatcher.KEY_SHARED)!!.getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_2"
+                it.getBundle(CollectDispatcher.KEY_SHARED)!!
+                    .getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_2"
             }, any())
 
             observer(match { dispatches ->
-                dispatches.first().payload().getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_1"
+                dispatches.first().payload()
+                    .getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_1"
             })
             observer(match { dispatches ->
                 dispatches[0].payload().getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_2"
-                        && dispatches[1].payload().getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_2"
+                        && dispatches[1].payload()
+                    .getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_2"
             })
         }
     }
@@ -311,8 +312,7 @@ class CollectDispatcherTests {
 
         val dispatch1 = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch1))
-            .subscribe(observer)
+        collectDispatcher.dispatch(listOf(dispatch1), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, any(), any())
@@ -327,8 +327,7 @@ class CollectDispatcherTests {
                 }
             )
         )
-        collectDispatcher.dispatch(listOf(dispatch1))
-            .subscribe(observer)
+        collectDispatcher.dispatch(listOf(dispatch1), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(url, any(), any())
@@ -342,8 +341,7 @@ class CollectDispatcherTests {
 
         val dispatch1 = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch1))
-            .subscribe(observer)
+        collectDispatcher.dispatch(listOf(dispatch1, dispatch1), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, any(), any())
@@ -358,8 +356,7 @@ class CollectDispatcherTests {
                 }
             )
         )
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch1))
-            .subscribe(observer)
+        collectDispatcher.dispatch(listOf(dispatch1, dispatch1), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(url, any(), any())
@@ -377,8 +374,7 @@ class CollectDispatcherTests {
 
         val dispatch1 = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch1))
-            .subscribe(observer)
+        collectDispatcher.dispatch(listOf(dispatch1), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, match {
@@ -395,8 +391,7 @@ class CollectDispatcherTests {
                 }
             )
         )
-        collectDispatcher.dispatch(listOf(dispatch1))
-            .subscribe(observer)
+        collectDispatcher.dispatch(listOf(dispatch1), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(any(), match {

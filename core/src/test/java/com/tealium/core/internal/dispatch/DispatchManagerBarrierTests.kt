@@ -10,7 +10,7 @@ import io.mockk.spyk
 import org.junit.Test
 import java.util.concurrent.TimeUnit
 
-class DispatchManagerBarrierTests: DispatchManagerTestsBase() {
+class DispatchManagerBarrierTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_SendsDispatchesToDispatcher_WhenBarriersAreOpen() {
@@ -19,7 +19,7 @@ class DispatchManagerBarrierTests: DispatchManagerTestsBase() {
         dispatchManager.track(dispatch1)
 
         verify(timeout = 5000) {
-            dispatcher1.dispatch(listOf(dispatch1))
+            dispatcher1.dispatch(listOf(dispatch1), any())
             queueManager.deleteDispatches(listOf(dispatch1), any())
         }
     }
@@ -33,7 +33,7 @@ class DispatchManagerBarrierTests: DispatchManagerTestsBase() {
         dispatchManager.track(dispatch1)
 
         verify(timeout = 5000, inverse = true) {
-            dispatcher1.dispatch(listOf(dispatch1))
+            dispatcher1.dispatch(listOf(dispatch1), any())
             queueManager.deleteDispatches(listOf(dispatch1), any())
         }
     }
@@ -48,23 +48,21 @@ class DispatchManagerBarrierTests: DispatchManagerTestsBase() {
         barrierFlow.onNext(BarrierState.Open)
 
         verify(timeout = 5000) {
-            dispatcher1.dispatch(listOf(dispatch1))
+            dispatcher1.dispatch(listOf(dispatch1), any())
+            dispatcher1.dispatch(listOf(dispatch2), any())
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
-            dispatcher1.dispatch(listOf(dispatch2))
             queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
         }
     }
 
     @Test
     fun dispatchManager_StopsSendingDispatchesToDispatcher_WhenBarriersGetClosed() {
-        dispatcher1 = spyk(TestDispatcher("dispatcher_1") {
-            Observables.callback { observer ->
-                barrierFlow.onNext(BarrierState.Closed)
-                dispatchManager.track(dispatch2)
+        dispatcher1 = spyk(TestDispatcher("dispatcher_1") { dispatches, callback ->
+            barrierFlow.onNext(BarrierState.Closed)
+            dispatchManager.track(dispatch2)
 
-                scheduler.schedule(TimeFrame(100, TimeUnit.MILLISECONDS)) {
-                    observer.onNext(it)
-                }
+            scheduler.schedule(TimeFrame(100, TimeUnit.MILLISECONDS)) {
+                callback.onComplete(dispatches)
             }
         })
         dispatchers.onNext(setOf(dispatcher1))
@@ -73,24 +71,22 @@ class DispatchManagerBarrierTests: DispatchManagerTestsBase() {
         dispatchManager.track(dispatch1) // closes after first dispatch
 
         verify(timeout = 5000) {
-            dispatcher1.dispatch(listOf(dispatch1))
+            dispatcher1.dispatch(listOf(dispatch1), any())
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
         }
         verify(timeout = 5000, inverse = true) {
-            dispatcher1.dispatch(listOf(dispatch2))
+            dispatcher1.dispatch(listOf(dispatch2), any())
             queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
         }
     }
 
     @Test
     fun dispatchManager_DoesNotCancelInflight_WhenBarriersGetClosed() {
-        dispatcher1 = spyk(TestDispatcher("dispatcher_1") {
-            Observables.callback { observer ->
-                barrierFlow.onNext(BarrierState.Closed)
+        dispatcher1 = spyk(TestDispatcher("dispatcher_1") { dispatches, callback ->
+            barrierFlow.onNext(BarrierState.Closed)
 
-                scheduler.schedule(TimeFrame(2000, TimeUnit.MILLISECONDS)) {
-                    observer.onNext(it)
-                }
+            scheduler.schedule(TimeFrame(2000, TimeUnit.MILLISECONDS)) {
+                callback.onComplete(dispatches)
             }
         })
         dispatchers.onNext(setOf(dispatcher1))
@@ -99,7 +95,7 @@ class DispatchManagerBarrierTests: DispatchManagerTestsBase() {
         dispatchManager.track(dispatch1)
 
         verify(timeout = 5000) {
-            dispatcher1.dispatch(listOf(dispatch1))
+            dispatcher1.dispatch(listOf(dispatch1), any())
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
         }
     }
@@ -116,11 +112,11 @@ class DispatchManagerBarrierTests: DispatchManagerTestsBase() {
         dispatchManager.track(dispatch1)
 
         verify(timeout = 5000) {
-            dispatcher1.dispatch(listOf(dispatch1))
+            dispatcher1.dispatch(listOf(dispatch1), any())
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
         }
         verify(timeout = 5000, inverse = true) {
-            dispatcher2.dispatch(listOf(dispatch2))
+            dispatcher2.dispatch(listOf(dispatch2), any())
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher2Name)
         }
     }

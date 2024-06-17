@@ -25,8 +25,8 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
         dispatchManager.track(dispatch1)
 
         verify(timeout = 1000) {
-            dispatcher1.dispatch(listOf(dispatch1))
-            dispatcher2.dispatch(listOf(dispatch1))
+            dispatcher1.dispatch(listOf(dispatch1), any())
+            dispatcher2.dispatch(listOf(dispatch1), any())
 
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher2Name)
@@ -51,9 +51,9 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
         }
 
         verify(timeout = 1000) {
-            dispatcher1.dispatch(listOf(dispatch1, dispatch2))
-            dispatcher1.dispatch(listOf(dispatch3, dispatch4))
-            dispatcher1.dispatch(listOf(dispatch5))
+            dispatcher1.dispatch(listOf(dispatch1, dispatch2), any())
+            dispatcher1.dispatch(listOf(dispatch3, dispatch4), any())
+            dispatcher1.dispatch(listOf(dispatch5), any())
 
             queueManager.deleteDispatches(listOf(dispatch1, dispatch2), dispatcher1Name)
             queueManager.deleteDispatches(listOf(dispatch3, dispatch4), dispatcher1Name)
@@ -76,9 +76,9 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
             dispatchManager.track(dispatch5)
         }
         verify(timeout = 1000) {
-            dispatcher1.dispatch(listOf(dispatch1, dispatch2))
-            dispatcher1.dispatch(listOf(dispatch3, dispatch4))
-            dispatcher1.dispatch(listOf(dispatch5))
+            dispatcher1.dispatch(listOf(dispatch1, dispatch2), any())
+            dispatcher1.dispatch(listOf(dispatch3, dispatch4), any())
+            dispatcher1.dispatch(listOf(dispatch5), any())
 
             queueManager.deleteDispatches(listOf(dispatch1, dispatch2), dispatcher1Name)
             queueManager.deleteDispatches(listOf(dispatch3, dispatch4), dispatcher1Name)
@@ -92,7 +92,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
         dispatchManager.track(dispatch1)
 
         verify(timeout = 1000) {
-            dispatcher1.dispatch(listOf(dispatch1))
+            dispatcher1.dispatch(listOf(dispatch1), any())
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
         }
     }
@@ -112,11 +112,11 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
         }
 
         verify(timeout = 1000, ordering = Ordering.ORDERED) {
-            dispatcher1.dispatch(listOf(dispatch1))
-            dispatcher1.dispatch(listOf(dispatch2))
-            dispatcher1.dispatch(listOf(dispatch3))
-            dispatcher1.dispatch(listOf(dispatch4))
-            dispatcher1.dispatch(listOf(dispatch5))
+            dispatcher1.dispatch(listOf(dispatch1), any())
+            dispatcher1.dispatch(listOf(dispatch2), any())
+            dispatcher1.dispatch(listOf(dispatch3), any())
+            dispatcher1.dispatch(listOf(dispatch4), any())
+            dispatcher1.dispatch(listOf(dispatch5), any())
         }
     }
 
@@ -137,9 +137,9 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
         }
 
         verify(timeout = 1000) {
-            dispatcher1.dispatch(listOf(dispatch1, dispatch2))
-            dispatcher1.dispatch(listOf(dispatch3, dispatch4))
-            dispatcher1.dispatch(listOf(dispatch5))
+            dispatcher1.dispatch(listOf(dispatch1, dispatch2), any())
+            dispatcher1.dispatch(listOf(dispatch3, dispatch4), any())
+            dispatcher1.dispatch(listOf(dispatch5), any())
 
             queueManager.deleteDispatches(listOf(dispatch1, dispatch2), dispatcher1Name)
             queueManager.deleteDispatches(listOf(dispatch3, dispatch4), dispatcher1Name)
@@ -160,19 +160,19 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
         dispatchManager.track(dispatch3) // both receive 3
 
         verify(timeout = 1000) {
-            dispatcher1.dispatch(listOf(dispatch1))
-            dispatcher1.dispatch(listOf(dispatch3))
+            dispatcher1.dispatch(listOf(dispatch1), any())
+            dispatcher1.dispatch(listOf(dispatch3), any())
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
             queueManager.deleteDispatches(listOf(dispatch3), dispatcher1Name)
 
-            dispatcher2.dispatch(listOf(dispatch2))
-            dispatcher2.dispatch(listOf(dispatch3))
+            dispatcher2.dispatch(listOf(dispatch2), any())
+            dispatcher2.dispatch(listOf(dispatch3), any())
             queueManager.deleteDispatches(listOf(dispatch2), dispatcher2Name)
             queueManager.deleteDispatches(listOf(dispatch3), dispatcher2Name)
         }
         verify(timeout = 1000, inverse = true) {
-            dispatcher1.dispatch(listOf(dispatch2))
-            dispatcher2.dispatch(listOf(dispatch1))
+            dispatcher1.dispatch(listOf(dispatch2), any())
+            dispatcher2.dispatch(listOf(dispatch1), any())
         }
     }
 

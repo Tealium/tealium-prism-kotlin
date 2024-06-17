@@ -10,12 +10,14 @@ import com.tealium.core.api.Module
 import com.tealium.core.api.ModuleFactory
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumList
+import com.tealium.core.api.listeners.Disposable
+import com.tealium.core.api.listeners.TealiumCallback
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.NetworkHelper
-import com.tealium.core.internal.observables.Observable
-import com.tealium.core.internal.observables.Observables
 import com.tealium.core.api.settings.ModuleSettings
-import com.tealium.core.internal.observables.merge
+import com.tealium.core.internal.observables.CompletedDisposable
+import com.tealium.core.internal.observables.DisposableContainer
+import com.tealium.core.internal.observables.addTo
 
 /**
  * The [CollectDispatcher]
@@ -45,41 +47,54 @@ class CollectDispatcher(
     override val dispatchLimit: Int
         get() = CollectDispatcherSettings.MAX_BATCH_SIZE
 
-    override fun dispatch(dispatches: List<Dispatch>): Observable<List<Dispatch>> {
+    override fun dispatch(
+        dispatches: List<Dispatch>,
+        callback: TealiumCallback<List<Dispatch>>
+    ): Disposable {
         logger.trace?.log(
             "Dispatcher",
             "$moduleName dispatching events: ${dispatches.map { it.payload() }}"
         )
 
         return if (dispatches.size == 1) {
-            sendSingle(dispatches.first())
+            sendSingle(dispatches.first(), callback)
         } else {
-            sendBatch(dispatches)
+            sendBatch(dispatches, callback)
         }
     }
 
     private fun sendBatch(
         dispatches: List<Dispatch>,
-    ): Observable<List<Dispatch>> {
-        return dispatches.groupBy {
+        onProcessed: TealiumCallback<List<Dispatch>>
+    ): Disposable {
+        val disposableContainer = DisposableContainer()
+
+        dispatches.groupBy {
             it.payload().getString(Dispatch.Keys.TEALIUM_VISITOR_ID)
         }.mapNotNull { (visitorId, dispatches) ->
-            if (visitorId == null) Observables.just(dispatches) // shouldn't happen
-            else sendBatch(visitorId, dispatches)
-        }.merge()
+            if (visitorId == null) { // shouldn't happen
+                onProcessed.onComplete(dispatches)
+                CompletedDisposable
+            } else {
+                sendBatch(visitorId, dispatches, onProcessed)
+            }.addTo(disposableContainer)
+        }
+
+        return disposableContainer
     }
 
     private fun sendBatch(
         visitorId: String,
-        batch: List<Dispatch>
-    ): Observable<List<Dispatch>> {
+        batch: List<Dispatch>,
+        onProcessed: TealiumCallback<List<Dispatch>>
+    ): Disposable {
         logger.trace?.log(
             "Dispatcher",
             "$moduleName processing batch: ${batch.map { it.payload() }}"
         )
 
         if (batch.count() == 1) {
-            return sendSingle(batch.first())
+            return sendSingle(batch.first(), onProcessed)
         }
 
         val compressed = compressDispatches(
@@ -87,34 +102,37 @@ class CollectDispatcher(
             visitorId,
             config.accountName,
             collectDispatcherSettings.profile ?: config.profileName
-        ) ?: return Observables.just(batch)
+        )
+        if (compressed == null) {
+            onProcessed.onComplete(batch)
+            return CompletedDisposable
+        }
 
-        return Observables.async { observer ->
-            networkHelper.post(collectDispatcherSettings.batchUrl, compressed) { result ->
-                logger.debug?.log(
-                    "Dispatcher",
-                    "$moduleName NetworkResult was ${result.javaClass.simpleName} for batch: ${batch.map { it.payload() }}"
-                )
-                observer.onNext(batch)
-            }
+        return networkHelper.post(collectDispatcherSettings.batchUrl, compressed) { result ->
+            logger.debug?.log(
+                "Dispatcher",
+                "$moduleName NetworkResult was ${result.javaClass.simpleName} for batch: ${batch.map { it.payload() }}"
+            )
+            onProcessed.onComplete(batch)
         }
     }
 
-    private fun sendSingle(dispatch: Dispatch): Observable<List<Dispatch>> {
+    private fun sendSingle(
+        dispatch: Dispatch,
+        onProcessed: TealiumCallback<List<Dispatch>>
+    ): Disposable {
         collectDispatcherSettings.profile?.let { profile ->
             dispatch.addAll(TealiumBundle.create {
                 put(Dispatch.Keys.TEALIUM_PROFILE, profile)
             })
         }
 
-        return Observables.async { observer ->
-            networkHelper.post(collectDispatcherSettings.url, dispatch.payload()) { result ->
-                logger.debug?.log(
-                    "Dispatcher",
-                    "$moduleName NetworkResult was ${result.javaClass.simpleName} for single: ${dispatch.payload()}"
-                )
-                observer.onNext(listOf(dispatch))
-            }
+        return networkHelper.post(collectDispatcherSettings.url, dispatch.payload()) { result ->
+            logger.debug?.log(
+                "Dispatcher",
+                "$moduleName NetworkResult was ${result.javaClass.simpleName} for single: ${dispatch.payload()}"
+            )
+            onProcessed.onComplete(listOf(dispatch))
         }
     }
 

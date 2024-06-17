@@ -129,3 +129,14 @@ class DisposableRunnable(
         wrappedRunnable.run()
     }
 }
+
+/**
+ * A constant [Disposable] implementation which can be used when when no work is actually required
+ * to execute upon disposing.
+ *
+ * [isDisposed] is always `true` and [dispose] does executes nothing.
+ */
+object CompletedDisposable: Disposable {
+    override val isDisposed: Boolean = true
+    override fun dispose() { }
+}

@@ -1,6 +1,7 @@
 package com.tealium.core.api
 
-import com.tealium.core.internal.observables.Observable
+import com.tealium.core.api.listeners.Disposable
+import com.tealium.core.api.listeners.TealiumCallback
 
 /**
  * A [Dispatcher] is a specialized [Module] that is the destination for any [Dispatch]es tracked
@@ -18,14 +19,16 @@ interface Dispatcher : Module {
     /**
      * Called when a new [Dispatch] is ready to be processed by this [Dispatcher].
      *
-     * Emissions from the returned flow will remove the [dispatches] from the persistent queue. Typical
-     * behaviour would be to return a flow which emits a list of all the dispatches received by this
-     * method once they have been processed.
-     * If batches have to be split and processed separately, then emissions should only emit the
-     * dispatches that have been processed each time.
+     * Calling the [callback] callback will remove the [dispatches] from the persistent queue. Typical
+     * behaviour would be to process all events and call the callback with the full list of [dispatches]
+     * that were provided.
+     *
+     * If batches have to be split and processed separately, then multiple callback executions should
+     * only pass the dispatches that have been processed each time.
      *
      * @param dispatches The batch of dispatches to be processed by this [Dispatcher]
-     * @return An [Observable] of the processed dispatches
+     * @param callback The callback used to indicate that the dispatches are completed.
+     * @return A disposable able to halt the processing of the given dispatches
      */
-    fun dispatch(dispatches: List<Dispatch>): Observable<List<Dispatch>>
+    fun dispatch(dispatches: List<Dispatch>, callback: TealiumCallback<List<Dispatch>>): Disposable
 }
