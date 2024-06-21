@@ -20,9 +20,11 @@ class TealiumConfig @JvmOverloads constructor(
     val events: List<Listener> = emptyList(),
     val datasource: String? = null
 ) {
-    private val pathName =
-        "${application.filesDir}${File.separatorChar}tealium${File.separatorChar}${accountName}${File.separatorChar}${profileName}${File.separatorChar}${environment.environment}"
-    val tealiumDirectory: File = File(pathName)
+
+    private val pathName
+        get() = "${application.filesDir}${File.separatorChar}tealium${File.separatorChar}${accountName}${File.separatorChar}${profileName}${File.separatorChar}${environment.environment}"
+    val tealiumDirectory: File
+        get() = File(pathName)
 
     var useRemoteSettings: Boolean = false
 
@@ -44,6 +46,11 @@ class TealiumConfig @JvmOverloads constructor(
     var transformers: Set<Transformer> = setOf()
 
     var barriers: Set<Barrier> = setOf()
+
+    /**
+     * Sets a known existing visitor id for use only on first launch.
+     */
+    var existingVisitorId: String? = null
 
     /**
      * Holds settings configurations for core and integrated modules

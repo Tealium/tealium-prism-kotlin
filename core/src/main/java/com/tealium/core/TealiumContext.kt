@@ -1,7 +1,11 @@
 package com.tealium.core
 
 import android.content.Context
-import com.tealium.core.api.*
+import com.tealium.core.api.ActivityManager
+import com.tealium.core.api.ModuleManager
+import com.tealium.core.api.ModuleStoreProvider
+import com.tealium.core.api.Schedulers
+import com.tealium.core.api.Tracker
 import com.tealium.core.api.barriers.BarrierRegistry
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.NetworkUtilities
@@ -13,8 +17,7 @@ class TealiumContext(
     val context: Context,
     val config: TealiumConfig,
     val logger: Logger,
-    // TODO - find a better place to access this?
-    visitorId: String, // todo
+    val visitorId: ObservableState<String>,
     val storageProvider: ModuleStoreProvider,
     val network: NetworkUtilities,
     val coreSettings: ObservableState<CoreSettings>,
@@ -24,13 +27,4 @@ class TealiumContext(
     val transformerRegistry: TransformerRegistry,
     val barrierRegistry: BarrierRegistry,
     val moduleManager: ModuleManager
-) {
-    private val _visitorId = visitorId
-
-    val visitorId: String
-        get() {
-            //TODO()
-            //tealium.
-            return _visitorId
-        }
-}
+)

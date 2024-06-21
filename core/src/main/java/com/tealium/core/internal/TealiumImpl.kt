@@ -15,6 +15,7 @@ import com.tealium.core.api.listeners.TrackResultListener
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.Connectivity
 import com.tealium.core.api.network.NetworkUtilities
+import com.tealium.core.internal.IdentityUpdatedObserver.subscribeIdentityUpdates
 import com.tealium.core.internal.consent.ConsentModule
 import com.tealium.core.internal.dispatch.BarrierCoordinator
 import com.tealium.core.internal.dispatch.BarrierCoordinatorImpl
@@ -113,7 +114,8 @@ class TealiumImpl(
             io = networkScheduler
         )
 
-        connectivityRetriever = ConnectivityRetriever(config.application, tealiumScheduler, logger = logger)
+        connectivityRetriever =
+            ConnectivityRetriever(config.application, tealiumScheduler, logger = logger)
         connectivityRetriever.subscribe()
         networkUtilities = createNetworkUtilities(logger, schedulers, connectivityRetriever)
 
@@ -147,13 +149,24 @@ class TealiumImpl(
         )
         tracker = TrackerImpl(moduleManager, dispatchManager, logger)
 
+        val visitorIdProvider = VisitorIdProviderImpl(
+            config,
+            sharedDataStore,
+            logger
+        )
+        subscribeIdentityUpdates(
+            settings.map(SdkSettings::coreSettings),
+            storage.getModuleStore(DataLayerImpl),
+            visitorIdProvider,
+        ).addTo(disposables)
+
         tealiumContext =
             TealiumContext(
                 config.application,
                 config,
                 logger = logger,
                 // TODO - Visitor Storage not done yet, but EventStream requires a value for tealium_visitor_id
-                visitorId = UUID.randomUUID().toString().replace("-", ""),
+                visitorId = visitorIdProvider.visitorId,
                 storageProvider = ModuleStoreProviderImpl(
                     dbProvider, modulesRepository
                 ),

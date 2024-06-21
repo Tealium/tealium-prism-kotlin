@@ -37,7 +37,7 @@ class TealiumCollector(
     override fun collect(): TealiumBundle {
         return baseData.copy {
             put(Dispatch.Keys.TEALIUM_RANDOM, random)
-            put(Dispatch.Keys.TEALIUM_VISITOR_ID, context.visitorId)
+            put(Dispatch.Keys.TEALIUM_VISITOR_ID, context.visitorId.value)
         }
     }
 

@@ -90,4 +90,11 @@ class CoreSettingsBuilder : ModuleSettingsBuilder(CoreSettings.moduleName) {
     fun setDisableLibrary(disableLibrary: Boolean) = apply {
         builder.put(CoreSettings.KEY_DISABLE_LIBRARY, disableLibrary)
     }
+
+    /**
+     * Sets the key to look for in the DataLayer to trigger a change in identity.
+     */
+    fun setVisitorIdentityKey(key: String) = apply {
+        builder.put(CoreSettings.KEY_VISITOR_IDENTITY_KEY, key)
+    }
 }

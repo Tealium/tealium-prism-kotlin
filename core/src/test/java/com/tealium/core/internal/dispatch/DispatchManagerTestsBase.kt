@@ -74,7 +74,7 @@ open class DispatchManagerTestsBase {
     fun setUp() {
         MockKAnnotations.init(this)
 
-        logger = SystemLogger()
+        logger = SystemLogger
         scheduler = testTealiumScheduler
 
         // Consent Defaulted to disabled

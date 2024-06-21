@@ -15,7 +15,7 @@ fun Disposable.addTo(container: CompositeDisposable): Disposable = apply {
 /**
  * Subscribes the given [observer] to a single emission of the source.
  */
-fun <T> Observable<T>.subscribeOnce(observer: Observer<T>) : Disposable {
+fun <T> Observable<T>.subscribeOnce(observer: Observer<T>): Disposable {
     return take(1)
         .subscribe(observer)
 }
@@ -25,7 +25,7 @@ fun <T> Observable<T>.subscribeOnce(observer: Observer<T>) : Disposable {
  *
  * This is shorthand for [Observables.merge].
  */
-fun <T> Iterable<Observable<T>>.merge() : Observable<T> {
+fun <T> Iterable<Observable<T>>.merge(): Observable<T> {
     return Observables.merge(this)
 }
 
@@ -39,4 +39,15 @@ fun <T> Observable<T>.map(): Observable<T> {
 
 fun <T> SubscribableState<T>.asObservableState() : ObservableState<T> {
     return ObservableStateImpl(this)
+}
+
+/**
+ * Convenience method for converting an observable of nullable items, into an observable
+ * of non-nullable items.
+ *
+ * This is shorthand for `mapNotNull { it }` but is preferable to that since no additional
+ * anonymous class needs to be generated.
+ */
+fun <T> Observable<T?>.filterNotNull(): Observable<T> {
+    return mapNotNull { it }
 }

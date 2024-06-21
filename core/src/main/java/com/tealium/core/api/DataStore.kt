@@ -1,6 +1,7 @@
 package com.tealium.core.api
 
 import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.TealiumList
 import com.tealium.core.api.data.TealiumValue
 import com.tealium.core.internal.observables.Observable
 
@@ -96,6 +97,69 @@ interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
      * @return The [TealiumValue] or null
      */
     fun get(key: String): TealiumValue?
+
+    /**
+     * Gets the String stored at the given [key] if there is one
+     *
+     * @param key The key for the required value
+     *
+     * @return The [String] or null
+     */
+    fun getString(key: String): String? = get(key)?.getString()
+
+    /**
+     * Gets the Int stored at the given [key] if there is one
+     *
+     * @param key The key for the required value
+     *
+     * @return The [Int] or null
+     */
+    fun getInt(key: String): Int? = get(key)?.getInt()
+
+    /**
+     * Gets the Double stored at the given [key] if there is one
+     *
+     * @param key The key for the required value
+     *
+     * @return The [Double] or null
+     */
+    fun getDouble(key: String): Double? = get(key)?.getDouble()
+
+    /**
+     * Gets the Long stored at the given [key] if there is one
+     *
+     * @param key The key for the required value
+     *
+     * @return The [Long] or null
+     */
+    fun getLong(key: String): Long? = get(key)?.getLong()
+
+    /**
+     * Gets the Boolean stored at the given [key] if there is one
+     *
+     * @param key The key for the required value
+     *
+     * @return The [Boolean] or null
+     */
+    fun getBoolean(key: String): Boolean? = get(key)?.getBoolean()
+
+    /**
+     * Gets the [TealiumList] stored at the given [key] if there is one
+     *
+     * @param key The key for the required value
+     *
+     * @return The [TealiumList] or null
+     */
+    fun getList(key: String): TealiumList? = get(key)?.getList()
+
+    /**
+     * Gets the [TealiumBundle] stored at the given [key] if there is one
+     *
+     * @param key The key for the required value
+     *
+     * @return The [TealiumBundle] or null
+     */
+    fun getBundle(key: String): TealiumBundle? = get(key)?.getBundle()
 
     /**
      * Gets the entire [TealiumBundle] containing all data stored.

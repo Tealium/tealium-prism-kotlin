@@ -3,7 +3,7 @@ package com.tealium.tests.common
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.logger.Logs
 
-class SystemLogger: Logger {
+object SystemLogger: Logger {
     private val systemLog: Logs = object : Logs {
         override fun log(category: String, message: String) {
             println("$category - $message")

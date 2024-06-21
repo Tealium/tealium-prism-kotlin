@@ -17,6 +17,7 @@ data class CoreSettings(
     val refreshInterval: Int = 900,
     val deepLinkTrackingEnabled: Boolean = true,
     val disableLibrary: Boolean = false,
+    val visitorIdentityKey: String? = null,
     val barriers: Set<ScopedBarrier> = setOf(),
     val transformations: Set<ScopedTransformation> = setOf(),
 ) {
@@ -33,6 +34,7 @@ data class CoreSettings(
         const val KEY_REFRESH_INTERVAL = "refresh_interval"
         const val KEY_DEEPLINK_TRACKING_ENABLED = "deeplink_tracking_enabled"
         const val KEY_DISABLE_LIBRARY = "disable_library"
+        const val KEY_VISITOR_IDENTITY_KEY = "visitor_identity_key"
         const val KEY_BARRIERS = "barriers"
         const val KEY_TRANSFORMATIONS = "transformations"
 
@@ -67,6 +69,7 @@ data class CoreSettings(
             val transformations = settings.getList(KEY_TRANSFORMATIONS)
                 ?.mapNotNull(Deserializers.ScopedTransformationDeserializable::deserialize)
                 ?.toSet()
+            val visitorIdentityKey = settings.getString(KEY_VISITOR_IDENTITY_KEY)
 
             return CoreSettings(
                 logLevel = logs ?: LogLevel.ERROR,
@@ -79,6 +82,7 @@ data class CoreSettings(
                 refreshInterval = interval ?: 900,
                 deepLinkTrackingEnabled = deepLinkTrackingEnabled ?: true, // TODO
                 disableLibrary = disableLibrary ?: false,
+                visitorIdentityKey = visitorIdentityKey,
                 barriers = barriers ?: setOf(),
                 transformations = transformations ?: setOf()
             )
