@@ -5,9 +5,8 @@ import com.tealium.core.internal.TealiumScheduler
 import com.tealium.core.internal.observables.ObservableUtils.assertNoSubscribers
 import com.tealium.core.internal.observables.ObservableUtils.getMockObserver
 import com.tealium.core.internal.observables.ObservableUtils.getSubject
-import com.tealium.tests.common.testNetworkScheduler
 import com.tealium.tests.common.testTealiumScheduler
-import io.mockk.spyk
+import io.mockk.mockk
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert
@@ -37,9 +36,12 @@ class SubscribeOnObservableTests {
     @Test
     fun subscribeOn_Subscribes_OnProvidedThread() {
         val scheduler = TealiumScheduler(subscribeExecutorService)
-        val subscribeHandler: (Observer<Int>) -> Unit = spyk({
+
+        val assertion: (Observer<Int>) -> Unit = mockk(relaxed = true)
+        val subscribeHandler: (Observer<Int>) -> Unit = {
             Assert.assertEquals(subscribeThread, Thread.currentThread())
-        })
+            assertion(it)
+        }
         val subject = getSubject(
             doSubscribeHandler = subscribeHandler
         )
@@ -49,7 +51,7 @@ class SubscribeOnObservableTests {
             .subscribe(observer)
 
         verify(exactly = 1, timeout = 1000) {
-            subscribeHandler.invoke(any())
+            assertion(any())
         }
     }
 

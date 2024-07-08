@@ -12,11 +12,7 @@ import com.tealium.core.internal.modules.ModuleManagerImpl
 import com.tealium.core.internal.observables.Observables
 import com.tealium.core.internal.observables.StateSubject
 import com.tealium.core.internal.settings.ModuleSettingsImpl
-import com.tealium.tests.common.TestCollector
-import com.tealium.tests.common.TestDispatcher
-import com.tealium.tests.common.TestModule
-import com.tealium.tests.common.TestModuleFactory
-import com.tealium.tests.common.testTealiumScheduler
+import com.tealium.tests.common.*
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -40,6 +36,7 @@ class ModuleManagerImplTests {
 
     private lateinit var moduleManager: InternalModuleManager
     private lateinit var modulesSubject: StateSubject<Set<Module>>
+    private lateinit var context: TealiumContext
 
     @Before
     fun setUp() {
@@ -48,7 +45,9 @@ class ModuleManagerImplTests {
         moduleManager = ModuleManagerImpl(
             defaultFactories, testTealiumScheduler, modulesSubject
         )
-        moduleManager.updateModuleSettings(mockk(), SdkSettings())
+        context = mockk<TealiumContext>()
+        every { context.logger } returns SystemLogger
+        moduleManager.updateModuleSettings(context, SdkSettings())
     }
 
     @Test
@@ -151,7 +150,7 @@ class ModuleManagerImplTests {
 
     @Test
     fun updateSettings_Updates_ExistingModules() {
-        moduleManager.updateModuleSettings(mockk(), SdkSettings(mapOf()))
+        moduleManager.updateModuleSettings(context, SdkSettings(mapOf()))
 
         verify {
             testCollector.updateSettings(any())
@@ -163,7 +162,7 @@ class ModuleManagerImplTests {
     @Test
     fun updateSettings_RemovesModules_ThatReturnNull() {
         every { testModule.updateSettings(any()) } returns null
-        moduleManager.updateModuleSettings(mockk(), SdkSettings(mapOf()))
+        moduleManager.updateModuleSettings(context, SdkSettings(mapOf()))
 
         assertFalse(modulesSubject.value.contains(testModule))
 
@@ -182,7 +181,7 @@ class ModuleManagerImplTests {
         val testModuleSettings = ModuleSettingsImpl(true, TealiumBundle.create {
             put("module_setting", "10")
         })
-        moduleManager.updateModuleSettings(mockk(), SdkSettings(mapOf(
+        moduleManager.updateModuleSettings(context, SdkSettings(mapOf(
             testCollector.name to testCollectorSettings,
             testDispatcher.name to testDispatcherSettings,
             testModule.name to testModuleSettings

@@ -2,7 +2,7 @@
 buildscript {
     ext.kotlin_version = '1.6.21'
     ext.coroutines_version = '1.7.1'
-    ext.mockk_version = '1.12.8'
+    ext.mockk_version = '1.13.7'
     ext.robolectric_version = '4.11.1'
 }
 

@@ -1,6 +1,5 @@
 package com.tealium.core.internal
 
-import com.tealium.core.BuildConfig
 import com.tealium.core.TealiumConfig
 import com.tealium.core.TealiumContext
 import com.tealium.core.api.ActivityManager
@@ -57,7 +56,6 @@ import com.tealium.core.internal.settings.CoreSettings
 import com.tealium.core.internal.settings.SettingsManager
 import java.io.File
 import java.io.IOException
-import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 class TealiumImpl(
@@ -69,7 +67,8 @@ class TealiumImpl(
         getDefaultModules() + config.modules,
         tealiumScheduler
     ),
-    private val activityManager: ActivityManager = ActivityManagerProxy()
+    private val activityManager: ActivityManager = ActivityManagerProxy(),
+    private val instanceName: String = "${config.accountName}-${config.profileName}"
 ) {
     private val schedulers: Schedulers
     private val settings: StateSubject<SdkSettings>
@@ -106,7 +105,7 @@ class TealiumImpl(
         )
 
         // TODO - clear session data if necessary
-        logger.info?.log(BuildConfig.TAG, "Clearing expired data.")
+        logger.debug?.log(LogCategory.TEALIUM, "Purging expired data from the database")
         modulesRepository.deleteExpired(ModulesRepository.ExpirationType.UntilRestart)
 
         schedulers = SchedulersImpl(
@@ -129,7 +128,7 @@ class TealiumImpl(
         val transformerCoordinator =
             createTransformationsCoordinator(config, coreSettings, schedulers)
         val barrierCoordinator =
-            createBarrierCoordinator(config, connectivityRetriever.onConnectionStatusUpdated,  coreSettings)
+            createBarrierCoordinator(config, connectivityRetriever.onConnectionStatusUpdated, coreSettings)
 
         val queueRepository = SQLQueueRepository(
             dbProvider,
@@ -191,7 +190,7 @@ class TealiumImpl(
 
         dispatchManager.startDispatchLoop()
 
-        logger.debug?.log(BuildConfig.TAG, "Bootstrap complete, continue to onReady")
+        logger.info?.log(LogCategory.TEALIUM, "Instance $instanceName initialized.")
         // todo - might have queued incoming events + dispatch them now.
     }
 
@@ -214,7 +213,7 @@ class TealiumImpl(
     }
 
     fun shutdown() {
-        logger.info?.log("Tealium", "Shutting down.")
+        logger.info?.log(LogCategory.TEALIUM, "Instance $instanceName shutting down.")
 
         disposables.dispose()
         dispatchManager.stopDispatchLoop()

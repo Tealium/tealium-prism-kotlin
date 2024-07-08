@@ -3,11 +3,9 @@ package com.tealium.core.internal.network
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.listeners.Disposable
 import com.tealium.core.api.logger.Logger
-import com.tealium.core.api.network.HttpRequest
-import com.tealium.core.api.network.NetworkClient
-import com.tealium.core.api.network.NetworkHelper
-import com.tealium.core.api.network.NetworkResult
-import com.tealium.core.api.network.Success
+import com.tealium.core.api.logger.Logs
+import com.tealium.core.api.network.*
+import com.tealium.core.internal.LogCategory
 import org.json.JSONException
 import org.json.JSONObject
 
@@ -21,8 +19,23 @@ class NetworkHelperImpl(
     private val logger: Logger,
 ) : NetworkHelper {
 
+    private fun send(request: HttpRequest, completion: (NetworkResult) -> Unit): Disposable {
+        val loggedCompletion: (NetworkResult) -> Unit = { result ->
+            val resultLogger: Logs? = when (result) {
+                is Success -> logger.trace
+                is Failure -> logger.error
+            }
+            resultLogger?.log(
+                LogCategory.HTTP_CLIENT,
+                "Completed request ${request.url} ${request.body} with $result"
+            )
+            completion(result)
+        }
+        return networkClient.sendRequest(request, loggedCompletion)
+    }
+
     override fun get(url: String, etag: String?, completion: (NetworkResult) -> Unit): Disposable {
-        return networkClient.sendRequest(HttpRequest.get(url, etag), completion)
+        return send(HttpRequest.get(url, etag), completion)
     }
 
     override fun post(
@@ -30,7 +43,7 @@ class NetworkHelperImpl(
         payload: TealiumBundle?,
         completion: (NetworkResult) -> Unit
     ): Disposable {
-        return networkClient.sendRequest(HttpRequest.post(url, payload, true), completion)
+        return send(HttpRequest.post(url, payload, true), completion)
     }
 
     override fun getJson(
@@ -38,7 +51,7 @@ class NetworkHelperImpl(
         etag: String?,
         completion: (JSONObject?) -> Unit
     ): Disposable {
-        return networkClient.sendRequest(HttpRequest.get(url, etag)) { result ->
+        return send(HttpRequest.get(url, etag)) { result ->
             if (result is Success && result.httpResponse.body != null) {
                 try {
                     val json = JSONObject(result.httpResponse.body)
@@ -47,7 +60,7 @@ class NetworkHelperImpl(
                         json.put(ETAG_KEY, it)
                     }
                     completion(json)
-                    return@sendRequest
+                    return@send
                 } catch (ignore: JSONException) {
                     logger.debug?.log("NetworkHelper", "Invalid")
                 }
@@ -62,7 +75,7 @@ class NetworkHelperImpl(
         etag: String?,
         completion: (TealiumBundle?) -> Unit
     ): Disposable {
-        return networkClient.sendRequest(HttpRequest.get(url, etag)) { result ->
+        return send(HttpRequest.get(url, etag)) { result ->
             if (result is Success && result.httpResponse.body != null) {
                 try {
                     var bundle = TealiumBundle.fromString(result.httpResponse.body)
@@ -74,7 +87,7 @@ class NetworkHelperImpl(
                     }
 
                     completion(bundle)
-                    return@sendRequest
+                    return@send
                 } catch (ignore: JSONException) {
                     logger.debug?.log("NetworkHelper", "Invalid")
                     // log

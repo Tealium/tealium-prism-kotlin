@@ -10,6 +10,7 @@ import com.tealium.core.api.listeners.Disposable
 import com.tealium.core.api.listeners.Observer
 import com.tealium.core.api.listeners.TrackResultListener
 import com.tealium.core.api.logger.Logger
+import com.tealium.core.internal.LogCategory
 import com.tealium.core.internal.consent.ConsentManager
 import com.tealium.core.internal.modules.InternalModuleManager
 import com.tealium.core.internal.observables.DisposableContainer
@@ -58,26 +59,42 @@ class DispatchManagerImpl(
 
     override fun track(dispatch: Dispatch, onComplete: TrackResultListener?) {
         if (tealiumPurposeExplicitlyBlocked()) {
-            logger?.info?.log(
-                "DispatchManager",
-                "Tealium consent purpose is explicitly blocked. Dispatch will not be sent."
+            logger?.debug?.log(
+                LogCategory.DISPATCH_MANAGER,
+                "Tealium consent purpose is explicitly blocked. Event ${dispatch.logDescription()} will be dropped."
             )
+
             onComplete?.onTrackResultReady(dispatch, TrackResult.Dropped)
             return
         }
 
         transformerCoordinator.transform(dispatch, DispatchScope.AfterCollectors) { transformed ->
             if (transformed == null) {
+                logger?.debug?.log(
+                    LogCategory.DISPATCH_MANAGER,
+                    "Event ${dispatch.logDescription()} dropped due to transformer"
+                )
+
                 onComplete?.onTrackResultReady(dispatch, TrackResult.Dropped)
                 return@transform
             }
 
             val consentManager = consentManager
             if (consentManager != null && consentManager.enabled) {
+                logger?.debug?.log(
+                    LogCategory.DISPATCH_MANAGER,
+                    "Event ${transformed.logDescription()} consent applied"
+                )
+
                 consentManager.applyConsent(transformed)
                 // TODO - This call may need to be moved into the Consent Manager implementation once it's done.
                 onComplete?.onTrackResultReady(transformed, TrackResult.Accepted)
             } else {
+                logger?.debug?.log(
+                    LogCategory.DISPATCH_MANAGER,
+                    "Event ${transformed.logDescription()} accepted for processing"
+                )
+
                 queueManager.storeDispatches(
                     listOf(transformed),
                     _dispatchers.map(Dispatcher::name).toSet()
@@ -99,23 +116,34 @@ class DispatchManagerImpl(
                 barrierCoordinator.onBarriersState(dispatcher.name)
                     .flatMapLatest { active ->
                         logger?.debug?.log(
-                            "DispatchManager",
+                            LogCategory.DISPATCH_MANAGER,
                             "BarrierState changed for ${dispatcher.name}: $active"
                         )
+
                         if (active == BarrierState.Open) {
                             startDequeueLoop(dispatcher)
                         } else {
                             Observables.empty()
                         }
-                    }.async { dispatches, observer: Observer<List<Dispatch>> ->
-                        transformAndDispatch(dispatches, dispatcher) { completed ->
-                            observer.onNext(completed)
+                    }.async { dispatches, observer: Observer<Pair<Dispatcher, List<Dispatch>>> ->
+                        logger?.debug?.log(
+                            LogCategory.DISPATCH_MANAGER,
+                            "Sending events to dispatcher ${dispatcher.name}: ${dispatches.map(Dispatch::logDescription)}"
+                        )
+
+                        transformAndDispatch(dispatches, dispatcher) { completedDispatches ->
+                            observer.onNext(Pair(dispatcher, completedDispatches))
                         }
                     }
-            }.subscribe { dispatches ->
+            }.subscribe { (dispatcher, completedDispatches) ->
+                queueManager.deleteDispatches(
+                    completedDispatches,
+                    dispatcher.name
+                )
+
                 logger?.debug?.log(
-                    "DispatchManager",
-                    "Complete - ${dispatches.map { it.tealiumEvent }}"
+                    LogCategory.DISPATCH_MANAGER,
+                    "Dispatcher: ${dispatcher.name} processed events: ${completedDispatches.map(Dispatch::logDescription)}"
                 )
             }
     }
@@ -151,7 +179,7 @@ class DispatchManagerImpl(
     private fun transformAndDispatch(
         dispatches: List<Dispatch>,
         dispatcher: Dispatcher,
-        completion: (List<Dispatch>) -> Unit
+        onProcessedDispatches: (List<Dispatch>) -> Unit
     ): Disposable {
         val container = DisposableContainer()
         transformerCoordinator.transform(
@@ -160,20 +188,11 @@ class DispatchManagerImpl(
         ) { transformedDispatches ->
             if (container.isDisposed) return@transform
 
-            deleteMissingDispatches(dispatches, transformedDispatches, dispatcher)
+            deleteMissingDispatches(dispatches, transformedDispatches, onProcessedDispatches)
 
             dispatcher.dispatch(transformedDispatches) { completed ->
                 if (container.isDisposed) return@dispatch
-
-                queueManager.deleteDispatches(
-                    completed,
-                    dispatcher.name
-                )
-                logger?.debug?.log(
-                    "DispatchManager",
-                    "${dispatcher.name}: Deleted: ${completed.map { it.tealiumEvent }}"
-                )
-                completion(transformedDispatches)
+                onProcessedDispatches(completed)
             }.addTo(container)
         }
 
@@ -183,17 +202,14 @@ class DispatchManagerImpl(
     private fun deleteMissingDispatches(
         original: List<Dispatch>,
         transformedDispatches: List<Dispatch>,
-        dispatcher: Dispatcher
+        onProcessedDispatches: (List<Dispatch>) -> Unit
     ) {
         val missingDispatches = original.filter { oldDispatch ->
             transformedDispatches.firstOrNull { transformedDispatch -> oldDispatch.id == transformedDispatch.id } == null
         }
 
         if (missingDispatches.isNotEmpty()) {
-            queueManager.deleteDispatches(
-                missingDispatches,
-                dispatcher.name
-            )
+            onProcessedDispatches(missingDispatches)
         }
     }
 
@@ -202,7 +218,5 @@ class DispatchManagerImpl(
 
     companion object {
         const val MAXIMUM_INFLIGHT_EVENTS_PER_DISPATCHER = 50
-
-        private fun extractCount(enqueuedEvents: Unit, count: Int) = count
     }
 }

@@ -1,7 +1,5 @@
 package com.tealium.core.internal
 
-import android.util.Log
-import com.tealium.core.BuildConfig
 import com.tealium.core.Tealium
 import com.tealium.core.TealiumConfig
 import com.tealium.core.api.ActivityManager
@@ -9,7 +7,6 @@ import com.tealium.core.api.consent.ConsentManager
 import com.tealium.core.api.DataLayer
 import com.tealium.core.api.DeeplinkManager
 import com.tealium.core.api.Dispatch
-import com.tealium.core.api.ModuleManager
 import com.tealium.core.api.TealiumResult
 import com.tealium.core.api.Scheduler
 import com.tealium.core.api.TimedEventsManager
@@ -97,10 +94,6 @@ class TealiumProxy(
 
         activityManager.applicationStatus.observeOn(tealiumScheduler)
             .combine(onTealiumImplReadyOnce) { status, _ ->
-                Log.d(
-                    BuildConfig.TAG,
-                    "Publishing new ApplicationStatus: $status"
-                )
                 status
             }
             .subscribe(appSubject)
@@ -108,10 +101,6 @@ class TealiumProxy(
 
         activityManager.activities.observeOn(tealiumScheduler)
             .combine(onTealiumImplReadyOnce) { status, _ ->
-                Log.d(
-                    BuildConfig.TAG,
-                    "Publishing new ActivityStatus: $status"
-                )
                 status
             }
             .subscribe(activitySubject)

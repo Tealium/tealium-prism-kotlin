@@ -58,6 +58,9 @@ class ModuleManagerImpl(
                 // update all existing module settings in case disabled modules need to shut
                 // anything down
                 val updatedModuleSettings = settings.moduleSettings.getOrDefault(factory.name)
+
+                context.logger.trace?.log(factory.name, "Settings updated to $updatedModuleSettings")
+
                 oldModule.updateSettings(updatedModuleSettings)
             } else {
                 createModule(

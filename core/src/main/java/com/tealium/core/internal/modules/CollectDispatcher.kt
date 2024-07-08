@@ -15,6 +15,7 @@ import com.tealium.core.api.listeners.TealiumCallback
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.NetworkHelper
 import com.tealium.core.api.settings.ModuleSettings
+import com.tealium.core.internal.LogCategory
 import com.tealium.core.internal.observables.CompletedDisposable
 import com.tealium.core.internal.observables.DisposableContainer
 import com.tealium.core.internal.observables.addTo
@@ -51,11 +52,6 @@ class CollectDispatcher(
         dispatches: List<Dispatch>,
         callback: TealiumCallback<List<Dispatch>>
     ): Disposable {
-        logger.trace?.log(
-            "Dispatcher",
-            "$moduleName dispatching events: ${dispatches.map { it.payload() }}"
-        )
-
         return if (dispatches.size == 1) {
             sendSingle(dispatches.first(), callback)
         } else {
@@ -69,9 +65,16 @@ class CollectDispatcher(
     ): Disposable {
         val disposableContainer = DisposableContainer()
 
-        dispatches.groupBy {
+        val groupedDispatches = dispatches.groupBy {
             it.payload().getString(Dispatch.Keys.TEALIUM_VISITOR_ID)
-        }.mapNotNull { (visitorId, dispatches) ->
+        }
+        logger.trace?.log(
+            LogCategory.COLLECT, "Collect events split in batches ${
+                groupedDispatches.mapValues { it.value.map(Dispatch::logDescription) }
+            }"
+        )
+
+        groupedDispatches.mapNotNull { (visitorId, dispatches) ->
             if (visitorId == null) { // shouldn't happen
                 onProcessed.onComplete(dispatches)
                 CompletedDisposable
@@ -88,11 +91,6 @@ class CollectDispatcher(
         batch: List<Dispatch>,
         onProcessed: TealiumCallback<List<Dispatch>>
     ): Disposable {
-        logger.trace?.log(
-            "Dispatcher",
-            "$moduleName processing batch: ${batch.map { it.payload() }}"
-        )
-
         if (batch.count() == 1) {
             return sendSingle(batch.first(), onProcessed)
         }
@@ -108,11 +106,7 @@ class CollectDispatcher(
             return CompletedDisposable
         }
 
-        return networkHelper.post(collectDispatcherSettings.batchUrl, compressed) { result ->
-            logger.debug?.log(
-                "Dispatcher",
-                "$moduleName NetworkResult was ${result.javaClass.simpleName} for batch: ${batch.map { it.payload() }}"
-            )
+        return networkHelper.post(collectDispatcherSettings.batchUrl, compressed) {
             onProcessed.onComplete(batch)
         }
     }
@@ -127,11 +121,7 @@ class CollectDispatcher(
             })
         }
 
-        return networkHelper.post(collectDispatcherSettings.url, dispatch.payload()) { result ->
-            logger.debug?.log(
-                "Dispatcher",
-                "$moduleName NetworkResult was ${result.javaClass.simpleName} for single: ${dispatch.payload()}"
-            )
+        return networkHelper.post(collectDispatcherSettings.url, dispatch.payload()) {
             onProcessed.onComplete(listOf(dispatch))
         }
     }
@@ -238,8 +228,6 @@ data class CollectDispatcherSettings(
 ) {
 
     companion object {
-        const val KEY_COLLECT_SETTINGS = "collect"
-
         const val MAX_BATCH_SIZE = 10
         const val DEFAULT_COLLECT_URL = "https://collect.tealiumiq.com/event"
         const val DEFAULT_COLLECT_BATCH_URL = "https://collect.tealiumiq.com/bulk-event"

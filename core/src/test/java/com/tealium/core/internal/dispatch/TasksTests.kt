@@ -3,7 +3,6 @@ package com.tealium.core.internal.dispatch
 import com.tealium.core.internal.TealiumScheduler
 import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.mockk
-import io.mockk.spyk
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert
@@ -49,9 +48,12 @@ class TasksTests {
             notifyThread!!
         }
         val scheduler = TealiumScheduler(executorService)
-        val notify: (List<Int>) -> Unit = spyk({
+        val assertion = mockk<(Boolean) -> Unit>()
+        val notify: (List<Int>) -> Unit = {
             Assert.assertEquals(notifyThread, Thread.currentThread())
-        })
+            Assert.assertEquals(listOf(1,2,3), it)
+            assertion(true)
+        }
 
         Tasks.execute(notifyOn = scheduler, listOf(
             syncTask(1),
@@ -60,7 +62,7 @@ class TasksTests {
         ), notify)
 
         verify(timeout = 1000) {
-            notify(listOf(1, 2, 3))
+            assertion(true)
         }
     }
 

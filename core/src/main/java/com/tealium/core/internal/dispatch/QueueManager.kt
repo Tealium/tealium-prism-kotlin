@@ -3,14 +3,15 @@ package com.tealium.core.internal.dispatch
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.PersistenceException
 import com.tealium.core.api.logger.Logger
+import com.tealium.core.internal.LogCategory
 import com.tealium.core.internal.observables.Observable
 import com.tealium.core.internal.observables.Observables
 import com.tealium.core.internal.observables.StateSubject
 import com.tealium.core.internal.observables.Subject
 import com.tealium.core.internal.persistence.QueueRepository
+import com.tealium.core.internal.persistence.TimeFrame
 import com.tealium.core.internal.persistence.days
 import com.tealium.core.internal.settings.CoreSettings
-import java.lang.Exception
 
 interface QueueManager {
 
@@ -98,7 +99,7 @@ class QueueManagerImpl(
 
         if (dispatches.isEmpty()) return emptyList()
         logger?.debug?.log(
-            "QueueManager",
+            LogCategory.QUEUE_MANAGER,
             "Dequeued dispatches for processor ($processor): (${dispatches.map(Dispatch::logDescription)})"
         )
 
@@ -113,15 +114,15 @@ class QueueManagerImpl(
         try {
             queueRepository.storeDispatch(dispatches, processors)
             logger?.debug?.log(
-                "QueueManager",
-                "Enqueued dispatches for processors ($processors): ${dispatches.map(Dispatch::logDescription)})"
+                LogCategory.QUEUE_MANAGER,
+                "Enqueued dispatches for processors ($processors): (${dispatches.map(Dispatch::logDescription)})"
             )
 
             _enqueuedDispatches.onNext(processors)
         } catch (ex: PersistenceException) {
             logger?.error?.log(
-                "QueueManager",
-                "Failed to enqueue dispatch for processors ($processors): ${dispatches.map(Dispatch::logDescription)} \nError: ${ex.message})"
+                LogCategory.QUEUE_MANAGER,
+                "Failed to enqueue dispatches for processors ($processors): ${dispatches.map(Dispatch::logDescription)}\nError: ${ex.message})"
             )
         }
     }
@@ -130,19 +131,19 @@ class QueueManagerImpl(
         try {
             queueRepository.deleteDispatches(dispatches, processor)
             logger?.debug?.log(
-                "QueueManager",
-                "Removed processed dispatches for processor ($processor): ${dispatches.map(Dispatch::id)}"
+                LogCategory.QUEUE_MANAGER,
+                "Removed processed dispatches for processor ($processor): (${dispatches.map(Dispatch::id)})"
             )
 
             removeFromInflightDispatches(processor, dispatches)
         } catch (ex: PersistenceException) {
             logger?.error?.log(
-                "QueueManager",
+                LogCategory.QUEUE_MANAGER,
                 "Failed to remove processed dispatches for processor ($processor): (${
                     dispatches.map(
                         Dispatch::id
                     )
-                }) \nError: (${ex.message})"
+                })\nError: ${ex.message}"
             )
         }
     }
@@ -151,43 +152,65 @@ class QueueManagerImpl(
         try {
             queueRepository.deleteAllDispatches(processor)
             logger?.debug?.log(
-                "QueueManager",
+                LogCategory.QUEUE_MANAGER,
                 "Removed all processed dispatches for processor ($processor)"
             )
 
             removeAllInflightDispatches(processor)
         } catch (ex: PersistenceException) {
             logger?.error?.log(
-                "QueueManager",
-                "Failed to remove all processed dispatches for processor ($processor) \nError: (${ex.message})"
+                LogCategory.QUEUE_MANAGER,
+                "Failed to remove all processed dispatches for processor ($processor)\nError: ${ex.message}"
             )
         }
     }
 
     private fun deleteQueues(currentProcessors: Set<String>) {
-        queueRepository.deleteQueues(forProcessorsNotIn = currentProcessors)
+        try {
+            queueRepository.deleteQueues(forProcessorsNotIn = currentProcessors)
+            logger?.debug?.log(
+                LogCategory.QUEUE_MANAGER,
+                "Deleted queued events for disabled processors. Currently enabled processors are: $currentProcessors"
+            )
 
-        inFlightDispatches.value.keys.filter { !currentProcessors.contains(it) }
-            .forEach { missingProcessor ->
-                removeAllInflightDispatches(missingProcessor)
-            }
+            inFlightDispatches.value.keys.filter { !currentProcessors.contains(it) }
+                .forEach { missingProcessor ->
+                    removeAllInflightDispatches(missingProcessor)
+                }
+        } catch (ex: PersistenceException) {
+            logger?.error?.log(
+                LogCategory.QUEUE_MANAGER,
+                "Failed to delete queued events for disabled processors. Currently enabled processors are: $currentProcessors\nError: ${ex.message}"
+            )
+        }
     }
 
     private fun handleSettingsUpdate(coreSettings: CoreSettings) {
         try {
             queueRepository.resize(coreSettings.maxQueueSize)
             logger?.debug?.log(
-                "QueueManager",
-                "Resized the queue to (${coreSettings.maxQueueSize}) and deleted eventual overflowing dispatches")
-        } catch (ex: Exception) {
-            logger?.error?.log("QueueManager","Failed to dispatches overflowing the maxQueueSize of (${coreSettings.maxQueueSize})\nError: (${ex.message})")
+                LogCategory.QUEUE_MANAGER,
+                "Resized the queue to (${coreSettings.maxQueueSize}) and deleted eventual overflowing dispatches"
+            )
+        } catch (ex: PersistenceException) {
+            logger?.error?.log(
+                LogCategory.QUEUE_MANAGER,
+                "Failed to delete dispatches exceeding the maxQueueSize of (${coreSettings.maxQueueSize})\nError: ${ex.message}"
+            )
         }
 
+        val expiration: TimeFrame = coreSettings.expiration.days
         try {
-            queueRepository.setExpiration(coreSettings.expiration.days)
-            logger?.debug?.log("QueueManager", "Set Queue Expiration to (settings.queueExpiration) and deleted all expired dispatches")
-        } catch (e: Exception) {
-            logger?.error?.log("QueueManager", "Failed to delete expired dispatches for expiration (settings.queueExpiration)\nError: (error)")
+            queueRepository.setExpiration(expiration)
+            logger?.debug?.log(
+                LogCategory.QUEUE_MANAGER,
+                "Set Queue Expiration to $expiration and deleted all expired dispatches"
+            )
+        } catch (ex: PersistenceException) {
+            logger?.error?.log(
+                LogCategory.QUEUE_MANAGER,
+                "Failed to delete expired dispatches for expiration $expiration\nError: ${ex.message}"
+            )
         }
     }
 

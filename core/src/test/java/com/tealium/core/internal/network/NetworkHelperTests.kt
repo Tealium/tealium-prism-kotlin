@@ -9,6 +9,7 @@ import com.tealium.core.api.network.NetworkClient
 import com.tealium.core.api.network.NetworkHelper
 import com.tealium.core.api.network.NetworkResult
 import com.tealium.core.api.network.Success
+import com.tealium.tests.common.SystemLogger
 import io.mockk.*
 import org.json.JSONObject
 import org.junit.Before
@@ -25,7 +26,7 @@ class NetworkHelperTests {
     @Before
     fun setup() {
         networkClient = mockk(relaxed = true)
-        networkHelper = NetworkHelperImpl(networkClient, mockk())
+        networkHelper = NetworkHelperImpl(networkClient, SystemLogger)
     }
 
     /**

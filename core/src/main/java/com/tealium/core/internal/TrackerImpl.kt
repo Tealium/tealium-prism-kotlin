@@ -1,6 +1,5 @@
 package com.tealium.core.internal
 
-import com.tealium.core.BuildConfig
 import com.tealium.core.api.Collector
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.Tracker
@@ -22,7 +21,8 @@ class TrackerImpl(
 
     override fun track(dispatch: Dispatch, onComplete: TrackResultListener?) {
         // TODO - this may need to buffer, since the tracker is available during module creation
-
+        logger.debug?.log(LogCategory.TEALIUM, "New tracking event received: ${dispatch.logDescription()}")
+        logger.trace?.log(LogCategory.TEALIUM, "Event data: ${dispatch.payload()}")
         // collection
         val builder = modules.getModulesOfType(Collector::class.java)
             .fold(TealiumBundle.Builder()) { builder, collector ->
@@ -30,10 +30,8 @@ class TrackerImpl(
             }
         dispatch.addAll(builder.getBundle())
 
-        logger.debug?.log(
-            BuildConfig.TAG,
-            "Dispatch(${dispatch.id.substring(0, 5)}) Ready - ${dispatch.payload()}"
-        )
+        logger.debug?.log(LogCategory.TEALIUM, "Event: ${dispatch.logDescription()} has been enriched by collectors")
+        logger.trace?.log(LogCategory.TEALIUM, "Enriched event data: ${dispatch.payload()}")
 
         // Dispatch
         // TODO - this might have been queued/batched.

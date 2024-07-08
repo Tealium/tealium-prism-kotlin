@@ -1,7 +1,9 @@
 package com.tealium.core.internal.persistence
 
 import com.tealium.core.api.Dispatch
+import com.tealium.core.api.PersistenceException
 import com.tealium.core.internal.settings.CoreSettings
+import kotlin.jvm.Throws
 
 /**
  * A repository for managing the persistence of [Dispatch] items to ensure they are not dropped when
@@ -30,6 +32,7 @@ interface QueueRepository {
      * @param dispatches The dispatches to persist in case we can't yet send them.
      * @param processors The list of processors to save the [dispatches] for
      */
+    @Throws(PersistenceException::class)
     fun storeDispatch(dispatches: List<Dispatch>, processors: Set<String>)
 
     /**
@@ -65,6 +68,7 @@ interface QueueRepository {
      * @param dispatches The list of [Dispatch] to remove from the queue
      * @param processor The name of the processor whose dispatches are to be removed
      */
+    @Throws(PersistenceException::class)
     fun deleteDispatches(dispatches: List<Dispatch>, processor: String)
 
     /**
@@ -72,6 +76,7 @@ interface QueueRepository {
      *
      * @param processor The name of the processor to clear all stored dispatches.
      */
+    @Throws(PersistenceException::class)
     fun deleteAllDispatches(processor: String)
 
     /**
@@ -81,6 +86,7 @@ interface QueueRepository {
      *
      * @param forProcessorsNotIn The current set of processors
      */
+    @Throws(PersistenceException::class)
     fun deleteQueues(forProcessorsNotIn: Set<String>)
 
     /**
@@ -88,6 +94,7 @@ interface QueueRepository {
      *
      * @param newSize The new maximum size that the queue can extend to.
      */
+    @Throws(PersistenceException::class)
     fun resize(newSize: Int)
 
     /**
@@ -96,6 +103,7 @@ interface QueueRepository {
      *
      * @see [CoreSettings.expiration]
      */
+    @Throws(PersistenceException::class)
     fun setExpiration(expiration: TimeFrame)
 }
 

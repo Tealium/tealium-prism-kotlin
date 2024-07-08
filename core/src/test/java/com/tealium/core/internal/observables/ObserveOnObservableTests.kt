@@ -6,7 +6,7 @@ import com.tealium.core.internal.observables.ObservableUtils.assertNoSubscribers
 import com.tealium.core.internal.observables.ObservableUtils.getMockObserver
 import com.tealium.core.internal.observables.ObservableUtils.getSubject
 import com.tealium.tests.common.testTealiumScheduler
-import io.mockk.spyk
+import io.mockk.mockk
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -36,9 +36,11 @@ class ObserveOnObservableTests {
     @Test
     fun observeOn_SubscribesOn_CallingThread() {
         val testThread = Thread.currentThread()
-        val subscribeHandler: (Observer<Int>) -> Unit = spyk({
+        val assertion: (Observer<Int>) -> Unit = mockk(relaxed = true)
+        val subscribeHandler: (Observer<Int>) -> Unit = {
             assertEquals(testThread, Thread.currentThread())
-        })
+            assertion(it)
+        }
         val subject = getSubject(
             doSubscribeHandler = subscribeHandler
         )
@@ -48,7 +50,7 @@ class ObserveOnObservableTests {
             .subscribe(observer)
 
         verify(exactly = 1, timeout = 1000) {
-            subscribeHandler.invoke(any())
+            assertion(any())
         }
     }
 

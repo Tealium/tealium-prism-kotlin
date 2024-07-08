@@ -448,15 +448,16 @@ class HttpClientTests {
             HttpMethod.Get
         )
 
-        val completion = spyk<(Boolean) -> Unit>({
-            assertTrue(it)
+        val assertion = mockk<(Boolean) -> Unit>()
+        val completion: (Boolean) -> Unit = {
             assertTrue(System.currentTimeMillis() >= startTime + delayDuration)
-        })
+            assertion(it)
+        }
         httpClient.processInterceptorsForDelay(httpRequest, mockk(), 0, completion)
 
         verify { mockInterceptor.shouldRetry(httpRequest, any(), any()) }
         verify(timeout = 1000) {
-            completion(true)
+            assertion(true)
         }
     }
 
@@ -476,9 +477,7 @@ class HttpClientTests {
             HttpMethod.Get
         )
 
-        val completion = spyk<(Boolean) -> Unit>({
-            assertTrue(it)
-        })
+        val completion = mockk<(Boolean) -> Unit>(relaxed = true)
         httpClient.processInterceptorsForDelay(httpRequest, mockk(), 0, completion)
 
         verify { mockInterceptor.shouldRetry(httpRequest, any(), any()) }

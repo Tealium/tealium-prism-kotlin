@@ -1,6 +1,5 @@
 package com.tealium.core.internal.network
 
-import com.tealium.core.BuildConfig
 import com.tealium.core.api.Scheduler
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.Cancelled
@@ -17,6 +16,8 @@ import com.tealium.core.api.network.RetryAfterEvent
 import com.tealium.core.api.network.Success
 import com.tealium.core.api.network.UnexpectedError
 import com.tealium.core.api.listeners.Disposable
+import com.tealium.core.api.logger.Logs
+import com.tealium.core.internal.LogCategory
 import com.tealium.core.internal.observables.DisposableContainer
 import com.tealium.core.internal.observables.Observable
 import com.tealium.core.internal.observables.addTo
@@ -26,7 +27,6 @@ import java.io.DataOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
@@ -48,7 +48,16 @@ class HttpClient(
         request: HttpRequest,
         completion: (NetworkResult) -> Unit
     ): Disposable {
+        logger.trace?.log(LogCategory.HTTP_CLIENT, "Sending request ${request.url} ${request.body}")
         return sendRetryableRequest(request, 0) { result ->
+            val resultLogger: Logs? = when (result) {
+                is Success -> logger.trace
+                is Failure -> logger.error
+            }
+            resultLogger?.log(
+                LogCategory.HTTP_CLIENT,
+                "Completed request ${request.url} ${request.body} with $result"
+            )
             completion(result)
         }
     }
@@ -69,6 +78,10 @@ class HttpClient(
 
                 if (shouldRetry) {
                     val newRetryCount = retryCount + 1
+                    logger.trace?.log(
+                        LogCategory.HTTP_CLIENT,
+                        "Retrying request ${request.url} ${request.body} Retry count: $newRetryCount"
+                    )
                     sendRetryableRequest(request, newRetryCount, completion)
                         .addTo(disposableContainer)
                 } else {
@@ -123,9 +136,8 @@ class HttpClient(
     }
 
     private fun delayRequest(interval: Long, request: HttpRequest, completion: () -> Unit) {
-        logger.debug?.log(BuildConfig.TAG, "Delaying request: $request")
+        // todo: request seems not to be used after removing logs
         networkScheduler.schedule(TimeFrame(interval, TimeUnit.MILLISECONDS)) {
-            logger.debug?.log(BuildConfig.TAG, "End delay request: $request")
             completion()
         }
     }
@@ -135,10 +147,9 @@ class HttpClient(
         request: HttpRequest,
         completion: () -> Unit
     ) {
-        logger.debug?.log(BuildConfig.TAG, "Delaying request: $request")
+        // todo: request seems not to be used after removing logs
         event.take(1)
             .subscribe {
-                logger.debug?.log(BuildConfig.TAG, "End delay request: $request")
                 completion()
             }
     }

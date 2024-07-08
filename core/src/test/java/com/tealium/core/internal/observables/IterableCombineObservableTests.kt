@@ -1,8 +1,8 @@
 package com.tealium.core.internal.observables
 
 import com.tealium.core.internal.observables.ObservableUtils.assertNoSubscribers
+import io.mockk.every
 import io.mockk.mockk
-import io.mockk.spyk
 import io.mockk.verify
 import io.mockk.verifyOrder
 import org.junit.Test
@@ -128,7 +128,10 @@ class IterableCombineObservableTests {
         val subject3 = Observables.publishSubject<Int>()
         val onNext = mockk<(Int) -> Unit>(relaxed = true)
 
-        val combiner = spyk(multiplyAll)
+        val combiner: (Iterable<Int>) -> Int = mockk()
+        every { combiner.invoke(any()) } answers {
+            multiplyAll(this.arg(0))
+        }
 
         Observables.combine(listOf(subject1, subject2, subject3), combiner)
             .subscribe(onNext)
@@ -149,7 +152,11 @@ class IterableCombineObservableTests {
     @Test
     fun combine_EmitsImmediately_When_SourcesEmpty() {
         val onNext = mockk<(Int) -> Unit>(relaxed = true)
-        val combiner = spyk(multiplyAll)
+
+        val combiner: (Iterable<Int>) -> Int = mockk()
+        every { combiner.invoke(any()) } answers {
+            multiplyAll(this.arg(0))
+        }
 
         Observables.combine(listOf(), combiner)
             .subscribe(onNext)
