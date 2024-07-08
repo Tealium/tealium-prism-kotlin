@@ -22,10 +22,12 @@ interface Module {
     /**
      * Called whenever an updated set of [ModuleSettings] has been made available for this [Module]
      *
+     * The default behavior will return `this` when [ModuleSettings.enabled] is true, or `null` otherwise.
+     *
      * @param moduleSettings The latest set of [ModuleSettings] relevant to this module
      * @return `this` if the module should remain enabled; null if the module should be disabled
      */
     fun updateSettings(moduleSettings: ModuleSettings) : Module? {
-        return this
+        return if (moduleSettings.enabled) this else null
     }
 }

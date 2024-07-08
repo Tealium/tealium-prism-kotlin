@@ -1,12 +1,14 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.TealiumConfig
+import com.tealium.core.TealiumContext
 import com.tealium.core.api.Dispatch
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.HttpResponse
 import com.tealium.core.api.network.NetworkHelper
 import com.tealium.core.api.network.NetworkResult
+import com.tealium.core.api.network.NetworkUtilities
 import com.tealium.core.api.network.Success
 import com.tealium.core.internal.settings.ModuleSettingsImpl
 import io.mockk.MockKAnnotations
@@ -17,6 +19,10 @@ import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
 import io.mockk.slot
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -32,6 +38,12 @@ class CollectDispatcherTests {
     @MockK
     lateinit var networkHelper: NetworkHelper
 
+    @MockK
+    lateinit var context: TealiumContext
+
+    @MockK
+    lateinit var config: TealiumConfig
+
     lateinit var collectDispatcher: CollectDispatcher
 
     private val account = "tealium_account"
@@ -40,6 +52,15 @@ class CollectDispatcherTests {
     @Before
     fun setUp() {
         MockKAnnotations.init(this)
+
+        every { config.accountName } returns account
+        every { config.profileName } returns profile
+        every { context.config } returns config
+        every { context.logger } returns logger
+
+        val networking = mockk<NetworkUtilities>()
+        every { networking.networkHelper } returns networkHelper
+        every { context.network } returns networking
 
         val completionCapture = slot<(NetworkResult) -> Unit>()
         every { networkHelper.post(any(), any(), capture(completionCapture)) } answers {
@@ -401,6 +422,47 @@ class CollectDispatcherTests {
     }
 
     @Test
+    fun updateSettings_ReturnsSelf_When_ModuleSettings_Enabled() {
+        collectDispatcher = createCollectDispatcher()
+
+        assertSame(
+            collectDispatcher,
+            collectDispatcher.updateSettings(ModuleSettingsImpl(enabled = true))
+        )
+    }
+
+    @Test
+    fun updateSettings_ReturnsNull_When_ModuleSettings_Disabled() {
+        collectDispatcher = createCollectDispatcher()
+
+        assertNull(collectDispatcher.updateSettings(ModuleSettingsImpl(enabled = false)))
+    }
+
+    @Test
+    fun create_ReturnsCollectDispatcher_When_ModuleSettings_Enabled() {
+        val module = CollectDispatcher.Factory.create(
+            context, ModuleSettingsImpl(enabled = true)
+        )
+
+        assertNotNull(module)
+        assertTrue(module is CollectDispatcher)
+    }
+
+    @Test
+    fun create_ReturnsNull_When_ModuleSettings_Disabled() {
+        val module = CollectDispatcher.Factory.create(context, ModuleSettingsImpl(enabled = false))
+
+        assertNull(module)
+    }
+
+    @Test
+    fun name_Matches_Factory_Name() {
+        collectDispatcher = createCollectDispatcher()
+
+        assertEquals(CollectDispatcher.Factory.name, collectDispatcher.name)
+    }
+
+    @Test
     fun fromModuleSettings_PrefersUrlOverrides_ToDomainOverride() {
         val url = "https://localhost/"
         val settings = CollectDispatcherSettings.fromModuleSettings(
@@ -443,10 +505,6 @@ class CollectDispatcherTests {
     private fun createCollectDispatcher(
         settings: CollectDispatcherSettings = CollectDispatcherSettings(),
     ): CollectDispatcher {
-        val config = mockk<TealiumConfig>()
-        every { config.accountName } returns account
-        every { config.profileName } returns profile
-
         return CollectDispatcher(
             config,
             logger,

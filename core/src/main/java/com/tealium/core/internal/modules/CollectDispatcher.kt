@@ -127,8 +127,10 @@ class CollectDispatcher(
     }
 
     override fun updateSettings(moduleSettings: ModuleSettings): Module? {
+        if (!moduleSettings.enabled) return null
+
         collectDispatcherSettings = CollectDispatcherSettings.fromModuleSettings(moduleSettings)
-        return this // TODO or null if required settings not available
+        return this
     }
 
     companion object {
@@ -203,7 +205,9 @@ class CollectDispatcher(
         override val name: String
             get() = moduleName
 
-        override fun create(context: TealiumContext, settings: ModuleSettings): Module {
+        override fun create(context: TealiumContext, settings: ModuleSettings): Module? {
+            if (!settings.enabled) return null
+
             return CollectDispatcher(
                 context,
                 CollectDispatcherSettings.fromModuleSettings(settings)
