@@ -140,10 +140,9 @@ class HttpClientTests {
         val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
 
         httpClient.sendRequest(
-            HttpRequest(
-                urlString,
-                HttpMethod.Get
-            ),
+            HttpRequest.get(
+                urlString
+            ).build(),
             completion
         )
 
@@ -169,10 +168,9 @@ class HttpClientTests {
         val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
 
         httpClient.sendRequest(
-            HttpRequest(
-                urlString,
-                HttpMethod.Get
-            ),
+            HttpRequest.get(
+                urlString
+            ).build(),
             completion
         )
 
@@ -197,10 +195,9 @@ class HttpClientTests {
         )
         val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
 
-        val httpRequest = HttpRequest(
-            urlString,
-            HttpMethod.Get
-        )
+        val httpRequest = HttpRequest.get(
+            urlString
+        ).build()
 
         httpClient.sendRequest(httpRequest, completion)
 
@@ -226,10 +223,9 @@ class HttpClientTests {
         )
         val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
 
-        val httpRequest = HttpRequest(
-            urlString,
-            HttpMethod.Get
-        )
+        val httpRequest = HttpRequest.get(
+            urlString
+        ).build()
 
         httpClient.sendRequest(httpRequest, completion)
 
@@ -259,10 +255,9 @@ class HttpClientTests {
         )
         val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
 
-        val httpRequest = HttpRequest(
-            urlString,
-            HttpMethod.Get
-        )
+        val httpRequest = HttpRequest.get(
+            urlString
+        ).build()
 
         val request = httpClient.sendRequest(httpRequest, completion)
         request.dispose()
@@ -292,10 +287,9 @@ class HttpClientTests {
         val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
 
         httpClient.sendRequest(
-            HttpRequest(
-                urlString,
-                HttpMethod.Get
-            ),
+            HttpRequest.get(
+                urlString
+            ).build(),
             completion
         )
 
@@ -322,10 +316,9 @@ class HttpClientTests {
         val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
 
         httpClient.sendRequest(
-            HttpRequest(
-                urlString,
-                HttpMethod.Get
-            ),
+            HttpRequest.get(
+                urlString
+            ).build(),
             completion
         )
 
@@ -351,12 +344,10 @@ class HttpClientTests {
         val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
 
         httpClient.sendRequest(
-            HttpRequest(
-                urlString,
-                HttpMethod.Post,
-                body = "Test Body",
-                headers = mapOf("Content-type" to "text/plain")
-            ),
+            HttpRequest.post(
+                urlString, "Test Body"
+            ).header("Content-Type", "text/plain")
+                .build(),
             completion
         )
 
@@ -382,12 +373,12 @@ class HttpClientTests {
         val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
 
         httpClient.sendRequest(
-            HttpRequest(
+            HttpRequest.post(
                 urlString,
-                HttpMethod.Post,
-                body = "Test Body",
-                headers = mapOf("Content-type" to "text/plain")
-            ),
+                "Test Body"
+            )
+                .header("Content-type", "text/plain")
+                .build(),
             completion
         )
 
@@ -420,10 +411,9 @@ class HttpClientTests {
         )
 
         httpClient.sendRequest(
-            HttpRequest(
-                urlString,
-                HttpMethod.Get
-            ), completion
+            HttpRequest.get(
+                urlString
+            ).build(), completion
         )
 
         mockWebServer.takeRequest()
@@ -443,10 +433,9 @@ class HttpClientTests {
             delayDuration
         )
 
-        val httpRequest = HttpRequest(
-            urlString,
-            HttpMethod.Get
-        )
+        val httpRequest = HttpRequest.get(
+            urlString
+        ).build()
 
         val assertion = mockk<(Boolean) -> Unit>()
         val completion: (Boolean) -> Unit = {
@@ -472,10 +461,9 @@ class HttpClientTests {
             event
         )
 
-        val httpRequest = HttpRequest(
-            urlString,
-            HttpMethod.Get
-        )
+        val httpRequest = HttpRequest.get(
+            urlString
+        ).build()
 
         val completion = mockk<(Boolean) -> Unit>(relaxed = true)
         httpClient.processInterceptorsForDelay(httpRequest, mockk(), 0, completion)
@@ -503,10 +491,9 @@ class HttpClientTests {
         httpClient.addInterceptor(mockInterceptor1)
         httpClient.addInterceptor(mockInterceptor2)
 
-        val httpRequest = HttpRequest(
-            urlString,
-            HttpMethod.Get
-        )
+        val httpRequest = HttpRequest.get(
+            urlString
+        ).build()
 
         httpClient.processInterceptorsForDelay(httpRequest, mockk(), 0, completion)
 
@@ -536,10 +523,9 @@ class HttpClientTests {
         httpClient.addInterceptor(mockInterceptor2)
         httpClient.addInterceptor(mockInterceptor3)
 
-        val httpRequest = HttpRequest(
-            urlString,
-            HttpMethod.Get
-        )
+        val httpRequest = HttpRequest.get(
+            urlString
+        ).build()
 
         httpClient.processInterceptorsForDelay(httpRequest, mockk(), 0, completion)
 

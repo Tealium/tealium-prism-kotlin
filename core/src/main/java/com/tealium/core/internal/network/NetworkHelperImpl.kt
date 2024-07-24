@@ -6,8 +6,10 @@ import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.logger.Logs
 import com.tealium.core.api.network.*
 import com.tealium.core.internal.LogCategory
+import com.tealium.core.internal.observables.CompletedDisposable
 import org.json.JSONException
 import org.json.JSONObject
+import java.net.MalformedURLException
 
 private const val ETAG_KEY = "etag"
 
@@ -19,19 +21,33 @@ class NetworkHelperImpl(
     private val logger: Logger,
 ) : NetworkHelper {
 
-    private fun send(request: HttpRequest, completion: (NetworkResult) -> Unit): Disposable {
+    private fun send(
+        request: HttpRequest.Builder,
+        completion: (NetworkResult) -> Unit
+    ): Disposable {
         val loggedCompletion: (NetworkResult) -> Unit = { result ->
             val resultLogger: Logs? = when (result) {
                 is Success -> logger.trace
                 is Failure -> logger.error
             }
             resultLogger?.log(
-                LogCategory.HTTP_CLIENT,
-                "Completed request ${request.url} ${request.body} with $result"
+                LogCategory.NETWORK_HELPER,
+                "Completed request with $result"
             )
             completion(result)
         }
-        return networkClient.sendRequest(request, loggedCompletion)
+
+        return try {
+            val httpRequest = request.build()
+            logger.trace?.log(LogCategory.NETWORK_HELPER, "Built request $httpRequest")
+
+            networkClient.sendRequest(httpRequest, loggedCompletion)
+        } catch (e: MalformedURLException) {
+            logger.error?.log(LogCategory.NETWORK_HELPER, "Failed to build request")
+
+            loggedCompletion(Failure(UnexpectedError(e)))
+            CompletedDisposable
+        }
     }
 
     override fun get(url: String, etag: String?, completion: (NetworkResult) -> Unit): Disposable {
@@ -43,7 +59,7 @@ class NetworkHelperImpl(
         payload: TealiumBundle?,
         completion: (NetworkResult) -> Unit
     ): Disposable {
-        return send(HttpRequest.post(url, payload, true), completion)
+        return send(HttpRequest.post(url, payload.toString()).gzip(true), completion)
     }
 
     override fun getJson(

@@ -59,7 +59,7 @@ class ModuleManagerImpl(
                 // anything down
                 val updatedModuleSettings = settings.moduleSettings.getOrDefault(factory.name)
 
-                context.logger.trace?.log(factory.name, "Settings updated to $updatedModuleSettings")
+                context.logger.trace?.log(factory.name, "Settings updated to ${updatedModuleSettings.bundle}")
 
                 oldModule.updateSettings(updatedModuleSettings)
             } else {

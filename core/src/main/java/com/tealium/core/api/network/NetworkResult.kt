@@ -14,7 +14,11 @@ sealed class NetworkResult
  * @param httpResponse The HTTP response data returned for this request
  * @see Failure
  */
-class Success(val httpResponse: HttpResponse) : NetworkResult()
+class Success(val httpResponse: HttpResponse) : NetworkResult() {
+    override fun toString(): String {
+        return "Success(${httpResponse.statusCode})"
+    }
+}
 
 /**
  * [Failure] indicates that the network request was unsuccessful for the reason given by the
@@ -27,4 +31,8 @@ class Success(val httpResponse: HttpResponse) : NetworkResult()
  * @param networkError The underlying cause of the failure
  * @see Success
  */
-class Failure(val networkError: NetworkError) : NetworkResult()
+class Failure(val networkError: NetworkError) : NetworkResult() {
+    override fun toString(): String {
+        return "Failure(${networkError})"
+    }
+}

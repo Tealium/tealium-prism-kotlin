@@ -5,6 +5,7 @@ import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.Cancelled
 import com.tealium.core.api.network.Failure
 import com.tealium.core.api.network.HttpRequest
+import com.tealium.core.api.network.HttpRequest.Headers
 import com.tealium.core.api.network.HttpResponse
 import com.tealium.core.api.network.IOError
 import com.tealium.core.api.network.Interceptor
@@ -26,7 +27,6 @@ import com.tealium.core.internal.persistence.TimeFrame
 import java.io.DataOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
-import java.net.URL
 import java.util.concurrent.TimeUnit
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
@@ -113,13 +113,13 @@ class HttpClient(
             if (policy.shouldRetry()) {
                 when (policy) {
                     is RetryAfterDelay -> {
-                        delayRequest(policy.interval, request) {
+                        delayRequest(policy.interval) {
                             shouldRetry(true)
                         }
                     }
 
                     is RetryAfterEvent<*> -> {
-                        delayRequest(policy.event, request) {
+                        delayRequest(policy.event) {
                             shouldRetry(true)
                         }
                     }
@@ -135,8 +135,7 @@ class HttpClient(
         }
     }
 
-    private fun delayRequest(interval: Long, request: HttpRequest, completion: () -> Unit) {
-        // todo: request seems not to be used after removing logs
+    private fun delayRequest(interval: Long, completion: () -> Unit) {
         networkScheduler.schedule(TimeFrame(interval, TimeUnit.MILLISECONDS)) {
             completion()
         }
@@ -144,10 +143,8 @@ class HttpClient(
 
     private fun <T> delayRequest(
         event: Observable<T>,
-        request: HttpRequest,
         completion: () -> Unit
     ) {
-        // todo: request seems not to be used after removing logs
         event.take(1)
             .subscribe {
                 completion()
@@ -187,28 +184,27 @@ class HttpClient(
         private fun executeRequest(request: HttpRequest): NetworkResult {
             lateinit var connection: HttpURLConnection
             return try {
-                connection = URL(request.url).openConnection() as HttpURLConnection
+                connection = request.url.openConnection() as HttpURLConnection
                 with(connection) {
                     try {
                         requestMethod = request.method.value
-                        request.headers?.forEach { (key, value) ->
+                        request.headers.forEach { (key, value) ->
                             setRequestProperty(key, value)
                         }
 
-                        if (!requestProperties.containsKey("Accept-Encoding")) {
-                            setRequestProperty("Accept-Encoding", "gzip")
+                        if (!requestProperties.containsKey(Headers.ACCEPT_ENCODING)) {
+                            setRequestProperty(Headers.ACCEPT_ENCODING, "gzip")
                         }
 
                         if (request.body != null) {
                             doOutput = true
 
-                            if (!requestProperties.containsKey("Content-Type")) {
-                                setRequestProperty("Content-Type", "application/json")
+                            if (!requestProperties.containsKey(Headers.CONTENT_TYPE)) {
+                                setRequestProperty(Headers.CONTENT_TYPE, "application/json")
                             }
 
                             val dataOutputStream = when (request.isGzip) {
                                 true -> {
-                                    setRequestProperty("Content-Encoding", "gzip")
                                     DataOutputStream(GZIPOutputStream(outputStream))
                                 }
 
@@ -230,7 +226,7 @@ class HttpClient(
                         || HttpURLConnection.HTTP_MOVED_TEMP == responseCode
                         || HttpURLConnection.HTTP_SEE_OTHER == responseCode
                     ) {
-                        val redirectedUrl = getHeaderField("Location")
+                        val redirectedUrl = getHeaderField(Headers.LOCATION)
                         if (redirectedUrl.isNullOrEmpty()) {
                             return@with Failure(
                                 UnexpectedError(Exception("Received redirect response without a valid Location header"))
@@ -239,7 +235,7 @@ class HttpClient(
                     }
 
                     if (responseCode >= HttpURLConnection.HTTP_OK && responseCode < HttpURLConnection.HTTP_MULT_CHOICE) {
-                        val contentEncoding = getHeaderField("Content-Encoding")
+                        val contentEncoding = contentEncoding
                         val body: String = if (contentEncoding == "gzip") {
                             GZIPInputStream(inputStream).bufferedReader().readText()
                         } else {

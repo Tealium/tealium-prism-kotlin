@@ -29,6 +29,10 @@ class Non200Error(
         // inclusive range?? might need updating
         return statusCode == 429 || (500.. 600).contains(statusCode)
     }
+
+    override fun toString(): String {
+        return "Non200Error($statusCode)"
+    }
 }
 
 /**
@@ -44,6 +48,10 @@ class IOError(
     override fun isRetryable(): Boolean {
         return true
     }
+
+    override fun toString(): String {
+        return "IOError(${ex?.message})"
+    }
 }
 
 /**
@@ -58,6 +66,10 @@ class UnexpectedError(
     override fun isRetryable(): Boolean {
         return false
     }
+
+    override fun toString(): String {
+        return "UnexpectedError(${ex?.message})"
+    }
 }
 
 /**
@@ -68,5 +80,9 @@ class UnexpectedError(
 object Cancelled: NetworkError() {
     override fun isRetryable(): Boolean {
         return false
+    }
+
+    override fun toString(): String {
+        return "Cancelled"
     }
 }

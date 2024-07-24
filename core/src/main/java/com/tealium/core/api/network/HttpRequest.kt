@@ -1,6 +1,8 @@
 package com.tealium.core.api.network
 
 import com.tealium.core.api.data.TealiumBundle
+import java.net.MalformedURLException
+import java.net.URL
 
 /**
  * Represents the data for an HTTP request
@@ -11,13 +13,153 @@ import com.tealium.core.api.data.TealiumBundle
  * @property headers The optional headers to be included in the request as a map of key-value pairs.
  * @property isGzip Indicates whether the request body should be compressed using GZIP encoding. Default is false.
  */
-data class HttpRequest(
-    val url: String,
+class HttpRequest private constructor(
+    val url: URL,
     val method: HttpMethod,
-    val body: String? = null,
-    val headers: Map<String, String>? = null,
-    val isGzip: Boolean = false,
+    val body: String?,
+    val headers: Map<String, String>
 ) {
+
+    val isGzip: Boolean
+        get() = "gzip" == headers[Headers.CONTENT_ENCODING]
+
+    val etag: String?
+        get() = headers[Headers.ETAG]
+
+    override fun toString(): String {
+        return "HttpRequest(" +
+                "url=" + url.toString() +
+                ", method=" + method.value +
+                ", body=" + (body ?: "") +
+                ", headers=" + headers +
+                ")"
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as HttpRequest
+
+        if (url != other.url) return false
+        if (method != other.method) return false
+        if (body != other.body) return false
+        if (headers != other.headers) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = url.hashCode()
+        result = 31 * result + method.hashCode()
+        result = 31 * result + (body?.hashCode() ?: 0)
+        result = 31 * result + headers.hashCode()
+        return result
+    }
+
+    /**
+     * Builder helper class for constructing [HttpRequest]s.
+     *
+     * Although this class can be created directly, there are some additional helper methods to start
+     * the builder process: [HttpRequest.get] and [HttpRequest.post] that will prepopulate the [Builder]
+     * with the given parameters.
+     *
+     * @param url required destination; the [build] method will throw if this is invalid
+     * @param method required http method for making the request
+     *
+     * @see HttpRequest.get
+     * @see HttpRequest.post
+     */
+    class Builder(
+        private val url: String,
+        private val method: HttpMethod
+    ) {
+        private val headers = mutableMapOf<String, String>()
+        private var body: String? = null
+        private var shouldGzip: Boolean? = null
+        private var etag: String? = null
+
+        /**
+         * Sets an HTTP header for the outgoing request.
+         *
+         * All [field]s are lowercased before storing for consistency - there are also some commonly
+         * used header constants available at [Headers].
+         *
+         * @param field The header field to set, e.g. "Content-Encoding"
+         * @param value The value to set for the given [field]
+         *
+         * @see Headers
+         */
+        fun header(field: String, value: String): Builder = apply {
+            headers[field.lowercase()] = value
+        }
+
+        /**
+         * Sets the request body that needs to be sent.
+         *
+         * @param body The request body to send
+         */
+        fun body(body: String?): Builder = apply {
+            this.body = body
+        }
+
+        /**
+         * Sets the request body that needs to be sent.
+         *
+         * @param bundle The request body to send
+         */
+        fun body(bundle: TealiumBundle?): Builder = body(bundle?.toString())
+
+        /**
+         * Sets whether or not the outbound request will be GZipped prior to sending.
+         *
+         * Note. the `Content-Encoding` header will be automatically added during the call to [build],
+         * so will overwrite any similar headers set via the [header] method.
+         *
+         * @param shouldGzip `true` if the content should be gzipped; else `false`
+         */
+        fun gzip(shouldGzip: Boolean): Builder = apply {
+            this.shouldGzip = shouldGzip
+        }
+
+        /**
+         * Sets an optional etag value for a previously cached value.
+         *
+         * Note. the `ETag` header will be automatically added during the call to [build], so will
+         * overwrite any similar headers set via the [header] method.
+         */
+        fun etag(etag: String?): Builder = apply {
+            this.etag = etag
+        }
+
+        /**
+         * Constructs the [HttpRequest] using the parameters given to the builder.
+         *
+         * If the provided URL is invalid/malformed, then an exception will be thrown at this point
+         * to fail early.
+         *
+         * Gzip and etag headers are also added at this point, so will overwrite any matching headers
+         * set on the builder via the [header] method
+         *
+         * @return the validated [HttpRequest]
+         */
+        @Throws(MalformedURLException::class)
+        fun build(): HttpRequest {
+            val parsedUrl = URL(url)
+
+            shouldGzip?.let {
+                header(Headers.CONTENT_ENCODING, "gzip")
+            }
+
+            etag?.let {
+                header(Headers.ETAG, it)
+            }
+
+            return HttpRequest(parsedUrl, method, body, headers.toMap())
+        }
+    }
+
+
     companion object {
 
         /**
@@ -28,8 +170,9 @@ data class HttpRequest(
          * @param gzip true to gzip compress the [payload]; otherwise false
          */
         @JvmStatic
-        fun post(destination: String, payload: TealiumBundle?, gzip: Boolean): HttpRequest {
-            return HttpRequest(destination, HttpMethod.Post, body = payload.toString(), isGzip = gzip)
+        fun post(destination: String, payload: String): Builder {
+            return Builder(destination, HttpMethod.Post)
+                .body(payload)
         }
 
         /**
@@ -40,13 +183,20 @@ data class HttpRequest(
          * response if the data requested hasn't changed.
          */
         @JvmStatic
-        fun get(destination: String, etag: String? = null): HttpRequest {
-            val etagHeader = when {
-                etag.isNullOrEmpty() -> null
-                else -> mapOf("etag" to etag)
-            }
-
-            return HttpRequest(destination, HttpMethod.Get, headers = etagHeader)
+        fun get(destination: String, etag: String? = null): Builder {
+            return Builder(destination, HttpMethod.Get)
+                .etag(etag)
         }
+    }
+
+    /**
+     * Object containing some constants for commonly used HTTP Headers
+     */
+    object Headers {
+        const val ACCEPT_ENCODING = "accept-encoding"
+        const val CONTENT_ENCODING = "content-encoding"
+        const val CONTENT_TYPE = "content-type"
+        const val ETAG = "etag"
+        const val LOCATION = "location"
     }
 }

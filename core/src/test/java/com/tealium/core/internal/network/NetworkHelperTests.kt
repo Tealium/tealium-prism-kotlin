@@ -44,12 +44,12 @@ class NetworkHelperTests {
 
     @Test
     fun sendGetRequestReturnsSuccessfulResult() {
-        val request = HttpRequest.get("url", null)
-        val successResponse: NetworkResult = Success(mockk())
+        val request = HttpRequest.get("http://localhost", null).build()
+        val successResponse: NetworkResult = Success(mockk(relaxed = true))
         val onComplete: (NetworkResult) -> Unit = mockk(relaxed = true)
         mockRequest(request, successResponse)
 
-        networkHelper.get(request.url, null, onComplete)
+        networkHelper.get(request.url.toString(), null, onComplete)
 
         verify {
             onComplete(match { result ->
@@ -63,12 +63,12 @@ class NetworkHelperTests {
 
     @Test
     fun sendGetRequestReturnsFailedResult() {
-        val request = HttpRequest.get("url", null)
+        val request = HttpRequest.get("http://localhost", null).build()
         val failedResponse: NetworkResult = Failure(mockk())
         val onComplete: (NetworkResult) -> Unit = mockk(relaxed = true)
         mockRequest(request, failedResponse)
 
-        networkHelper.get(request.url, null, onComplete)
+        networkHelper.get(request.url.toString(), null, onComplete)
 
         verify {
             onComplete(match { result ->
@@ -83,12 +83,12 @@ class NetworkHelperTests {
     @Test
     fun sendPostRequestReturnsSuccessfulResult() {
         val payload: TealiumBundle = TealiumBundle.EMPTY_BUNDLE
-        val request = HttpRequest.post("url", payload, true)
-        val successResponse: NetworkResult = Success(mockk())
+        val request = HttpRequest.post("http://localhost", payload.toString()).gzip(true).build()
+        val successResponse: NetworkResult = Success(mockk(relaxed = true))
         val onComplete: (NetworkResult) -> Unit = mockk(relaxed = true)
         mockRequest(request, successResponse)
 
-        networkHelper.post(request.url, payload, onComplete)
+        networkHelper.post(request.url.toString(), payload, onComplete)
 
         verify {
             onComplete(match { result ->
@@ -103,12 +103,12 @@ class NetworkHelperTests {
     @Test
     fun sendPostRequestReturnsFailedResult() {
         val payload: TealiumBundle = TealiumBundle.EMPTY_BUNDLE
-        val request = HttpRequest.post("url", payload, true)
+        val request = HttpRequest.post("http://localhost", payload.toString()).gzip(true).build()
         val failedResponse: NetworkResult = Failure(mockk())
         val onComplete: (NetworkResult) -> Unit = mockk(relaxed = true)
         mockRequest(request, failedResponse)
 
-        networkHelper.post(request.url, payload, onComplete)
+        networkHelper.post(request.url.toString(), payload, onComplete)
 
         verify {
             onComplete(match { result ->
@@ -122,7 +122,7 @@ class NetworkHelperTests {
 
     @Test
     fun getJsonReturnsJSONObjectForValidJSON() {
-        val request = HttpRequest.get("url", null)
+        val request = HttpRequest.get("http://localhost", null).build()
         val successResponse: NetworkResult = Success(
             HttpResponse(
                 mockk(),
@@ -135,7 +135,7 @@ class NetworkHelperTests {
         val onComplete: (JSONObject?) -> Unit = mockk(relaxed = true)
         mockRequest(request, successResponse)
 
-        networkHelper.getJson(request.url, null, onComplete)
+        networkHelper.getJson(request.url.toString(), null, onComplete)
 
         verify {
             onComplete(isNull(inverse = true))
@@ -147,7 +147,7 @@ class NetworkHelperTests {
 
     @Test
     fun getJsonReturnsNullForInvalidJSON() {
-        val request = HttpRequest.get("url", null)
+        val request = HttpRequest.get("http://localhost", null).build()
         val successResponse: NetworkResult = Success(
             HttpResponse(
                 mockk(),
@@ -159,7 +159,7 @@ class NetworkHelperTests {
         val onComplete: (JSONObject?) -> Unit = mockk(relaxed = true)
         mockRequest(request, successResponse)
 
-        networkHelper.getJson(request.url, null, onComplete)
+        networkHelper.getJson(request.url.toString(), null, onComplete)
 
         verify {
             onComplete(isNull())
@@ -171,7 +171,7 @@ class NetworkHelperTests {
 
     @Test
     fun getTealiumBundleReturnsValidTealiumBundle() {
-        val request = HttpRequest.get("url", null)
+        val request = HttpRequest.get("http://localhost", null).build()
         val successResponse: NetworkResult = Success(
             HttpResponse(
                 mockk(),
@@ -184,7 +184,7 @@ class NetworkHelperTests {
         val onComplete: (TealiumBundle?) -> Unit = mockk(relaxed = true)
         mockRequest(request, successResponse)
 
-        networkHelper.getTealiumBundle(request.url, null, onComplete)
+        networkHelper.getTealiumBundle(request.url.toString(), null, onComplete)
 
         verify {
             onComplete(match { bundle ->
