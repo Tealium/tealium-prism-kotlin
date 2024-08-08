@@ -1,8 +1,10 @@
 package com.tealium.core.internal.persistence
 
 import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.internal.observables.Observables
-import com.tealium.core.internal.observables.Subject
+import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.Subject
+import com.tealium.core.internal.persistence.repositories.ModulesRepository
+import com.tealium.core.internal.persistence.repositories.SQLKeyValueRepository
 import com.tealium.tests.common.TestModule
 import com.tealium.tests.common.TestModuleFactory
 import io.mockk.MockKAnnotations

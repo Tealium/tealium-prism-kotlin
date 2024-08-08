@@ -1,6 +1,6 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.Scheduler
+import com.tealium.core.api.misc.Scheduler
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 

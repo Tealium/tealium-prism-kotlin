@@ -1,8 +1,8 @@
 package com.tealium.tests.common
 
-import com.tealium.core.TealiumContext
-import com.tealium.core.api.Module
-import com.tealium.core.api.ModuleFactory
+import com.tealium.core.api.modules.TealiumContext
+import com.tealium.core.api.modules.Module
+import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.settings.ModuleSettings
 
 class TestModuleFactory(

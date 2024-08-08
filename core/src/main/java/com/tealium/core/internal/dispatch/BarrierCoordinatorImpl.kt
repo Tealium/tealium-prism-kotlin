@@ -4,9 +4,9 @@ import com.tealium.core.api.barriers.Barrier
 import com.tealium.core.api.barriers.BarrierScope
 import com.tealium.core.api.barriers.BarrierState
 import com.tealium.core.api.barriers.ScopedBarrier
-import com.tealium.core.internal.observables.Observable
-import com.tealium.core.internal.observables.Observables
-import com.tealium.core.internal.observables.StateSubject
+import com.tealium.core.api.pubsub.Observable
+import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.StateSubject
 
 class BarrierCoordinatorImpl(
     private var registeredBarriers: Set<Barrier>,

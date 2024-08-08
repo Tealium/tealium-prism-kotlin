@@ -1,10 +1,12 @@
 package com.tealium.core.internal.persistence
 
-import com.tealium.core.api.DataStore
-import com.tealium.core.api.ModuleStoreProvider
-import com.tealium.core.api.Module
-import com.tealium.core.api.ModuleFactory
-import kotlinx.coroutines.flow.mapNotNull
+import com.tealium.core.api.persistence.DataStore
+import com.tealium.core.api.persistence.ModuleStoreProvider
+import com.tealium.core.api.modules.Module
+import com.tealium.core.api.modules.ModuleFactory
+import com.tealium.core.internal.persistence.repositories.KeyValueRepository
+import com.tealium.core.internal.persistence.repositories.ModulesRepository
+import com.tealium.core.internal.persistence.repositories.SQLKeyValueRepository
 
 /**
  * This is the default implementation of [ModuleStoreProvider] for registering and returning

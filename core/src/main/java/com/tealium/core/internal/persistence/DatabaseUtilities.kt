@@ -4,7 +4,7 @@ package com.tealium.core.internal.persistence
 
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
-import com.tealium.core.api.PersistenceException
+import com.tealium.core.api.persistence.PersistenceException
 import kotlin.math.max
 
 /**

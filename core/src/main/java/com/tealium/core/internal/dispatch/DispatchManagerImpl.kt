@@ -1,22 +1,22 @@
 package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.barriers.BarrierState
-import com.tealium.core.api.consent.ConsentDecision
-import com.tealium.core.api.Dispatch
-import com.tealium.core.api.transformations.DispatchScope
-import com.tealium.core.api.TrackResult
-import com.tealium.core.api.Dispatcher
-import com.tealium.core.api.listeners.Disposable
-import com.tealium.core.api.listeners.Observer
-import com.tealium.core.api.listeners.TrackResultListener
+import com.tealium.core.api.modules.consent.ConsentDecision
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.transform.DispatchScope
+import com.tealium.core.api.tracking.TrackResult
+import com.tealium.core.api.modules.Dispatcher
+import com.tealium.core.api.pubsub.Disposable
+import com.tealium.core.api.pubsub.Observer
+import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.api.logger.Logger
-import com.tealium.core.internal.LogCategory
-import com.tealium.core.internal.consent.ConsentManager
+import com.tealium.core.internal.logger.LogCategory
+import com.tealium.core.internal.modules.consent.ConsentManager
 import com.tealium.core.internal.modules.InternalModuleManager
-import com.tealium.core.internal.observables.DisposableContainer
-import com.tealium.core.internal.observables.Observable
-import com.tealium.core.internal.observables.Observables
-import com.tealium.core.internal.observables.addTo
+import com.tealium.core.internal.pubsub.DisposableContainer
+import com.tealium.core.api.pubsub.Observable
+import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.internal.pubsub.addTo
 
 class DispatchManagerImpl(
     private val moduleManager: InternalModuleManager,

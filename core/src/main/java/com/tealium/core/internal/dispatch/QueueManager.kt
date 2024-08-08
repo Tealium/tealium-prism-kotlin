@@ -1,16 +1,16 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.Dispatch
-import com.tealium.core.api.PersistenceException
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.persistence.PersistenceException
 import com.tealium.core.api.logger.Logger
-import com.tealium.core.internal.LogCategory
-import com.tealium.core.internal.observables.Observable
-import com.tealium.core.internal.observables.Observables
-import com.tealium.core.internal.observables.StateSubject
-import com.tealium.core.internal.observables.Subject
-import com.tealium.core.internal.persistence.QueueRepository
-import com.tealium.core.internal.persistence.TimeFrame
-import com.tealium.core.internal.persistence.days
+import com.tealium.core.internal.logger.LogCategory
+import com.tealium.core.api.pubsub.Observable
+import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.StateSubject
+import com.tealium.core.api.pubsub.Subject
+import com.tealium.core.internal.persistence.repositories.QueueRepository
+import com.tealium.core.api.misc.TimeFrame
+import com.tealium.core.api.misc.days
 import com.tealium.core.internal.settings.CoreSettings
 
 interface QueueManager {

@@ -2,7 +2,7 @@ package com.tealium.core.internal.persistence
 
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
-import com.tealium.core.TealiumConfig
+import com.tealium.core.api.TealiumConfig
 
 /**
  * The [DatabaseProvider] should simplify the method of accessing an instance of a [SQLiteDatabase]

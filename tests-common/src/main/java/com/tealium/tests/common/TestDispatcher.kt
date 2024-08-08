@@ -1,10 +1,10 @@
 package com.tealium.tests.common
 
-import com.tealium.core.api.Dispatch
-import com.tealium.core.api.Dispatcher
-import com.tealium.core.api.listeners.Disposable
-import com.tealium.core.api.listeners.TealiumCallback
-import com.tealium.core.internal.observables.CompletedDisposable
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.modules.Dispatcher
+import com.tealium.core.api.pubsub.Disposable
+import com.tealium.core.api.misc.TealiumCallback
+import com.tealium.core.internal.pubsub.CompletedDisposable
 import io.mockk.spyk
 
 class TestDispatcher(

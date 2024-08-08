@@ -1,15 +1,15 @@
 package com.tealium.core.internal.modules
 
-import com.tealium.core.TealiumConfig
-import com.tealium.core.TealiumContext
-import com.tealium.core.api.Dispatch
+import com.tealium.core.api.TealiumConfig
+import com.tealium.core.api.modules.TealiumContext
+import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.HttpResponse
 import com.tealium.core.api.network.NetworkHelper
 import com.tealium.core.api.network.NetworkResult
+import com.tealium.core.api.network.NetworkResult.Success
 import com.tealium.core.api.network.NetworkUtilities
-import com.tealium.core.api.network.Success
 import com.tealium.core.internal.settings.ModuleSettingsImpl
 import io.mockk.MockKAnnotations
 import io.mockk.verify

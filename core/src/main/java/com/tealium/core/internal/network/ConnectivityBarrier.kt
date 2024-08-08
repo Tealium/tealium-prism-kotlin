@@ -3,7 +3,7 @@ package com.tealium.core.internal.network
 import com.tealium.core.api.barriers.Barrier
 import com.tealium.core.api.barriers.BarrierState
 import com.tealium.core.api.network.Connectivity
-import com.tealium.core.internal.observables.Observable
+import com.tealium.core.api.pubsub.Observable
 
 class ConnectivityBarrier(
     private val onConnectionStatusUpdated: Observable<Connectivity.Status>

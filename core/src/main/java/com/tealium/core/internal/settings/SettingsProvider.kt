@@ -1,7 +1,6 @@
 package com.tealium.core.internal.settings
 
-import com.tealium.core.internal.SdkSettings
-import com.tealium.core.internal.observables.ObservableState
+import com.tealium.core.api.pubsub.ObservableState
 
 /**
  * The [SettingsProvider] interface defines the contract for providing access to

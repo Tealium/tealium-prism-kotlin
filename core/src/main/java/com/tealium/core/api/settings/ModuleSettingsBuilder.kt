@@ -1,7 +1,7 @@
 package com.tealium.core.api.settings
 
-import com.tealium.core.api.Module
-import com.tealium.core.api.ModuleFactory
+import com.tealium.core.api.modules.Module
+import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumSerializable
 import com.tealium.core.internal.settings.ModuleSettingsImpl

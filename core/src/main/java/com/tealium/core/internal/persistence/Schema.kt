@@ -1,6 +1,6 @@
 package com.tealium.core.internal.persistence
 
-import com.tealium.core.api.Dispatch
+import com.tealium.core.api.tracking.Dispatch
 
 /**
  * Constants object holding all constant values for defining all things relating to the Database

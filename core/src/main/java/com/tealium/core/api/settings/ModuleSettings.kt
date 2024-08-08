@@ -1,8 +1,8 @@
 package com.tealium.core.api.settings
 
 import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.Module
-import com.tealium.core.TealiumConfig
+import com.tealium.core.api.modules.Module
+import com.tealium.core.api.TealiumConfig
 
 /**
  * The [ModuleSettings] represent the current configuration for a given [Module]. They are calculated

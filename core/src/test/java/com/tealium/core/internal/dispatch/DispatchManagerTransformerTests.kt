@@ -1,10 +1,10 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.Dispatch
-import com.tealium.core.api.TrackResult
-import com.tealium.core.api.transformations.ScopedTransformation
-import com.tealium.core.api.transformations.TransformationScope
-import com.tealium.core.api.transformations.Transformer
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.TrackResult
+import com.tealium.core.api.transform.ScopedTransformation
+import com.tealium.core.api.transform.TransformationScope
+import com.tealium.core.api.transform.Transformer
 import io.mockk.every
 import io.mockk.verify
 import io.mockk.impl.annotations.MockK

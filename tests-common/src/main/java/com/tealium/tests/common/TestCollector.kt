@@ -1,6 +1,6 @@
 package com.tealium.tests.common
 
-import com.tealium.core.api.Collector
+import com.tealium.core.api.modules.Collector
 import com.tealium.core.api.data.TealiumBundle
 import io.mockk.spyk
 

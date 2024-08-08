@@ -36,7 +36,7 @@
 -keep public class com.tealium.**$DefaultImpls { *; }
 
 # Keep public extension points
--keep public class com.tealium.core.Modules {
+-keep public class com.tealium.core.api.Modules {
     public protected *;
 }
 
@@ -45,7 +45,7 @@
 }
 
 # Keep observables public for external module use, but remain in internal package.
--keep public class com.tealium.core.internal.observables.* {
+-keep public class com.tealium.core.internal.pubsub.* {
     *;
 }
 

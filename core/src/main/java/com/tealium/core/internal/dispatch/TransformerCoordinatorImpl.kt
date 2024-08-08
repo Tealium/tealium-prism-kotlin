@@ -1,11 +1,11 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.Dispatch
-import com.tealium.core.api.Scheduler
-import com.tealium.core.api.transformations.DispatchScope
-import com.tealium.core.api.transformations.ScopedTransformation
-import com.tealium.core.api.transformations.Transformer
-import com.tealium.core.internal.observables.ObservableState
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.misc.Scheduler
+import com.tealium.core.api.transform.DispatchScope
+import com.tealium.core.api.transform.ScopedTransformation
+import com.tealium.core.api.transform.Transformer
+import com.tealium.core.api.pubsub.ObservableState
 
 class TransformerCoordinatorImpl(
     private var registeredTransformers: Set<Transformer>,

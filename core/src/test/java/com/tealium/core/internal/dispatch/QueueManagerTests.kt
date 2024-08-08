@@ -1,13 +1,13 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.Dispatch
-import com.tealium.core.api.TealiumDispatchType
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.internal.observables.Observables
-import com.tealium.core.internal.observables.StateSubject
-import com.tealium.core.internal.observables.Subject
-import com.tealium.core.internal.persistence.QueueRepository
-import com.tealium.core.internal.persistence.days
+import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.StateSubject
+import com.tealium.core.api.pubsub.Subject
+import com.tealium.core.internal.persistence.repositories.QueueRepository
+import com.tealium.core.api.misc.days
 import com.tealium.core.internal.settings.CoreSettings
 import io.mockk.MockKAnnotations
 import io.mockk.confirmVerified

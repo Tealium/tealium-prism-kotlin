@@ -1,9 +1,9 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.consent.ConsentDecision
-import com.tealium.core.api.Dispatch
-import com.tealium.core.api.transformations.DispatchScope
-import com.tealium.core.api.TrackResult
+import com.tealium.core.api.modules.consent.ConsentDecision
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.transform.DispatchScope
+import com.tealium.core.api.tracking.TrackResult
 import io.mockk.Called
 import io.mockk.Runs
 import io.mockk.every

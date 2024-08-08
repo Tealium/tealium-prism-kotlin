@@ -1,8 +1,8 @@
 package com.tealium.core.internal.persistence
 
-import com.tealium.core.api.Deserializer
-import com.tealium.core.api.Serde
-import com.tealium.core.api.Serializer
+import com.tealium.core.api.data.Deserializer
+import com.tealium.core.api.data.Serde
+import com.tealium.core.api.data.Serializer
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumList
 

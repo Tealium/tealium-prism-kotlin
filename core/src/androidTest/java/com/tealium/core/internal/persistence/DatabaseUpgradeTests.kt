@@ -2,7 +2,7 @@ package com.tealium.core.internal.persistence
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
-import com.tealium.core.TealiumConfig
+import com.tealium.core.api.TealiumConfig
 import com.tealium.core.internal.persistence.DatabaseTestUtils.assertV1TablesExist
 import com.tealium.core.internal.persistence.DatabaseTestUtils.assertV2TablesExist
 import com.tealium.core.internal.persistence.DatabaseTestUtils.assertV3TablesExist

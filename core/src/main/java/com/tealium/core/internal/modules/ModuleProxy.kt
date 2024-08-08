@@ -1,12 +1,11 @@
 package com.tealium.core.internal.modules
 
-import com.tealium.core.Tealium
-import com.tealium.core.api.Module
-import com.tealium.core.api.ModuleManager
-import com.tealium.core.api.listeners.TealiumCallback
-import com.tealium.core.internal.observables.Observable
-import com.tealium.core.internal.observables.Observables
-import java.lang.ref.SoftReference
+import com.tealium.core.api.Tealium
+import com.tealium.core.api.modules.Module
+import com.tealium.core.api.modules.ModuleManager
+import com.tealium.core.api.misc.TealiumCallback
+import com.tealium.core.api.pubsub.Observable
+import com.tealium.core.api.pubsub.Observables
 
 /**
  * A [ModuleProxy] is to be used for proxying access to modules that are or were available

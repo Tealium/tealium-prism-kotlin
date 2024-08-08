@@ -1,12 +1,18 @@
 package com.tealium.core.internal.network
 
 import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.listeners.Disposable
+import com.tealium.core.api.pubsub.Disposable
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.logger.Logs
-import com.tealium.core.api.network.*
-import com.tealium.core.internal.LogCategory
-import com.tealium.core.internal.observables.CompletedDisposable
+import com.tealium.core.api.network.HttpRequest
+import com.tealium.core.api.network.NetworkClient
+import com.tealium.core.api.network.NetworkHelper
+import com.tealium.core.api.network.NetworkError.UnexpectedError
+import com.tealium.core.api.network.NetworkResult
+import com.tealium.core.api.network.NetworkResult.Failure
+import com.tealium.core.api.network.NetworkResult.Success
+import com.tealium.core.internal.logger.LogCategory
+import com.tealium.core.internal.pubsub.CompletedDisposable
 import org.json.JSONException
 import org.json.JSONObject
 import java.net.MalformedURLException

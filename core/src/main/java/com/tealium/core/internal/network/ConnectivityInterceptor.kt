@@ -1,13 +1,13 @@
 package com.tealium.core.internal.network
 
 import com.tealium.core.api.network.Connectivity
-import com.tealium.core.api.network.DoNotRetry
-import com.tealium.core.api.network.Failure
 import com.tealium.core.api.network.HttpRequest
 import com.tealium.core.api.network.Interceptor
 import com.tealium.core.api.network.NetworkResult
-import com.tealium.core.api.network.RetryAfterEvent
+import com.tealium.core.api.network.NetworkResult.Failure
 import com.tealium.core.api.network.RetryPolicy
+import com.tealium.core.api.network.RetryPolicy.DoNotRetry
+import com.tealium.core.api.network.RetryPolicy.RetryAfterEvent
 
 /**
  * The [ConnectivityInterceptor] is an [Interceptor] implementation that uses [Connectivity] to

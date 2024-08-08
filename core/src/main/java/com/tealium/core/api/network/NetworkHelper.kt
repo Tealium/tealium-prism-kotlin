@@ -1,7 +1,7 @@
 package com.tealium.core.api.network
 
 import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.listeners.Disposable
+import com.tealium.core.api.pubsub.Disposable
 import org.json.JSONObject
 
 /**

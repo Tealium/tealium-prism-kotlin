@@ -4,9 +4,9 @@ import com.tealium.core.api.barriers.Barrier
 import com.tealium.core.api.barriers.BarrierScope
 import com.tealium.core.api.barriers.BarrierState
 import com.tealium.core.api.barriers.ScopedBarrier
-import com.tealium.core.internal.observables.Observable
-import com.tealium.core.internal.observables.Observables
-import com.tealium.core.internal.observables.Subject
+import com.tealium.core.api.pubsub.Observable
+import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.Subject
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest

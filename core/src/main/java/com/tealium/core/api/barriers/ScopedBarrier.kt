@@ -1,11 +1,11 @@
 package com.tealium.core.api.barriers
 
-import com.tealium.core.api.Dispatcher
+import com.tealium.core.api.modules.Dispatcher
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumSerializable
 import com.tealium.core.api.data.TealiumValue
-import com.tealium.core.internal.Deserializers.ScopedBarrierDeserializable.KEY_BARRIER_ID
-import com.tealium.core.internal.Deserializers.ScopedBarrierDeserializable.KEY_SCOPES
+import com.tealium.core.internal.misc.Deserializers.ScopedBarrierDeserializable.KEY_BARRIER_ID
+import com.tealium.core.internal.misc.Deserializers.ScopedBarrierDeserializable.KEY_SCOPES
 
 /**
  * A [ScopedBarrier] describes which [Dispatcher] implementation any given [Barrier] should be

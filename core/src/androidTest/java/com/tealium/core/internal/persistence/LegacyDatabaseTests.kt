@@ -3,8 +3,8 @@ package com.tealium.core.internal.persistence
 import android.app.Application
 import android.database.sqlite.SQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
-import com.tealium.core.internal.observables.Observables
 import com.tealium.core.internal.persistence.DatabaseTestUtils.upgrade
+import com.tealium.core.internal.persistence.repositories.SQLKeyValueRepository
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.Assert.assertEquals

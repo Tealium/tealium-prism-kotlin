@@ -1,12 +1,12 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.Dispatch
-import com.tealium.core.api.transformations.DispatchScope
-import com.tealium.core.api.transformations.ScopedTransformation
-import com.tealium.core.api.transformations.TransformationScope
-import com.tealium.core.api.transformations.Transformer
-import com.tealium.core.internal.observables.Observables
-import com.tealium.core.internal.observables.StateSubject
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.transform.DispatchScope
+import com.tealium.core.api.transform.ScopedTransformation
+import com.tealium.core.api.transform.TransformationScope
+import com.tealium.core.api.transform.Transformer
+import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.MockKAnnotations
 import io.mockk.Ordering

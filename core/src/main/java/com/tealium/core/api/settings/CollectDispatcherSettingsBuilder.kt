@@ -1,6 +1,6 @@
 package com.tealium.core.api.settings
 
-import com.tealium.core.TealiumConfig
+import com.tealium.core.api.TealiumConfig
 import com.tealium.core.internal.modules.CollectDispatcher
 import com.tealium.core.internal.modules.CollectDispatcherSettings
 

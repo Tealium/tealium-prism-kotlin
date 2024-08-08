@@ -5,11 +5,11 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.Build
-import com.tealium.core.api.Scheduler
+import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.network.Connectivity
 import com.tealium.core.api.network.Connectivity.ConnectivityType
-import com.tealium.core.internal.observables.Observables
-import com.tealium.core.internal.observables.StateSubject
+import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.tests.common.SynchronousScheduler
 import io.mockk.*
 import io.mockk.impl.annotations.MockK

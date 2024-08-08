@@ -1,11 +1,11 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.BuildConfig
-import com.tealium.core.TealiumContext
-import com.tealium.core.api.Collector
-import com.tealium.core.api.Dispatch
-import com.tealium.core.api.Module
-import com.tealium.core.api.ModuleFactory
+import com.tealium.core.api.modules.TealiumContext
+import com.tealium.core.api.modules.Collector
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.modules.Module
+import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.network.Connectivity
 import com.tealium.core.api.settings.ModuleSettings

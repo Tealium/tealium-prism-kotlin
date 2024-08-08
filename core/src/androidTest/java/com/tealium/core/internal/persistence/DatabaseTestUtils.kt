@@ -3,7 +3,7 @@ package com.tealium.core.internal.persistence
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
-import com.tealium.core.TealiumConfig
+import com.tealium.core.api.TealiumConfig
 import org.junit.Assert.fail
 import java.util.UUID
 

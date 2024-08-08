@@ -1,10 +1,10 @@
 package com.tealium.core.internal.modules
 
-import com.tealium.core.TealiumContext
-import com.tealium.core.api.Module
-import com.tealium.core.api.ModuleFactory
-import com.tealium.core.api.ModuleManager
-import com.tealium.core.internal.SdkSettings
+import com.tealium.core.api.modules.TealiumContext
+import com.tealium.core.api.modules.Module
+import com.tealium.core.api.modules.ModuleFactory
+import com.tealium.core.api.modules.ModuleManager
+import com.tealium.core.internal.settings.SdkSettings
 
 interface InternalModuleManager: ModuleManager {
 

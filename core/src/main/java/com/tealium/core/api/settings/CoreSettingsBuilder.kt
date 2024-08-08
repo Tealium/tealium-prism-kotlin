@@ -1,6 +1,6 @@
 package com.tealium.core.api.settings
 
-import com.tealium.core.LogLevel
+import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.internal.settings.CoreSettings
 
 /**

@@ -1,8 +1,8 @@
 package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.barriers.BarrierState
-import com.tealium.core.internal.observables.Observables
-import com.tealium.core.internal.persistence.TimeFrame
+import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.misc.TimeFrame
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.verify
 import io.mockk.every

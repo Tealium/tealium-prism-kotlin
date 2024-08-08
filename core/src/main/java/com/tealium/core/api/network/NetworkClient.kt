@@ -1,6 +1,6 @@
 package com.tealium.core.api.network
 
-import com.tealium.core.api.listeners.Disposable
+import com.tealium.core.api.pubsub.Disposable
 
 interface NetworkClient {
     /**

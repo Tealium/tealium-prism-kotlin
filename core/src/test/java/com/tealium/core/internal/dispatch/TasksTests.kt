@@ -1,6 +1,6 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.internal.TealiumScheduler
+import com.tealium.core.internal.misc.TealiumScheduler
 import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.mockk
 import io.mockk.verify

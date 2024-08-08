@@ -2,23 +2,23 @@ package com.tealium.core.internal.modules
 
 import android.net.Uri
 import com.tealium.core.BuildConfig
-import com.tealium.core.TealiumConfig
-import com.tealium.core.TealiumContext
-import com.tealium.core.api.Dispatch
-import com.tealium.core.api.Dispatcher
-import com.tealium.core.api.Module
-import com.tealium.core.api.ModuleFactory
+import com.tealium.core.api.TealiumConfig
+import com.tealium.core.api.modules.TealiumContext
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.modules.Dispatcher
+import com.tealium.core.api.modules.Module
+import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumList
-import com.tealium.core.api.listeners.Disposable
-import com.tealium.core.api.listeners.TealiumCallback
+import com.tealium.core.api.pubsub.Disposable
+import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.NetworkHelper
 import com.tealium.core.api.settings.ModuleSettings
-import com.tealium.core.internal.LogCategory
-import com.tealium.core.internal.observables.CompletedDisposable
-import com.tealium.core.internal.observables.DisposableContainer
-import com.tealium.core.internal.observables.addTo
+import com.tealium.core.internal.logger.LogCategory
+import com.tealium.core.internal.pubsub.CompletedDisposable
+import com.tealium.core.internal.pubsub.DisposableContainer
+import com.tealium.core.internal.pubsub.addTo
 
 /**
  * The [CollectDispatcher]

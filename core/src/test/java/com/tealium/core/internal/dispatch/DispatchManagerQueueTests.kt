@@ -1,8 +1,8 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.Dispatch
-import com.tealium.core.api.TrackResult
-import com.tealium.core.api.TealiumDispatchType
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.TrackResult
+import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.Ordering

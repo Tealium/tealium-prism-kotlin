@@ -1,7 +1,5 @@
 package com.tealium.core.api.logger
 
-import com.tealium.core.LogLevel
-
 /**
  * [LogHandler] is responsible for handling and recording log messages.
  */

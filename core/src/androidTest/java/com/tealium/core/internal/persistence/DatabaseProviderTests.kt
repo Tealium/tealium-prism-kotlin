@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteException
 import android.os.Build
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.filters.SdkSuppress
-import com.tealium.core.TealiumConfig
+import com.tealium.core.api.TealiumConfig
 import com.tealium.core.internal.persistence.DatabaseTestUtils.assertV3TablesExist
 import com.tealium.core.internal.persistence.DatabaseTestUtils.createV3Database
 import com.tealium.core.internal.persistence.DatabaseTestUtils.isInMemory

@@ -1,9 +1,9 @@
 package com.tealium.core.internal.settings
 
-import com.tealium.core.LogLevel
+import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.transformations.ScopedTransformation
-import com.tealium.core.internal.Deserializers
+import com.tealium.core.api.transform.ScopedTransformation
+import com.tealium.core.internal.misc.Deserializers
 import com.tealium.core.api.barriers.ScopedBarrier
 
 data class CoreSettings(

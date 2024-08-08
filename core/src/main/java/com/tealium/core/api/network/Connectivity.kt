@@ -1,6 +1,6 @@
 package com.tealium.core.api.network
 
-import com.tealium.core.internal.observables.ObservableState
+import com.tealium.core.api.pubsub.ObservableState
 
 /**
  * Provides access to the current connectivity status of the device either synchronously through

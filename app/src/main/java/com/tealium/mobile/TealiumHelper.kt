@@ -2,43 +2,32 @@ package com.tealium.mobile
 
 import android.app.Application
 import android.util.Log
-import com.tealium.core.Environment
-import com.tealium.core.LogLevel
-import com.tealium.core.Modules
-import com.tealium.core.Tealium
-import com.tealium.core.TealiumConfig
-import com.tealium.core.api.ConsentStatus
-import com.tealium.core.api.DataLayer
-import com.tealium.core.api.Dispatch
-import com.tealium.core.api.Expiry
-import com.tealium.core.api.TealiumDispatchType
-import com.tealium.core.api.VisitorService
+import com.tealium.core.api.Modules
+import com.tealium.core.api.Tealium
+import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.listeners.ConsentStatusUpdatedListener
-import com.tealium.core.api.listeners.DispatchDroppedListener
-import com.tealium.core.api.listeners.DispatchQueuedListener
-import com.tealium.core.api.listeners.DispatchReadyListener
-import com.tealium.core.api.network.Cancelled
-import com.tealium.core.api.network.DoNotRetry
-import com.tealium.core.api.network.Failure
-import com.tealium.core.api.network.HttpRequest
-import com.tealium.core.api.network.IOError
-import com.tealium.core.api.network.Interceptor
-import com.tealium.core.api.network.NetworkResult
-import com.tealium.core.api.network.Non200Error
-import com.tealium.core.api.network.RetryAfterDelay
-import com.tealium.core.api.network.RetryPolicy
-import com.tealium.core.api.network.Success
-import com.tealium.core.api.network.UnexpectedError
-import com.tealium.core.api.settings.CoreSettingsBuilder
-import com.tealium.core.api.TrackResult
 import com.tealium.core.api.data.TealiumValue
+import com.tealium.core.api.logger.LogLevel
+import com.tealium.core.api.misc.Environment
+import com.tealium.core.api.network.HttpRequest
+import com.tealium.core.api.network.Interceptor
+import com.tealium.core.api.network.NetworkError.Cancelled
+import com.tealium.core.api.network.NetworkError.IOError
+import com.tealium.core.api.network.NetworkError.Non200Error
+import com.tealium.core.api.network.NetworkError.UnexpectedError
+import com.tealium.core.api.network.NetworkResult
+import com.tealium.core.api.network.NetworkResult.Failure
+import com.tealium.core.api.network.NetworkResult.Success
+import com.tealium.core.api.network.RetryPolicy
+import com.tealium.core.api.network.RetryPolicy.DoNotRetry
+import com.tealium.core.api.network.RetryPolicy.RetryAfterDelay
+import com.tealium.core.api.persistence.Expiry
+import com.tealium.core.api.settings.CoreSettingsBuilder
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.TealiumDispatchType
+import com.tealium.core.api.tracking.TrackResult
 
-object TealiumHelper :
-    DispatchReadyListener,
-    DispatchQueuedListener,
-    DispatchDroppedListener,
-    ConsentStatusUpdatedListener {
+object TealiumHelper {
 
     private const val INSTANCE_NAME = "main"
 
@@ -133,22 +122,6 @@ object TealiumHelper :
         data: TealiumBundle = TealiumBundle.EMPTY_BUNDLE
     ) {
         shared?.track(Dispatch.create(event, type, data), ::onTracked)
-    }
-
-    override fun onDispatchDropped(dispatch: Dispatch) {
-        Log.d("TealiumHelper", "Dispatch dropped ${dispatch.payload()}")
-    }
-
-    override fun onDispatchQueued(dispatch: Dispatch) {
-        Log.d("TealiumHelper", "Dispatch queued ${dispatch.payload()}")
-    }
-
-    override fun onDispatchReady(dispatch: Dispatch) {
-        Log.d("TealiumHelper", "Dispatch ready ${dispatch.payload()}")
-    }
-
-    override fun onConsentStatusUpdated(status: ConsentStatus) {
-        Log.d("TealiumHelper", "Status: $status")
     }
 
     private fun onTracked(dispatch: Dispatch, status: TrackResult) {

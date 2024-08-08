@@ -1,7 +1,5 @@
 package com.tealium.core.api.data
 
-import com.tealium.core.api.Deserializer
-
 /**
  * Classes that implement this interface should be able to reconstruct an object of type [T] from
  * a given [TealiumValue] - on the assumption that the [TealiumValue] does accurately describe all

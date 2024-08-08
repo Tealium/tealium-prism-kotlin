@@ -1,15 +1,15 @@
 package com.tealium.tests.common
 
-import com.tealium.core.Tealium
-import com.tealium.core.TealiumConfig
-import com.tealium.core.api.ActivityManager
-import com.tealium.core.api.TealiumResult
-import com.tealium.core.api.Scheduler
-import com.tealium.core.api.listeners.TealiumCallback
-import com.tealium.core.internal.ActivityManagerImpl
-import com.tealium.core.internal.IoScheduler
+import com.tealium.core.api.Tealium
+import com.tealium.core.api.TealiumConfig
+import com.tealium.core.api.misc.ActivityManager
+import com.tealium.core.api.misc.TealiumResult
+import com.tealium.core.api.misc.Scheduler
+import com.tealium.core.api.misc.TealiumCallback
+import com.tealium.core.internal.misc.ActivityManagerImpl
+import com.tealium.core.internal.misc.IoScheduler
 import com.tealium.core.internal.TealiumProxy
-import com.tealium.core.internal.TealiumScheduler
+import com.tealium.core.internal.misc.TealiumScheduler
 import com.tealium.core.internal.persistence.DatabaseProvider
 import java.util.concurrent.Executors
 

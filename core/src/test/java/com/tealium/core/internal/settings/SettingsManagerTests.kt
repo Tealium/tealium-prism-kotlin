@@ -1,20 +1,19 @@
 package com.tealium.core.internal.settings
 
 import android.app.Application
-import com.tealium.core.TealiumConfig
-import com.tealium.core.api.DataStore
+import com.tealium.core.api.TealiumConfig
+import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumDeserializable
 import com.tealium.core.api.data.TealiumValue
-import com.tealium.core.api.listeners.Observer
+import com.tealium.core.api.pubsub.Observer
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.NetworkHelper
 import com.tealium.core.api.settings.CoreSettingsBuilder
 import com.tealium.core.api.settings.ModuleSettings
-import com.tealium.core.internal.SdkSettings
-import com.tealium.core.internal.observables.Observables
-import com.tealium.core.internal.observables.StateSubject
-import com.tealium.core.internal.observables.Subscription
+import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.StateSubject
+import com.tealium.core.internal.pubsub.Subscription
 import com.tealium.core.internal.persistence.getTimestamp
 import com.tealium.core.internal.persistence.getTimestampMilliseconds
 import com.tealium.tests.common.getDefaultConfig

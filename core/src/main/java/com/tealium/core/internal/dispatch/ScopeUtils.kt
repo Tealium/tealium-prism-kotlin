@@ -3,9 +3,9 @@ package com.tealium.core.internal.dispatch
 import com.tealium.core.api.barriers.Barrier
 import com.tealium.core.api.barriers.BarrierScope
 import com.tealium.core.api.barriers.ScopedBarrier
-import com.tealium.core.api.transformations.DispatchScope
-import com.tealium.core.api.transformations.ScopedTransformation
-import com.tealium.core.api.transformations.TransformationScope
+import com.tealium.core.api.transform.DispatchScope
+import com.tealium.core.api.transform.ScopedTransformation
+import com.tealium.core.api.transform.TransformationScope
 
 /**
  * Describes whether or not this [TransformationScope] matches the [DispatchScope].

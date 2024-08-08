@@ -1,19 +1,18 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.BuildConfig
-import com.tealium.core.TealiumContext
-import com.tealium.core.api.DataStore
-import com.tealium.core.api.Module
-import com.tealium.core.api.ModuleFactory
-import com.tealium.core.api.ModuleManager
-import com.tealium.core.api.VisitorProfile
-import com.tealium.core.api.VisitorService
-import com.tealium.core.api.listeners.Subscribable
-import com.tealium.core.api.listeners.TealiumCallback
-import com.tealium.core.internal.observables.Observables
-import com.tealium.core.internal.observables.StateSubject
+import com.tealium.core.api.modules.TealiumContext
+import com.tealium.core.api.persistence.DataStore
+import com.tealium.core.api.modules.Module
+import com.tealium.core.api.modules.ModuleFactory
+import com.tealium.core.api.modules.ModuleManager
+import com.tealium.core.api.modules.VisitorProfile
+import com.tealium.core.api.modules.VisitorService
+import com.tealium.core.api.pubsub.Subscribable
+import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.settings.ModuleSettings
-import com.tealium.core.internal.observables.Observable
+import com.tealium.core.api.pubsub.Observable
 import java.util.UUID
 
 class VisitorServiceWrapper(

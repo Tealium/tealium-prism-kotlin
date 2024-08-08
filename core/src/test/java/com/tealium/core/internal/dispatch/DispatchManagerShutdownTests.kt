@@ -1,6 +1,6 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.internal.persistence.TimeFrame
+import com.tealium.core.api.misc.TimeFrame
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.verify
 import org.junit.Test

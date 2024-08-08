@@ -7,13 +7,13 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.Build
 import com.tealium.core.BuildConfig
-import com.tealium.core.api.Scheduler
+import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.Connectivity
 import com.tealium.core.api.network.Connectivity.ConnectivityType
-import com.tealium.core.internal.observables.StateSubject
-import com.tealium.core.internal.observables.ObservableState
-import com.tealium.core.internal.observables.Observables
+import com.tealium.core.api.pubsub.StateSubject
+import com.tealium.core.api.pubsub.ObservableState
+import com.tealium.core.api.pubsub.Observables
 
 /**
  * The [ConnectivityRetriever] is the default implementation of [Connectivity], making connectivity

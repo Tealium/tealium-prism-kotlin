@@ -1,14 +1,14 @@
 package com.tealium.core.internal.network
 
 import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.listeners.Disposable
-import com.tealium.core.api.network.Failure
 import com.tealium.core.api.network.HttpRequest
 import com.tealium.core.api.network.HttpResponse
 import com.tealium.core.api.network.NetworkClient
 import com.tealium.core.api.network.NetworkHelper
 import com.tealium.core.api.network.NetworkResult
-import com.tealium.core.api.network.Success
+import com.tealium.core.api.network.NetworkResult.Failure
+import com.tealium.core.api.network.NetworkResult.Success
+import com.tealium.core.api.pubsub.Disposable
 import com.tealium.tests.common.SystemLogger
 import io.mockk.*
 import org.json.JSONObject

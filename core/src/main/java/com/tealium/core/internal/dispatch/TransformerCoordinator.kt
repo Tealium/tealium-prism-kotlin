@@ -1,10 +1,10 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.Dispatch
-import com.tealium.core.api.transformations.DispatchScope
-import com.tealium.core.api.transformations.ScopedTransformation
-import com.tealium.core.api.transformations.TransformerRegistry
-import com.tealium.core.api.transformations.Transformer
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.transform.DispatchScope
+import com.tealium.core.api.transform.ScopedTransformation
+import com.tealium.core.api.transform.TransformerRegistry
+import com.tealium.core.api.transform.Transformer
 
 /**
  * The [TransformerCoordinator] is responsible for:

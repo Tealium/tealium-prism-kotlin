@@ -6,12 +6,12 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import com.tealium.core.Dispatches;
-import com.tealium.core.Environment;
-import com.tealium.core.Modules;
-import com.tealium.core.Tealium;
-import com.tealium.core.TealiumConfig;
-import com.tealium.core.api.Dispatch;
-import com.tealium.core.api.TealiumDispatchType;
+import com.tealium.core.api.misc.Environment;
+import com.tealium.core.api.Modules;
+import com.tealium.core.api.Tealium;
+import com.tealium.core.api.TealiumConfig;
+import com.tealium.core.api.tracking.Dispatch;
+import com.tealium.core.api.tracking.TealiumDispatchType;
 import com.tealium.core.api.data.TealiumBundle;
 import com.tealium.core.api.data.TealiumSerializable;
 import com.tealium.core.api.data.TealiumValue;

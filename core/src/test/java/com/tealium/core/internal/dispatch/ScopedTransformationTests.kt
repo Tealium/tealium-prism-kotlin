@@ -1,8 +1,8 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.transformations.DispatchScope
-import com.tealium.core.api.transformations.ScopedTransformation
-import com.tealium.core.api.transformations.TransformationScope
+import com.tealium.core.api.transform.DispatchScope
+import com.tealium.core.api.transform.ScopedTransformation
+import com.tealium.core.api.transform.TransformationScope
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test

@@ -1,6 +1,6 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.transformations.TransformerRegistry
+import com.tealium.core.api.transform.TransformerRegistry
 
 /**
  * [TransformerRegistry] wrapper that delegates its methods to the actual [TransformerCoordinator]

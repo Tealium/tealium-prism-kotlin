@@ -1,25 +1,22 @@
 package com.tealium.core.internal.network
 
 import com.tealium.core.api.logger.Logger
-import com.tealium.core.api.network.Cancelled
-import com.tealium.core.api.network.DoNotRetry
-import com.tealium.core.api.network.Failure
-import com.tealium.core.api.network.HttpMethod
 import com.tealium.core.api.network.HttpRequest
-import com.tealium.core.api.network.IOError
 import com.tealium.core.api.network.Interceptor
+import com.tealium.core.api.network.NetworkError.Cancelled
+import com.tealium.core.api.network.NetworkError.IOError
+import com.tealium.core.api.network.NetworkError.Non200Error
+import com.tealium.core.api.network.NetworkError.UnexpectedError
 import com.tealium.core.api.network.NetworkResult
-import com.tealium.core.api.network.Non200Error
-import com.tealium.core.api.network.RetryAfterDelay
-import com.tealium.core.api.network.RetryAfterEvent
-import com.tealium.core.api.network.Success
-import com.tealium.core.api.network.UnexpectedError
-import com.tealium.core.internal.network.*
-import com.tealium.core.internal.observables.Observables
+import com.tealium.core.api.network.NetworkResult.Failure
+import com.tealium.core.api.network.NetworkResult.Success
+import com.tealium.core.api.network.RetryPolicy.DoNotRetry
+import com.tealium.core.api.network.RetryPolicy.RetryAfterDelay
+import com.tealium.core.api.network.RetryPolicy.RetryAfterEvent
+import com.tealium.core.api.pubsub.Observables
 import com.tealium.tests.common.testNetworkScheduler
 import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.*
-import kotlinx.coroutines.*
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
@@ -28,8 +25,6 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledExecutorService
 
 @RunWith(RobolectricTestRunner::class)
 class HttpClientTests {

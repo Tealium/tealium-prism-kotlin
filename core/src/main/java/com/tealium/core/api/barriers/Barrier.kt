@@ -1,7 +1,7 @@
 package com.tealium.core.api.barriers
 
-import com.tealium.core.internal.observables.Observable
-import com.tealium.core.api.Dispatcher
+import com.tealium.core.api.pubsub.Observable
+import com.tealium.core.api.modules.Dispatcher
 
 /**
  * Defines a utility that can influence whether or not it is safe to continue processing events for

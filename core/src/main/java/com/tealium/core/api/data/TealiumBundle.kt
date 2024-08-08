@@ -1,7 +1,6 @@
 package com.tealium.core.api.data
 
-import com.tealium.core.api.Deserializer
-import com.tealium.core.internal.stringify
+import com.tealium.core.internal.misc.stringify
 import org.json.*
 
 /**

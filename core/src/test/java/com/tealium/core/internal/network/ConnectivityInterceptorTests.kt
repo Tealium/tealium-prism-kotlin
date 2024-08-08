@@ -1,21 +1,19 @@
 package com.tealium.core.internal.network
 
 import com.tealium.core.api.network.Connectivity
-import com.tealium.core.api.network.DoNotRetry
-import com.tealium.core.api.network.Failure
-import com.tealium.core.api.network.IOError
+import com.tealium.core.api.network.NetworkError.IOError
 import com.tealium.core.api.network.NetworkResult
-import com.tealium.core.api.network.RetryAfterEvent
-import com.tealium.core.api.network.Success
-import com.tealium.core.internal.observables.Observables
-import com.tealium.core.internal.observables.StateSubject
+import com.tealium.core.api.network.NetworkResult.Failure
+import com.tealium.core.api.network.NetworkResult.Success
+import com.tealium.core.api.network.RetryPolicy.DoNotRetry
+import com.tealium.core.api.network.RetryPolicy.RetryAfterEvent
+import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.StateSubject
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.mockk
-import io.mockk.mockkObject
 import org.junit.Assert
-import org.junit.Assert.assertSame
 import org.junit.Before
 import org.junit.Test
 
