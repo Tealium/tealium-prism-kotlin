@@ -1,10 +1,11 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.BuildConfig
+import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.network.Connectivity
-import com.tealium.core.internal.settings.ModuleSettingsImpl
+import com.tealium.core.api.settings.ModuleSettingsBuilder
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
@@ -39,26 +40,25 @@ open class ConnectivityCollectorTests {
     class StandardTests : ConnectivityCollectorTests() {
 
         @Test
-        fun factory_ReturnsNull_When_NotEnabled() {
-            assertNull(ConnectivityCollector.Factory.create(mockk(), ModuleSettingsImpl(false)))
-        }
-
-        @Test
         fun factory_ReturnsModule_When_Enabled() {
             val context = mockk<TealiumContext>(relaxed = true)
             every { context.network } returns mockk()
 
-            assertNotNull(ConnectivityCollector.Factory.create(context, ModuleSettingsImpl(true)))
+            assertNotNull(
+                ConnectivityCollector.Factory.create(
+                    context, TealiumBundle.EMPTY_BUNDLE
+                )
+            )
         }
 
         @Test
         fun name_Matches_Factory() {
-            assertEquals(ConnectivityCollector.Factory.name, connectivityCollector.name)
+            assertEquals(ConnectivityCollector.Factory.id, connectivityCollector.id)
         }
 
         @Test
         fun name_Returns_Connectivity() {
-            assertEquals("Connectivity", connectivityCollector.name)
+            assertEquals("Connectivity", connectivityCollector.id)
         }
 
         @Test
@@ -67,15 +67,22 @@ open class ConnectivityCollectorTests {
         }
 
         @Test
-        fun updateSettings_ReturnsNull_When_NotEnabled() {
-            assertNull(connectivityCollector.updateSettings(ModuleSettingsImpl(false)))
+        fun updateSettings_ReturnsModule_When_NotEnabled() {
+            assertSame(
+                connectivityCollector,
+                connectivityCollector.updateSettings(
+                    ModuleSettingsBuilder()
+                        .setEnabled(false)
+                        .build()
+                )
+            )
         }
 
         @Test
         fun updateSettings_ReturnsModule_When_Enabled() {
             assertSame(
                 connectivityCollector,
-                connectivityCollector.updateSettings(ModuleSettingsImpl(true))
+                connectivityCollector.updateSettings(TealiumBundle.EMPTY_BUNDLE)
             )
         }
     }
@@ -93,8 +100,14 @@ open class ConnectivityCollectorTests {
                 arrayOf(Connectivity.ConnectivityType.WIFI, "wifi"),
                 arrayOf(Connectivity.ConnectivityType.CELLULAR, "cellular"),
                 arrayOf(Connectivity.ConnectivityType.ETHERNET, "ethernet"),
-                arrayOf(Connectivity.ConnectivityType.VPN, "vpn"), // TODO - consider whether these are necessary
-                arrayOf(Connectivity.ConnectivityType.BLUETOOTH, "bluetooth"), // TODO - consider whether these are necessary
+                arrayOf(
+                    Connectivity.ConnectivityType.VPN,
+                    "vpn"
+                ), // TODO - consider whether these are necessary
+                arrayOf(
+                    Connectivity.ConnectivityType.BLUETOOTH,
+                    "bluetooth"
+                ), // TODO - consider whether these are necessary
             )
         }
 

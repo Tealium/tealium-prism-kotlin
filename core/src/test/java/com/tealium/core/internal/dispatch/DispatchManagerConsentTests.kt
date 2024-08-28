@@ -17,7 +17,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
 
     @Test
     fun track_StoresDispatch_WhenConsentIsDisabled() {
-        every { consentManager.enabled } returns false
+        disableConsent()
 
         dispatchManager.track(dispatch1)
 
@@ -32,7 +32,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
 
     @Test
     fun track_AppliesConsent_WhenDecision_IsImplicit() {
-        every { consentManager.enabled } returns true
+        enableConsent()
         every { consentManager.getConsentDecision() } returns ConsentDecision(
             ConsentDecision.DecisionType.Implicit,
             emptySet()
@@ -48,7 +48,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
 
     @Test
     fun track_DoesNothing_WhenTealiumPurposeIsNotConsented() {
-        every { consentManager.enabled } returns true
+        enableConsent()
         every { consentManager.getConsentDecision() } returns ConsentDecision(
             ConsentDecision.DecisionType.Explicit,
             emptySet()
@@ -65,7 +65,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
 
     @Test
     fun track_RunsTransformations_WhenTealiumPurposeIsNotBlocked() {
-        every { consentManager.enabled } returns true
+        enableConsent()
         every { consentManager.getConsentDecision() } returns ConsentDecision(
             ConsentDecision.DecisionType.Explicit,
             emptySet()
@@ -83,7 +83,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
 
     @Test
     fun track_DropsDispatch_WhenTransformerReturnsNull() {
-        every { consentManager.enabled } returns false
+        disableConsent()
         val completionCapture = slot<(Dispatch?) -> Unit>()
         every {
             transformerCoordinator.transform(
@@ -108,7 +108,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
 
     @Test
     fun track_Notifies_DispatchAccepted_WhenDispatchQueued_ForConsent() {
-        every { consentManager.enabled } returns true
+        enableConsent()
         every { consentManager.getConsentDecision() } returns null
         every { consentManager.applyConsent(any()) } just Runs
         val onComplete: (Dispatch, TrackResult) -> Unit = mockk(relaxed = true)
@@ -122,7 +122,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
 
     @Test
     fun track_Notifies_DispatchDropped_WhenTealiumConsent_Denied() {
-        every { consentManager.enabled } returns true
+        enableConsent()
         every { consentManager.getConsentDecision() } returns ConsentDecision(ConsentDecision.DecisionType.Explicit, setOf())
         every { consentManager.tealiumConsented(any()) } returns false
         val onComplete: (Dispatch, TrackResult) -> Unit = mockk(relaxed = true)

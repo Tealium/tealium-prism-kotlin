@@ -2,15 +2,15 @@ package com.tealium.core.api
 
 import android.app.Application
 import com.tealium.core.api.barriers.Barrier
-import com.tealium.core.api.modules.ModuleFactory
+import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.logger.LogHandler
 import com.tealium.core.api.misc.Environment
-import com.tealium.core.api.settings.ModuleSettings
-import com.tealium.core.api.settings.ModuleSettingsBuilder
+import com.tealium.core.api.modules.ModuleFactory
+import com.tealium.core.api.settings.CoreSettingsBuilder
 import com.tealium.core.api.transform.Transformer
 import com.tealium.core.internal.logger.LoggerImpl
+import com.tealium.core.internal.settings.CoreSettingsImpl
 import java.io.File
-import java.util.*
 
 class TealiumConfig @JvmOverloads constructor(
     val application: Application,
@@ -18,8 +18,8 @@ class TealiumConfig @JvmOverloads constructor(
     val profileName: String,
     val environment: Environment,
     val modules: List<ModuleFactory>,
-    val events: List<EventListener> = emptyList(),
-    val datasource: String? = null
+    val datasource: String? = null,
+    enforcingCoreSettings: ((CoreSettingsBuilder) -> CoreSettingsBuilder)? = null
 ) {
 
     private val pathName
@@ -53,14 +53,19 @@ class TealiumConfig @JvmOverloads constructor(
      */
     var existingVisitorId: String? = null
 
-    /**
-     * Holds settings configurations for core and integrated modules
-     */
-    internal val modulesSettings: MutableMap<String, ModuleSettings> = mutableMapOf()
 
-    fun addModuleSettings(vararg settings: ModuleSettingsBuilder) {
-        settings.forEach {
-            modulesSettings[it.moduleName] = it.build()
+    val enforcedSdkSettings: TealiumBundle = TealiumBundle.create {
+        enforcingCoreSettings?.let { builderBlock ->
+            val coreSettings = builderBlock.invoke(CoreSettingsBuilder())
+                .build()
+            put(CoreSettingsImpl.MODULE_NAME, coreSettings)
+        }
+
+        modules.forEach { factory ->
+            factory.getEnforcedSettings()?.let { enforcedSettings ->
+                put(factory.id, enforcedSettings)
+            }
         }
     }
+
 }

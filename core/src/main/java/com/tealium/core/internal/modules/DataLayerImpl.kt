@@ -9,7 +9,6 @@ import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.ModuleManager
-import com.tealium.core.api.settings.ModuleSettings
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumValue
 import com.tealium.core.api.pubsub.Subscribable
@@ -72,7 +71,7 @@ class DataLayerImpl(
     val onDataRemoved: Observable<List<String>>
         get() = dataStore.onDataRemoved
 
-    override val name: String
+    override val id: String
         get() = moduleName
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
@@ -94,10 +93,10 @@ class DataLayerImpl(
     companion object : ModuleFactory {
         private const val moduleName = "DataLayer"
 
-        override val name: String
+        override val id: String
             get() = moduleName
 
-        override fun create(context: TealiumContext, settings: ModuleSettings): Module? {
+        override fun create(context: TealiumContext, settings: TealiumBundle): Module? {
             val dataStore = context.storageProvider.getModuleStore(this)
             return DataLayerImpl(dataStore)
         }

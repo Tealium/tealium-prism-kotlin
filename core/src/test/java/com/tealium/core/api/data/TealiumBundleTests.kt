@@ -473,4 +473,14 @@ class TealiumBundleTests {
         assertEquals(rhsChild, merged.getBundle("key2"))
         assertEquals(rhsChild, merged.getBundle("key3"))
     }
+
+    @Test
+    fun builder_Build_Should_Not_Update_Already_Built_Bundles_When_Reused() {
+        val builder = TealiumBundle.Builder()
+        val bundle1 = builder.put("key", "value").getBundle()
+        val bundle2 = builder.put("key", "new_value").getBundle()
+
+        assertEquals("value", bundle1.getString("key"))
+        assertEquals("new_value", bundle2.getString("key"))
+    }
 }

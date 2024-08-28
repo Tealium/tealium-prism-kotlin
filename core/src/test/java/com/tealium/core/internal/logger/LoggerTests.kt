@@ -4,9 +4,8 @@ import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.logger.LogHandler
 import com.tealium.core.internal.settings.SdkSettings
-import com.tealium.core.internal.settings.ModuleSettingsImpl
 import com.tealium.core.internal.settings.SettingsProvider
-import com.tealium.core.internal.settings.CoreSettings
+import com.tealium.core.internal.settings.CoreSettingsImpl
 import io.mockk.Called
 import io.mockk.MockKAnnotations
 import io.mockk.impl.annotations.RelaxedMockK
@@ -79,9 +78,9 @@ class LoggerTests {
         logger.onSettingsUpdated(
             SdkSettings(
                 moduleSettings = mapOf(
-                    "core" to ModuleSettingsImpl(bundle = TealiumBundle.create {
-                        put(CoreSettings.KEY_LOG_LEVEL, LogLevel.SILENT)
-                    })
+                    "core" to TealiumBundle.create {
+                        put(CoreSettingsImpl.KEY_LOG_LEVEL, LogLevel.SILENT)
+                    }
                 )
             )
         )
@@ -99,9 +98,9 @@ class LoggerTests {
         logger.onSettingsUpdated(
             SdkSettings(
                 moduleSettings = mapOf(
-                    "core" to ModuleSettingsImpl(bundle = TealiumBundle.create {
-                        put(CoreSettings.KEY_LOG_LEVEL, LogLevel.SILENT)
-                    })
+                    "core" to TealiumBundle.create {
+                        put(CoreSettingsImpl.KEY_LOG_LEVEL, LogLevel.SILENT)
+                    }
                 )
             )
         )

@@ -26,11 +26,11 @@ class DispatchManagerTrackTests : DispatchManagerTestsBase() {
         scheduler.execute {
             dispatchers.onNext(setOf(dispatcher1, slowDispatcher))
 
-            queue[dispatcher1.name] = mutableSetOf(
+            queue[dispatcher1.id] = mutableSetOf(
                 dispatch1,
                 dispatch2
             )
-            queue[slowDispatcher.name] = mutableSetOf(
+            queue[slowDispatcher.id] = mutableSetOf(
                 dispatch1,
                 dispatch2
             )
@@ -70,7 +70,7 @@ class DispatchManagerTrackTests : DispatchManagerTestsBase() {
 
         scheduler.execute {
             dispatchers.onNext(setOf(dispatcher1))
-            queue[dispatcher1.name] = mutableSetOf(
+            queue[dispatcher1.id] = mutableSetOf(
                 dispatch1,
                 dispatch2
             )

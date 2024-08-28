@@ -1,29 +1,21 @@
 package com.tealium.core.api.modules
 
-import com.tealium.core.internal.settings.ModuleSettingsImpl
-import org.junit.Assert.assertNull
+import com.tealium.core.api.data.TealiumBundle
 import org.junit.Assert.assertSame
 import org.junit.Test
 
 class ModuleTests {
 
     @Test
-    fun updateSettings_Default_Returns_Null_When_Disabled() {
+    fun updateSettings_Returns_Self() {
         val module = createModule()
 
-        assertNull(module.updateSettings(ModuleSettingsImpl(enabled = false)))
-    }
-
-    @Test
-    fun updateSettings_Default_Returns_Self_When_Enabled() {
-        val module = createModule()
-
-        assertSame(module, module.updateSettings(ModuleSettingsImpl(enabled = true)))
+        assertSame(module, module.updateSettings(TealiumBundle.EMPTY_BUNDLE))
     }
 
     private fun createModule(): Module {
         return object: Module {
-            override val name: String = "test"
+            override val id: String = "test"
             override val version: String = "1.0.0"
         }
     }

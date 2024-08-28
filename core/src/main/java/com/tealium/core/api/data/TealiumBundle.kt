@@ -449,7 +449,7 @@ class TealiumBundle private constructor(
         fun getBundle(): TealiumBundle {
             if (data.isEmpty()) return EMPTY_BUNDLE
 
-            return TealiumBundle(data)
+            return TealiumBundle(data.toMap())
         }
     }
 }

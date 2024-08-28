@@ -1,10 +1,11 @@
 package com.tealium.core.internal.persistence
 
-import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Subject
-import com.tealium.core.internal.settings.CoreSettings
+import com.tealium.core.api.settings.CoreSettings
+import com.tealium.core.internal.settings.CoreSettingsImpl
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
@@ -34,7 +35,7 @@ class IdentityUpdatedObserverTests {
         every { dataLayer.onDataUpdated } returns onDataLayerUpdated
         every { dataLayer.getString(defaultIdentityKey) } returns null
 
-        coreSettings = Observables.stateSubject(CoreSettings(visitorIdentityKey = defaultIdentityKey))
+        coreSettings = Observables.stateSubject(CoreSettingsImpl(visitorIdentityKey = defaultIdentityKey))
     }
 
     @Test
@@ -48,7 +49,7 @@ class IdentityUpdatedObserverTests {
 
     @Test
     fun subscribeIdentityUpdates_DoesNot_Subscribe_To_DataLayer_Updates_When_Key_IsNull() {
-        coreSettings.onNext(CoreSettings(visitorIdentityKey = null))
+        coreSettings.onNext(CoreSettingsImpl(visitorIdentityKey = null))
         IdentityUpdatedObserver.subscribeIdentityUpdates(coreSettings, dataLayer, visitorIdProvider)
 
         verify(inverse = true) {
@@ -69,7 +70,7 @@ class IdentityUpdatedObserverTests {
 
     @Test
     fun subscribeIdentityUpdates_DoesNot_Call_Identify_With_Initial_Value_From_DataLayer_When_Key_IsNull() {
-        coreSettings.onNext(CoreSettings(visitorIdentityKey = null))
+        coreSettings.onNext(CoreSettingsImpl(visitorIdentityKey = null))
 
         IdentityUpdatedObserver.subscribeIdentityUpdates(coreSettings, dataLayer, visitorIdProvider)
 
@@ -110,7 +111,7 @@ class IdentityUpdatedObserverTests {
 
         IdentityUpdatedObserver.subscribeIdentityUpdates(coreSettings, dataLayer, visitorIdProvider)
 
-        coreSettings.onNext(CoreSettings(visitorIdentityKey = "newKey"))
+        coreSettings.onNext(CoreSettingsImpl(visitorIdentityKey = "newKey"))
 
         onDataLayerUpdated.onNext(TealiumBundle.create {
             put("newKey", "newIdentity")
@@ -132,7 +133,7 @@ class IdentityUpdatedObserverTests {
         every { dataLayer.getString("newKey") } returns "newIdentity"
 
         IdentityUpdatedObserver.subscribeIdentityUpdates(coreSettings, dataLayer, visitorIdProvider)
-        coreSettings.onNext(CoreSettings(visitorIdentityKey = "newKey"))
+        coreSettings.onNext(CoreSettingsImpl(visitorIdentityKey = "newKey"))
 
         verify {
             visitorIdProvider.identify("newIdentity")
@@ -142,7 +143,7 @@ class IdentityUpdatedObserverTests {
     @Test
     fun subscribeIdentityUpdates_StopsEmitting_Identity_Updates_When_IdentityKey_Null() {
         IdentityUpdatedObserver.subscribeIdentityUpdates(coreSettings, dataLayer, visitorIdProvider)
-        coreSettings.onNext(CoreSettings(visitorIdentityKey = null))
+        coreSettings.onNext(CoreSettingsImpl(visitorIdentityKey = null))
 
         onDataLayerUpdated.onNext(TealiumBundle.create {
             put(defaultIdentityKey, "identity")

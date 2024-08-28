@@ -1,40 +1,40 @@
 package com.tealium.core.internal.modules.consent
 
 import com.tealium.core.BuildConfig
-import com.tealium.core.api.modules.consent.ConsentDecision
-import com.tealium.core.api.tracking.Dispatch
-import com.tealium.core.api.modules.Dispatcher
-import com.tealium.core.api.modules.Module
-import com.tealium.core.api.modules.consent.ConsentManagementAdapter
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumList
+import com.tealium.core.api.modules.Dispatcher
+import com.tealium.core.api.modules.Module
+import com.tealium.core.api.modules.ModuleFactory
+import com.tealium.core.api.modules.TealiumContext
+import com.tealium.core.api.modules.consent.ConsentDecision
+import com.tealium.core.api.modules.consent.ConsentManagementAdapter
 import com.tealium.core.api.pubsub.Disposable
+import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.pubsub.SubscribableState
-import com.tealium.core.api.settings.ModuleSettings
+import com.tealium.core.api.settings.ModuleSettingsBuilder
+import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.transform.ScopedTransformation
+import com.tealium.core.api.transform.TransformationScope
 import com.tealium.core.api.transform.TransformerRegistry
 import com.tealium.core.internal.dispatch.QueueManager
-import com.tealium.core.api.transform.TransformationScope
-import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.internal.persistence.getTimestampMilliseconds
 
 class ConsentModule(
     private val modules: SubscribableState<Set<Module>>,
     private val queueManager: QueueManager,
     private val transformerRegistry: TransformerRegistry,
-    private val consentManagementAdapter: ConsentManagementAdapter?,
+    private val consentManagementAdapter: ConsentManagementAdapter,
     private val consentSettings: StateSubject<ConsentSettings>,
     private val consentTransformer: ConsentTransformer = ConsentTransformer(consentSettings.asObservableState())
 ) : ConsentManager {
 
-    override val name: String
+    override val id: String
         get() = NAME
 
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
-
-    override val enabled: Boolean
-        get() = consentSettings.value.enabled
 
     private val subscription: Disposable?
 
@@ -45,7 +45,7 @@ class ConsentModule(
     )
     private val dispatchers: Set<String>
         get() = modules.value.filterIsInstance(Dispatcher::class.java)
-            .map(Dispatcher::name)
+            .map(Dispatcher::id)
             .toSet()
 
     private val refireDispatchers: Set<String>
@@ -55,23 +55,23 @@ class ConsentModule(
     init {
         registerTransformations()
 
-        subscription = consentManagementAdapter?.consentDecision?.subscribe { decision ->
+        subscription = consentManagementAdapter.consentDecision.subscribe { decision ->
             if (decision == null) return@subscribe
 
             if (!tealiumConsented(decision.purposes)) {
                 if (decision.decisionType == ConsentDecision.DecisionType.Explicit)
-                    queueManager.deleteAllDispatches(this.name)
+                    queueManager.deleteAllDispatches(this.id)
                 return@subscribe
             }
 
-            val consentDispatches = queueManager.getQueuedDispatches(-1, this.name)
+            val consentDispatches = queueManager.getQueuedDispatches(-1, this.id)
             enqueueDispatches(consentDispatches.mapNotNull { applyDecision(decision, it) })
-            queueManager.deleteAllDispatches(this.name)
+            queueManager.deleteAllDispatches(this.id)
         }
     }
 
     override fun getConsentDecision(): ConsentDecision? {
-        return consentManagementAdapter?.consentDecision?.value
+        return consentManagementAdapter.consentDecision.value
     }
 
     override fun tealiumConsented(purposes: Set<String>): Boolean {
@@ -79,12 +79,10 @@ class ConsentModule(
     }
 
     override fun applyConsent(dispatch: Dispatch) {
-        if (consentManagementAdapter == null) return // TODO, try and force this as non-optional
-
         val decision = consentManagementAdapter.consentDecision.value
         if (decision == null || !tealiumConsented(decision.purposes)) {
             if (decision?.decisionType != ConsentDecision.DecisionType.Explicit) {
-                queueManager.storeDispatches(listOf(dispatch), setOf(this.name))
+                queueManager.storeDispatches(listOf(dispatch), setOf(this.id))
             }
             return
         }
@@ -97,21 +95,19 @@ class ConsentModule(
                 consentManagementAdapter.getAllPurposes()
             )
         ) {
-            processors.add(this.name)
+            processors.add(this.id)
         }
         queueManager.storeDispatches(listOf(consentedDispatch), processors)
     }
 
-    override fun updateSettings(moduleSettings: ModuleSettings): Module? {
-        consentSettings.onNext(ConsentSettings.fromBundle(moduleSettings.bundle))
-
-        if (!consentSettings.value.enabled) {
-            unregisterTransformations()
-            subscription?.dispose()
-            return null
-        }
-
+    override fun updateSettings(moduleSettings: TealiumBundle): Module? {
+        consentSettings.onNext(ConsentSettings.fromBundle(moduleSettings))
         return this
+    }
+
+    override fun onShutdown() {
+        unregisterTransformations()
+        subscription?.dispose()
     }
 
     private fun enqueueDispatches(dispatches: List<Dispatch>) {
@@ -152,7 +148,7 @@ class ConsentModule(
     }
 
     companion object {
-        const val NAME = "consent"
+        const val NAME = "Consent"
 
         const val VERIFY_CONSENT_TRANSFORMATION_ID = "verify_consent"
 
@@ -197,5 +193,33 @@ class ConsentModule(
             return consentDecision.decisionType == ConsentDecision.DecisionType.Implicit
                     && !consentDecision.matchAll(purposes)
         }
+    }
+
+    data class Factory(
+        private val cmp: ConsentManagementAdapter,
+        private val queueManager: QueueManager? = null,
+        private var settings: TealiumBundle? = null
+    ) : ModuleFactory {
+
+        constructor(cmp: ConsentManagementAdapter, settings: ModuleSettingsBuilder): this(cmp, null, settings.build())
+
+        override val id: String
+            get() = NAME
+
+        override fun create(context: TealiumContext, settings: TealiumBundle): Module? {
+            if (queueManager == null) return null
+
+            val consentSettings = ConsentSettings.fromBundle(settings)
+
+            return ConsentModule(
+                context.moduleManager.modules,
+                queueManager,
+                context.transformerRegistry,
+                cmp,
+                Observables.stateSubject(consentSettings)
+            )
+        }
+
+        override fun getEnforcedSettings(): TealiumBundle? = settings
     }
 }

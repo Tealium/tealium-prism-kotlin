@@ -37,7 +37,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
     fun dispatchManager_SendsBatchesOfDispatchesToDispatcher_WhenQueued() {
         dispatcher1 = TestDispatcher.mock(dispatcher1Name, dispatchLimit = 2)
         dispatchers.onNext(setOf(dispatcher1))
-        queue[dispatcher1.name] = mutableSetOf(
+        queue[dispatcher1.id] = mutableSetOf(
             dispatch1,
             dispatch2,
             dispatch3,
@@ -65,7 +65,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
     fun dispatchManager_SendsBatchesOfDispatchesToDispatcher_WhenMultipleSent() {
         dispatcher1 = TestDispatcher.mock(dispatcher1Name, dispatchLimit = 2)
         dispatchers.onNext(setOf(dispatcher1))
-        queue[dispatcher1.name] = mutableSetOf(
+        queue[dispatcher1.id] = mutableSetOf(
             dispatch1,
             dispatch2,
             dispatch3,
@@ -99,7 +99,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_SendsDispatchesToDispatcher_InOrder() {
-        queue[dispatcher1.name] = mutableSetOf(
+        queue[dispatcher1.id] = mutableSetOf(
             dispatch1,
             dispatch2,
             dispatch3
@@ -124,7 +124,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
     fun dispatchManager_SendsBatchesToDispatcher_InOrder() {
         dispatcher1 = TestDispatcher.mock(dispatcher1Name, dispatchLimit = 2)
         dispatchers.onNext(setOf(dispatcher1))
-        queue[dispatcher1.name] = mutableSetOf(
+        queue[dispatcher1.id] = mutableSetOf(
             dispatch1,
             dispatch2,
             dispatch3,
@@ -149,10 +149,10 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_SendsQueuedEvents_ToCorrectDispatcher() {
-        queue[dispatcher1.name] = mutableSetOf(
+        queue[dispatcher1.id] = mutableSetOf(
             dispatch1,
         )
-        queue[dispatcher2.name] = mutableSetOf(
+        queue[dispatcher2.id] = mutableSetOf(
             dispatch2,
         )
 

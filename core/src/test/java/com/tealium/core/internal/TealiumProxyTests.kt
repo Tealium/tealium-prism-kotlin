@@ -126,7 +126,7 @@ class TealiumProxyTests {
     private class ObserverModule<T>(
         observable: Observable<T>,
         private val observer: Observer<T>,
-        override val name: String = "observer",
+        override val id: String = "observer",
         override val version: String = "1.0.0"
     ) : Module, Observer<T> by observer {
         init {

@@ -16,7 +16,7 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
             }
         }
         dispatchers.onNext(setOf(dispatcher1))
-        queue[dispatcher1.name] = mutableSetOf(
+        queue[dispatcher1.id] = mutableSetOf(
             dispatch1
         )
 
@@ -46,7 +46,7 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
             }
         }
         dispatchers.onNext(setOf(dispatcher1))
-        queue[dispatcher1.name] = mutableSetOf(
+        queue[dispatcher1.id] = mutableSetOf(
             dispatch1
         )
 

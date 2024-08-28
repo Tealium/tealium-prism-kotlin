@@ -1,12 +1,12 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.BuildConfig
+import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.modules.DeeplinkManager
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.ModuleManager
-import com.tealium.core.api.settings.ModuleSettings
 
 class DeepLinkManagerWrapper(
     private val moduleProxy: ModuleProxy<DeeplinkManagerImpl>
@@ -37,7 +37,7 @@ class DeeplinkManagerImpl: DeeplinkManager, Module {
 //        TODO("Not yet implemented")
     }
 
-    override val name: String
+    override val id: String
         get() = moduleName
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
@@ -45,10 +45,10 @@ class DeeplinkManagerImpl: DeeplinkManager, Module {
     companion object: ModuleFactory {
         private const val moduleName = "DeepLinkManager"
 
-        override val name: String
+        override val id: String
             get() = moduleName
 
-        override fun create(context: TealiumContext, settings: ModuleSettings): Module? {
+        override fun create(context: TealiumContext, settings: TealiumBundle): Module? {
             return DeeplinkManagerImpl()
         }
     }

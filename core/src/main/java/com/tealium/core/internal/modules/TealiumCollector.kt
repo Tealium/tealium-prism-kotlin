@@ -6,7 +6,6 @@ import com.tealium.core.api.modules.Collector
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
-import com.tealium.core.api.settings.ModuleSettings
 import com.tealium.core.api.data.TealiumBundle
 import java.security.SecureRandom
 import java.util.*
@@ -41,16 +40,16 @@ class TealiumCollector(
         }
     }
 
-    override val name: String
+    override val id: String
         get() = moduleName
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
     companion object: ModuleFactory {
         private const val moduleName = "TealiumCollector"
-        override val name = moduleName
+        override val id = moduleName
 
-        override fun create(context: TealiumContext, settings: ModuleSettings): Module? {
+        override fun create(context: TealiumContext, settings: TealiumBundle): Module? {
             return TealiumCollector(context)
         }
     }

@@ -6,8 +6,9 @@ import com.tealium.core.api.modules.*
 import com.tealium.core.internal.settings.SdkSettings
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
-import com.tealium.core.internal.settings.ModuleSettingsImpl
+import com.tealium.core.api.settings.ModuleSettingsBuilder
 import com.tealium.tests.common.*
+import io.mockk.Called
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -169,21 +170,47 @@ class ModuleManagerImplTests {
     }
 
     @Test
+    fun updateSettings_Calls_OnShutdown_WhenReturnNull() {
+        every { testModule.updateSettings(any()) } returns null
+        moduleManager.updateModuleSettings(context, SdkSettings(mapOf()))
+
+        verify { testModule.onShutdown() }
+    }
+
+    @Test
+    fun updateSettings_Calls_OnShutdown_WhenModuleSettingsDisabled() {
+        every { testModule.updateSettings(any()) } returns null
+        moduleManager.updateModuleSettings(
+            context, SdkSettings(
+                mapOf(
+                    testModule.id to disabledModuleSettings
+                )
+            )
+        )
+
+        verify { testModule.onShutdown() }
+    }
+
+    @Test
     fun updateSettings_ProvidesSettings_ToSpecificModules() {
-        val testCollectorSettings = ModuleSettingsImpl(true, TealiumBundle.create {
+        val testCollectorSettings = TealiumBundle.create {
             put("collector_setting", "10")
-        })
-        val testDispatcherSettings = ModuleSettingsImpl(true, TealiumBundle.create {
+        }
+        val testDispatcherSettings = TealiumBundle.create {
             put("dispatcher_setting", "10")
-        })
-        val testModuleSettings = ModuleSettingsImpl(true, TealiumBundle.create {
+        }
+        val testModuleSettings = TealiumBundle.create {
             put("module_setting", "10")
-        })
-        moduleManager.updateModuleSettings(context, SdkSettings(mapOf(
-            testCollector.name to testCollectorSettings,
-            testDispatcher.name to testDispatcherSettings,
-            testModule.name to testModuleSettings
-        )))
+        }
+        moduleManager.updateModuleSettings(
+            context, SdkSettings(
+                mapOf(
+                    testCollector.id to testCollectorSettings,
+                    testDispatcher.id to testDispatcherSettings,
+                    testModule.id to testModuleSettings
+                )
+            )
+        )
 
         verify {
             testCollector.updateSettings(testCollectorSettings)
@@ -191,4 +218,80 @@ class ModuleManagerImplTests {
             testModule.updateSettings(testModuleSettings)
         }
     }
+
+    @Test
+    fun updateSettings_Does_Not_Create_Module_When_Settings_Disabled() {
+        val creator = mockk<(TealiumContext, TealiumBundle) -> Module>()
+
+        moduleManager.addModuleFactory(TestModuleFactory("disabled_module", creator = creator))
+        moduleManager.updateModuleSettings(
+            context, SdkSettings(
+                mapOf(
+                    "disabled_module" to disabledModuleSettings
+                )
+            )
+        )
+
+        verify {
+            creator wasNot Called
+        }
+    }
+
+    @Test
+    fun updateSettings_Does_Create_Module_When_Settings_Disabled_But_Module_Cannot_Be_Disabled() {
+        val creator = mockk<(TealiumContext, TealiumBundle) -> Module>()
+        every { creator.invoke(any(), any()) } returns mockk(relaxed = true)
+
+        moduleManager.addModuleFactory(
+            TestModuleFactory(
+                "disabled_module",
+                canBeDisabled = false,
+                creator = creator
+            )
+        )
+        moduleManager.updateModuleSettings(
+            context, SdkSettings(
+                mapOf(
+                    "disabled_module" to disabledModuleSettings
+                )
+            )
+        )
+
+        verify {
+            creator(any(), any())
+        }
+    }
+
+    @Test
+    fun updateSettings_Updates_Module_Settings_When_Settings_Disabled_But_Module_Cannot_Be_Disabled() {
+        val creator = mockk<(TealiumContext, TealiumBundle) -> Module>(relaxed = true)
+        val nonDisableableModule = TestModule.mock("disabled_module")
+        every { creator.invoke(any(), any()) } returns nonDisableableModule
+
+        moduleManager.addModuleFactory(
+            TestModuleFactory(
+                "disabled_module",
+                canBeDisabled = false,
+                creator = creator
+            )
+        )
+        val disabledSettings = SdkSettings(
+            mapOf(
+                "disabled_module" to disabledModuleSettings
+            )
+        )
+        // creates
+        moduleManager.updateModuleSettings(context, disabledSettings)
+        // updates
+        moduleManager.updateModuleSettings(context, disabledSettings)
+
+        verify {
+            nonDisableableModule.updateSettings(any())
+        }
+    }
+
+
+    private val disabledModuleSettings: TealiumBundle = ModuleSettingsBuilder()
+        .setEnabled(false)
+        .build()
 }

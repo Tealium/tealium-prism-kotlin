@@ -35,7 +35,7 @@ class TealiumProxy(
     private val onTealiumImplReady: ReplaySubject<TealiumImpl?> = Observables.replaySubject(1),
     private val databaseProvider: DatabaseProvider = FileDatabaseProvider(config),
     private val moduleManager: InternalModuleManager = ModuleManagerImpl(
-        TealiumImpl.getDefaultModules() + config.modules,
+        TealiumImpl.getDefaultModules(),
         tealiumScheduler
     ),
     private val activityManager: ActivityManager = ActivityManagerImpl.getInstance(config.application)

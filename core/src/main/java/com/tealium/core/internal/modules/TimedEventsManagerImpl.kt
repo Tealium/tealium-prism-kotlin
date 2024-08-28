@@ -1,10 +1,10 @@
 package com.tealium.core.internal.modules
 
+import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.ModuleManager
-import com.tealium.core.api.settings.ModuleSettings
 import com.tealium.core.api.modules.TimedEventsManager
 
 class TimedEventsManagerWrapper(
@@ -58,7 +58,7 @@ class TimedEventsManagerImpl: TimedEventsManager, Module {
 //        TODO("Not yet implemented")
     }
 
-    override val name: String
+    override val id: String
         get() = moduleName
     override val version: String
         get() = "" //TODO
@@ -66,10 +66,10 @@ class TimedEventsManagerImpl: TimedEventsManager, Module {
     companion object: ModuleFactory {
         private const val moduleName = "TimedEvents"
 
-        override val name: String
+        override val id: String
             get() = moduleName
 
-        override fun create(context: TealiumContext, settings: ModuleSettings): Module? {
+        override fun create(context: TealiumContext, settings: TealiumBundle): Module? {
             return TimedEventsManagerImpl()
         }
     }

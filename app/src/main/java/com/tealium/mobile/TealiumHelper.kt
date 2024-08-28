@@ -9,6 +9,9 @@ import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumValue
 import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.misc.Environment
+import com.tealium.core.api.modules.ModuleFactory
+import com.tealium.core.api.modules.consent.ConsentDecision
+import com.tealium.core.api.modules.consent.ConsentManagementAdapter
 import com.tealium.core.api.network.HttpRequest
 import com.tealium.core.api.network.Interceptor
 import com.tealium.core.api.network.NetworkError.Cancelled
@@ -22,13 +25,15 @@ import com.tealium.core.api.network.RetryPolicy
 import com.tealium.core.api.network.RetryPolicy.DoNotRetry
 import com.tealium.core.api.network.RetryPolicy.RetryAfterDelay
 import com.tealium.core.api.persistence.Expiry
-import com.tealium.core.api.settings.CoreSettingsBuilder
+import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.SubscribableState
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.api.tracking.TrackResult
 
 object TealiumHelper {
 
+    private const val TAG = "TealiumHelper"
     private const val INSTANCE_NAME = "main"
 
     private val shared: Tealium?
@@ -56,19 +61,17 @@ object TealiumHelper {
     fun init(application: Application) {
         val config = TealiumConfig(
             application = application,
-            modules = listOf(Modules.VisitorService, Modules.Collect, Modules.ConnectivityCollector),
+            modules = configureModules(),
             accountName = "tealiummobile",
             profileName = "android",
             environment = Environment.DEV
-        ).apply {
+        ) { settings ->
+            settings.setLogLevel(LogLevel.TRACE)
+                .setBatchSize(8)
+        }
+        config.apply {
             useRemoteSettings = false
 //            localSdkSettingsFileName = "tealium-settings.json"
-
-            addModuleSettings(
-                CoreSettingsBuilder()
-                    .setLogLevel(LogLevel.TRACE)
-                    .setBatchSize(8)
-            )
         }
 
         Tealium.create(INSTANCE_NAME, config) { result ->
@@ -101,7 +104,7 @@ object TealiumHelper {
             }
 
             // do onReady
-            Log.d("TealiumHelper", "Tealium is ready")
+            Log.d(TAG, "Tealium is ready")
 //            it.consent.consentStatus = ConsentStatus.Consented
 //            it.consent.consentStatus = ConsentStatus.NotConsented
 //
@@ -125,7 +128,33 @@ object TealiumHelper {
     }
 
     private fun onTracked(dispatch: Dispatch, status: TrackResult) {
-        Log.d("TealiumHelper", "ProcessingStatus: ${dispatch.tealiumEvent} - ${status::class.simpleName}")
+        Log.d(
+            TAG,
+            "ProcessingStatus: ${dispatch.tealiumEvent} - ${status::class.simpleName}"
+        )
+    }
+
+    private fun configureModules(): List<ModuleFactory> {
+        return listOf(
+            configureConsent(),
+            configureCollect(),
+            Modules.connectivityCollector()
+        )
+    }
+
+    private fun configureConsent(): ModuleFactory {
+        // object should be subbed with actual cmp implementation.
+        return Modules.consent(ExampleConsentManagementAdapter())
+//        return Modules.consent(ExampleConsentManagementAdapter()) { settings ->
+//            settings.setDispatcherToPurposes(mapOf("CollectDispatcher" to setOf("some_purpose")))
+//        }
+    }
+
+    private fun configureCollect(): ModuleFactory {
+        return Modules.collect()
+//        return Modules.collect { settings ->
+//            settings.setProfile("override_profile")
+//        }
     }
 }
 

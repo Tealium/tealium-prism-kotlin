@@ -4,21 +4,21 @@ import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumDeserializable
 import com.tealium.core.api.data.TealiumSerializable
 import com.tealium.core.api.data.TealiumValue
-import com.tealium.core.api.settings.ModuleSettings
+import com.tealium.core.api.settings.CoreSettings
 
 data class SdkSettings(
-    val moduleSettings: Map<String, ModuleSettings> = emptyMap()
+    val moduleSettings: Map<String, TealiumBundle> = emptyMap()
 ) : TealiumSerializable {
 
     val coreSettings: CoreSettings
-        get() = moduleSettings[CoreSettings.moduleName]?.let {
-            CoreSettings.fromBundle(it.bundle)
-        } ?: CoreSettings()
+        get() = moduleSettings[CoreSettingsImpl.MODULE_NAME]?.let {
+            CoreSettingsImpl.fromBundle(it)
+        } ?: CoreSettingsImpl()
 
     override fun asTealiumValue(): TealiumValue {
         return TealiumBundle.create {
             for (settings in moduleSettings) {
-                put(settings.key, settings.value.bundle)
+                put(settings.key, settings.value)
             }
 
         }.asTealiumValue()
@@ -28,10 +28,9 @@ data class SdkSettings(
         override fun deserialize(value: TealiumValue): SdkSettings? {
             val bundle = value.getBundle() ?: return null
 
-            val modulesSettings: Map<String, ModuleSettings> = bundle.associate { entry ->
+            val modulesSettings: Map<String, TealiumBundle> = bundle.associate { entry ->
                 val entryBundle = entry.value.getBundle()
-                val enabled = entryBundle?.getBoolean("enabled")
-                entry.key to ModuleSettingsImpl(enabled ?: true, entryBundle ?: TealiumBundle.EMPTY_BUNDLE)
+                entry.key to (entryBundle ?: TealiumBundle.EMPTY_BUNDLE)
             }
 
             return SdkSettings(

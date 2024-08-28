@@ -1,18 +1,19 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.BuildConfig
-import com.tealium.core.api.modules.TealiumContext
-import com.tealium.core.api.persistence.DataStore
+import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.ModuleManager
+import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.modules.VisitorProfile
 import com.tealium.core.api.modules.VisitorService
-import com.tealium.core.api.pubsub.Subscribable
+import com.tealium.core.api.persistence.DataStore
+import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
-import com.tealium.core.api.settings.ModuleSettings
-import com.tealium.core.api.pubsub.Observable
+import com.tealium.core.api.pubsub.Subscribable
+import com.tealium.core.api.settings.VisitorServiceSettingsBuilder
 import java.util.UUID
 
 class VisitorServiceWrapper(
@@ -70,12 +71,12 @@ class VisitorServiceImpl(
         // TODO()
     }
 
-    override fun updateSettings(moduleSettings: ModuleSettings): Module? {
-        settings = VisitorServiceSettings.fromModuleSettings(moduleSettings)
+    override fun updateSettings(moduleSettings: TealiumBundle): Module? {
+        settings = VisitorServiceSettings.fromBundle(moduleSettings)
         return this // TODO or null if required settings are not available
     }
 
-    override val name: String
+    override val id: String
         get() = moduleName
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
@@ -88,22 +89,25 @@ class VisitorServiceImpl(
         }
     }
 
-    object Factory : ModuleFactory {
-        override val name: String
+    class Factory(
+        private val settings: TealiumBundle? = null
+    ) : ModuleFactory {
+        constructor(moduleSettings: VisitorServiceSettingsBuilder) : this(moduleSettings.build())
+        override val id: String
             get() = moduleName
 
-        override fun create(context: TealiumContext, settings: ModuleSettings): Module {
+        override fun create(context: TealiumContext, settings: TealiumBundle): Module {
             return VisitorServiceImpl(
-                VisitorServiceSettings.fromModuleSettings(settings),
+                VisitorServiceSettings.fromBundle(settings),
                 context.storageProvider.getModuleStore(this)
             )
         }
+
+        override fun getEnforcedSettings(): TealiumBundle? = settings
     }
 }
 
 class VisitorServiceSettings(
-    val enabled: Boolean = true,
-    val dependencies: List<Any> = emptyList(),
     val urlTemplate: String = DEFAULT_VISITOR_SERVICE_TEMPLATE,
     val profile: String? = null,
     val refreshIntervalSeconds: Long = DEFAULT_REFRESH_INTERVAL_SECONDS
@@ -127,18 +131,16 @@ class VisitorServiceSettings(
         const val VISITOR_SERVICE_OVERRIDE_PROFILE = "override_visitor_service_profile"
         const val VISITOR_SERVICE_REFRESH_INTERVAL = "override_visitor_refresh_interval"
 
-        fun fromModuleSettings(settings: ModuleSettings): VisitorServiceSettings {
-            val dependencies = settings.dependencies
-            val url = settings.bundle.getString(VISITOR_SERVICE_OVERRIDE_URL)
+        fun fromBundle(settings: TealiumBundle): VisitorServiceSettings {
+            val url = settings.getString(VISITOR_SERVICE_OVERRIDE_URL)
                 ?: DEFAULT_VISITOR_SERVICE_TEMPLATE
-            val profile = settings.bundle.getString(VISITOR_SERVICE_OVERRIDE_PROFILE)
-            val refreshInterval = settings.bundle.getLong(VISITOR_SERVICE_REFRESH_INTERVAL)
+            val profile = settings.getString(VISITOR_SERVICE_OVERRIDE_PROFILE)
+            val refreshInterval = settings.getLong(VISITOR_SERVICE_REFRESH_INTERVAL)
                 ?: DEFAULT_REFRESH_INTERVAL_SECONDS
             return VisitorServiceSettings(
                 urlTemplate = url,
                 profile = profile,
                 refreshIntervalSeconds = refreshInterval,
-                dependencies = dependencies
             )
         }
     }

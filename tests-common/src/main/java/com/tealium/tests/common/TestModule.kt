@@ -4,7 +4,7 @@ import com.tealium.core.api.modules.Module
 import io.mockk.spyk
 
 class TestModule(
-    override val name: String,
+    override val id: String,
     override val version: String = "0.0"
 ): Module {
     companion object {

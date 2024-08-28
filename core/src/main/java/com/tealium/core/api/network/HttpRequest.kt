@@ -70,10 +70,14 @@ class HttpRequest private constructor(
      * @see HttpRequest.get
      * @see HttpRequest.post
      */
-    class Builder(
-        private val url: String,
+    class Builder private constructor(
+        private val urlSupplier: () -> URL,
         private val method: HttpMethod
     ) {
+
+        constructor(url: URL, method: HttpMethod): this({ url }, method)
+        constructor(url: String, method: HttpMethod): this({ URL(url) }, method)
+
         private val headers = mutableMapOf<String, String>()
         private var body: String? = null
         private var shouldGzip: Boolean? = null
@@ -145,8 +149,6 @@ class HttpRequest private constructor(
          */
         @Throws(MalformedURLException::class)
         fun build(): HttpRequest {
-            val parsedUrl = URL(url)
-
             shouldGzip?.let {
                 header(Headers.CONTENT_ENCODING, "gzip")
             }
@@ -155,7 +157,7 @@ class HttpRequest private constructor(
                 header(Headers.ETAG, it)
             }
 
-            return HttpRequest(parsedUrl, method, body, headers.toMap())
+            return HttpRequest(urlSupplier.invoke(), method, body, headers.toMap())
         }
     }
 
@@ -170,6 +172,7 @@ class HttpRequest private constructor(
          * @param gzip true to gzip compress the [payload]; otherwise false
          */
         @JvmStatic
+        @Throws(MalformedURLException::class)
         fun post(destination: String, payload: String): Builder {
             return Builder(destination, HttpMethod.Post)
                 .body(payload)
@@ -183,7 +186,34 @@ class HttpRequest private constructor(
          * response if the data requested hasn't changed.
          */
         @JvmStatic
+        @Throws(MalformedURLException::class)
         fun get(destination: String, etag: String? = null): Builder {
+            return Builder(destination, HttpMethod.Get)
+                .etag(etag)
+        }
+
+        /**
+         * Utility method for building a simple POST request.
+         *
+         * @param destination The url to be POSTed to
+         * @param payload The body of the POST request
+         * @param gzip true to gzip compress the [payload]; otherwise false
+         */
+        @JvmStatic
+        fun post(destination: URL, payload: String): Builder {
+            return Builder(destination, HttpMethod.Post)
+                .body(payload)
+        }
+
+        /**
+         * Utility method for building a simple GET request.
+         *
+         * @param destination the url to GET
+         * @param etag optional etag allowing the server to efficiently return the appropriate
+         * response if the data requested hasn't changed.
+         */
+        @JvmStatic
+        fun get(destination: URL, etag: String? = null): Builder {
             return Builder(destination, HttpMethod.Get)
                 .etag(etag)
         }

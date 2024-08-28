@@ -1,28 +1,25 @@
-package com.tealium.core.internal.modules
+package com.tealium.core.internal.modules.collect
 
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.api.modules.TealiumContext
-import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.network.HttpResponse
 import com.tealium.core.api.network.NetworkHelper
 import com.tealium.core.api.network.NetworkResult
 import com.tealium.core.api.network.NetworkResult.Success
 import com.tealium.core.api.network.NetworkUtilities
-import com.tealium.core.internal.settings.ModuleSettingsImpl
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.tests.common.SystemLogger
 import io.mockk.MockKAnnotations
-import io.mockk.verify
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
-import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
 import io.mockk.slot
+import io.mockk.verify
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -31,9 +28,6 @@ import java.net.URL
 
 @RunWith(RobolectricTestRunner::class)
 class CollectDispatcherTests {
-
-    @RelaxedMockK
-    lateinit var logger: Logger
 
     @MockK
     lateinit var networkHelper: NetworkHelper
@@ -46,6 +40,9 @@ class CollectDispatcherTests {
 
     lateinit var collectDispatcher: CollectDispatcher
 
+    private val logger: Logger = SystemLogger
+    private val defaultSettings = CollectDispatcherSettings()
+    private val localhost = URL("https://localhost/")
     private val account = "tealium_account"
     private val profile = "tealium_profile"
 
@@ -63,11 +60,11 @@ class CollectDispatcherTests {
         every { context.network } returns networking
 
         val completionCapture = slot<(NetworkResult) -> Unit>()
-        every { networkHelper.post(any(), any(), capture(completionCapture)) } answers {
+        every { networkHelper.post(any<URL>(), any(), capture(completionCapture)) } answers {
             completionCapture.captured.invoke(
                 Success(
                     HttpResponse(
-                        url = URL(CollectDispatcherSettings.DEFAULT_COLLECT_URL),
+                        url = defaultSettings.url,
                         statusCode = 200, message = "", headers = mapOf()
                     )
                 )
@@ -87,7 +84,7 @@ class CollectDispatcherTests {
 
         verify(timeout = 1000) {
             networkHelper.post(
-                CollectDispatcherSettings.DEFAULT_COLLECT_URL,
+                defaultSettings.url,
                 dispatch.payload(),
                 any()
             )
@@ -100,7 +97,7 @@ class CollectDispatcherTests {
     @Test
     fun dispatch_Individually_OverridesUrl_WhenUrlIsOverridden() {
         collectDispatcher = createCollectDispatcher(
-            settings = CollectDispatcherSettings(url = "http://localhost/")
+            settings = CollectDispatcherSettings(url = localhost)
         )
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
@@ -109,7 +106,7 @@ class CollectDispatcherTests {
         collectDispatcher.dispatch(listOf(dispatch), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post("http://localhost/", any(), any())
+            networkHelper.post(localhost, any(), any())
             observer(match {
                 it.first().id == dispatch.id
             })
@@ -129,7 +126,7 @@ class CollectDispatcherTests {
         collectDispatcher.dispatch(listOf(dispatch), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, match {
+            networkHelper.post(defaultSettings.url, match {
                 it.getString(Dispatch.Keys.TEALIUM_PROFILE) == "override"
             }, any())
             observer(match {
@@ -149,7 +146,7 @@ class CollectDispatcherTests {
         collectDispatcher.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, any(), any())
+            networkHelper.post(defaultSettings.batchUrl, any(), any())
             observer(match {
                 it[0].id == dispatch1.id
                         && it[1].id == dispatch2.id
@@ -168,7 +165,7 @@ class CollectDispatcherTests {
 
         verify(timeout = 1000) {
             networkHelper.post(
-                CollectDispatcherSettings.DEFAULT_COLLECT_URL,
+                defaultSettings.url,
                 dispatch.payload(),
                 any()
             )
@@ -181,7 +178,7 @@ class CollectDispatcherTests {
     @Test
     fun dispatch_Batches_OverridesUrl_WhenUrlIsOverridden() {
         collectDispatcher = createCollectDispatcher(
-            settings = CollectDispatcherSettings(batchUrl = "http://localhost/")
+            settings = CollectDispatcherSettings(batchUrl = localhost)
         )
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
@@ -191,7 +188,7 @@ class CollectDispatcherTests {
         collectDispatcher.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post("http://localhost/", any(), any())
+            networkHelper.post(localhost, any(), any())
             observer(match {
                 it[0].id == dispatch1.id
                         && it[1].id == dispatch2.id
@@ -213,7 +210,7 @@ class CollectDispatcherTests {
         collectDispatcher.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, match {
+            networkHelper.post(defaultSettings.batchUrl, match {
                 it.getBundle(CollectDispatcher.KEY_SHARED)!!
                     .getString(Dispatch.Keys.TEALIUM_PROFILE) == "override"
             }, any())
@@ -241,7 +238,7 @@ class CollectDispatcherTests {
         collectDispatcher.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, match {
+            networkHelper.post(defaultSettings.batchUrl, match {
                 val shared = it.getBundle(CollectDispatcher.KEY_SHARED)!!
                 val events = it.getList(CollectDispatcher.KEY_EVENTS)!!
                 val event1 = events.getBundle(0)!!
@@ -281,7 +278,7 @@ class CollectDispatcherTests {
         collectDispatcher.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, match {
+            networkHelper.post(defaultSettings.batchUrl, match {
                 val shared = it.getBundle(CollectDispatcher.KEY_SHARED)!!
                 val events = it.getList(CollectDispatcher.KEY_EVENTS)!!
                 val event1 = events.getBundle(0)!!
@@ -306,10 +303,10 @@ class CollectDispatcherTests {
         collectDispatcher.dispatch(listOf(dispatch1, dispatch2, dispatch3), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, match {
+            networkHelper.post(defaultSettings.url, match {
                 it.getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_1"
             }, any())
-            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, match {
+            networkHelper.post(defaultSettings.batchUrl, match {
                 it.getBundle(CollectDispatcher.KEY_SHARED)!!
                     .getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_2"
             }, any())
@@ -336,22 +333,16 @@ class CollectDispatcherTests {
         collectDispatcher.dispatch(listOf(dispatch1), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, any(), any())
+            networkHelper.post(defaultSettings.url, any(), any())
         }
 
-        val url = "https://localhost/"
         collectDispatcher.updateSettings(
-            ModuleSettingsImpl(
-                enabled = true,
-                bundle = TealiumBundle.create {
-                    put(CollectDispatcherSettings.KEY_COLLECT_URL, url)
-                }
-            )
+            createSettings { it.setUrl(localhost.toString()) }
         )
         collectDispatcher.dispatch(listOf(dispatch1), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(url, any(), any())
+            networkHelper.post(localhost, any(), any())
         }
     }
 
@@ -365,22 +356,16 @@ class CollectDispatcherTests {
         collectDispatcher.dispatch(listOf(dispatch1, dispatch1), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_BATCH_URL, any(), any())
+            networkHelper.post(defaultSettings.batchUrl, any(), any())
         }
 
-        val url = "https://localhost/"
         collectDispatcher.updateSettings(
-            ModuleSettingsImpl(
-                enabled = true,
-                bundle = TealiumBundle.create {
-                    put(CollectDispatcherSettings.KEY_COLLECT_BATCH_URL, url)
-                }
-            )
+            createSettings { it.setBatchUrl(localhost.toString()) }
         )
         collectDispatcher.dispatch(listOf(dispatch1, dispatch1), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(url, any(), any())
+            networkHelper.post(localhost, any(), any())
         }
     }
 
@@ -398,24 +383,19 @@ class CollectDispatcherTests {
         collectDispatcher.dispatch(listOf(dispatch1), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(CollectDispatcherSettings.DEFAULT_COLLECT_URL, match {
+            networkHelper.post(defaultSettings.url, match {
                 it.getString(Dispatch.Keys.TEALIUM_PROFILE) == "default"
             }, any())
         }
 
         val overrideProfile = "override"
         collectDispatcher.updateSettings(
-            ModuleSettingsImpl(
-                enabled = true,
-                bundle = TealiumBundle.create {
-                    put(CollectDispatcherSettings.KEY_COLLECT_PROFILE, overrideProfile)
-                }
-            )
+            createSettings { it.setProfile(overrideProfile) }
         )
         collectDispatcher.dispatch(listOf(dispatch1), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(any(), match {
+            networkHelper.post(any<URL>(), match {
                 it.getString(Dispatch.Keys.TEALIUM_PROFILE) == overrideProfile
             }, any())
         }
@@ -427,74 +407,33 @@ class CollectDispatcherTests {
 
         assertSame(
             collectDispatcher,
-            collectDispatcher.updateSettings(ModuleSettingsImpl(enabled = true))
+            collectDispatcher.updateSettings(TealiumBundle.EMPTY_BUNDLE)
         )
     }
 
     @Test
-    fun updateSettings_ReturnsNull_When_ModuleSettings_Disabled() {
+    fun updateSettings_ReturnsNull_When_Invalid_Url() {
         collectDispatcher = createCollectDispatcher()
 
-        assertNull(collectDispatcher.updateSettings(ModuleSettingsImpl(enabled = false)))
+        assertNull(collectDispatcher.updateSettings(createSettings {
+            it.setUrl("some_invalid_url")
+        }))
     }
 
     @Test
-    fun create_ReturnsCollectDispatcher_When_ModuleSettings_Enabled() {
-        val module = CollectDispatcher.Factory.create(
-            context, ModuleSettingsImpl(enabled = true)
-        )
+    fun updateSettings_ReturnsNull_When_Invalid_BatchUrl() {
+        collectDispatcher = createCollectDispatcher()
 
-        assertNotNull(module)
-        assertTrue(module is CollectDispatcher)
-    }
-
-    @Test
-    fun create_ReturnsNull_When_ModuleSettings_Disabled() {
-        val module = CollectDispatcher.Factory.create(context, ModuleSettingsImpl(enabled = false))
-
-        assertNull(module)
+        assertNull(collectDispatcher.updateSettings(createSettings {
+            it.setBatchUrl("some_invalid_url")
+        }))
     }
 
     @Test
     fun name_Matches_Factory_Name() {
         collectDispatcher = createCollectDispatcher()
 
-        assertEquals(CollectDispatcher.Factory.name, collectDispatcher.name)
-    }
-
-    @Test
-    fun fromModuleSettings_PrefersUrlOverrides_ToDomainOverride() {
-        val url = "https://localhost/"
-        val settings = CollectDispatcherSettings.fromModuleSettings(
-            ModuleSettingsImpl(
-                enabled = true,
-                bundle = TealiumBundle.create {
-                    put(CollectDispatcherSettings.KEY_COLLECT_URL, url)
-                    put(CollectDispatcherSettings.KEY_COLLECT_BATCH_URL, url)
-                    put(CollectDispatcherSettings.KEY_COLLECT_DOMAIN, "domain")
-
-                }
-            )
-        )
-
-        assertEquals(url, settings.url)
-        assertEquals(url, settings.batchUrl)
-    }
-
-    @Test
-    fun fromModuleSettings_UsesDomainOverride_WhenNoUrlOverride() {
-        val settings = CollectDispatcherSettings.fromModuleSettings(
-            ModuleSettingsImpl(
-                enabled = true,
-                bundle = TealiumBundle.create {
-                    put(CollectDispatcherSettings.KEY_COLLECT_DOMAIN, "domain")
-
-                }
-            )
-        )
-
-        assertEquals("https://domain/event", settings.url)
-        assertEquals("https://domain/bulk-event", settings.batchUrl)
+        assertEquals(CollectDispatcher.Factory().id, collectDispatcher.id)
     }
 
     /**

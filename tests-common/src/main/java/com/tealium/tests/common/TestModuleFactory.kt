@@ -1,31 +1,32 @@
 package com.tealium.tests.common
 
+import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
-import com.tealium.core.api.settings.ModuleSettings
 
 class TestModuleFactory(
-    override val name: String,
-    private val creator: (TealiumContext, ModuleSettings) -> Module? = { _, _ -> null }
+    override val id: String,
+    private val config: TealiumBundle? = null,
+    private val canBeDisabled: Boolean = true,
+    private val creator: (TealiumContext, TealiumBundle) -> Module? = { _, _ -> null }
 ) : ModuleFactory {
 
     /**
      * Returns a ModuleFactory that returns the given [module] every time.
      */
-    constructor(module: Module) : this(module.name, { _, _ ->
+    constructor(
+        module: Module,
+        config: TealiumBundle? = null,
+        canBeDisabled: Boolean = true
+    ) : this(module.id, config, canBeDisabled, { _, _ ->
         module
     })
 
-    /**
-     * Returns a ModuleFactory that takes its name from the given [module] but creates based on the
-     * given [creator].
-     */
-    constructor(
-        module: Module,
-        creator: (TealiumContext, ModuleSettings) -> Module?
-    ) : this(module.name, creator)
-
-    override fun create(context: TealiumContext, settings: ModuleSettings): Module? =
+    override fun create(context: TealiumContext, settings: TealiumBundle): Module? =
         creator.invoke(context, settings)
+
+    override fun getEnforcedSettings(): TealiumBundle? = config
+
+    override fun canBeDisabled(): Boolean = canBeDisabled
 }

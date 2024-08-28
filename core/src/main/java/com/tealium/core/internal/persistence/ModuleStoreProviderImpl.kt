@@ -26,11 +26,11 @@ internal class ModuleStoreProviderImpl(
 ) : ModuleStoreProvider {
 
     override fun getModuleStore(moduleFactory: ModuleFactory): DataStore {
-        return getModuleStoreForName(moduleFactory.name)
+        return getModuleStoreForName(moduleFactory.id)
     }
 
     override fun getModuleStore(module: Module): DataStore {
-        return getModuleStoreForName(module.name)
+        return getModuleStoreForName(module.id)
     }
 
     override fun getSharedDataStore(): DataStore {

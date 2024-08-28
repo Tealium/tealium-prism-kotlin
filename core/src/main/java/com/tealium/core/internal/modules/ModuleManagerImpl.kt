@@ -1,16 +1,16 @@
 package com.tealium.core.internal.modules
 
+import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.misc.TealiumCallback
-import com.tealium.core.api.settings.ModuleSettings
 import com.tealium.core.internal.settings.SdkSettings
 import com.tealium.core.api.pubsub.ObservableState
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
-import com.tealium.core.internal.settings.ModuleSettingsImpl
 
 class ModuleManagerImpl(
     moduleFactories: List<ModuleFactory>,
@@ -51,42 +51,68 @@ class ModuleManagerImpl(
     override fun updateModuleSettings(context: TealiumContext, settings: SdkSettings) {
         // iterate all factories to preserve insertion order
         val oldModules = _modules
-        val newModules = mutableMapOf<String, Module>()
-        for (factory in moduleFactories) {
-            val oldModule = oldModules[factory.name]
-            val newModule = if (oldModule != null) {
-                // update all existing module settings in case disabled modules need to shut
-                // anything down
-                val updatedModuleSettings = settings.moduleSettings.getOrDefault(factory.name)
-
-                context.logger.trace?.log(factory.name, "Settings updated to ${updatedModuleSettings.bundle}")
-
-                oldModule.updateSettings(updatedModuleSettings)
+        val newModules = moduleFactories.mapNotNull { factory ->
+            val module = oldModules[factory.id]
+            val newSettings = settings.moduleSettings.getOrDefault(factory.id)
+            if (module != null) {
+                updateOrDisableModule(
+                    factory.canBeDisabled(),
+                    module,
+                    newSettings,
+                    context.logger
+                )
             } else {
                 createModule(
                     context,
-                    settings.moduleSettings.getOrDefault(factory.name),
+                    newSettings,
                     factory
                 )
             }
-
-            if (newModule != null) {
-                newModules[factory.name] = newModule
-            }
+        }.associateBy { module ->
+            module.id
         }
         _modules = newModules
 
         modulesSubject.onNext(_modules.values.toSet())
     }
 
+    private fun updateOrDisableModule(
+        canBeDisabled: Boolean,
+        module: Module,
+        settings: TealiumBundle,
+        logger: Logger
+    ): Module? {
+        if (!canBeDisabled || settings.enabled) {
+            // update
+            val updatedModule = module.updateSettings(settings)
+            if (updatedModule != null) {
+                logger.trace?.log(
+                    module.id,
+                    "Settings updated to $settings"
+                )
+                return updatedModule
+            }
+        }
+
+        // shutdown
+        logger.trace?.log(
+            module.id,
+            "Module failed to update settings. Module will be shut down."
+        )
+        module.onShutdown()
+        return null
+    }
+
     companion object {
+        private val TealiumBundle.enabled: Boolean
+            get() = this.getBoolean("enabled") ?: true
 
         private fun createModule(
             context: TealiumContext,
-            settings: ModuleSettings,
+            settings: TealiumBundle,
             factory: ModuleFactory
         ): Module? {
-            return if (settings.enabled) {
+            return if (!factory.canBeDisabled() || settings.enabled) {
                 factory.create(context, settings)
             } else null
         }
@@ -96,15 +122,15 @@ class ModuleManagerImpl(
          */
         private fun getModuleSettings(
             moduleName: String,
-            modulesSettings: Map<String, ModuleSettings>
-        ): ModuleSettings {
-            return modulesSettings[moduleName] ?: ModuleSettingsImpl()
+            modulesSettings: Map<String, TealiumBundle>
+        ): TealiumBundle {
+            return modulesSettings[moduleName] ?: TealiumBundle.EMPTY_BUNDLE
         }
 
         /**
          * Extracts the module settings for the named module; otherwise returns the default settings.
          */
-        private fun Map<String, ModuleSettings>.getOrDefault(name: String): ModuleSettings {
+        private fun Map<String, TealiumBundle>.getOrDefault(name: String): TealiumBundle {
             return getModuleSettings(name, this)
         }
     }

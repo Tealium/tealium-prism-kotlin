@@ -11,11 +11,6 @@ import com.tealium.core.api.modules.Module
 interface ConsentManager: Module {
 
     /**
-     * Whether or not the [ConsentManager] is enabled.
-     */
-    val enabled: Boolean
-
-    /**
      * Retrieves the current [ConsentDecision] if available.
      */
     fun getConsentDecision(): ConsentDecision?

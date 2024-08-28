@@ -22,7 +22,7 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
         })
         scheduler.execute {
             dispatchers.onNext(setOf(dispatcher1))
-            queue[dispatcher1.name] = mutableSetOf(dispatch1, dispatch2)
+            queue[dispatcher1.id] = mutableSetOf(dispatch1, dispatch2)
 
             dispatchManager = createDispatchManager(maxInFlight = 1)
             dispatchManager.startDispatchLoop()
@@ -40,7 +40,7 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
     @Test
     fun dispatchManager_DoesNotSendNewEvents_WhenMaximumExceeded() {
         scheduler.execute {
-            onInFlightEvents.onNext(mapOf(dispatcher1.name to setOf("event1", "event2")))
+            onInFlightEvents.onNext(mapOf(dispatcher1.id to setOf("event1", "event2")))
 
             dispatchManager.startDispatchLoop()
             dispatchManager.track(dispatch1)
@@ -55,7 +55,7 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
     @Test
     fun dispatchManager_StartsSendingEventsAgain_WhenInflightReturnsBelowMaximum() {
         scheduler.execute {
-            onInFlightEvents.onNext(mapOf(dispatcher1.name to setOf("event1", "event2")))
+            onInFlightEvents.onNext(mapOf(dispatcher1.id to setOf("event1", "event2")))
 
             dispatchManager.startDispatchLoop()
             dispatchManager.track(dispatch1)
@@ -65,7 +65,7 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
         }
 
         scheduler.execute {
-            onInFlightEvents.onNext(mapOf(dispatcher1.name to setOf()))
+            onInFlightEvents.onNext(mapOf(dispatcher1.id to setOf()))
         }
         verify(timeout = 5000) {
             dispatcher1.dispatch(listOf(dispatch1), any())

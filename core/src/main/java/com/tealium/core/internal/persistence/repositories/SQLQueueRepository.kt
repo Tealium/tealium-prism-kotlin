@@ -5,7 +5,7 @@ import android.database.sqlite.SQLiteDatabase
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.misc.TimeFrame
-import com.tealium.core.api.misc.days
+import com.tealium.core.api.misc.TimeFrameUtils.days
 import com.tealium.core.internal.persistence.DatabaseProvider
 import com.tealium.core.internal.persistence.Schema.COUNT_TABLE_NAME
 import com.tealium.core.internal.persistence.Schema.DispatchTable

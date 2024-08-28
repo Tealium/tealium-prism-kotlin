@@ -8,7 +8,7 @@ import com.tealium.core.internal.pubsub.CompletedDisposable
 import io.mockk.spyk
 
 class TestDispatcher(
-    override val name: String,
+    override val id: String,
     override val version: String = "1.0",
     override val dispatchLimit: Int = 1,
     private val dispatchHandler: ((List<Dispatch>, TealiumCallback<List<Dispatch>>) -> Disposable) = { dispatches, callback ->

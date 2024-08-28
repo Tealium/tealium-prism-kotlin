@@ -16,6 +16,7 @@ import com.tealium.core.internal.pubsub.CompletedDisposable
 import org.json.JSONException
 import org.json.JSONObject
 import java.net.MalformedURLException
+import java.net.URL
 
 private const val ETAG_KEY = "etag"
 
@@ -27,24 +28,26 @@ class NetworkHelperImpl(
     private val logger: Logger,
 ) : NetworkHelper {
 
-    private fun send(
-        request: HttpRequest.Builder,
-        completion: (NetworkResult) -> Unit
-    ): Disposable {
-        val loggedCompletion: (NetworkResult) -> Unit = { result ->
-            val resultLogger: Logs? = when (result) {
+    private fun loggedCompletion(completion: (NetworkResult) -> Unit): (NetworkResult) -> Unit =
+        { result ->
+            when (result) {
                 is Success -> logger.trace
                 is Failure -> logger.error
-            }
-            resultLogger?.log(
+            }?.log(
                 LogCategory.NETWORK_HELPER,
                 "Completed request with $result"
             )
             completion(result)
         }
 
+    private fun send(
+        builder: HttpRequest.Builder,
+        completion: (NetworkResult) -> Unit
+    ): Disposable {
+        val loggedCompletion = loggedCompletion(completion)
+
         return try {
-            val httpRequest = request.build()
+            val httpRequest = builder.build()
             logger.trace?.log(LogCategory.NETWORK_HELPER, "Built request $httpRequest")
 
             networkClient.sendRequest(httpRequest, loggedCompletion)
@@ -60,8 +63,20 @@ class NetworkHelperImpl(
         return send(HttpRequest.get(url, etag), completion)
     }
 
+    override fun get(url: URL, etag: String?, completion: (NetworkResult) -> Unit): Disposable {
+        return send(HttpRequest.get(url, etag), completion)
+    }
+
     override fun post(
         url: String,
+        payload: TealiumBundle?,
+        completion: (NetworkResult) -> Unit
+    ): Disposable {
+        return send(HttpRequest.post(url, payload.toString()).gzip(true), completion)
+    }
+
+    override fun post(
+        url: URL,
         payload: TealiumBundle?,
         completion: (NetworkResult) -> Unit
     ): Disposable {
@@ -73,7 +88,16 @@ class NetworkHelperImpl(
         etag: String?,
         completion: (JSONObject?) -> Unit
     ): Disposable {
-        return send(HttpRequest.get(url, etag)) { result ->
+        return send(HttpRequest.get(url, etag), handleJsonResult(completion))
+    }
+
+    override fun getJson(url: URL, etag: String?, completion: (JSONObject?) -> Unit): Disposable {
+        return send(HttpRequest.get(url, etag), handleJsonResult(completion))
+    }
+
+    private fun handleJsonResult(completion: (JSONObject?) -> Unit): (NetworkResult) -> Unit =
+        { result ->
+            var jsonResult: JSONObject? = null
             if (result is Success && result.httpResponse.body != null) {
                 try {
                     val json = JSONObject(result.httpResponse.body)
@@ -81,23 +105,34 @@ class NetworkHelperImpl(
                     etagHeader?.let {
                         json.put(ETAG_KEY, it)
                     }
-                    completion(json)
-                    return@send
+                    jsonResult = json
                 } catch (ignore: JSONException) {
                     logger.debug?.log("NetworkHelper", "Invalid")
                 }
             }
-
-            completion(null)
+            completion(jsonResult)
         }
-    }
+
 
     override fun getTealiumBundle(
         url: String,
         etag: String?,
         completion: (TealiumBundle?) -> Unit
     ): Disposable {
-        return send(HttpRequest.get(url, etag)) { result ->
+        return send(HttpRequest.get(url, etag), handleBundleResult(completion))
+    }
+
+    override fun getTealiumBundle(
+        url: URL,
+        etag: String?,
+        completion: (TealiumBundle?) -> Unit
+    ): Disposable {
+        return send(HttpRequest.get(url, etag), handleBundleResult(completion))
+    }
+
+    private fun handleBundleResult(completion: (TealiumBundle?) -> Unit): (NetworkResult) -> Unit =
+        { result ->
+            var bundleResult: TealiumBundle? = null
             if (result is Success && result.httpResponse.body != null) {
                 try {
                     var bundle = TealiumBundle.fromString(result.httpResponse.body)
@@ -108,15 +143,12 @@ class NetworkHelperImpl(
                         }
                     }
 
-                    completion(bundle)
-                    return@send
+                    bundleResult = bundle
                 } catch (ignore: JSONException) {
                     logger.debug?.log("NetworkHelper", "Invalid")
-                    // log
                 }
             }
 
-            completion(null)
+            completion(bundleResult)
         }
-    }
 }

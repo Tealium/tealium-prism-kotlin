@@ -8,7 +8,6 @@ import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.network.Connectivity
-import com.tealium.core.api.settings.ModuleSettings
 
 /**
  * Collects data related to the current connectivity type of the device.
@@ -19,28 +18,22 @@ class ConnectivityCollector(
     private val connectivity: Connectivity,
 ) : Collector {
 
-    override fun updateSettings(moduleSettings: ModuleSettings): Module? {
-        return if (moduleSettings.enabled) this else null
-    }
-
     override fun collect(): TealiumBundle {
         return TealiumBundle.create {
             put(Dispatch.Keys.CONNECTION_TYPE, connectivity.connectionType().type)
         }
     }
 
-    override val name: String
-        get() = Factory.name
+    override val id: String
+        get() = Factory.id
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
     object Factory : ModuleFactory {
-        override val name: String
+        override val id: String
             get() = "Connectivity"
 
-        override fun create(context: TealiumContext, settings: ModuleSettings): Module? {
-            if (!settings.enabled) return null
-
+        override fun create(context: TealiumContext, settings: TealiumBundle): Module {
             return ConnectivityCollector(context.network)
         }
     }

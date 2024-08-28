@@ -1,17 +1,16 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.tracking.Dispatch
-import com.tealium.core.api.persistence.PersistenceException
 import com.tealium.core.api.logger.Logger
-import com.tealium.core.internal.logger.LogCategory
+import com.tealium.core.api.misc.TimeFrame
+import com.tealium.core.api.persistence.PersistenceException
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.pubsub.Subject
+import com.tealium.core.api.settings.CoreSettings
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.internal.logger.LogCategory
 import com.tealium.core.internal.persistence.repositories.QueueRepository
-import com.tealium.core.api.misc.TimeFrame
-import com.tealium.core.api.misc.days
-import com.tealium.core.internal.settings.CoreSettings
 
 interface QueueManager {
 
@@ -199,7 +198,7 @@ class QueueManagerImpl(
             )
         }
 
-        val expiration: TimeFrame = coreSettings.expiration.days
+        val expiration: TimeFrame = coreSettings.expiration
         try {
             queueRepository.setExpiration(expiration)
             logger?.debug?.log(

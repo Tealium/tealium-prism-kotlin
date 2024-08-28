@@ -2,20 +2,18 @@ package com.tealium.core.internal.settings
 
 import android.app.Application
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumDeserializable
 import com.tealium.core.api.data.TealiumValue
-import com.tealium.core.api.pubsub.Observer
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.NetworkHelper
-import com.tealium.core.api.settings.CoreSettingsBuilder
-import com.tealium.core.api.settings.ModuleSettings
+import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.Observer
 import com.tealium.core.api.pubsub.StateSubject
-import com.tealium.core.internal.pubsub.Subscription
 import com.tealium.core.internal.persistence.getTimestamp
 import com.tealium.core.internal.persistence.getTimestampMilliseconds
+import com.tealium.core.internal.pubsub.Subscription
+import com.tealium.tests.common.TestModuleFactory
 import com.tealium.tests.common.getDefaultConfig
 import io.mockk.CapturingSlot
 import io.mockk.MockKAnnotations
@@ -37,6 +35,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import java.net.URL
 
 @RunWith(RobolectricTestRunner::class)
 class SettingsManagerTests {
@@ -90,7 +89,8 @@ class SettingsManagerTests {
 
         settingsManager.loadSettings()
 
-        verify(exactly = 0) { mockNetworkHelper.getTealiumBundle(any(), any(), any()) }
+        verify(exactly = 0) { mockNetworkHelper.getTealiumBundle(any<String>(), any(), any()) }
+        verify(exactly = 0) { mockNetworkHelper.getTealiumBundle(any<URL>(), any(), any()) }
         verify { SettingsManager.loadFromAsset(config) }
     }
 
@@ -103,7 +103,7 @@ class SettingsManagerTests {
 
         settingsManager.refreshRemote()
 
-        verify { mockNetworkHelper.getTealiumBundle(any(), any(), any()) }
+        verify { mockNetworkHelper.getTealiumBundle(any<String>(), any(), any()) }
     }
 
     @Test
@@ -113,7 +113,7 @@ class SettingsManagerTests {
         val onComplete = mockk<Observer<SdkSettings>>(relaxed = true)
         mockAssetResponse(null)
         mockRemoteResponse(
-            SdkSettings(mapOf("test" to ModuleSettingsImpl()))
+            SdkSettings(mapOf("test" to TealiumBundle.EMPTY_BUNDLE))
                 .asTealiumValue()
                 .getBundle()
         )
@@ -143,7 +143,7 @@ class SettingsManagerTests {
         mockAssetResponse(null)
         val completionCapture = slot<(TealiumBundle?) -> Unit>()
         mockRemoteResponse(
-            SdkSettings(mapOf("test" to ModuleSettingsImpl()))
+            SdkSettings(mapOf("test" to TealiumBundle.EMPTY_BUNDLE))
                 .asTealiumValue()
                 .getBundle(),
             completionCapture
@@ -162,7 +162,7 @@ class SettingsManagerTests {
 
         completionCapture.clear()
         mockRemoteResponse(
-            SdkSettings(mapOf("test2" to ModuleSettingsImpl()))
+            SdkSettings(mapOf("test2" to TealiumBundle.EMPTY_BUNDLE))
                 .asTealiumValue()
                 .getBundle(),
             completionCapture
@@ -179,16 +179,16 @@ class SettingsManagerTests {
     @Test
     fun mergeSettings_Returns_Local_When_OnlyLocalAvailable() {
         val localSettings =
-            SdkSettings(moduleSettings = mapOf("core" to ModuleSettingsImpl(bundle = TealiumBundle.create {
+            SdkSettings(moduleSettings = mapOf("core" to TealiumBundle.create {
                 put("data_source", "test")
-            }))).asTealiumValue().getBundle()
+            })).asTealiumValue().getBundle()
 
         val mergedSettings =
             SettingsManager.mergeSettings(config = config, localSettings = localSettings)
 
         assertTrue(mergedSettings.moduleSettings.size == 1)
         assertTrue(mergedSettings.moduleSettings.containsKey("core"))
-        assertTrue(mergedSettings.moduleSettings["core"]?.bundle?.getString("data_source") == "test")
+        assertTrue(mergedSettings.moduleSettings["core"]?.getString("data_source") == "test")
     }
 
     @Test
@@ -196,17 +196,17 @@ class SettingsManagerTests {
         val localSettings =
             SdkSettings(
                 moduleSettings = mapOf(
-                    "core" to ModuleSettingsImpl(bundle = TealiumBundle.create {
-                        put(CoreSettings.KEY_DATA_SOURCE, "testSource")
-                    })
+                    "core" to TealiumBundle.create {
+                        put(CoreSettingsImpl.KEY_DATA_SOURCE, "testSource")
+                    }
                 )
             ).asTealiumValue().getBundle()
         val remoteSettings =
             SdkSettings(
                 moduleSettings = mapOf(
-                    "core" to ModuleSettingsImpl(bundle = TealiumBundle.create {
-                        put(CoreSettings.KEY_DATA_SOURCE, "remoteSource")
-                    })
+                    "core" to TealiumBundle.create {
+                        put(CoreSettingsImpl.KEY_DATA_SOURCE, "remoteSource")
+                    }
                 )
             ).asTealiumValue().getBundle()
 
@@ -218,7 +218,7 @@ class SettingsManagerTests {
 
         assertTrue(mergedSettings.moduleSettings.size == 1)
         assertTrue(mergedSettings.moduleSettings.containsKey("core"))
-        assertTrue(mergedSettings.moduleSettings["core"]?.bundle?.getString(CoreSettings.KEY_DATA_SOURCE) == "remoteSource")
+        assertTrue(mergedSettings.moduleSettings["core"]?.getString(CoreSettingsImpl.KEY_DATA_SOURCE) == "remoteSource")
     }
 
     @Test
@@ -226,22 +226,24 @@ class SettingsManagerTests {
         val localSettings =
             SdkSettings(
                 moduleSettings = mapOf(
-                    "core" to ModuleSettingsImpl(bundle = TealiumBundle.create {
-                        put(CoreSettings.KEY_DATA_SOURCE, "testSource")
-                    })
+                    "core" to TealiumBundle.create {
+                        put(CoreSettingsImpl.KEY_DATA_SOURCE, "testSource")
+                    }
                 )
             ).asTealiumValue().getBundle()
         val remoteSettings =
             SdkSettings(
                 moduleSettings = mapOf(
-                    "core" to ModuleSettingsImpl(bundle = TealiumBundle.create {
-                        put(CoreSettings.KEY_DATA_SOURCE, "remoteSource")
-                        put(CoreSettings.KEY_LOG_LEVEL, "TRACE")
-                    })
+                    "core" to TealiumBundle.create {
+                        put(CoreSettingsImpl.KEY_DATA_SOURCE, "remoteSource")
+                        put(CoreSettingsImpl.KEY_LOG_LEVEL, "TRACE")
+                    }
                 )
             ).asTealiumValue().getBundle()
 
-        config.addModuleSettings(CoreSettingsBuilder().setDataSource("programmaticSource"))
+        config = getDefaultConfig(app) {
+            it.setDataSource("programmaticSource")
+        }
 
         val mergedSettings = SettingsManager.mergeSettings(
             config,
@@ -251,24 +253,35 @@ class SettingsManagerTests {
 
         assertTrue(mergedSettings.moduleSettings.size == 1)
         assertTrue(mergedSettings.moduleSettings.containsKey("core"))
-        assertTrue(mergedSettings.moduleSettings["core"]?.bundle?.getString(CoreSettings.KEY_DATA_SOURCE) == "programmaticSource")
-        assertTrue(mergedSettings.moduleSettings["core"]?.bundle?.getString(CoreSettings.KEY_LOG_LEVEL) == "TRACE")
+        assertTrue(mergedSettings.moduleSettings["core"]?.getString(CoreSettingsImpl.KEY_DATA_SOURCE) == "programmaticSource")
+        assertTrue(mergedSettings.moduleSettings["core"]?.getString(CoreSettingsImpl.KEY_LOG_LEVEL) == "TRACE")
     }
 
     @Test
     fun mergeSettings_MergesFirstLevelOnly() {
-        val localMap = mapOf("key1" to "value1", "key2" to "value2", "key3" to "value3")
         val localSettings =
-            SdkSettings(moduleSettings = mapOf("test" to TestSettings(property1 = localMap)))
-                .asTealiumValue().getBundle()
-        val remoteMap = mapOf("key2" to "value22", "key4" to "value4")
+            SdkSettings(moduleSettings = mapOf("test" to TealiumBundle.create {
+                put("key1", "value1")
+                put("key2", "value2")
+                put("key3", "value3")
+            })).asTealiumValue().getBundle()
         val remoteSettings =
-            SdkSettings(moduleSettings = mapOf("test" to TestSettings(property1 = remoteMap)))
-                .asTealiumValue().getBundle()
+            SdkSettings(moduleSettings = mapOf("test" to TealiumBundle.create {
+                put("key2", "value22")
+                put("key4", "value4")
+            })).asTealiumValue().getBundle()
 
-        val testMap = mapOf("key2" to "value222", "key4" to "value44", "key5" to "value5")
-        config.modulesSettings["test"] =
-            TestSettings(property1 = testMap)
+        val property1 = TealiumBundle.create {
+            put("key2", "value222")
+            put("key4", "value444")
+            put("key5", "value5")
+        }
+        config = getDefaultConfig(
+            app, modules = listOf(
+                TestModuleFactory("test", TealiumBundle.create {
+                    put("property1", property1)
+                }) { _, _ -> null }
+            ))
 
         val mergedSettings = SettingsManager.mergeSettings(
             config,
@@ -278,9 +291,9 @@ class SettingsManagerTests {
 
         assertTrue(mergedSettings.moduleSettings.containsKey("test"))
 
-        val prop1 = mergedSettings.moduleSettings["test"]?.bundle?.getBundle("property1")
+        val prop1 = mergedSettings.moduleSettings["test"]?.getBundle("property1")
 
-        assertEquals(TealiumBundle.fromMap(testMap), prop1)
+        assertEquals(property1, prop1)
         assertNull(prop1?.getString("key1"))
         assertNull(prop1?.getString("key3"))
     }
@@ -399,7 +412,9 @@ class SettingsManagerTests {
      *
      * If omitted, then [bundle] will return the bundle generated by the default SdkSettings.
      */
-    private fun mockAssetResponse(bundle: TealiumBundle? = SdkSettings().asTealiumValue().getBundle()!!) {
+    private fun mockAssetResponse(
+        bundle: TealiumBundle? = SdkSettings().asTealiumValue().getBundle()!!
+    ) {
         mockkObject(SettingsManager)
         every { SettingsManager.loadFromAsset(any()) } returns bundle
     }
@@ -415,36 +430,13 @@ class SettingsManagerTests {
     ) {
         every {
             mockNetworkHelper.getTealiumBundle(
-                any(),
+                any<String>(),
                 any(),
                 capture(completionCapture)
             )
         } answers {
             completionCapture.captured.invoke(bundle)
             Subscription()
-        }
-    }
-}
-
-data class TestSettings(
-    override var enabled: Boolean = true,
-    override val dependencies: List<Any> = emptyList(),
-    var property1: Map<String, String>
-) : ModuleSettings {
-    override val bundle: TealiumBundle
-        get() = TealiumBundle.create {
-            put("property1", TealiumBundle.fromMap(property1))
-        }
-
-    object Deserializer : TealiumDeserializable<TestSettings> {
-        override fun deserialize(value: TealiumValue): TestSettings? {
-            val bundle = value.getBundle() ?: return null
-            val p1 = bundle.getBundle("property1")
-            val map = p1?.associate {
-                it.key to it.value.getString()
-            } as Map<String, String>
-
-            return TestSettings(property1 = map)
         }
     }
 }

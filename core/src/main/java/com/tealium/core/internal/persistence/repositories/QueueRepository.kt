@@ -1,10 +1,9 @@
 package com.tealium.core.internal.persistence.repositories
 
 import com.tealium.core.api.misc.TimeFrame
-import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.persistence.PersistenceException
-import com.tealium.core.internal.settings.CoreSettings
-import kotlin.jvm.Throws
+import com.tealium.core.api.settings.CoreSettings
+import com.tealium.core.api.tracking.Dispatch
 
 /**
  * A repository for managing the persistence of [Dispatch] items to ensure they are not dropped when

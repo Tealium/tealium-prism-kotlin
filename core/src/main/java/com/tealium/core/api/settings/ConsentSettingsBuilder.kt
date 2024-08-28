@@ -1,0 +1,29 @@
+package com.tealium.core.api.settings
+
+import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.TealiumList
+import com.tealium.core.api.modules.Dispatcher
+import com.tealium.core.internal.modules.consent.ConsentSettings
+
+/**
+ * A builder that allows setting the configurable properties of the Consent module.
+ */
+class ConsentSettingsBuilder : ModuleSettingsBuilder() {
+
+    /**
+     * Sets the required purposes for each [Dispatcher]
+     */
+    fun setDispatcherToPurposes(dispatcherToPurposes: Map<String, Set<String>>) = apply {
+        builder.put(ConsentSettings.KEY_DISPATCHER_PURPOSES, TealiumBundle.fromMap(dispatcherToPurposes))
+    }
+
+    /**
+     * Sets the list of [Dispatcher]s that support events being refired with updated consent purposes.
+     */
+    fun setShouldRefireDispatchers(refireDispatchers: Set<String>) = apply {
+        builder.put(
+            ConsentSettings.KEY_REFIRE_DISPATCHERS,
+            TealiumList.fromCollection(refireDispatchers).asTealiumValue()
+        )
+    }
+}

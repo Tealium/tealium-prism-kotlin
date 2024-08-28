@@ -4,8 +4,8 @@ import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.pubsub.Disposable
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.settings.CoreSettings
 import com.tealium.core.internal.pubsub.filterNotNull
-import com.tealium.core.internal.settings.CoreSettings
 
 object IdentityUpdatedObserver {
 

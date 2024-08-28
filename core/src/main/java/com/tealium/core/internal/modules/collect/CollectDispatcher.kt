@@ -1,20 +1,19 @@
-package com.tealium.core.internal.modules
+package com.tealium.core.internal.modules.collect
 
-import android.net.Uri
 import com.tealium.core.BuildConfig
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.api.modules.TealiumContext
-import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.TealiumList
+import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.modules.Dispatcher
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumList
-import com.tealium.core.api.pubsub.Disposable
-import com.tealium.core.api.misc.TealiumCallback
-import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.network.NetworkHelper
-import com.tealium.core.api.settings.ModuleSettings
+import com.tealium.core.api.pubsub.Disposable
+import com.tealium.core.api.settings.CollectDispatcherSettingsBuilder
+import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.internal.logger.LogCategory
 import com.tealium.core.internal.pubsub.CompletedDisposable
 import com.tealium.core.internal.pubsub.DisposableContainer
@@ -40,7 +39,7 @@ class CollectDispatcher(
         collectDispatcherSettings
     )
 
-    override val name: String
+    override val id: String
         get() = moduleName
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
@@ -126,10 +125,10 @@ class CollectDispatcher(
         }
     }
 
-    override fun updateSettings(moduleSettings: ModuleSettings): Module? {
-        if (!moduleSettings.enabled) return null
+    override fun updateSettings(moduleSettings: TealiumBundle): Module? {
+        val newSettings = CollectDispatcherSettings.fromBundle(moduleSettings) ?: return null
 
-        collectDispatcherSettings = CollectDispatcherSettings.fromModuleSettings(moduleSettings)
+        collectDispatcherSettings = newSettings
         return this
     }
 
@@ -199,82 +198,26 @@ class CollectDispatcher(
                 .put(KEY_EVENTS, events)
                 .getBundle()
         }
+
     }
 
-    object Factory : ModuleFactory {
-        override val name: String
+    class Factory(
+        private val settings: TealiumBundle? = null
+    ) : ModuleFactory {
+
+        constructor(builder: CollectDispatcherSettingsBuilder) : this(builder.build())
+
+        override val id: String
             get() = moduleName
 
-        override fun create(context: TealiumContext, settings: ModuleSettings): Module? {
-            if (!settings.enabled) return null
+        override fun getEnforcedSettings(): TealiumBundle? = settings
+
+        override fun create(context: TealiumContext, settings: TealiumBundle): Module? {
+            val collectDispatcherSettings = CollectDispatcherSettings.fromBundle(settings) ?: return null
 
             return CollectDispatcher(
                 context,
-                CollectDispatcherSettings.fromModuleSettings(settings)
-            )
-        }
-    }
-}
-
-/**
- * Carries all available settings for the Collect Dispatcher
- *
- * @param url The endpoint to dispatch single events to
- * @param batchUrl The endpoint to dispatch batched events to
- * @param profile Optional - Tealium profile name to override on the payload
- */
-data class CollectDispatcherSettings(
-    val enabled: Boolean = true,
-    val dependencies: List<Any> = emptyList(),
-    var url: String = DEFAULT_COLLECT_URL,
-    var batchUrl: String = DEFAULT_COLLECT_BATCH_URL,
-    var profile: String? = null
-) {
-
-    companion object {
-        const val MAX_BATCH_SIZE = 10
-        const val DEFAULT_COLLECT_URL = "https://collect.tealiumiq.com/event"
-        const val DEFAULT_COLLECT_BATCH_URL = "https://collect.tealiumiq.com/bulk-event"
-
-        /**
-         * Current module settings from Mobile Data Source front-end.
-         * TODO - Validate that these are final
-         *
-         * "collect": {
-         *   "enabled": true,
-         *   "dispatch_profile": "...",
-         *   "single_dispatch_url": "https://collect.tealiumiq.com/event/",
-         *   "batch_dispatch_url": "https://collect.tealiumiq.com/bulk-event/",
-         *   "dispatch_domain": "collect.tealiumiq.com"
-         * }
-         */
-        const val KEY_COLLECT_DOMAIN = "dispatch_domain"
-        const val KEY_COLLECT_URL = "single_dispatch_url"
-        const val KEY_COLLECT_BATCH_URL = "batch_dispatch_url"
-        const val KEY_COLLECT_PROFILE = "dispatch_profile"
-
-        private fun configureDomain(url: String, domain: String?): String? {
-            return if (domain == null) null else
-                Uri.parse(url).buildUpon()
-                    .authority(domain)
-                    .build()
-                    .toString()
-        }
-
-        fun fromModuleSettings(settings: ModuleSettings): CollectDispatcherSettings {
-            val dependencies = settings.dependencies
-            val domain = settings.bundle.getString(KEY_COLLECT_DOMAIN)
-
-            val url = settings.bundle.getString(KEY_COLLECT_URL)
-                ?: configureDomain(DEFAULT_COLLECT_URL, domain)
-                ?: DEFAULT_COLLECT_URL
-            val batchUrl = settings.bundle.getString(KEY_COLLECT_BATCH_URL)
-                ?: configureDomain(DEFAULT_COLLECT_BATCH_URL, domain)
-                ?: DEFAULT_COLLECT_BATCH_URL
-            val profile = settings.bundle.getString(KEY_COLLECT_PROFILE)
-
-            return CollectDispatcherSettings(
-                url = url, batchUrl = batchUrl, profile = profile, dependencies = dependencies
+                collectDispatcherSettings
             )
         }
     }

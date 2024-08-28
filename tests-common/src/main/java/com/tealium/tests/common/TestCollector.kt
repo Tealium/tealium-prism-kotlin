@@ -5,7 +5,7 @@ import com.tealium.core.api.data.TealiumBundle
 import io.mockk.spyk
 
 class TestCollector(
-    override val name: String,
+    override val id: String,
     override val version: String = "1.0",
     private var onCollect: () -> TealiumBundle = { TealiumBundle.EMPTY_BUNDLE }
 ) : Collector {

@@ -5,7 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.misc.days
+import com.tealium.core.api.misc.TimeFrameUtils.days
 import com.tealium.core.internal.persistence.DatabaseProvider
 import com.tealium.core.internal.persistence.DatabaseTestUtils
 import com.tealium.core.internal.persistence.DatabaseTestUtils.upgrade

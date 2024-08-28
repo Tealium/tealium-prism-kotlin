@@ -1,20 +1,20 @@
 package com.tealium.core.internal.settings
 
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.api.misc.ActivityManager
-import com.tealium.core.api.persistence.DataStore
-import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.data.TealiumValue
 import com.tealium.core.api.data.plus
-import com.tealium.core.api.pubsub.Disposable
 import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.misc.ActivityManager
 import com.tealium.core.api.network.NetworkHelper
-import com.tealium.core.internal.logger.LogCategory
+import com.tealium.core.api.persistence.DataStore
+import com.tealium.core.api.persistence.Expiry
+import com.tealium.core.api.pubsub.Disposable
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.ObservableState
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
+import com.tealium.core.internal.logger.LogCategory
 import com.tealium.core.internal.persistence.getTimestampMilliseconds
 import java.io.IOException
 import kotlin.properties.Delegates
@@ -52,7 +52,10 @@ class SettingsManager(
 
     init {
         onSdkSettingsUpdated.subscribe {
-            logger.debug?.log(LogCategory.SETTINGS_MANAGER, "Applying settings: ${it.asTealiumValue()}")
+            logger.debug?.log(
+                LogCategory.SETTINGS_MANAGER,
+                "Applying settings: ${it.asTealiumValue()}"
+            )
         }
     }
 
@@ -71,7 +74,10 @@ class SettingsManager(
     fun loadSettings(): SdkSettings {
         val localSettings = loadLocalSettings()
 
-        logger.trace?.log(LogCategory.SETTINGS_MANAGER, "Settings loaded from local file: $localSettings")
+        logger.trace?.log(
+            LogCategory.SETTINGS_MANAGER,
+            "Settings loaded from local file: $localSettings"
+        )
 
         return mergeSettings(config, remoteSettings, localSettings)
     }
@@ -136,6 +142,7 @@ class SettingsManager(
                 is ActivityManager.ApplicationStatus.Init -> {
                     refreshRemote()
                 }
+
                 is ActivityManager.ApplicationStatus.Foregrounded -> {
                     val lastRefreshTime = getLastRefreshTime()
                     val currentTime = timingProvider()
@@ -219,21 +226,31 @@ class SettingsManager(
             config: TealiumConfig,
             sdkBundle: TealiumBundle
         ): TealiumBundle {
-            var merged = sdkBundle
-            config.modulesSettings.forEach { module ->
-                val bundle = merged.getBundle(module.key)
-                val moduleBundle = module.value.bundle
-                val mergedBundle = if (bundle != null) {
-                    bundle + moduleBundle
-                } else {
-                    moduleBundle
+            return config.enforcedSdkSettings
+                .fold(sdkBundle) { bundle, incomingBundle ->
+                    val enforcedSettings = incomingBundle.value.getBundle() ?: return@fold bundle
+                    mergeBundle(
+                        incomingBundle.key,
+                        bundle,
+                        enforcedSettings
+                    )
                 }
-                merged = merged.buildUpon()
-                    .put(key = module.key, mergedBundle)
-                    .getBundle()
-            }
+        }
 
-            return merged
+        private fun mergeBundle(
+            name: String,
+            into: TealiumBundle,
+            extras: TealiumBundle
+        ): TealiumBundle {
+            val bundle = into.getBundle(name)
+            val mergedBundle = if (bundle != null) {
+                bundle + extras
+            } else {
+                extras
+            }
+            return into.buildUpon()
+                .put(name, mergedBundle)
+                .getBundle()
         }
 
         internal fun loadCachedEtag(dataStore: DataStore): TealiumValue? {

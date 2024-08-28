@@ -1,21 +1,21 @@
 package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.barriers.BarrierState
-import com.tealium.core.api.modules.consent.ConsentDecision
-import com.tealium.core.api.tracking.Dispatch
-import com.tealium.core.api.transform.DispatchScope
-import com.tealium.core.api.tracking.TrackResult
-import com.tealium.core.api.modules.Dispatcher
-import com.tealium.core.api.pubsub.Disposable
-import com.tealium.core.api.pubsub.Observer
-import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.api.logger.Logger
-import com.tealium.core.internal.logger.LogCategory
-import com.tealium.core.internal.modules.consent.ConsentManager
-import com.tealium.core.internal.modules.InternalModuleManager
-import com.tealium.core.internal.pubsub.DisposableContainer
+import com.tealium.core.api.modules.Dispatcher
+import com.tealium.core.api.modules.consent.ConsentDecision
+import com.tealium.core.api.pubsub.Disposable
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.Observer
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.TrackResult
+import com.tealium.core.api.tracking.TrackResultListener
+import com.tealium.core.api.transform.DispatchScope
+import com.tealium.core.internal.logger.LogCategory
+import com.tealium.core.internal.modules.InternalModuleManager
+import com.tealium.core.internal.modules.consent.ConsentManager
+import com.tealium.core.internal.pubsub.DisposableContainer
 import com.tealium.core.internal.pubsub.addTo
 
 class DispatchManagerImpl(
@@ -42,9 +42,6 @@ class DispatchManagerImpl(
 
     private fun tealiumPurposeExplicitlyBlocked(): Boolean {
         val consentManager = consentManager ?: return false
-
-        if (!consentManager.enabled)
-            return false
 
         val decision = consentManager.getConsentDecision()
         if (decision == null || decision.decisionType == ConsentDecision.DecisionType.Implicit)
@@ -80,7 +77,7 @@ class DispatchManagerImpl(
             }
 
             val consentManager = consentManager
-            if (consentManager != null && consentManager.enabled) {
+            if (consentManager != null) {
                 logger?.debug?.log(
                     LogCategory.DISPATCH_MANAGER,
                     "Event ${transformed.logDescription()} consent applied"
@@ -97,7 +94,7 @@ class DispatchManagerImpl(
 
                 queueManager.storeDispatches(
                     listOf(transformed),
-                    _dispatchers.map(Dispatcher::name).toSet()
+                    _dispatchers.map(Dispatcher::id).toSet()
                 )
                 onComplete?.onTrackResultReady(transformed, TrackResult.Accepted)
             }
@@ -113,11 +110,11 @@ class DispatchManagerImpl(
             dispatchers.flatMapLatest { dispatchers ->
                 Observables.fromIterable(dispatchers)
             }.flatMap { dispatcher ->
-                barrierCoordinator.onBarriersState(dispatcher.name)
+                barrierCoordinator.onBarriersState(dispatcher.id)
                     .flatMapLatest { active ->
                         logger?.debug?.log(
                             LogCategory.DISPATCH_MANAGER,
-                            "BarrierState changed for ${dispatcher.name}: $active"
+                            "BarrierState changed for ${dispatcher.id}: $active"
                         )
 
                         if (active == BarrierState.Open) {
@@ -128,7 +125,7 @@ class DispatchManagerImpl(
                     }.async { dispatches, observer: Observer<Pair<Dispatcher, List<Dispatch>>> ->
                         logger?.debug?.log(
                             LogCategory.DISPATCH_MANAGER,
-                            "Sending events to dispatcher ${dispatcher.name}: ${dispatches.map(Dispatch::logDescription)}"
+                            "Sending events to dispatcher ${dispatcher.id}: ${dispatches.map(Dispatch::logDescription)}"
                         )
 
                         transformAndDispatch(dispatches, dispatcher) { completedDispatches ->
@@ -138,22 +135,22 @@ class DispatchManagerImpl(
             }.subscribe { (dispatcher, completedDispatches) ->
                 queueManager.deleteDispatches(
                     completedDispatches,
-                    dispatcher.name
+                    dispatcher.id
                 )
 
                 logger?.debug?.log(
                     LogCategory.DISPATCH_MANAGER,
-                    "Dispatcher: ${dispatcher.name} processed events: ${completedDispatches.map(Dispatch::logDescription)}"
+                    "Dispatcher: ${dispatcher.id} processed events: ${completedDispatches.map(Dispatch::logDescription)}"
                 )
             }
     }
 
     private fun startDequeueLoop(dispatcher: Dispatcher): Observable<List<Dispatch>> {
-        val onInflightLower = queueManager.inFlightCount(dispatcher.name)
+        val onInflightLower = queueManager.inFlightCount(dispatcher.id)
             .map(::isLessThanMaxInFlight)
             .distinct()
         return queueManager.enqueuedDispatchesForProcessors
-            .filter { processors -> processors.contains(dispatcher.name) }
+            .filter { processors -> processors.contains(dispatcher.id) }
             .startWith(setOf())
             .flatMapLatest { _ ->
                 onInflightLower
@@ -161,7 +158,7 @@ class DispatchManagerImpl(
                     .map { _ ->
                         queueManager.getQueuedDispatches(
                             dispatcher.dispatchLimit,
-                            dispatcher.name
+                            dispatcher.id
                         )
                     }
                     .filter { it.isNotEmpty() }
@@ -184,7 +181,7 @@ class DispatchManagerImpl(
         val container = DisposableContainer()
         transformerCoordinator.transform(
             dispatches,
-            DispatchScope.Dispatcher(dispatcher.name)
+            DispatchScope.Dispatcher(dispatcher.id)
         ) { transformedDispatches ->
             if (container.isDisposed) return@transform
 

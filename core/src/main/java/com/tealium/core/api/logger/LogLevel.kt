@@ -21,7 +21,7 @@ enum class LogLevel(val level: Int) : TealiumSerializable {
     SILENT(Integer.MAX_VALUE);
 
     override fun asTealiumValue(): TealiumValue {
-        return TealiumValue.string(this.name)
+        return TealiumValue.string(this.name.lowercase())
     }
 
     object Deserializer : TealiumDeserializable<LogLevel> {

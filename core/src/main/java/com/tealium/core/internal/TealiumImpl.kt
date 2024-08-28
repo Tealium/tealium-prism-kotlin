@@ -1,65 +1,70 @@
 package com.tealium.core.internal
 
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.api.modules.TealiumContext
+import com.tealium.core.api.barriers.BarrierScope
+import com.tealium.core.api.barriers.ScopedBarrier
+import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.misc.ActivityManager
-import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.misc.Scheduler
+import com.tealium.core.api.misc.Schedulers
 import com.tealium.core.api.modules.Dispatcher
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
-import com.tealium.core.api.persistence.PersistenceException
-import com.tealium.core.api.misc.Scheduler
-import com.tealium.core.api.misc.Schedulers
-import com.tealium.core.api.tracking.TrackResultListener
-import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.network.Connectivity
 import com.tealium.core.api.network.NetworkUtilities
-import com.tealium.core.internal.persistence.IdentityUpdatedObserver.subscribeIdentityUpdates
-import com.tealium.core.internal.modules.consent.ConsentModule
+import com.tealium.core.api.persistence.PersistenceException
+import com.tealium.core.api.pubsub.CompositeDisposable
+import com.tealium.core.api.pubsub.Observable
+import com.tealium.core.api.pubsub.ObservableState
+import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.StateSubject
+import com.tealium.core.api.settings.CoreSettings
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.internal.dispatch.BarrierCoordinator
 import com.tealium.core.internal.dispatch.BarrierCoordinatorImpl
 import com.tealium.core.internal.dispatch.BarrierRegistryImpl
-import com.tealium.core.api.barriers.BarrierScope
 import com.tealium.core.internal.dispatch.DispatchManagerImpl
 import com.tealium.core.internal.dispatch.QueueManager
 import com.tealium.core.internal.dispatch.QueueManagerImpl
-import com.tealium.core.api.barriers.ScopedBarrier
 import com.tealium.core.internal.dispatch.TransformerCoordinator
 import com.tealium.core.internal.dispatch.TransformerCoordinatorImpl
 import com.tealium.core.internal.dispatch.TransformerRegistryImpl
-import com.tealium.core.internal.network.ConnectivityBarrier
-import com.tealium.core.internal.network.ConnectivityInterceptor
-import com.tealium.core.internal.network.ConnectivityRetriever
-import com.tealium.core.internal.network.HttpClient
-import com.tealium.core.internal.network.NetworkHelperImpl
-import com.tealium.core.api.pubsub.CompositeDisposable
-import com.tealium.core.internal.pubsub.DisposableContainer
-import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.internal.logger.LogCategory
 import com.tealium.core.internal.logger.LoggerImpl
 import com.tealium.core.internal.misc.ActivityManagerProxy
 import com.tealium.core.internal.misc.SchedulersImpl
 import com.tealium.core.internal.misc.TrackerImpl
-import com.tealium.core.internal.persistence.VisitorIdProviderImpl
-import com.tealium.core.internal.modules.*
-import com.tealium.core.api.pubsub.ObservableState
-import com.tealium.core.api.pubsub.Observables
-import com.tealium.core.api.pubsub.StateSubject
-import com.tealium.core.internal.pubsub.addTo
+import com.tealium.core.internal.modules.collect.CollectDispatcher
+import com.tealium.core.internal.modules.DataLayerImpl
+import com.tealium.core.internal.modules.DeeplinkManagerImpl
+import com.tealium.core.internal.modules.InternalModuleManager
+import com.tealium.core.internal.modules.ModuleManagerImpl
+import com.tealium.core.internal.modules.TealiumCollector
+import com.tealium.core.internal.modules.TimedEventsManagerImpl
+import com.tealium.core.internal.modules.TraceManagerImpl
+import com.tealium.core.internal.modules.consent.ConsentModule
+import com.tealium.core.internal.network.ConnectivityBarrier
+import com.tealium.core.internal.network.ConnectivityInterceptor
+import com.tealium.core.internal.network.ConnectivityRetriever
+import com.tealium.core.internal.network.HttpClient
+import com.tealium.core.internal.network.NetworkHelperImpl
 import com.tealium.core.internal.persistence.DatabaseProvider
 import com.tealium.core.internal.persistence.FileDatabaseProvider
+import com.tealium.core.internal.persistence.IdentityUpdatedObserver.subscribeIdentityUpdates
 import com.tealium.core.internal.persistence.ModuleStoreProviderImpl
+import com.tealium.core.internal.persistence.VisitorIdProviderImpl
 import com.tealium.core.internal.persistence.repositories.ModulesRepository
 import com.tealium.core.internal.persistence.repositories.QueueRepository
 import com.tealium.core.internal.persistence.repositories.SQLModulesRepository
 import com.tealium.core.internal.persistence.repositories.SQLQueueRepository
-import com.tealium.core.api.misc.TimeFrame
-import com.tealium.core.internal.settings.CoreSettings
+import com.tealium.core.internal.pubsub.DisposableContainer
+import com.tealium.core.internal.pubsub.addTo
 import com.tealium.core.internal.settings.SdkSettings
 import com.tealium.core.internal.settings.SettingsManager
 import java.io.File
 import java.io.IOException
-import java.util.concurrent.TimeUnit
 
 class TealiumImpl(
     private val config: TealiumConfig,
@@ -67,7 +72,7 @@ class TealiumImpl(
     private val tealiumScheduler: Scheduler,
     private val networkScheduler: Scheduler,
     val moduleManager: InternalModuleManager = ModuleManagerImpl(
-        getDefaultModules() + config.modules,
+        getDefaultModules(),
         tealiumScheduler
     ),
     private val activityManager: ActivityManager = ActivityManagerProxy(),
@@ -131,12 +136,16 @@ class TealiumImpl(
         val transformerCoordinator =
             createTransformationsCoordinator(config, coreSettings, schedulers)
         val barrierCoordinator =
-            createBarrierCoordinator(config, connectivityRetriever.onConnectionStatusUpdated, coreSettings)
+            createBarrierCoordinator(
+                config,
+                connectivityRetriever.onConnectionStatusUpdated,
+                coreSettings
+            )
 
         val queueRepository = SQLQueueRepository(
             dbProvider,
             coreSettings.value.maxQueueSize,
-            TimeFrame(coreSettings.value.expiration.toLong(), TimeUnit.DAYS)
+            coreSettings.value.expiration
         )
         val queueManager = createQueueManager(queueRepository, coreSettings, moduleManager.modules)
 
@@ -182,7 +191,15 @@ class TealiumImpl(
                 moduleManager = moduleManager
             )
 
-        moduleManager.addModuleFactory(InternalModuleFactories.consentModuleFactory(queueManager))
+        val factories = config.modules.map { factory ->
+            // Consent is a special case that should be added externally, but needs internal
+            // components that should not be exposed anywhere else.
+            if (factory is ConsentModule.Factory) {
+                factory.copy(queueManager = queueManager)
+            } else factory
+        }
+        moduleManager.addModuleFactory(*factories.toTypedArray())
+
         settings.subscribe { newSettings ->
             moduleManager.updateModuleSettings(tealiumContext, newSettings)
         }.addTo(disposables)
@@ -300,7 +317,7 @@ class TealiumImpl(
                 coreSettings,
                 allModules.filter { modules -> modules.isNotEmpty() }
                     .map { modules -> modules.filter { module -> module is Dispatcher || module is ConsentModule } }
-                    .map { processors -> processors.map { it.name }.toSet() }
+                    .map { processors -> processors.map { it.id }.toSet() }
             )
         }
 

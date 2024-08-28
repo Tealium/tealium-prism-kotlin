@@ -28,23 +28,121 @@ data class TimeFrame(
     }
 }
 
-inline val Int.nanoseconds : TimeFrame
-    get() = TimeFrame(toLong(), TimeUnit.NANOSECONDS)
+object TimeFrameUtils {
+    /**
+     * Returns a [TimeFrame] representing the number of nanoseconds given by the integer value
+     *
+     * ```kotlin
+     * 10.nanoseconds // -> TimeFrame(10, TimeUnit.NANOSECONDS)
+     * ```
+     */
+    @JvmStatic
+    inline val Int.nanoseconds: TimeFrame
+        get() = TimeFrame(toLong(), TimeUnit.NANOSECONDS)
 
-inline val Int.microseconds : TimeFrame
-    get() = TimeFrame(toLong(), TimeUnit.MICROSECONDS)
+    /**
+     * Returns a [TimeFrame] representing the number of microseconds given by the integer value
+     *
+     * ```kotlin
+     * 10.microseconds // -> TimeFrame(10, TimeUnit.MICROSECONDS)
+     * ```
+     */
+    @JvmStatic
+    inline val Int.microseconds: TimeFrame
+        get() = TimeFrame(toLong(), TimeUnit.MICROSECONDS)
 
-inline val Int.milliseconds : TimeFrame
-    get() = TimeFrame(toLong(), TimeUnit.MILLISECONDS)
+    /**
+     * Returns a [TimeFrame] representing the number of milliseconds given by the integer value
+     *
+     * ```kotlin
+     * 10.milliseconds // -> TimeFrame(10, TimeUnit.MILLISECONDS)
+     * ```
+     */
+    @JvmStatic
+    inline val Int.milliseconds: TimeFrame
+        get() = TimeFrame(toLong(), TimeUnit.MILLISECONDS)
 
-inline val Int.seconds : TimeFrame
-    get() = TimeFrame(toLong(), TimeUnit.SECONDS)
+    /**
+     * Returns a [TimeFrame] representing the number of seconds given by the integer value
+     *
+     * ```kotlin
+     * 10.seconds // -> TimeFrame(10, TimeUnit.SECONDS)
+     * ```
+     */
+    @JvmStatic
+    inline val Int.seconds: TimeFrame
+        get() = TimeFrame(toLong(), TimeUnit.SECONDS)
 
-inline val Int.minutes : TimeFrame
-    get() = TimeFrame(toLong(), TimeUnit.MINUTES)
+    /**
+     * Returns a [TimeFrame] representing the number of minutes given by the integer value
+     *
+     * ```kotlin
+     * 10.minutes // -> TimeFrame(10, TimeUnit.MINUTES)
+     * ```
+     */
+    @JvmStatic
+    inline val Int.minutes: TimeFrame
+        get() = TimeFrame(toLong(), TimeUnit.MINUTES)
 
-inline val Int.hours : TimeFrame
-    get() = TimeFrame(toLong(), TimeUnit.HOURS)
+    /**
+     * Returns a [TimeFrame] representing the number of hours given by the integer value
+     *
+     * ```kotlin
+     * 10.hours // -> TimeFrame(10, TimeUnit.HOURS)
+     * ```
+     */
+    @JvmStatic
+    inline val Int.hours: TimeFrame
+        get() = TimeFrame(toLong(), TimeUnit.HOURS)
 
-inline val Int.days : TimeFrame
-    get() = TimeFrame(toLong(), TimeUnit.DAYS)
+    /**
+     * Returns a [TimeFrame] representing the number of days given by the integer value
+     *
+     * ```kotlin
+     * 10.days // -> TimeFrame(10, TimeUnit.DAYS)
+     * ```
+     */
+    @JvmStatic
+    inline val Int.days: TimeFrame
+        get() = TimeFrame(toLong(), TimeUnit.DAYS)
+
+    /**
+     * Converts the current [TimeFrame] to the give [unit]
+     */
+    @JvmStatic
+    fun TimeFrame.asUnit(unit: TimeUnit): Long {
+        return unit.convert(this.number, this.unit)
+    }
+
+    /**
+     * Converts the current [TimeFrame] to seconds
+     */
+    @JvmStatic
+    fun TimeFrame.inSeconds() : Long {
+        return asUnit(TimeUnit.SECONDS)
+    }
+
+    /**
+     * Converts the current [TimeFrame] to minutes
+     */
+    @JvmStatic
+    fun TimeFrame.inMinutes() : Long {
+        return asUnit(TimeUnit.MINUTES)
+    }
+
+    /**
+     * Converts the current [TimeFrame] to hours
+     */
+    @JvmStatic
+    fun TimeFrame.inHours() : Long {
+        return asUnit(TimeUnit.HOURS)
+    }
+
+    /**
+     * Converts the current [TimeFrame] to days
+     */
+    @JvmStatic
+    fun TimeFrame.inDays() : Long {
+        return asUnit(TimeUnit.DAYS)
+    }
+}

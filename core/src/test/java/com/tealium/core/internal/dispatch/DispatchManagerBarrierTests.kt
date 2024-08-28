@@ -43,7 +43,7 @@ class DispatchManagerBarrierTests : DispatchManagerTestsBase() {
         barrierFlow.onNext(BarrierState.Closed)
         dispatchManager.startDispatchLoop()
 
-        queue[dispatcher1.name] = mutableSetOf(dispatch1, dispatch2)
+        queue[dispatcher1.id] = mutableSetOf(dispatch1, dispatch2)
 
         barrierFlow.onNext(BarrierState.Open)
 

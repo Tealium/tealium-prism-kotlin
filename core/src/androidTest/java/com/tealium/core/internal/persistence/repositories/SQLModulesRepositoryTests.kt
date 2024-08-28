@@ -70,14 +70,14 @@ open class SQLModulesRepositoryTests {
             preregisterModules()
 
             val storedModules = moduleRepository.modules
-            assertTrue(storedModules.containsKey(module1.name))
-            assertTrue(storedModules.containsKey(module2.name))
-            assertTrue(storedModules.containsKey(module3.name))
+            assertTrue(storedModules.containsKey(module1.id))
+            assertTrue(storedModules.containsKey(module2.id))
+            assertTrue(storedModules.containsKey(module3.id))
 
             // might not work; assumes 1-indexed
-            assertEquals(1L, storedModules[module1.name])
-            assertEquals(2L, storedModules[module2.name])
-            assertEquals(3L, storedModules[module3.name])
+            assertEquals(1L, storedModules[module1.id])
+            assertEquals(2L, storedModules[module2.id])
+            assertEquals(3L, storedModules[module3.id])
         }
 
         @Test
@@ -123,8 +123,8 @@ open class SQLModulesRepositoryTests {
 
             val modules = moduleRepository.modules
 
-            assertEquals(1L, modules[module1.name])
-            assertEquals(1L, moduleRepository.registerModule(module1.name))
+            assertEquals(1L, modules[module1.id])
+            assertEquals(1L, moduleRepository.registerModule(module1.id))
         }
 
         @Test
@@ -250,7 +250,7 @@ open class SQLModulesRepositoryTests {
                 if (shouldPopulate) {
                     populateModuleStore(it)
                 } else {
-                    moduleRepository.registerModule(it.name)
+                    moduleRepository.registerModule(it.id)
                 }
             }
     }
@@ -259,7 +259,7 @@ open class SQLModulesRepositoryTests {
         module: Module,
         block: ((DataStore.Editor) -> Unit)? = null
     ): Long {
-        val moduleId = moduleRepository.registerModule(module.name)
+        val moduleId = moduleRepository.registerModule(module.id)
 
         getModuleStore(moduleId).edit().apply {
             put(

@@ -1,39 +1,34 @@
 package com.tealium.core.api.settings
 
-import com.tealium.core.api.modules.Module
-import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumSerializable
-import com.tealium.core.internal.settings.ModuleSettingsImpl
+import com.tealium.core.api.modules.Module
 
 /**
  * Base class to extend from when creating a settings builder for a new module.
  *
- * @param moduleName This should match the name of the [Module] and the [ModuleFactory]
+ * [Module] settings are expected to be [TealiumBundle]s and as such, this class becomes a wrapper
+ * around a standard [TealiumBundle.Builder], but allows for implementations to provide more
+ * user-friendly method names.
+ *
+ * Therefore it also doesn't require users to know which json key any particular setting needs to be set at.
  */
-abstract class ModuleSettingsBuilder(
-    val moduleName: String
-) {
+open class ModuleSettingsBuilder {
     protected val builder: TealiumBundle.Builder = TealiumBundle.Builder()
-    private val dependencies: MutableList<Any> = mutableListOf()
 
     /**
-     * Adds a dependency that would otherwise not be possible to serialize through [TealiumSerializable]
-     * into a [TealiumBundle].
-     *
-     * @param dependency The non-serializable dependency to add.
+     * Sets the resulting [Module] to be permanently enabled/disabled. Local/Remote settings sources will
+     * be overridden by this
      */
-    fun addDependency(dependency: Any) {
-        dependencies.add(dependency)
+    fun setEnabled(enabled: Boolean) = apply {
+        builder.put(KEY_ENABLED, enabled)
     }
 
     /**
-     * Returns the complete [ModuleSettings] as configured by this [ModuleSettingsBuilder].
+     * Returns the complete [Module] settings as configured by this [ModuleSettingsBuilder].
      */
-    fun build() : ModuleSettings {
-        return ModuleSettingsImpl(
-            bundle = builder.getBundle(),
-            dependencies = dependencies.toList()
-        )
+    fun build(): TealiumBundle = builder.getBundle()
+
+    companion object {
+        const val KEY_ENABLED = "enabled"
     }
 }

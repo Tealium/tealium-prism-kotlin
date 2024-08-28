@@ -1,22 +1,23 @@
 package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.barriers.BarrierState
-import com.tealium.core.api.tracking.Dispatch
-import com.tealium.core.api.modules.Dispatcher
-import com.tealium.core.api.misc.Scheduler
-import com.tealium.core.api.tracking.TealiumDispatchType
-import com.tealium.core.api.transform.Transformer
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.logger.Logger
-import com.tealium.core.api.transform.ScopedTransformation
-import com.tealium.core.internal.modules.consent.ConsentManager
-import com.tealium.core.internal.modules.InternalModuleManager
+import com.tealium.core.api.misc.Scheduler
+import com.tealium.core.api.modules.Dispatcher
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.pubsub.Subject
-import com.tealium.core.internal.persistence.repositories.QueueRepository
+import com.tealium.core.api.settings.CoreSettings
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.TealiumDispatchType
+import com.tealium.core.api.transform.ScopedTransformation
+import com.tealium.core.api.transform.Transformer
+import com.tealium.core.internal.modules.InternalModuleManager
+import com.tealium.core.internal.modules.consent.ConsentManager
 import com.tealium.core.internal.persistence.VolatileQueueRepository
-import com.tealium.core.internal.settings.CoreSettings
+import com.tealium.core.internal.persistence.repositories.QueueRepository
+import com.tealium.core.internal.settings.CoreSettingsImpl
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestDispatcher
 import com.tealium.tests.common.testTealiumScheduler
@@ -78,9 +79,8 @@ open class DispatchManagerTestsBase {
         scheduler = testTealiumScheduler
 
         // Consent Defaulted to disabled
-        every { consentManager.enabled } returns false
         every { consentManager.applyConsent(any()) } just Runs
-        every { moduleManager.getModuleOfType(ConsentManager::class.java) } returns consentManager
+        every { moduleManager.getModuleOfType(ConsentManager::class.java) } returns null
 
         // Two available test dispatchers
         dispatcher1Name = "dispatcher_1" // Workaround; spyk in verify blocks fails on `Dispatcher.name`
@@ -96,7 +96,7 @@ open class DispatchManagerTestsBase {
         inFlightEvents = Observables.stateSubject(mutableMapOf())
         onInFlightEvents = Observables.replaySubject(cacheSize = 1)
         processors = Observables.replaySubject(1)
-        coreSettings = Observables.stateSubject(CoreSettings())
+        coreSettings = Observables.stateSubject(CoreSettingsImpl())
         queueManager = spyk(
             QueueManagerImpl(
                 queueRepository = queueRepository,
@@ -150,4 +150,11 @@ open class DispatchManagerTestsBase {
         maxInFlight
     )
 
+    protected fun enableConsent() {
+        every { moduleManager.getModuleOfType(ConsentManager::class.java) } returns consentManager
+    }
+
+    protected fun disableConsent() {
+        every { moduleManager.getModuleOfType(ConsentManager::class.java) } returns null
+    }
 }

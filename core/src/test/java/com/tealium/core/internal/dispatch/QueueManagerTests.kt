@@ -1,14 +1,15 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.tracking.Dispatch
-import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.misc.TimeFrameUtils.days
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.pubsub.Subject
+import com.tealium.core.api.settings.CoreSettings
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.internal.persistence.repositories.QueueRepository
-import com.tealium.core.api.misc.days
-import com.tealium.core.internal.settings.CoreSettings
+import com.tealium.core.internal.settings.CoreSettingsImpl
 import io.mockk.MockKAnnotations
 import io.mockk.confirmVerified
 import io.mockk.every
@@ -279,7 +280,7 @@ class QueueManagerTests {
 
     @Test
     fun settings_Resizes_OnUpdate() {
-        coreSettings.onNext(CoreSettings(maxQueueSize = 100))
+        coreSettings.onNext(CoreSettingsImpl(maxQueueSize = 100))
 
         verify {
             queueRepository.resize(100)
@@ -288,7 +289,7 @@ class QueueManagerTests {
 
     @Test
     fun settings_UpdatesExpiration_OnUpdate() {
-        coreSettings.onNext(CoreSettings(expiration = 10))
+        coreSettings.onNext(CoreSettingsImpl(expiration = 10.days))
 
         verify {
             queueRepository.setExpiration(10.days)

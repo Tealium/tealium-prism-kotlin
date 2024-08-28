@@ -1,10 +1,10 @@
 package com.tealium.tests.common
 
 import android.app.Application
-import com.tealium.core.api.misc.Environment
 import com.tealium.core.api.TealiumConfig
+import com.tealium.core.api.misc.Environment
 import com.tealium.core.api.modules.ModuleFactory
-import java.util.EventListener
+import com.tealium.core.api.settings.CoreSettingsBuilder
 
 fun getDefaultConfig(
     app: Application,
@@ -12,7 +12,7 @@ fun getDefaultConfig(
     profileName: String = "test",
     environment: Environment = Environment.DEV,
     modules: List<ModuleFactory> = listOf(),
-    events: List<EventListener> = listOf()
+    coreSettings: ((CoreSettingsBuilder) -> CoreSettingsBuilder)? = null
 ): TealiumConfig {
     return TealiumConfig(
         application = app,
@@ -20,6 +20,6 @@ fun getDefaultConfig(
         profileName = profileName,
         environment = environment,
         modules = modules,
-        events = events
+        enforcingCoreSettings = coreSettings
     )
 }

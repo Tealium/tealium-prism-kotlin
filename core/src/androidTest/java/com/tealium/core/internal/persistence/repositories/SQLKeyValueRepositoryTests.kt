@@ -51,8 +51,8 @@ class SQLKeyValueRepositoryTests {
         moduleRepository = SQLModulesRepository(
             dbProvider,
         )
-        module1Id = moduleRepository.registerModule(module1.name)
-        module2Id = moduleRepository.registerModule(module2.name)
+        module1Id = moduleRepository.registerModule(module1.id)
+        module2Id = moduleRepository.registerModule(module2.id)
     }
 
     @Test
