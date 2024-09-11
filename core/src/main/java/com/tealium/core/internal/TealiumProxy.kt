@@ -33,7 +33,7 @@ class TealiumProxy(
     private val tealiumScheduler: Scheduler,
     private val networkSchedulerSupplier: () -> Scheduler,
     private val onTealiumImplReady: ReplaySubject<TealiumImpl?> = Observables.replaySubject(1),
-    private val databaseProvider: DatabaseProvider = FileDatabaseProvider(config),
+    private val databaseProvider: DatabaseProvider? = null,
     private val moduleManager: InternalModuleManager = ModuleManagerImpl(
         TealiumImpl.getDefaultModules(),
         tealiumScheduler
@@ -58,7 +58,7 @@ class TealiumProxy(
 
                 val tealiumImpl = TealiumImpl(
                     config,
-                    databaseProvider,
+                    databaseProvider ?: FileDatabaseProvider(config),
                     tealiumScheduler = tealiumScheduler,
                     networkScheduler = networkSchedulerSupplier.invoke(),
                     moduleManager = moduleManager,
