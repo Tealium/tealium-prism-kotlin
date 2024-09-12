@@ -8,14 +8,14 @@ import com.tealium.core.api.pubsub.Disposable
 interface Scheduler {
 
     /**
-     * Schedules a [Runnable] for execution at some point in the future. Tasks will be executed on a
-     * first-in-first-out manner.
+     * Schedules a [Runnable] for execution at some point in the future. Tasks will typically be
+     * executed on a first-in-first-out manner, but this depends on the [Scheduler] implementation.
      */
     fun execute(runnable: Runnable)
 
     /**
-     * Schedules a [Runnable] for execution at some point in the future. Tasks will be executed on a
-     * first-in-first-out manner.
+     * Schedules a [Runnable] for execution at some point in the future. Tasks will typically be
+     * executed on a first-in-first-out manner, but this depends on the [Scheduler] implementation.
      *
      * Submitted tasks are cancellable by the returned [Disposable] instance.
      */

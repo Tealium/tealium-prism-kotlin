@@ -11,15 +11,15 @@ import com.tealium.core.api.misc.ActivityManager.ActivityLifecycleType
 import com.tealium.core.api.misc.ActivityManager.ActivityStatus
 import com.tealium.core.api.misc.ActivityManager.ApplicationStatus
 import com.tealium.core.api.misc.Scheduler
-import com.tealium.core.internal.pubsub.DisposableContainer
+import com.tealium.core.api.misc.TimeFrame
 import com.tealium.core.api.pubsub.Observable
-import com.tealium.core.internal.utils.Singleton
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.ReplaySubject
 import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.pubsub.Subject
+import com.tealium.core.internal.pubsub.DisposableContainer
 import com.tealium.core.internal.pubsub.addTo
-import com.tealium.core.api.misc.TimeFrame
+import com.tealium.core.internal.utils.Singleton
 import java.util.concurrent.TimeUnit
 
 /**
@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit
  */
 class ActivityManagerImpl(
     application: Application,
-    mainScheduler: Scheduler = MainScheduler(),
+    private val mainScheduler: Scheduler = LooperScheduler(),
     timeoutSeconds: Long = 10L, //TODO - decide on buffer period
     launchStatus: ApplicationStatus = ApplicationStatus.Init(),
     private val _activities: ReplaySubject<ActivityStatus> =
@@ -54,9 +54,11 @@ class ActivityManagerImpl(
 
     override val activities: Observable<ActivityStatus>
         get() = _activities.asObservable()
+            .subscribeOn(mainScheduler)
 
     override val applicationStatus: Observable<ApplicationStatus>
         get() = _applicationStatusBuffer.asObservable()
+            .subscribeOn(mainScheduler)
 
     init {
         _applicationStatus.subscribe(_applicationStatusBuffer)

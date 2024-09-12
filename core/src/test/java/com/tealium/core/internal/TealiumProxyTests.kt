@@ -4,13 +4,14 @@ import android.app.Activity
 import android.app.Application
 import com.tealium.core.api.Tealium
 import com.tealium.core.api.misc.ActivityManager
+import com.tealium.core.api.misc.TealiumCallback
+import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.persistence.PersistenceException
-import com.tealium.core.api.misc.TealiumResult
-import com.tealium.core.api.pubsub.Observer
-import com.tealium.core.api.misc.TealiumCallback
-import com.tealium.core.internal.misc.ActivityManagerImpl
 import com.tealium.core.api.pubsub.Observable
+import com.tealium.core.api.pubsub.Observer
+import com.tealium.core.internal.misc.ActivityManagerImpl
+import com.tealium.core.internal.misc.SingleThreadedScheduler
 import com.tealium.core.internal.persistence.DatabaseProvider
 import com.tealium.tests.common.TestModuleFactory
 import com.tealium.tests.common.createTealiumProxy
@@ -65,7 +66,11 @@ class TealiumProxyTests {
         }
 
         val activityCallbacks = ActivityManagerImpl.ActivityCallbacks(app)
-        val activityManager = ActivityManagerImpl(app, activityMonitor = activityCallbacks)
+        val activityManager = ActivityManagerImpl(
+            app,
+            mainScheduler = SingleThreadedScheduler("test-main"),
+            activityMonitor = activityCallbacks
+        )
         val activity = mockk<Activity>()
         every { activity.isChangingConfigurations } returns false
 
@@ -97,7 +102,11 @@ class TealiumProxyTests {
         }
 
         val activityCallbacks = ActivityManagerImpl.ActivityCallbacks(app)
-        val activityManager = ActivityManagerImpl(app, activityMonitor = activityCallbacks)
+        val activityManager = ActivityManagerImpl(
+            app,
+            mainScheduler = SingleThreadedScheduler("test-main"),
+            activityMonitor = activityCallbacks
+        )
         val activity = mockk<Activity>()
         every { activity.isChangingConfigurations } returns false
 

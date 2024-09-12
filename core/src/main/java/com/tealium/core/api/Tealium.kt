@@ -1,14 +1,19 @@
 package com.tealium.core.api
 
-import com.tealium.core.api.tracking.Dispatch
-import com.tealium.core.api.modules.consent.ConsentManager
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.misc.TealiumResult
+import com.tealium.core.api.modules.DataLayer
+import com.tealium.core.api.modules.DeeplinkManager
+import com.tealium.core.api.modules.Module
+import com.tealium.core.api.modules.TimedEventsManager
+import com.tealium.core.api.modules.TraceManager
+import com.tealium.core.api.modules.VisitorService
+import com.tealium.core.api.modules.consent.ConsentManager
+import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TrackResultListener
-import com.tealium.core.api.modules.*
-import com.tealium.core.internal.*
-import com.tealium.core.internal.misc.IoScheduler
-import com.tealium.core.internal.misc.TealiumScheduler
+import com.tealium.core.internal.TealiumProxy
+import com.tealium.core.internal.misc.SingleThreadedScheduler
+import com.tealium.core.internal.misc.ThreadPoolScheduler
 import java.util.concurrent.Executors
 
 interface Tealium {
@@ -37,11 +42,11 @@ interface Tealium {
 
     companion object {
         private val instances = mutableMapOf<String, TealiumProxy>()
-        private val tealiumExecutor by lazy {
-            Executors.newSingleThreadScheduledExecutor()
+        private val tealiumScheduler by lazy {
+            SingleThreadedScheduler("tealium")
         }
         private val ioExecutor by lazy {
-            Executors.newCachedThreadPool()
+            Executors.newScheduledThreadPool(0)
         }
 
         @JvmStatic
@@ -72,9 +77,9 @@ interface Tealium {
             return TealiumProxy(
                 config,
                 onReady,
-                TealiumScheduler(tealiumExecutor),
+                tealiumScheduler,
                 {
-                    IoScheduler(ioExecutor, tealiumExecutor)
+                    ThreadPoolScheduler(ioExecutor)
                 }
             ).also {
                 instances[name] = it

@@ -1,6 +1,6 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.internal.misc.TealiumScheduler
+import com.tealium.core.internal.misc.SingleThreadedScheduler
 import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.mockk
 import io.mockk.verify
@@ -47,7 +47,7 @@ class TasksTests {
             notifyThread = Thread(it, "notifyThread")
             notifyThread!!
         }
-        val scheduler = TealiumScheduler(executorService)
+        val scheduler = SingleThreadedScheduler(null, executorService)
         val assertion = mockk<(Boolean) -> Unit>()
         val notify: (List<Int>) -> Unit = {
             Assert.assertEquals(notifyThread, Thread.currentThread())

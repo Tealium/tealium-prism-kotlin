@@ -3,21 +3,17 @@ package com.tealium.tests.common
 import com.tealium.core.api.Tealium
 import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.misc.ActivityManager
-import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.misc.TealiumCallback
-import com.tealium.core.internal.misc.ActivityManagerImpl
-import com.tealium.core.internal.misc.IoScheduler
+import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.internal.TealiumProxy
-import com.tealium.core.internal.misc.TealiumScheduler
+import com.tealium.core.internal.misc.ActivityManagerImpl
+import com.tealium.core.internal.misc.SingleThreadedScheduler
+import com.tealium.core.internal.misc.ThreadPoolScheduler
 import com.tealium.core.internal.persistence.DatabaseProvider
-import java.util.concurrent.Executors
 
-private val tealiumExecutor = Executors.newSingleThreadScheduledExecutor()
-private val networkExecutor = Executors.newCachedThreadPool()
-
-val testTealiumScheduler = TealiumScheduler(tealiumExecutor)
-val testNetworkScheduler = IoScheduler(networkExecutor, tealiumExecutor)
+val testTealiumScheduler = SingleThreadedScheduler("tealium-test")
+val testNetworkScheduler = ThreadPoolScheduler(0)
 
 /**
  * Convenience method that awaits the execution of the [onReady] callback before returning it.
