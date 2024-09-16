@@ -1,7 +1,9 @@
 package com.tealium.core.api.persistence
 
 import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.TealiumDeserializable
 import com.tealium.core.api.data.TealiumList
+import com.tealium.core.api.data.TealiumSerializable
 import com.tealium.core.api.data.TealiumValue
 import com.tealium.core.api.pubsub.Observable
 
@@ -44,6 +46,102 @@ interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
          * @return Editor to continue editing this storage
          */
         fun put(key: String, value: TealiumValue, expiry: Expiry): Editor
+
+        /**
+         * Adds a single key-value pair to the storage
+         *
+         * @param key The key to store the [value] under
+         * @param value The value to be stored
+         * @param expiry The time frame for this data to remain stored
+         *
+         * @return Editor to continue editing this storage
+         */
+        fun put(key: String, value: TealiumSerializable, expiry: Expiry): Editor =
+            put(key, value.asTealiumValue(), expiry)
+
+        /**
+         * Adds a single key-value pair to the storage
+         *
+         * @param key The key to store the [value] under
+         * @param value The value to be stored
+         * @param expiry The time frame for this data to remain stored
+         *
+         * @return Editor to continue editing this storage
+         */
+        fun put(key: String, value: String, expiry: Expiry): Editor =
+            put(key, TealiumValue.string(value), expiry)
+
+        /**
+         * Adds a single key-value pair to the storage
+         *
+         * @param key The key to store the [value] under
+         * @param value The value to be stored
+         * @param expiry The time frame for this data to remain stored
+         *
+         * @return Editor to continue editing this storage
+         */
+        fun put(key: String, value: Int, expiry: Expiry): Editor =
+            put(key, TealiumValue.int(value), expiry)
+
+        /**
+         * Adds a single key-value pair to the storage
+         *
+         * @param key The key to store the [value] under
+         * @param value The value to be stored
+         * @param expiry The time frame for this data to remain stored
+         *
+         * @return Editor to continue editing this storage
+         */
+        fun put(key: String, value: Double, expiry: Expiry): Editor =
+            put(key, TealiumValue.double(value), expiry)
+
+        /**
+         * Adds a single key-value pair to the storage
+         *
+         * @param key The key to store the [value] under
+         * @param value The value to be stored
+         * @param expiry The time frame for this data to remain stored
+         *
+         * @return Editor to continue editing this storage
+         */
+        fun put(key: String, value: Long, expiry: Expiry): Editor =
+            put(key, TealiumValue.long(value), expiry)
+
+        /**
+         * Adds a single key-value pair to the storage
+         *
+         * @param key The key to store the [value] under
+         * @param value The value to be stored
+         * @param expiry The time frame for this data to remain stored
+         *
+         * @return Editor to continue editing this storage
+         */
+        fun put(key: String, value: Boolean, expiry: Expiry): Editor =
+            put(key, TealiumValue.boolean(value), expiry)
+
+        /**
+         * Adds a single key-value pair to the storage
+         *
+         * @param key The key to store the [value] under
+         * @param value The value to be stored
+         * @param expiry The time frame for this data to remain stored
+         *
+         * @return Editor to continue editing this storage
+         */
+        fun put(key: String, value: TealiumList, expiry: Expiry): Editor =
+            put(key, value.asTealiumValue(), expiry)
+
+        /**
+         * Adds a single key-value pair to the storage
+         *
+         * @param key The key to store the [value] under
+         * @param value The value to be stored
+         * @param expiry The time frame for this data to remain stored
+         *
+         * @return Editor to continue editing this storage
+         */
+        fun put(key: String, value: TealiumBundle, expiry: Expiry): Editor =
+            put(key, value.asTealiumValue(), expiry)
 
         /**
          * Removes and individual key from storage
@@ -97,6 +195,17 @@ interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
      * @return The [TealiumValue] or null
      */
     fun get(key: String): TealiumValue?
+
+    /**
+     * Gets the [TealiumValue] stored at the given [key] if there is one, and uses the given
+     * [deserializer] to translate it into an instance of type [T]
+     *
+     * @param key The key for the required value
+     * @param deserializer The [TealiumDeserializable] implementation for converting the [TealiumValue] to the required type.
+     *
+     * @return The [TealiumValue] or null
+     */
+    fun <T> get(key: String, deserializer: TealiumDeserializable<T>): T?
 
     /**
      * Gets the String stored at the given [key] if there is one

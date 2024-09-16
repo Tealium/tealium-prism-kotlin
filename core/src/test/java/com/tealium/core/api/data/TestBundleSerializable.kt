@@ -1,8 +1,8 @@
 package com.tealium.core.api.data
 
 data class TestBundleSerializable(
-    private val string: String,
-    private val int: Int
+    val string: String,
+    val int: Int
 ) : TealiumSerializable {
 
     override fun asTealiumValue(): TealiumValue {

@@ -22,18 +22,18 @@ sealed class NetworkResult {
 
     /**
      * [Failure] indicates that the network request was unsuccessful for the reason given by the
-     * returned [networkError]
+     * returned [networkException]
      *
-     * [Failure] does not always mean that the connection was not made, however, and the [networkError]
+     * [Failure] does not always mean that the connection was not made, however, and the [networkException]
      * should therefore be inspected for the failure reasons and whether or not the request
      * can be retried.
      *
-     * @param networkError The underlying cause of the failure
+     * @param networkException The underlying cause of the failure
      * @see Success
      */
-    class Failure(val networkError: NetworkError) : NetworkResult() {
+    class Failure(val networkException: NetworkException) : NetworkResult() {
         override fun toString(): String {
-            return "Failure(${networkError})"
+            return "Failure(${networkException})"
         }
     }
 }

@@ -1,10 +1,11 @@
 package com.tealium.core.internal.persistence
 
+import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.TealiumDeserializable
+import com.tealium.core.api.data.TealiumValue
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.persistence.PersistenceException
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumValue
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Subject
@@ -54,6 +55,12 @@ class ModuleStore(
 
     override fun get(key: String): TealiumValue? =
         keyValueRepository.get(key)
+
+    override fun <T> get(key: String, deserializer: TealiumDeserializable<T>): T? {
+        return keyValueRepository.get(key)?.let {
+            deserializer.deserialize(it)
+        }
+    }
 
     override fun getAll(): TealiumBundle {
         val bundleBuilder = TealiumBundle.Builder()

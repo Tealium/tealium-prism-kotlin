@@ -1,5 +1,10 @@
 package com.tealium.core.api.network
 
+import com.tealium.core.api.misc.TealiumIOException
+import com.tealium.core.api.network.NetworkException.CancelledException
+import com.tealium.core.api.network.NetworkException.NetworkIOException
+import com.tealium.core.api.network.NetworkException.Non200Exception
+import com.tealium.core.api.network.NetworkException.UnexpectedException
 import java.io.IOException
 
 /**
@@ -7,12 +12,15 @@ import java.io.IOException
  * error has occurred, and the [isRetryable] implementation will indicate if it is safe to retry
  * the request.
  *
- * @see Non200Error
- * @see IOError
- * @see UnexpectedError
- * @see Cancelled
+ * @see Non200Exception
+ * @see NetworkIOException
+ * @see UnexpectedException
+ * @see CancelledException
  */
-sealed class NetworkError {
+sealed class NetworkException(
+    message: String? = null,
+    cause: Throwable? = null
+): TealiumIOException(message, cause) {
     abstract fun isRetryable() : Boolean
 
     /**
@@ -21,16 +29,16 @@ sealed class NetworkError {
      *
      * @param statusCode The HTTP status code of the network response
      */
-    class Non200Error(
+    class Non200Exception(
         val statusCode: Int
-    ): NetworkError() {
+    ): NetworkException() {
         override fun isRetryable(): Boolean {
             // inclusive range?? might need updating
             return statusCode == 429 || (500.. 600).contains(statusCode)
         }
 
         override fun toString(): String {
-            return "Non200Error($statusCode)"
+            return "Non200Exception($statusCode)"
         }
     }
 
@@ -39,17 +47,17 @@ sealed class NetworkError {
      * to the connection being opened.
      * This type of error can always be retried as no connection to the destination was ever made.
      *
-     * @param ex The underlying cause of the connection failure, if available
+     * @param cause The underlying cause of the connection failure, if available
      */
-    class IOError(
-        val ex: IOException?
-    ): NetworkError() {
+    class NetworkIOException(
+        cause: IOException?
+    ): NetworkException(cause?.message, cause) {
         override fun isRetryable(): Boolean {
             return true
         }
 
         override fun toString(): String {
-            return "IOError(${ex?.message})"
+            return "NetworkIOException(${cause?.message})"
         }
     }
 
@@ -57,26 +65,26 @@ sealed class NetworkError {
      * Indicates that a network request failed for an unknown reason. It is therefore unknown whether it
      * is safe to retry the request, so it is deemed not safe to retry.
      *
-     * @param ex The underlying cause of the failure, if available
+     * @param cause The underlying cause of the failure, if available
      */
-    class UnexpectedError(
-        val ex: Throwable?
-    ): NetworkError() {
+    class UnexpectedException(
+        cause: Throwable?
+    ): NetworkException(cause?.message, cause) {
         override fun isRetryable(): Boolean {
             return false
         }
 
         override fun toString(): String {
-            return "UnexpectedError(${ex?.message})"
+            return "UnexpectedException(${cause?.message})"
         }
     }
 
     /**
-     * Indicates that the request was cancelled but the requester.
+     * Indicates that the request was cancelled by the requester.
      * It is therefore unknown whether it is safe to retry the request, so it is deemed not safe to
      * retry.
      */
-    object Cancelled: NetworkError() {
+    object CancelledException: NetworkException() {
         override fun isRetryable(): Boolean {
             return false
         }

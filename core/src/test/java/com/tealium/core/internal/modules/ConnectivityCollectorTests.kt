@@ -3,9 +3,9 @@ package com.tealium.core.internal.modules
 import com.tealium.core.BuildConfig
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.modules.TealiumContext
-import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.network.Connectivity
 import com.tealium.core.api.settings.ModuleSettingsBuilder
+import com.tealium.core.api.tracking.Dispatch
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.MockK

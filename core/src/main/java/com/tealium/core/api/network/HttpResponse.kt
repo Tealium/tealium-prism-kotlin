@@ -17,4 +17,10 @@ data class HttpResponse(
     val message: String,
     val headers: Map<String, List<String>>,
     val body: String? = null,
-)
+) {
+    /**
+     * Utility method to retrieve the `etag` from the [headers] field.
+     */
+    val etag: String?
+        get() = headers[HttpRequest.Headers.ETAG]?.firstOrNull()
+}

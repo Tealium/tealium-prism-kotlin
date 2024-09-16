@@ -1,9 +1,13 @@
 package com.tealium.tests.common
 
+import com.tealium.core.api.logger.LogHandler
+import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.logger.Logs
+import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.internal.logger.AlternateLoggerImpl
 
-object SystemLogger: Logger {
+object SystemLogger : Logger {
     private val systemLog: Logs = object : Logs {
         override fun log(category: String, message: String) {
             println("$category - $message")
@@ -20,3 +24,9 @@ object SystemLogger: Logger {
     override val error: Logs?
         get() = systemLog
 }
+
+val AltSystemLogger = AlternateLoggerImpl(object : LogHandler {
+    override fun log(category: String, message: String, logLevel: LogLevel) {
+        println("$category - $message")
+    }
+}, onLogLevel = Observables.empty(), logLevel = LogLevel.TRACE)

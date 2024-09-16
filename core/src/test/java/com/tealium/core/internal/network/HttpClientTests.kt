@@ -3,10 +3,10 @@ package com.tealium.core.internal.network
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.network.HttpRequest
 import com.tealium.core.api.network.Interceptor
-import com.tealium.core.api.network.NetworkError.Cancelled
-import com.tealium.core.api.network.NetworkError.IOError
-import com.tealium.core.api.network.NetworkError.Non200Error
-import com.tealium.core.api.network.NetworkError.UnexpectedError
+import com.tealium.core.api.network.NetworkException.CancelledException
+import com.tealium.core.api.network.NetworkException.NetworkIOException
+import com.tealium.core.api.network.NetworkException.Non200Exception
+import com.tealium.core.api.network.NetworkException.UnexpectedException
 import com.tealium.core.api.network.NetworkResult
 import com.tealium.core.api.network.NetworkResult.Failure
 import com.tealium.core.api.network.NetworkResult.Success
@@ -80,22 +80,22 @@ class HttpClientTests {
                 }
 
                 is Failure -> {
-                    when (val error = result.networkError) {
-                        is Non200Error -> {
+                    when (val error = result.networkException) {
+                        is Non200Exception -> {
                             status = error.statusCode
                         }
 
-                        is IOError -> {
-                            val cause = error.ex?.cause
-                            errorMessage = error.ex?.message
+                        is NetworkIOException -> {
+                            val cause = error.cause?.cause
+                            errorMessage = error.cause?.message
                         }
 
-                        is UnexpectedError -> {
-                            val cause = error.ex?.cause
-                            errorMessage = error.ex?.message
+                        is UnexpectedException -> {
+                            val cause = error.cause?.cause
+                            errorMessage = error.cause?.message
                         }
 
-                        is Cancelled -> {
+                        is CancelledException -> {
                             errorMessage = "Cancelled"
                         }
                     }
@@ -175,7 +175,7 @@ class HttpClientTests {
         verify(timeout = 1000) {
             completion(match { result ->
                 result is Failure
-                        && result.networkError is Non200Error
+                        && result.networkException is Non200Exception
                         && 500 == status
             })
         }
@@ -234,7 +234,7 @@ class HttpClientTests {
                         && httpRequest == this@HttpClientTests.httpRequest
                         && result == networkResult
                         && 500 == status
-                        && result.networkError is Non200Error
+                        && result.networkException is Non200Exception
             })
         }
     }
@@ -264,7 +264,7 @@ class HttpClientTests {
         verify(timeout = 1000) {
             completion(match { result ->
                 result is Failure
-                        && result.networkError is Cancelled
+                        && result.networkException is CancelledException
             })
         }
         confirmVerified(completion)
@@ -324,7 +324,7 @@ class HttpClientTests {
         verify(timeout = 1000) {
             completion(match { result ->
                 result is Failure
-                        && result.networkError is UnexpectedError
+                        && result.networkException is UnexpectedException
             })
         }
     }

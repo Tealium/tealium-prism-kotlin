@@ -33,7 +33,7 @@ class LoggerTests {
         logger = LoggerImpl(
             logHandler,
             LogLevel.DEBUG,
-            settingsProvider.onSdkSettingsUpdated,
+            settingsProvider.sdkSettings,
         )
     }
 

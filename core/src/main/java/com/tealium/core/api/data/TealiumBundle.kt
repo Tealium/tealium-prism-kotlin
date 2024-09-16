@@ -193,7 +193,7 @@ class TealiumBundle private constructor(
     /**
      * Convenience method to create a new [Builder] containing all the values in this [TealiumBundle]
      */
-    fun buildUpon() : Builder {
+    fun buildUpon(): Builder {
         return Builder(this)
     }
 
@@ -452,6 +452,9 @@ class TealiumBundle private constructor(
             return TealiumBundle(data.toMap())
         }
     }
+
+    object BundleDeserializer : TealiumDeserializable<TealiumBundle> {
+        override fun deserialize(value: TealiumValue): TealiumBundle? =
+            value.getBundle()
+    }
 }
-
-

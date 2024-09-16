@@ -1,24 +1,27 @@
 package com.tealium.core.internal.network
 
+import com.tealium.core.api.data.Deserializer
 import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.pubsub.Disposable
+import com.tealium.core.api.data.TealiumDeserializable
+import com.tealium.core.api.data.TealiumValue
 import com.tealium.core.api.logger.Logger
-import com.tealium.core.api.logger.Logs
+import com.tealium.core.api.misc.TealiumResult
+import com.tealium.core.api.network.DeserializedNetworkCallback
 import com.tealium.core.api.network.HttpRequest
+import com.tealium.core.api.network.NetworkCallback
 import com.tealium.core.api.network.NetworkClient
+import com.tealium.core.api.network.NetworkException
+import com.tealium.core.api.network.NetworkException.UnexpectedException
 import com.tealium.core.api.network.NetworkHelper
-import com.tealium.core.api.network.NetworkError.UnexpectedError
 import com.tealium.core.api.network.NetworkResult
 import com.tealium.core.api.network.NetworkResult.Failure
 import com.tealium.core.api.network.NetworkResult.Success
+import com.tealium.core.api.pubsub.Disposable
 import com.tealium.core.internal.logger.LogCategory
 import com.tealium.core.internal.pubsub.CompletedDisposable
-import org.json.JSONException
 import org.json.JSONObject
 import java.net.MalformedURLException
 import java.net.URL
-
-private const val ETAG_KEY = "etag"
 
 /**
  * Default implementation of [NetworkHelper] to make asynchronous basic HTTP requests.
@@ -28,8 +31,8 @@ class NetworkHelperImpl(
     private val logger: Logger,
 ) : NetworkHelper {
 
-    private fun loggedCompletion(completion: (NetworkResult) -> Unit): (NetworkResult) -> Unit =
-        { result ->
+    private fun loggedCompletion(completion: NetworkCallback<NetworkResult>): NetworkCallback<NetworkResult> =
+        NetworkCallback { result ->
             when (result) {
                 is Success -> logger.trace
                 is Failure -> logger.error
@@ -37,12 +40,12 @@ class NetworkHelperImpl(
                 LogCategory.NETWORK_HELPER,
                 "Completed request with $result"
             )
-            completion(result)
+            completion.onComplete(result)
         }
 
     private fun send(
         builder: HttpRequest.Builder,
-        completion: (NetworkResult) -> Unit
+        completion: NetworkCallback<NetworkResult>
     ): Disposable {
         val loggedCompletion = loggedCompletion(completion)
 
@@ -54,101 +57,127 @@ class NetworkHelperImpl(
         } catch (e: MalformedURLException) {
             logger.error?.log(LogCategory.NETWORK_HELPER, "Failed to build request")
 
-            loggedCompletion(Failure(UnexpectedError(e)))
+            loggedCompletion.onComplete(Failure(UnexpectedException(e)))
             CompletedDisposable
         }
     }
 
-    override fun get(url: String, etag: String?, completion: (NetworkResult) -> Unit): Disposable {
-        return send(HttpRequest.get(url, etag), completion)
-    }
+    override fun get(url: String, etag: String?, completion: NetworkCallback<NetworkResult>): Disposable =
+        send(HttpRequest.get(url, etag), completion)
 
-    override fun get(url: URL, etag: String?, completion: (NetworkResult) -> Unit): Disposable {
-        return send(HttpRequest.get(url, etag), completion)
-    }
+    override fun get(url: URL, etag: String?, completion: NetworkCallback<NetworkResult>): Disposable =
+        send(HttpRequest.get(url, etag), completion)
 
     override fun post(
         url: String,
         payload: TealiumBundle?,
-        completion: (NetworkResult) -> Unit
-    ): Disposable {
-        return send(HttpRequest.post(url, payload.toString()).gzip(true), completion)
-    }
+        completion: NetworkCallback<NetworkResult>
+    ): Disposable = send(HttpRequest.post(url, payload.toString()).gzip(true), completion)
 
     override fun post(
         url: URL,
         payload: TealiumBundle?,
-        completion: (NetworkResult) -> Unit
-    ): Disposable {
-        return send(HttpRequest.post(url, payload.toString()).gzip(true), completion)
-    }
+        completion: NetworkCallback<NetworkResult>
+    ): Disposable = send(HttpRequest.post(url, payload.toString()).gzip(true), completion)
 
     override fun getJson(
         url: String,
         etag: String?,
-        completion: (JSONObject?) -> Unit
-    ): Disposable {
-        return send(HttpRequest.get(url, etag), handleJsonResult(completion))
-    }
+        completion: DeserializedNetworkCallback<JSONObject>
+    ): Disposable = getDeserializable(url, etag, ::JSONObject, completion)
 
-    override fun getJson(url: URL, etag: String?, completion: (JSONObject?) -> Unit): Disposable {
-        return send(HttpRequest.get(url, etag), handleJsonResult(completion))
-    }
-
-    private fun handleJsonResult(completion: (JSONObject?) -> Unit): (NetworkResult) -> Unit =
-        { result ->
-            var jsonResult: JSONObject? = null
-            if (result is Success && result.httpResponse.body != null) {
-                try {
-                    val json = JSONObject(result.httpResponse.body)
-                    val etagHeader = result.httpResponse.headers[ETAG_KEY]?.firstOrNull()
-                    etagHeader?.let {
-                        json.put(ETAG_KEY, it)
-                    }
-                    jsonResult = json
-                } catch (ignore: JSONException) {
-                    logger.debug?.log("NetworkHelper", "Invalid")
-                }
-            }
-            completion(jsonResult)
-        }
-
+    override fun getJson(
+        url: URL,
+        etag: String?,
+        completion: DeserializedNetworkCallback<JSONObject>
+    ): Disposable = getDeserializable(url, etag, ::JSONObject, completion)
 
     override fun getTealiumBundle(
         url: String,
         etag: String?,
-        completion: (TealiumBundle?) -> Unit
-    ): Disposable {
-        return send(HttpRequest.get(url, etag), handleBundleResult(completion))
-    }
+        completion: DeserializedNetworkCallback<TealiumBundle>
+    ): Disposable =
+        getTealiumDeserializable(url, etag, TealiumBundle.BundleDeserializer, completion)
 
     override fun getTealiumBundle(
         url: URL,
         etag: String?,
-        completion: (TealiumBundle?) -> Unit
-    ): Disposable {
-        return send(HttpRequest.get(url, etag), handleBundleResult(completion))
+        completion: DeserializedNetworkCallback<TealiumBundle>
+    ): Disposable =
+        getTealiumDeserializable(url, etag, TealiumBundle.BundleDeserializer, completion)
+
+    override fun <T> getTealiumDeserializable(
+        url: String,
+        etag: String?,
+        deserializer: TealiumDeserializable<T>,
+        completion: DeserializedNetworkCallback<T>
+    ): Disposable = getDeserializable(url, etag, tealiumValueDeserializer(deserializer), completion)
+
+    override fun <T> getTealiumDeserializable(
+        url: URL,
+        etag: String?,
+        deserializer: TealiumDeserializable<T>,
+        completion: DeserializedNetworkCallback<T>
+    ): Disposable = getDeserializable(url, etag, tealiumValueDeserializer(deserializer), completion)
+
+    private fun <T> tealiumValueDeserializer(deserializer: TealiumDeserializable<T>) =
+        { str: String ->
+            val value = TealiumValue.parse(str)
+            deserializer.deserialize(value)
+        }
+
+    override fun <T> getDeserializable(
+        url: String,
+        etag: String?,
+        deserializer: Deserializer<String, T?>,
+        completion: DeserializedNetworkCallback<T>
+    ): Disposable = send(
+        HttpRequest.get(url, etag)
+    ) { networkResult ->
+        val result = deserializeResult(networkResult, deserializer)
+
+        completion.onComplete(result)
     }
 
-    private fun handleBundleResult(completion: (TealiumBundle?) -> Unit): (NetworkResult) -> Unit =
-        { result ->
-            var bundleResult: TealiumBundle? = null
-            if (result is Success && result.httpResponse.body != null) {
-                try {
-                    var bundle = TealiumBundle.fromString(result.httpResponse.body)
-                    val etagHeader = result.httpResponse.headers[ETAG_KEY]?.firstOrNull()
-                    etagHeader?.let {
-                        bundle = bundle?.copy {
-                            put(ETAG_KEY, it)
-                        }
-                    }
+    override fun <T> getDeserializable(
+        url: URL,
+        etag: String?,
+        deserializer: Deserializer<String, T?>,
+        completion: DeserializedNetworkCallback<T>
+    ): Disposable = send(
+        HttpRequest.get(url, etag),
+    ) { networkResult ->
+        val result = deserializeResult(networkResult, deserializer)
 
-                    bundleResult = bundle
-                } catch (ignore: JSONException) {
-                    logger.debug?.log("NetworkHelper", "Invalid")
-                }
-            }
+        completion.onComplete(result)
+    }
 
-            completion(bundleResult)
+    private fun <T> deserializeResult(
+        result: NetworkResult,
+        deserializer: Deserializer<String, T?>
+    ): TealiumResult<NetworkHelper.HttpValue<T>> {
+        if (result is Failure) {
+            return TealiumResult.failure(result.networkException)
         }
+
+        var error: Throwable? = null
+        if (result is Success && result.httpResponse.body != null) {
+            try {
+                val deserialized = deserializer.deserialize(result.httpResponse.body)
+                if (deserialized != null) {
+                    return TealiumResult.success(
+                        NetworkHelper.HttpValue(
+                            deserialized,
+                            result.httpResponse
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                logger.debug?.log("NetworkHelper", "Invalid")
+                error = e
+            }
+        }
+
+        return TealiumResult.failure(NetworkException.UnexpectedException(error))
+    }
 }

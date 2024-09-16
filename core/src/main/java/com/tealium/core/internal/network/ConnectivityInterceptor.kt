@@ -28,7 +28,7 @@ class ConnectivityInterceptor(
     ): RetryPolicy {
         return when (result) {
             is Failure -> {
-                if (!connectivity.isConnected() && result.networkError.isRetryable()) {
+                if (!connectivity.isConnected() && result.networkException.isRetryable()) {
                     RetryAfterEvent(connectivity.onConnectionStatusUpdated.filter { status -> status == Connectivity.Status.Connected })
                 } else {
                     DoNotRetry

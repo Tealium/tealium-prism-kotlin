@@ -10,14 +10,12 @@ import com.tealium.core.api.data.TealiumValue
 import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.misc.Environment
 import com.tealium.core.api.modules.ModuleFactory
-import com.tealium.core.api.modules.consent.ConsentDecision
-import com.tealium.core.api.modules.consent.ConsentManagementAdapter
 import com.tealium.core.api.network.HttpRequest
 import com.tealium.core.api.network.Interceptor
-import com.tealium.core.api.network.NetworkError.Cancelled
-import com.tealium.core.api.network.NetworkError.IOError
-import com.tealium.core.api.network.NetworkError.Non200Error
-import com.tealium.core.api.network.NetworkError.UnexpectedError
+import com.tealium.core.api.network.NetworkException.CancelledException
+import com.tealium.core.api.network.NetworkException.NetworkIOException
+import com.tealium.core.api.network.NetworkException.Non200Exception
+import com.tealium.core.api.network.NetworkException.UnexpectedException
 import com.tealium.core.api.network.NetworkResult
 import com.tealium.core.api.network.NetworkResult.Failure
 import com.tealium.core.api.network.NetworkResult.Success
@@ -25,8 +23,6 @@ import com.tealium.core.api.network.RetryPolicy
 import com.tealium.core.api.network.RetryPolicy.DoNotRetry
 import com.tealium.core.api.network.RetryPolicy.RetryAfterDelay
 import com.tealium.core.api.persistence.Expiry
-import com.tealium.core.api.pubsub.Observables
-import com.tealium.core.api.pubsub.SubscribableState
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.api.tracking.TrackResult
@@ -66,7 +62,8 @@ object TealiumHelper {
             profileName = "android",
             environment = Environment.DEV
         ) { settings ->
-            settings.setLogLevel(LogLevel.TRACE)
+            settings
+                .setLogLevel(LogLevel.TRACE)
                 .setBatchSize(8)
         }
         config.apply {
@@ -163,11 +160,11 @@ class CustomInterceptor(private val delayInterval: Long) : Interceptor {
         when (result) {
             is Success -> println("Successful request : ${result.httpResponse.statusCode}")
             is Failure -> {
-                when (val error = result.networkError) {
-                    is Non200Error -> println("Failed request with status code: ${error.statusCode}")
-                    is IOError -> println("Failed request - cause: ${error.ex?.cause}, message: ${error.ex?.message}")
-                    is UnexpectedError -> println("Failed request - cause: ${error.ex?.cause}, message: ${error.ex?.message}")
-                    is Cancelled -> println("Failed request - cancelled")
+                when (val error = result.networkException) {
+                    is Non200Exception -> println("Failed request with status code: ${error.statusCode}")
+                    is NetworkIOException -> println("Failed request - cause: ${error.cause?.cause}, message: ${error.cause?.message}")
+                    is UnexpectedException -> println("Failed request - cause: ${error.cause?.cause}, message: ${error.cause?.message}")
+                    is CancelledException -> println("Failed request - cancelled")
                 }
             }
         }
@@ -180,7 +177,7 @@ class CustomInterceptor(private val delayInterval: Long) : Interceptor {
     ): RetryPolicy {
         return when (result) {
             is Failure -> {
-                if (result.networkError.isRetryable()) {
+                if (result.networkException.isRetryable()) {
                     RetryAfterDelay(delayInterval)
                 } else {
                     // something else

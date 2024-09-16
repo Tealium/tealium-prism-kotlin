@@ -1,5 +1,6 @@
 package com.tealium.core.internal.logger
 
+import android.annotation.SuppressLint
 import android.util.Log
 import com.tealium.core.BuildConfig
 import com.tealium.core.api.logger.LogLevel
@@ -92,16 +93,19 @@ class LoggerImpl(
     }
 
     object ConsoleLogHandler : LogHandler {
+        @SuppressLint("AndroidLogUsageIssue")
         override fun log(category: String, message: String, logLevel: LogLevel) {
-            val console: ((String, String) -> Unit)? = when (logLevel) {
-                LogLevel.TRACE -> Log::v
-                LogLevel.DEBUG -> Log::d
-                LogLevel.INFO -> Log::i
-                LogLevel.WARN -> Log::w
-                LogLevel.ERROR -> Log::e
-                LogLevel.SILENT -> null
+            when (logLevel) {
+                LogLevel.TRACE -> Log.v(BuildConfig.TAG, formatMessage(category, message))
+                LogLevel.DEBUG -> Log.d(BuildConfig.TAG, formatMessage(category, message))
+                LogLevel.INFO -> Log.i(BuildConfig.TAG, formatMessage(category, message))
+                LogLevel.WARN -> Log.w(BuildConfig.TAG, formatMessage(category, message))
+                LogLevel.ERROR -> Log.e(BuildConfig.TAG, formatMessage(category, message))
+                else -> { }
             }
-            console?.invoke(BuildConfig.TAG, "[$category] - $message")
         }
+
+        private fun formatMessage(category: String, message: String): String =
+            "[$category] - $message"
     }
 }

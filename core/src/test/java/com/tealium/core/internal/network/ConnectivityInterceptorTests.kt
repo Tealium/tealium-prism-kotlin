@@ -1,7 +1,7 @@
 package com.tealium.core.internal.network
 
 import com.tealium.core.api.network.Connectivity
-import com.tealium.core.api.network.NetworkError.IOError
+import com.tealium.core.api.network.NetworkException.NetworkIOException
 import com.tealium.core.api.network.NetworkResult
 import com.tealium.core.api.network.NetworkResult.Failure
 import com.tealium.core.api.network.NetworkResult.Success
@@ -16,6 +16,7 @@ import io.mockk.mockk
 import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
+import java.io.IOException
 
 class ConnectivityInterceptorTests {
 
@@ -37,7 +38,7 @@ class ConnectivityInterceptorTests {
 
     @Test
     fun shouldRetryReturnsRetryAfterEventForNoConnection() {
-        val result: NetworkResult = Failure(IOError(mockk()))
+        val result: NetworkResult = Failure(NetworkIOException(IOException()))
         every { connectivity.isConnected() } returns false
         connectivityStatus.onNext(Connectivity.Status.NotConnected)
 

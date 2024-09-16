@@ -52,16 +52,16 @@ fun JSONArray.forEachIndexed(block: (value: Any, index: Int) -> Unit) {
 }
 
 /**
- * Joins two [TealiumBundle] objects together, merging any [TealiumBundle] objects that exist at the
- * same key in both objects.
+ * Merges two [TealiumBundle] objects together.
  *
  * Keys from the right-hand-side (rhs) of this operator will be preferred over the left-hand-side (lhs).
- * In almost all cases, key clashes will simply take the value from the right-hand-side.
+ * In all cases, key clashes will simply take the value from the right-hand-side.
  *
  * e.g.
  * ```kotlin
  * val lhs = TealiumBundle.create {
  *     put("string", "value")
+ *     put("int", 1)
  *     put("bundle", TealiumBundle.create {
  *         put("key1", "string")
  *         put("key2", true)
@@ -81,6 +81,7 @@ fun JSONArray.forEachIndexed(block: (value: Any, index: Int) -> Unit) {
  * // merged will be the equivalent of this:
  * TealiumBundle.create {
  *     put("string", "new value")            // from rhs
+ *     put("int", 1)                         // from lhs
  *     put("bundle", TealiumBundle.create {
  *         put("key1", "new string")         // from rhs
  *         put("key3", "extra string")       // from rhs

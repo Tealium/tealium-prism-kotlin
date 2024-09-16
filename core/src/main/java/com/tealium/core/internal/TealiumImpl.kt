@@ -3,6 +3,8 @@ package com.tealium.core.internal
 import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.barriers.BarrierScope
 import com.tealium.core.api.barriers.ScopedBarrier
+import com.tealium.core.api.logger.AlternateLogger
+import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.misc.ActivityManager
 import com.tealium.core.api.misc.Scheduler
@@ -18,7 +20,6 @@ import com.tealium.core.api.pubsub.CompositeDisposable
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.ObservableState
 import com.tealium.core.api.pubsub.Observables
-import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.settings.CoreSettings
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TrackResultListener
@@ -31,6 +32,7 @@ import com.tealium.core.internal.dispatch.QueueManagerImpl
 import com.tealium.core.internal.dispatch.TransformerCoordinator
 import com.tealium.core.internal.dispatch.TransformerCoordinatorImpl
 import com.tealium.core.internal.dispatch.TransformerRegistryImpl
+import com.tealium.core.internal.logger.AlternateLoggerImpl
 import com.tealium.core.internal.logger.LogCategory
 import com.tealium.core.internal.logger.LoggerImpl
 import com.tealium.core.internal.misc.ActivityManagerProxy
@@ -61,6 +63,7 @@ import com.tealium.core.internal.persistence.repositories.SQLModulesRepository
 import com.tealium.core.internal.persistence.repositories.SQLQueueRepository
 import com.tealium.core.internal.pubsub.DisposableContainer
 import com.tealium.core.internal.pubsub.addTo
+import com.tealium.core.internal.settings.CoreSettingsImpl
 import com.tealium.core.internal.settings.SdkSettings
 import com.tealium.core.internal.settings.SettingsManager
 import java.io.File
@@ -79,8 +82,9 @@ class TealiumImpl(
     private val instanceName: String = "${config.accountName}-${config.profileName}"
 ) {
     private val schedulers: Schedulers
-    private val settings: StateSubject<SdkSettings>
+    private val settings: ObservableState<SdkSettings>
     private val coreSettings: ObservableState<CoreSettings>
+    private val altLogger: AlternateLogger
     private val logger: Logger
     private val networkUtilities: NetworkUtilities
     private val dispatchManager: DispatchManagerImpl
@@ -102,18 +106,25 @@ class TealiumImpl(
         val storage = ModuleStoreProviderImpl(dbProvider, modulesRepository)
         val sharedDataStore = storage.getSharedDataStore()
 
-        settings =
-            Observables.stateSubject(SettingsManager.loadInitialSettings(config, sharedDataStore))
-        coreSettings =
-            settings.map(SdkSettings::coreSettings).withState(settings.value::coreSettings)
+        // ALT-LOGGER
+        val sdkSettingsSubject = Observables.replaySubject<SdkSettings>(1)
+        val logLevel = sdkSettingsSubject.map { it.coreSettings.logLevel }
+        altLogger = AlternateLoggerImpl(
+            config.logHandler,
+            logLevel,
+            config.enforcedSdkSettings.getBundle(CoreSettingsImpl.MODULE_NAME)
+                ?.get(CoreSettingsImpl.KEY_LOG_LEVEL, LogLevel.Deserializer)
+        )
+        // ALT-LOGGER - end
 
+        // TODO - replace with AltLogger... and all use-sites.
         logger = LoggerImpl(
-            logHandler = config.logHandler,
-            onSdkSettingsUpdated = settings,
+            config.logHandler,
+            onSdkSettingsUpdated = sdkSettingsSubject // todo - this is broke?!?
         )
 
         // TODO - clear session data if necessary
-        logger.debug?.log(LogCategory.TEALIUM, "Purging expired data from the database")
+        altLogger.debug(LogCategory.TEALIUM, "Purging expired data from the database")
         modulesRepository.deleteExpired(ModulesRepository.ExpirationType.UntilRestart)
 
         schedulers = SchedulersImpl(
@@ -124,14 +135,20 @@ class TealiumImpl(
         connectivityRetriever =
             ConnectivityRetriever(config.application, tealiumScheduler, logger = logger)
         connectivityRetriever.subscribe()
-        networkUtilities = createNetworkUtilities(logger, schedulers, connectivityRetriever)
+        networkUtilities = createNetworkUtilities(logger, schedulers, connectivityRetriever, altLogger)
 
         val settingsManager = SettingsManager(
             config,
             networkUtilities.networkHelper,
             sharedDataStore,
-            logger,
+            logger = altLogger
         )
+
+        settings = settingsManager.sdkSettings
+        settings.subscribe(sdkSettingsSubject)
+
+        coreSettings =
+            settings.map(SdkSettings::coreSettings).withState(settings.value::coreSettings)
 
         val transformerCoordinator =
             createTransformationsCoordinator(config, coreSettings, schedulers)
@@ -204,13 +221,12 @@ class TealiumImpl(
             moduleManager.updateModuleSettings(tealiumContext, newSettings)
         }.addTo(disposables)
 
-        settingsManager.refreshRemote()
-        settingsManager.subscribeToActivityUpdates()
+        settingsManager.subscribeToActivityUpdates(activityManager.applicationStatus)
             .addTo(disposables)
 
         dispatchManager.startDispatchLoop()
 
-        logger.info?.log(LogCategory.TEALIUM, "Instance $instanceName initialized.")
+        altLogger.info(LogCategory.TEALIUM, "Instance %s initialized.", instanceName)
         // todo - might have queued incoming events + dispatch them now.
     }
 
@@ -233,7 +249,7 @@ class TealiumImpl(
     }
 
     fun shutdown() {
-        logger.info?.log(LogCategory.TEALIUM, "Instance $instanceName shutting down.")
+        altLogger.info(LogCategory.TEALIUM, "Instance %s shutting down.", instanceName)
 
         disposables.dispose()
         dispatchManager.stopDispatchLoop()
@@ -255,7 +271,8 @@ class TealiumImpl(
         fun createNetworkUtilities(
             logger: Logger,
             schedulers: Schedulers,
-            connectivity: Connectivity
+            connectivity: Connectivity,
+            alternateLogger: AlternateLogger
         ): NetworkUtilities {
             val networkClient = HttpClient(
                 logger = logger,
@@ -266,7 +283,8 @@ class TealiumImpl(
             return NetworkUtilities(
                 connectivity = connectivity,
                 networkClient = networkClient,
-                networkHelper = NetworkHelperImpl(networkClient, logger)
+                networkHelper = NetworkHelperImpl(networkClient, logger),
+                logger = alternateLogger
             )
         }
 

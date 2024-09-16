@@ -5,6 +5,7 @@ import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.network.HttpResponse
+import com.tealium.core.api.network.NetworkCallback
 import com.tealium.core.api.network.NetworkHelper
 import com.tealium.core.api.network.NetworkResult
 import com.tealium.core.api.network.NetworkResult.Success
@@ -59,9 +60,9 @@ class CollectDispatcherTests {
         every { networking.networkHelper } returns networkHelper
         every { context.network } returns networking
 
-        val completionCapture = slot<(NetworkResult) -> Unit>()
+        val completionCapture = slot<NetworkCallback<NetworkResult>>()
         every { networkHelper.post(any<URL>(), any(), capture(completionCapture)) } answers {
-            completionCapture.captured.invoke(
+            completionCapture.captured.onComplete(
                 Success(
                     HttpResponse(
                         url = defaultSettings.url,

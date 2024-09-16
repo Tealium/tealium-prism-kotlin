@@ -33,7 +33,7 @@ import java.lang.reflect.Array
 class TealiumValue private constructor(
     any: Any? = null,
     string: String? = null,
-) {
+): TealiumSerializable {
     private var _value: Any? = any
     private var _toString: String? = string
     private var isLazy: Boolean = (any == null && string != null)
@@ -281,6 +281,8 @@ class TealiumValue private constructor(
     override fun hashCode(): Int {
         return value.hashCode()
     }
+
+    override fun asTealiumValue(): TealiumValue = this
 
     companion object {
         private const val NULL_STRING = "null"

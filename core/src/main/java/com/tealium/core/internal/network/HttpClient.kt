@@ -3,16 +3,17 @@ package com.tealium.core.internal.network
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.logger.Logs
 import com.tealium.core.api.misc.Scheduler
+import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.misc.TimeFrame
 import com.tealium.core.api.network.HttpRequest
 import com.tealium.core.api.network.HttpRequest.Headers
 import com.tealium.core.api.network.HttpResponse
 import com.tealium.core.api.network.Interceptor
 import com.tealium.core.api.network.NetworkClient
-import com.tealium.core.api.network.NetworkError.Cancelled
-import com.tealium.core.api.network.NetworkError.IOError
-import com.tealium.core.api.network.NetworkError.Non200Error
-import com.tealium.core.api.network.NetworkError.UnexpectedError
+import com.tealium.core.api.network.NetworkException
+import com.tealium.core.api.network.NetworkException.CancelledException
+import com.tealium.core.api.network.NetworkException.Non200Exception
+import com.tealium.core.api.network.NetworkException.UnexpectedException
 import com.tealium.core.api.network.NetworkResult
 import com.tealium.core.api.network.NetworkResult.Failure
 import com.tealium.core.api.network.NetworkResult.Success
@@ -46,7 +47,7 @@ class HttpClient(
 
     override fun sendRequest(
         request: HttpRequest,
-        completion: (NetworkResult) -> Unit
+        completion: TealiumCallback<NetworkResult>
     ): Disposable {
         logger.trace?.log(LogCategory.HTTP_CLIENT, "Sending request ${request.url} ${request.body}")
         return sendRetryableRequest(request, 0) { result ->
@@ -58,7 +59,7 @@ class HttpClient(
                 LogCategory.HTTP_CLIENT,
                 "Completed request ${request.url} ${request.body} with $result"
             )
-            completion(result)
+            completion.onComplete(result)
         }
     }
 
@@ -72,7 +73,7 @@ class HttpClient(
             notifyInterceptors(request, result)
             processInterceptorsForDelay(request, result, retryCount) { shouldRetry ->
                 if (disposableContainer.isDisposed) {
-                    completion(Failure(Cancelled))
+                    completion(Failure(CancelledException))
                     return@processInterceptorsForDelay
                 }
 
@@ -219,7 +220,7 @@ class HttpClient(
 
 
                     } catch (e: Exception) {
-                        return@with Failure(UnexpectedError(e))
+                        return@with Failure(UnexpectedException(e))
                     }
 
                     if (HttpURLConnection.HTTP_MOVED_PERM == responseCode
@@ -229,7 +230,7 @@ class HttpClient(
                         val redirectedUrl = getHeaderField(Headers.LOCATION)
                         if (redirectedUrl.isNullOrEmpty()) {
                             return@with Failure(
-                                UnexpectedError(Exception("Received redirect response without a valid Location header"))
+                                UnexpectedException(Exception("Received redirect response without a valid Location header"))
                             )
                         }
                     }
@@ -247,14 +248,14 @@ class HttpClient(
                         )
                     } else {
                         // Non200Status Error
-                        return@with Failure(Non200Error(responseCode))
+                        return@with Failure(Non200Exception(responseCode))
                     }
 
                 }
             } catch (e: IOException) {
-                Failure(IOError(e))
+                Failure(NetworkException.NetworkIOException(e))
             } catch (e: Exception) {
-                Failure(UnexpectedError(e))
+                Failure(UnexpectedException(e))
             } finally {
                 connection.disconnect()
             }

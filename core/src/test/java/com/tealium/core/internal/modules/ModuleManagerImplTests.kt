@@ -3,10 +3,10 @@ package com.tealium.core.internal.modules
 import com.tealium.core.api.data.TealiumBundle
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.modules.*
-import com.tealium.core.internal.settings.SdkSettings
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.settings.ModuleSettingsBuilder
+import com.tealium.core.internal.settings.SdkSettings
 import com.tealium.tests.common.*
 import io.mockk.Called
 import io.mockk.every

@@ -13,7 +13,7 @@ interface Serde<T, R> {
 /**
  * Transforms an input object of type [T] to an output object of type [R]
  */
-interface Serializer<T, R> {
+fun interface Serializer<T, R> {
     /**
      * From the input [value] of type [T], this method should produce an output
      * of type [R]
@@ -27,7 +27,7 @@ interface Serializer<T, R> {
 /**
  * Transforms an input object of type [T] to an output object of type [R]
  */
-interface Deserializer<T, R> {
+fun interface Deserializer<T, R> {
     /**
      * From the input [value] of type [T], this method should produce an output
      * of type [R]
