@@ -144,9 +144,9 @@ class SQLKeyValueRepositoryTests {
     fun get_Returns_UnsupportedDoubleValue_As_Strings() {
         val storage = getEmptyStorage(module1Id)
 
-        storage.upsert("nan", TealiumValue.double(Double.NaN), Expiry.SESSION)
-        storage.upsert("inf", TealiumValue.double(Double.POSITIVE_INFINITY), Expiry.SESSION)
-        storage.upsert("-inf", TealiumValue.double(Double.NEGATIVE_INFINITY), Expiry.SESSION)
+        storage.upsert("nan", DataItem.double(Double.NaN), Expiry.SESSION)
+        storage.upsert("inf", DataItem.double(Double.POSITIVE_INFINITY), Expiry.SESSION)
+        storage.upsert("-inf", DataItem.double(Double.NEGATIVE_INFINITY), Expiry.SESSION)
 
         assertEquals("NaN", storage.get("nan")?.value)
         assertEquals("Infinity", storage.get("inf")?.value)

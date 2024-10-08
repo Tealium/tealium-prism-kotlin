@@ -145,27 +145,28 @@ class DataObjectTests {
         assertEquals(PI, dataObject.getDouble("pi"))
     }
 
-    fun create_ConvertsDouble_InfinityOrNan_Throws() {
-        val dataObject = DataObject.create {
+    @Test
+    fun create_ConvertsDouble_InfinityOrNan_ReturnsString() {
+        val bundle = DataObject.create {
             put("nan", Double.NaN)
             put("plus-infinity", Double.POSITIVE_INFINITY)
             put("negative-infinity", Double.NEGATIVE_INFINITY)
         }
 
-        assertEquals(null, dataObject.getDouble("nan"))
-        assertEquals(null, dataObject.getDouble("plus-infinity"))
-        assertEquals(null, dataObject.getDouble("negative-infinity"))
-        dataObject.map {
-            assertSame(DataItem.NULL, it.value)
-        }
+        assertEquals(null, bundle.getDouble("nan"))
+        assertEquals(null, bundle.getDouble("plus-infinity"))
+        assertEquals(null, bundle.getDouble("negative-infinity"))
+        assertEquals("NaN", bundle.getString("nan"))
+        assertEquals("Infinity", bundle.getString("plus-infinity"))
+        assertEquals("-Infinity", bundle.getString("negative-infinity"))
         assertEquals(
             """
             {
-                "nan": null,
-                "plus-infinity": null,
-                "negative-infinity": null
+                "nan": "NaN",
+                "plus-infinity": "Infinity",
+                "negative-infinity": "-Infinity"
             }
-        """.trimJson(), dataObject.toString()
+        """.trimJson(), bundle.toString()
         )
     }
 
@@ -589,7 +590,8 @@ class DataObjectTests {
         val testMap = mapOf(
             "key1" to 1.1,
             "key2" to 2.2,
-            "null" to null
+            "null" to null,
+            "infinity" to Double.POSITIVE_INFINITY
         )
         val dataObjects = listOf(DataObject.fromMapOfDoubles(testMap), testMap.asDataObject())
 
@@ -598,6 +600,8 @@ class DataObjectTests {
             assertEquals(2.2, dataObject.getDouble("key2"))
             assertEquals(DataItem.NULL, dataObject.get("null"))
             assertNull(dataObject.getDouble("null"))
+            assertEquals("Infinity", dataObject.get("infinity")!!.value)
+
         }
     }
 
@@ -699,23 +703,22 @@ class DataObjectTests {
     }
 
     @Test
-    fun fromMapOfDoubleCollections_Returns_Nulls_When_Invalid_Double_Lists() {
+    fun fromMapOfDoubleCollections_Returns_Strings_When_Invalid_Double_Lists() {
         val testMap = mapOf(
             "key1" to listOf(1.1, 2.2),
-            "null" to listOf(Double.NaN, null)
+            "nans" to listOf(Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY)
         )
         val dataObjects =
             listOf(DataObject.fromMapOfDoubleCollections(testMap), testMap.asDataObject())
 
         for (dataObject in dataObjects) {
             val list1 = dataObject.getDataList("key1")!!
-            val list2 = dataObject.getDataList("null")!!
+            val list2 = dataObject.getDataList("nans")!!
             assertEquals(1.1, list1.getDouble(0))
             assertEquals(2.2, list1.getDouble(1))
-            assertEquals(DataItem.NULL, list2.get(0))
-            assertNull(list2.getDouble(0))
-            assertEquals(DataItem.NULL, list2.get(1))
-            assertNull(list2.getDouble(1))
+            assertEquals("NaN", list2.getString(0))
+            assertEquals("Infinity", list2.getString(1))
+            assertEquals("-Infinity", list2.getString(2))
         }
     }
 

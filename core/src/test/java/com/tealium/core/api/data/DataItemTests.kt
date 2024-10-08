@@ -501,36 +501,62 @@ class DataItemTests {
         }
     }
 
+    fun convert_Double_NaN_Returns_String() {
+        val value = DataItem.convert(Double.NaN)
+
+        assertEquals("NaN", value.value)
+        assertEquals("NaN", value.getString())
+        assertNull(value.getDouble())
+    }
+
+    fun convert_Double_PositiveInfinity_Returns_String() {
+        val value = DataItem.convert(Double.POSITIVE_INFINITY)
+
+        assertEquals("Infinity", value.value)
+        assertEquals("Infinity", value.getString())
+        assertNull(value.getDouble())
+    }
+
+    fun convert_Double_NegativeInfinity_Returns_String() {
+        val value = DataItem.convert(Double.NEGATIVE_INFINITY)
+
+        assertEquals("-Infinity", value.value)
+        assertEquals("-Infinity", value.getString())
+        assertNull(value.getDouble())
+    }
+
     @Test
-    fun convert_Double_Returns_Null_When_Using_Non_Thrown_Conversion() {
-        val values = listOf(
-            DataItem.double(Double.NaN),
-            DataItem.double(Double.POSITIVE_INFINITY),
-            DataItem.double(Double.NEGATIVE_INFINITY),
-            Double.NaN.asDataItem(),
-            Double.POSITIVE_INFINITY.asDataItem(),
-            Double.NEGATIVE_INFINITY.asDataItem()
-        )
+    fun convert_Float_Returns_TealiumValueDouble() {
+        val values = listOf(DataItem.convert(100.111f))
 
         for (value in values) {
-            assertTrue(value.isNull())
-            assertSame(DataItem.NULL, value)
+            assertTrue(value.isDouble())
+            assertEquals(100.111, value.value as Double, 0.001)
         }
     }
 
-    @Test(expected = UnsupportedDataItemException::class)
-    fun convert_Double_NaN_Throws() {
-        DataItem.convert(Double.NaN)
+    fun convert_Float_NaN_Returns_String() {
+        val value = DataItem.convert(Float.NaN)
+
+        assertEquals("NaN", value.value)
+        assertEquals("NaN", value.getString())
+        assertNull(value.getDouble())
     }
 
-    @Test(expected = UnsupportedDataItemException::class)
-    fun convert_Double_NegativeInfinity_Throws() {
-        DataItem.convert(Double.POSITIVE_INFINITY)
+    fun convert_Float_PositiveInfinity_Returns_String() {
+        val value = DataItem.convert(Float.POSITIVE_INFINITY)
+
+        assertEquals("Infinity", value.value)
+        assertEquals("Infinity", value.getString())
+        assertNull(value.getDouble())
     }
 
-    @Test(expected = UnsupportedDataItemException::class)
-    fun convert_Double_PositiveInfinity_Throws() {
-        DataItem.convert(Double.NEGATIVE_INFINITY)
+    fun convert_Float_NegativeInfinity_Returns_String() {
+        val value = DataItem.convert(Float.NEGATIVE_INFINITY)
+
+        assertEquals("-Infinity", value.value)
+        assertEquals("-Infinity", value.getString())
+        assertNull(value.getDouble())
     }
 
     @Test
