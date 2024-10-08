@@ -1,7 +1,7 @@
 package com.tealium.core.api.modules
 
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumValue
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.pubsub.Subscribable
@@ -11,13 +11,13 @@ interface DataLayer {
 
     fun edit(block: TealiumCallback<DataStore.Editor>)
 
-    fun put(bundle: TealiumBundle, expiry: Expiry)
+    fun put(dataObject: DataObject, expiry: Expiry)
 
-    fun get(key: String, callback: TealiumCallback<TealiumValue?>)
+    fun get(key: String, callback: TealiumCallback<DataItem?>)
     // TODO - Add convenience methods back in?
     fun remove(key: String)
 
-    val onDataUpdated: Subscribable<TealiumBundle>
+    val onDataUpdated: Subscribable<DataObject>
     // TODO - switch this to a Set instead of a List
     val onDataRemoved: Subscribable<List<String>>
 }

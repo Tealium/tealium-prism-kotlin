@@ -112,8 +112,8 @@ class TealiumImpl(
         altLogger = AlternateLoggerImpl(
             config.logHandler,
             logLevel,
-            config.enforcedSdkSettings.getBundle(CoreSettingsImpl.MODULE_NAME)
-                ?.get(CoreSettingsImpl.KEY_LOG_LEVEL, LogLevel.Deserializer)
+            config.enforcedSdkSettings.getDataObject(CoreSettingsImpl.MODULE_NAME)
+                ?.get(CoreSettingsImpl.KEY_LOG_LEVEL, LogLevel.Converter)
         )
         // ALT-LOGGER - end
 

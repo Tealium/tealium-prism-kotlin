@@ -1,7 +1,7 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.BuildConfig
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.modules.DeeplinkManager
 import com.tealium.core.api.modules.Module
@@ -48,7 +48,7 @@ class DeeplinkManagerImpl: DeeplinkManager, Module {
         override val id: String
             get() = moduleName
 
-        override fun create(context: TealiumContext, settings: TealiumBundle): Module? {
+        override fun create(context: TealiumContext, settings: DataObject): Module? {
             return DeeplinkManagerImpl()
         }
     }

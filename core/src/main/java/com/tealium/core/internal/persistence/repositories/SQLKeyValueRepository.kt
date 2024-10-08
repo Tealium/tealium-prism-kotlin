@@ -5,7 +5,7 @@ import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.persistence.PersistenceException
-import com.tealium.core.api.data.TealiumValue
+import com.tealium.core.api.data.DataItem
 import com.tealium.core.internal.persistence.DatabaseProvider
 import com.tealium.core.internal.persistence.Schema
 import com.tealium.core.internal.persistence.getTimestamp
@@ -13,7 +13,7 @@ import com.tealium.core.internal.persistence.select
 import com.tealium.core.internal.persistence.transaction
 
 /**
- * This is the default implementation for reading and writing [TealiumValue] objects to and from
+ * This is the default implementation for reading and writing [DataItem] objects to and from
  * disk using an SQLite Database.
  *
  * All data is linked to a [moduleId] which is uniquely generated for each
@@ -32,7 +32,7 @@ internal class SQLKeyValueRepository(
     private val db: SQLiteDatabase
         get() = dbProvider.database
 
-    override fun getAll(): Map<String, TealiumValue> {
+    override fun getAll(): Map<String, DataItem> {
         return getAll(
             selection = IS_OWNER_AND_NOT_EXPIRED,
             selectionArgs = arrayOf(moduleId.toString(), getTimestamp().toString())
@@ -42,8 +42,8 @@ internal class SQLKeyValueRepository(
     private fun getAll(
         selection: String?,
         selectionArgs: Array<String>?
-    ): Map<String, TealiumValue> {
-        val map = mutableMapOf<String, TealiumValue>()
+    ): Map<String, DataItem> {
+        val map = mutableMapOf<String, DataItem>()
 
         db.select(
             tableName,
@@ -61,7 +61,7 @@ internal class SQLKeyValueRepository(
 
             while (cursor.moveToNext()) {
                 val key = cursor.getString(columnKeyIndex)
-                readTealiumValue(cursor, columnValueIndex)?.let {
+                readDataItem(cursor, columnValueIndex)?.let {
                     map[key] = it
                 }
             }
@@ -70,7 +70,7 @@ internal class SQLKeyValueRepository(
         return map
     }
 
-    override fun get(key: String): TealiumValue? {
+    override fun get(key: String): DataItem? {
         return db.select(
             tableName,
             arrayOf(
@@ -83,11 +83,11 @@ internal class SQLKeyValueRepository(
 
             cursor.moveToFirst()
 
-            readTealiumValue(cursor)
+            readDataItem(cursor)
         }
     }
 
-    override fun upsert(key: String, value: TealiumValue, expiry: Expiry): Long {
+    override fun upsert(key: String, value: DataItem, expiry: Expiry): Long {
         return try {
             db.insertWithOnConflict(
                 tableName,
@@ -218,26 +218,26 @@ internal class SQLKeyValueRepository(
         internal const val IS_OWNER_AND_NOT_EXPIRED =
             "$IS_MODULE_OWNER AND $IS_NOT_EXPIRED_CLAUSE"
 
-        internal fun readTealiumValue(cursor: Cursor): TealiumValue? {
+        internal fun readDataItem(cursor: Cursor): DataItem? {
             val columnValueIndex = cursor.getColumnIndex(Schema.ModuleStorageTable.COLUMN_VALUE)
 
-            return readTealiumValue(cursor, columnValueIndex)
+            return readDataItem(cursor, columnValueIndex)
         }
 
-        internal fun readTealiumValue(cursor: Cursor, columnValueIndex: Int): TealiumValue? {
+        internal fun readDataItem(cursor: Cursor, columnValueIndex: Int): DataItem? {
             val value = cursor.getString(columnValueIndex)
 
-            return deserializeTealiumValue(value)
+            return deserializeDataItem(value)
         }
 
-        internal fun deserializeTealiumValue(serialized: String): TealiumValue? {
-            return TealiumValue.lazy(serialized)
+        internal fun deserializeDataItem(serialized: String): DataItem? {
+            return DataItem.lazy(serialized)
         }
 
         internal fun createContentValues(
             moduleId: Long,
             key: String,
-            value: TealiumValue,
+            value: DataItem,
             expiry: Expiry,
         ): ContentValues {
 

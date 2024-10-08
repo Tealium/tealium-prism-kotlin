@@ -1,7 +1,7 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.BuildConfig
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.network.Connectivity
 import com.tealium.core.api.settings.ModuleSettingsBuilder
@@ -46,7 +46,7 @@ open class ConnectivityCollectorTests {
 
             assertNotNull(
                 ConnectivityCollector.Factory.create(
-                    context, TealiumBundle.EMPTY_BUNDLE
+                    context, DataObject.EMPTY_OBJECT
                 )
             )
         }
@@ -82,7 +82,7 @@ open class ConnectivityCollectorTests {
         fun updateSettings_ReturnsModule_When_Enabled() {
             assertSame(
                 connectivityCollector,
-                connectivityCollector.updateSettings(TealiumBundle.EMPTY_BUNDLE)
+                connectivityCollector.updateSettings(DataObject.EMPTY_OBJECT)
             )
         }
     }
@@ -112,11 +112,11 @@ open class ConnectivityCollectorTests {
         }
 
         @Test
-        fun collect_ReturnsBundle_Containing_ConnectivityType() {
+        fun collect_ReturnsDataObject_Containing_ConnectivityType() {
             every { connectivity.connectionType() } returns connectivityType
 
-            val bundle = connectivityCollector.collect()
-            assertEquals(expected, bundle.getString(Dispatch.Keys.CONNECTION_TYPE)!!)
+            val dataObject = connectivityCollector.collect()
+            assertEquals(expected, dataObject.getString(Dispatch.Keys.CONNECTION_TYPE)!!)
         }
     }
 }

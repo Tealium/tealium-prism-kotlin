@@ -1,7 +1,7 @@
 package com.tealium.core.internal.network
 
-import com.tealium.core.api.data.TealiumDeserializable
-import com.tealium.core.api.data.TealiumSerializable
+import com.tealium.core.api.data.DataItemConverter
+import com.tealium.core.api.data.DataItemConvertible
 import com.tealium.core.api.logger.AlternateLogger
 import com.tealium.core.api.misc.TealiumIOException
 import com.tealium.core.api.misc.TimeFrame
@@ -22,9 +22,9 @@ import com.tealium.core.internal.logger.LogCategory
 import com.tealium.core.internal.persistence.getTimestamp
 import com.tealium.core.internal.pubsub.filterNotNull
 
-class ResourceRefresherImpl<T : TealiumSerializable> internal constructor(
+class ResourceRefresherImpl<T : DataItemConvertible> internal constructor(
     private val networkHelper: NetworkHelper,
-    private val deserializer: TealiumDeserializable<T>,
+    private val converter: DataItemConverter<T>,
     private var params: ResourceRefresher.Parameters,
     override val cache: ResourceCache<T>,
     private val cooldownHelper: CooldownHelper? = CooldownHelper.create(
@@ -76,14 +76,14 @@ class ResourceRefresherImpl<T : TealiumSerializable> internal constructor(
     constructor(
         networkHelper: NetworkHelper,
         dataStore: DataStore,
-        deserializer: TealiumDeserializable<T>,
+        converter: DataItemConverter<T>,
         params: ResourceRefresher.Parameters,
         logger: AlternateLogger
     ) : this(
         networkHelper,
-        deserializer,
+        converter,
         params,
-        ResourceCacheImpl(dataStore, params.id, deserializer),
+        ResourceCacheImpl(dataStore, params.id, converter),
         logger = logger
     )
 
@@ -130,7 +130,7 @@ class ResourceRefresherImpl<T : TealiumSerializable> internal constructor(
 
     private fun refresh(isValid: (T) -> Boolean) {
         refreshDisposable =
-            networkHelper.getTealiumDeserializable(params.url, lastEtag, deserializer) { result ->
+            networkHelper.getDataItemConvertible(params.url, lastEtag, converter) { result ->
                 try {
                     val value = result.getOrThrow()
                     handleNetworkSuccess(value, isValid)
@@ -197,7 +197,7 @@ class ResourceRefresherImpl<T : TealiumSerializable> internal constructor(
             isCached = true
             logger.trace(
                 LogCategory.RESOURCE_REFRESHER,
-                "Resource (%s) saved in the cache:\n %s", params.id, resource.asTealiumValue()
+                "Resource (%s) saved in the cache:\n %s", params.id, resource.asDataItem()
             )
         } catch (e: PersistenceException) {
             logger.error(

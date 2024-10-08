@@ -1,7 +1,7 @@
 package com.tealium.core.api.network
 
-import com.tealium.core.api.data.TealiumDeserializable
-import com.tealium.core.api.data.TealiumSerializable
+import com.tealium.core.api.data.DataItemConverter
+import com.tealium.core.api.data.DataItemConvertible
 import com.tealium.core.api.logger.AlternateLogger
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.internal.network.ResourceCacheImpl
@@ -29,18 +29,18 @@ class NetworkUtilities(
      * to fetch updates from.
      *
      * @param dataStore The [DataStore] to store the results in
-     * @param deserializer The [TealiumDeserializable] implementation for converting values to/from
+     * @param converter The [DataItemConverter] implementation for converting values to/from
      * @param parameters The configuration to control the [ResourceRefresher] behavior
      */
-    fun <T : TealiumSerializable> resourceRefresher(
+    fun <T : DataItemConvertible> resourceRefresher(
         dataStore: DataStore,
-        deserializer: TealiumDeserializable<T>,
+        converter: DataItemConverter<T>,
         parameters: ResourceRefresher.Parameters,
     ): ResourceRefresher<T> {
         return ResourceRefresherImpl(
             networkHelper,
             dataStore,
-            deserializer,
+            converter,
             parameters,
             logger
         )
@@ -49,15 +49,15 @@ class NetworkUtilities(
     /**
      * Creates a [ResourceCache]
      */
-    fun <T : TealiumSerializable> resourceCache(
+    fun <T : DataItemConvertible> resourceCache(
         id: String,
         dataStore: DataStore,
-        deserializer: TealiumDeserializable<T>,
+        converter: DataItemConverter<T>,
     ): ResourceCache<T> {
         return ResourceCacheImpl(
             dataStore,
             id,
-            deserializer,
+            converter,
         )
     }
 }

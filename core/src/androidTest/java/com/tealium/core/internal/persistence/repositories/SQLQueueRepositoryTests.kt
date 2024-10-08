@@ -4,7 +4,7 @@ import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TealiumDispatchType
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.misc.TimeFrameUtils.days
 import com.tealium.core.internal.persistence.DatabaseProvider
 import com.tealium.core.internal.persistence.DatabaseTestUtils
@@ -48,14 +48,14 @@ class SQLQueueRepositoryTests {
         dispatch1 = Dispatch.create(
             eventName = "dispatch1",
             type = TealiumDispatchType.Event,
-            bundle = TealiumBundle.create {
+            dataObject = DataObject.create {
                 put("key1", "string1")
             }
         )
         dispatch2 = Dispatch.create(
             eventName = "dispatch2",
             type = TealiumDispatchType.View,
-            bundle = TealiumBundle.create {
+            dataObject = DataObject.create {
                 put("key2", "string2")
             }
         )
@@ -129,7 +129,7 @@ class SQLQueueRepositoryTests {
         val dispatch3 = Dispatch.create(
             eventName = "dispatch3",
             type = TealiumDispatchType.View,
-            bundle = TealiumBundle.create {
+            dataObject = DataObject.create {
                 put("key3", "string3")
             }
         )
@@ -405,7 +405,7 @@ class SQLQueueRepositoryTests {
         val dispatch3 = Dispatch.create(
             eventName = "dispatch3",
             type = TealiumDispatchType.Event,
-            bundle = TealiumBundle.create {
+            dataObject = DataObject.create {
                 put("key1", "string1")
             }
         )

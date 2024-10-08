@@ -1,6 +1,6 @@
 package com.tealium.core.internal.persistence
 
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Subject
 import com.tealium.core.internal.persistence.repositories.ModulesRepository
@@ -32,7 +32,7 @@ class ModuleStoreProviderImplTests {
     private lateinit var keyValueRepositoryCreator: (DatabaseProvider, Long) -> SQLKeyValueRepository
 
     private lateinit var moduleStoreProviderImpl: ModuleStoreProviderImpl
-    private lateinit var onDataExpired: Subject<Map<Long, TealiumBundle>>
+    private lateinit var onDataExpired: Subject<Map<Long, DataObject>>
 
     @Before
     fun setUp() {
@@ -95,10 +95,10 @@ class ModuleStoreProviderImplTests {
             assertEquals("key2", expired[1])
         }
 
-        onDataExpired.onNext(mapOf(moduleId to TealiumBundle.create {
+        onDataExpired.onNext(mapOf(moduleId to DataObject.create {
             put("key1", "value1")
             put("key2", "value2")
-        }, moduleId + 1 to TealiumBundle.create {
+        }, moduleId + 1 to DataObject.create {
             put("key3", "value3")
         }))
     }

@@ -1,8 +1,8 @@
 package com.tealium.core.internal.persistence
 
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumDeserializable
-import com.tealium.core.api.data.TealiumValue
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.DataItemConverter
+import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.persistence.PersistenceException
@@ -15,13 +15,13 @@ import java.util.Queue
 
 class ModuleStore(
     private val keyValueRepository: KeyValueRepository,
-    private val onDataExpired: Observable<TealiumBundle> = Observables.publishSubject(),
-    onDataUpdated: Subject<TealiumBundle> = Observables.publishSubject(),
+    private val onDataExpired: Observable<DataObject> = Observables.publishSubject(),
+    onDataUpdated: Subject<DataObject> = Observables.publishSubject(),
     onDataRemoved: Subject<List<String>> = Observables.publishSubject(),
 ) : DataStore {
 
-    private val _onDataUpdated: Subject<TealiumBundle> = onDataUpdated
-    override val onDataUpdated: Observable<TealiumBundle>
+    private val _onDataUpdated: Subject<DataObject> = onDataUpdated
+    override val onDataUpdated: Observable<DataObject>
         get() = _onDataUpdated
 
     private val _onDataRemoved: Subject<List<String>> = onDataRemoved
@@ -37,13 +37,13 @@ class ModuleStore(
             val removals = edits.filterIsInstance(Edit.Remove::class.java)
 
             if (updates.isNotEmpty()) {
-                val bundle = TealiumBundle.create {
+                val dataObject = DataObject.create {
                     updates.forEach { put ->
                         put(put.key, put.value)
                     }
                 }
 
-                _onDataUpdated.onNext(bundle)
+                _onDataUpdated.onNext(dataObject)
             }
 
             if (removals.isNotEmpty()) {
@@ -53,23 +53,23 @@ class ModuleStore(
             }
         }
 
-    override fun get(key: String): TealiumValue? =
+    override fun get(key: String): DataItem? =
         keyValueRepository.get(key)
 
-    override fun <T> get(key: String, deserializer: TealiumDeserializable<T>): T? {
+    override fun <T> get(key: String, converter: DataItemConverter<T>): T? {
         return keyValueRepository.get(key)?.let {
-            deserializer.deserialize(it)
+            converter.convert(it)
         }
     }
 
-    override fun getAll(): TealiumBundle {
-        val bundleBuilder = TealiumBundle.Builder()
+    override fun getAll(): DataObject {
+        val dataObjectBuilder = DataObject.Builder()
 
         keyValueRepository.getAll().forEach { (key, value) ->
-            bundleBuilder.put(key, value)
+            dataObjectBuilder.put(key, value)
         }
 
-        return bundleBuilder.getBundle()
+        return dataObjectBuilder.build()
     }
 
     override fun keys(): List<String> =
@@ -78,7 +78,7 @@ class ModuleStore(
     override fun count(): Int =
         keyValueRepository.count()
 
-    override fun iterator(): Iterator<Map.Entry<String, TealiumValue>> =
+    override fun iterator(): Iterator<Map.Entry<String, DataItem>> =
         getAll().iterator()
 
     private class DataStorageEditor(
@@ -89,14 +89,14 @@ class ModuleStore(
         private var clear: Boolean = false
         private var edits: Queue<Edit> = LinkedList()
 
-        override fun put(key: String, value: TealiumValue, expiry: Expiry): DataStore.Editor =
+        override fun put(key: String, value: DataItem, expiry: Expiry): DataStore.Editor =
             apply {
                 edits.add(Edit.Put(key, value, expiry))
             }
 
-        override fun putAll(bundle: TealiumBundle, expiry: Expiry): DataStore.Editor = apply {
-            bundle.forEach { (key, value) ->
-                if (value != TealiumValue.NULL) {
+        override fun putAll(dataObject: DataObject, expiry: Expiry): DataStore.Editor = apply {
+            dataObject.forEach { (key, value) ->
+                if (value != DataItem.NULL) {
                     // Can't store nulls; ignore it.
                     edits.add(Edit.Put(key, value, expiry))
                 }
@@ -158,7 +158,7 @@ class ModuleStore(
     }
 
     private sealed class Edit {
-        class Put(val key: String, val value: TealiumValue, val expiry: Expiry) : Edit()
+        class Put(val key: String, val value: DataItem, val expiry: Expiry) : Edit()
         class Remove(val key: String) : Edit()
     }
 }

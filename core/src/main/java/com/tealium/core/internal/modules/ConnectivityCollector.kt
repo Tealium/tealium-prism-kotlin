@@ -6,7 +6,7 @@ import com.tealium.core.api.modules.Collector
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.network.Connectivity
 
 /**
@@ -18,8 +18,8 @@ class ConnectivityCollector(
     private val connectivity: Connectivity,
 ) : Collector {
 
-    override fun collect(): TealiumBundle {
-        return TealiumBundle.create {
+    override fun collect(): DataObject {
+        return DataObject.create {
             put(Dispatch.Keys.CONNECTION_TYPE, connectivity.connectionType().type)
         }
     }
@@ -33,7 +33,7 @@ class ConnectivityCollector(
         override val id: String
             get() = "Connectivity"
 
-        override fun create(context: TealiumContext, settings: TealiumBundle): Module {
+        override fun create(context: TealiumContext, settings: DataObject): Module {
             return ConnectivityCollector(context.network)
         }
     }

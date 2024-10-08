@@ -1,7 +1,7 @@
 package com.tealium.core.api.modules
 
 import com.tealium.core.api.Tealium
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 
 /**
  * The [Module] is the basis for extending functionality of the [Tealium] instance.
@@ -31,7 +31,7 @@ interface Module {
      * @param moduleSettings The latest set of [Module] Settings relevant to this module
      * @return `this` if the module should remain enabled; null if the module should be disabled
      */
-    fun updateSettings(moduleSettings: TealiumBundle): Module? {
+    fun updateSettings(moduleSettings: DataObject): Module? {
         return this
     }
 

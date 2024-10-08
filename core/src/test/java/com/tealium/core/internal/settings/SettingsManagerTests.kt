@@ -2,8 +2,8 @@ package com.tealium.core.internal.settings
 
 import android.app.Application
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumValue
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.logger.AlternateLogger
 import com.tealium.core.api.misc.ActivityManager
 import com.tealium.core.api.misc.TimeFrame
@@ -15,7 +15,7 @@ import com.tealium.core.api.network.ResourceRefresher
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.settings.CoreSettingsBuilder
-import com.tealium.core.internal.network.mockGetTealiumDeserializableSuccess
+import com.tealium.core.internal.network.mockGetDataItemConvertibleSuccess
 import com.tealium.tests.common.getDefaultConfig
 import io.mockk.Called
 import io.mockk.MockKAnnotations
@@ -46,7 +46,7 @@ class SettingsManagerTests {
     lateinit var mockNetworkHelper: NetworkHelper
 
     @RelaxedMockK
-    lateinit var mockCache: ResourceCache<TealiumBundle>
+    lateinit var mockCache: ResourceCache<DataObject>
 
     @RelaxedMockK
     lateinit var mockLogger: AlternateLogger
@@ -158,7 +158,7 @@ class SettingsManagerTests {
         config.useRemoteSettings = true
         val observer = mockk<(SdkSettings) -> Unit>(relaxed = true)
         mockRemoteResponse(
-            configureCoreSettingsBundle {
+            configureCoreSettingsDataObject {
                 setDataSource("data_source")
             }
         )
@@ -181,7 +181,7 @@ class SettingsManagerTests {
         config.useRemoteSettings = true
         val observer = mockk<(SdkSettings) -> Unit>(relaxed = true)
         mockRemoteResponse(
-            configureCoreSettingsBundle {
+            configureCoreSettingsDataObject {
                 setDataSource("data_source")
             }
         )
@@ -204,17 +204,17 @@ class SettingsManagerTests {
         config.useRemoteSettings = true
         val observer = mockk<(SdkSettings) -> Unit>(relaxed = true)
         mockAssetResponse(
-            configureCoreSettingsBundle {
+            configureCoreSettingsDataObject {
                 setDataSource("asset")
                 setBatchSize(1)
             }
         )
-        every { mockCache.resource } returns configureCoreSettingsBundle {
+        every { mockCache.resource } returns configureCoreSettingsDataObject {
             setDataSource("cache")
             setWifiOnly(true)
         }
         mockRemoteResponse(
-            configureCoreSettingsBundle {
+            configureCoreSettingsDataObject {
                 setDataSource("remote")
                 setBatterySaver(true)
             }
@@ -239,12 +239,12 @@ class SettingsManagerTests {
 
     @Test
     fun mergeSettings_Ignores_Null_Or_Empty_Settings() {
-        val localSettings = configureCoreSettingsBundle {
+        val localSettings = configureCoreSettingsDataObject {
             setDataSource("test")
         }
 
         val mergedSettings =
-            SettingsManager.mergeSettings(localSettings, null, TealiumBundle.EMPTY_BUNDLE)
+            SettingsManager.mergeSettings(localSettings, null, DataObject.EMPTY_OBJECT)
 
         assertTrue(mergedSettings.moduleSettings.size == 1)
         assertTrue(mergedSettings.moduleSettings.containsKey("core"))
@@ -252,14 +252,14 @@ class SettingsManagerTests {
     }
 
     @Test
-    fun mergeSettings_Returns_Bundle_Merging_All_Settings() {
-        val settings1 = configureCoreSettingsBundle {
+    fun mergeSettings_Returns_DataObject_Merging_All_Settings() {
+        val settings1 = configureCoreSettingsDataObject {
             setDataSource("testSource")
         }
-        val settings2 = configureCoreSettingsBundle {
+        val settings2 = configureCoreSettingsDataObject {
             setBatterySaver(true)
         }
-        val settings3 = configureCoreSettingsBundle {
+        val settings3 = configureCoreSettingsDataObject {
             setWifiOnly(true)
         }
 
@@ -273,14 +273,14 @@ class SettingsManagerTests {
     }
 
     @Test
-    fun mergeSettings_Returns_Bundle_Replacing_Clashes_With_Higher_Priority_Values() {
-        val settings1 = configureCoreSettingsBundle {
+    fun mergeSettings_Returns_DataObject_Replacing_Clashes_With_Higher_Priority_Values() {
+        val settings1 = configureCoreSettingsDataObject {
             setDataSource("testSource")
         }
-        val settings2 = configureCoreSettingsBundle {
+        val settings2 = configureCoreSettingsDataObject {
             setDataSource("remoteSource")
         }
-        val settings3 = configureCoreSettingsBundle {
+        val settings3 = configureCoreSettingsDataObject {
             setDataSource("programmaticSource")
         }
 
@@ -292,8 +292,8 @@ class SettingsManagerTests {
     }
 
     @Test
-    fun mergeSettings_Returns_Bundle_With_All_Modules_From_All_Settings() {
-        val settings1 = TealiumBundle.fromString(
+    fun mergeSettings_Returns_DataObject_With_All_Modules_From_All_Settings() {
+        val settings1 = DataObject.fromString(
             """
             {
                "module1" : { "key": "value" },
@@ -301,7 +301,7 @@ class SettingsManagerTests {
             }
         """
         )
-        val settings2 = TealiumBundle.fromString(
+        val settings2 = DataObject.fromString(
             """
             {
                "module3" : { "key": "value" },
@@ -309,7 +309,7 @@ class SettingsManagerTests {
             }
         """
         )
-        val settings3 = TealiumBundle.fromString(
+        val settings3 = DataObject.fromString(
             """
             {
                "module5" : { "key": "value" },
@@ -326,21 +326,21 @@ class SettingsManagerTests {
     }
 
     @Test
-    fun mergeSettings_Returns_Bundle_Merging_First_Level_Only() {
-        val settings1 = TealiumBundle.fromString("""
+    fun mergeSettings_Returns_DataObject_Merging_First_Level_Only() {
+        val settings1 = DataObject.fromString("""
             {
                 "module1" : { 
-                    "bundle" : { 
+                    "object" : { 
                         "sub-key-1": 1
                     }
                 }
             }
         """)
-        val settings2 = TealiumBundle.fromString("""
+        val settings2 = DataObject.fromString("""
             {
                 "module1" : { 
                     "key": "value",
-                    "bundle" : { 
+                    "object" : { 
                         "sub-key-2": 2
                     }
                 }
@@ -350,10 +350,10 @@ class SettingsManagerTests {
         val merged = SettingsManager.mergeSettings(settings1, settings2)
 
         val module1 = merged.moduleSettings["module1"]!!
-        val subBundle = module1.getBundle("bundle")!!
+        val subDataObject = module1.getDataObject("object")!!
         assertEquals("value", module1.getString("key"))
-        assertEquals(2, subBundle.getInt("sub-key-2"))
-        assertNull(subBundle.get("sub-key-1"))
+        assertEquals(2, subDataObject.getInt("sub-key-2"))
+        assertNull(subDataObject.get("sub-key-1"))
     }
 
     @Test
@@ -364,15 +364,15 @@ class SettingsManagerTests {
     }
 
     @Test
-    fun loadFromAsset_ReturnsBundle_When_ValidFile() {
+    fun loadFromAsset_ReturnsDataObject_When_ValidFile() {
         config.localSdkSettingsFileName = "validSettings.json"
 
         val result = SettingsManager.loadFromAsset(config)
 
         assertNotNull(result)
         assertEquals(
-            TealiumValue.int(6),
-            result?.get("core")?.getBundle()?.get("batch_size")
+            DataItem.int(6),
+            result?.get("core")?.getDataObject()?.get("batch_size")
         )
     }
 
@@ -389,7 +389,7 @@ class SettingsManagerTests {
     fun shouldRefresh_Emits_When_AppStatus_Is_Init() {
         val appStatus = Observables.publishSubject<ActivityManager.ApplicationStatus>()
         val observer = mockk<(Unit) -> Unit>(relaxed = true)
-        val refresher = mockk<ResourceRefresher<TealiumBundle>>()
+        val refresher = mockk<ResourceRefresher<DataObject>>()
         every { refresher.shouldRefresh } returns true
 
         SettingsManager.shouldRefresh(appStatus, refresher)
@@ -405,7 +405,7 @@ class SettingsManagerTests {
     fun shouldRefresh_Emits_When_AppStatus_Is_Foregrounded() {
         val appStatus = Observables.publishSubject<ActivityManager.ApplicationStatus>()
         val observer = mockk<(Unit) -> Unit>(relaxed = true)
-        val refresher = mockk<ResourceRefresher<TealiumBundle>>()
+        val refresher = mockk<ResourceRefresher<DataObject>>()
         every { refresher.shouldRefresh } returns true
 
         SettingsManager.shouldRefresh(appStatus, refresher)
@@ -421,7 +421,7 @@ class SettingsManagerTests {
     fun shouldRefresh_Does_Not_Emit_When_AppStatus_Is_Backgrounded() {
         val appStatus = Observables.publishSubject<ActivityManager.ApplicationStatus>()
         val observer = mockk<(Unit) -> Unit>(relaxed = true)
-        val refresher = mockk<ResourceRefresher<TealiumBundle>>()
+        val refresher = mockk<ResourceRefresher<DataObject>>()
         every { refresher.shouldRefresh } returns true
 
         SettingsManager.shouldRefresh(appStatus, refresher)
@@ -437,7 +437,7 @@ class SettingsManagerTests {
     fun shouldRefresh_Does_Not_Emit_When_Refresher_Should_Not_Refresh() {
         val appStatus = Observables.publishSubject<ActivityManager.ApplicationStatus>()
         val observer = mockk<(Unit) -> Unit>(relaxed = true)
-        val refresher = mockk<ResourceRefresher<TealiumBundle>>()
+        val refresher = mockk<ResourceRefresher<DataObject>>()
         every { refresher.shouldRefresh } returns false
 
         SettingsManager.shouldRefresh(appStatus, refresher)
@@ -497,7 +497,7 @@ class SettingsManagerTests {
     private fun createSettingsManager(
         config: TealiumConfig = this.config,
         mockNetworkHelper: NetworkHelper = this.mockNetworkHelper,
-        mockCache: ResourceCache<TealiumBundle> = this.mockCache,
+        mockCache: ResourceCache<DataObject> = this.mockCache,
         mockLogger: AlternateLogger = this.mockLogger,
     ): SettingsManager {
         settingsManager = SettingsManager(
@@ -513,23 +513,23 @@ class SettingsManagerTests {
     /**
      * Configures the CoreSettings in
      */
-    private fun configureCoreSettingsBundle(block: CoreSettingsBuilder.() -> CoreSettingsBuilder): TealiumBundle {
+    private fun configureCoreSettingsDataObject(block: CoreSettingsBuilder.() -> CoreSettingsBuilder): DataObject {
         return configureSdkWithCoreSettings(block)
-            .asTealiumValue()
-            .getBundle()!!
+            .asDataItem()
+            .getDataObject()!!
     }
 
     /**
      * Configures the CoreSettings in
      */
-    private fun configureModuleSettingsBundle(
+    private fun configureModuleSettingsDataObject(
         id: String,
-        block: TealiumBundle.Builder.() -> TealiumBundle.Builder
-    ): TealiumBundle {
+        block: DataObject.Builder.() -> DataObject.Builder
+    ): DataObject {
         return configureSdkSettings {
             configureModule(id, block)
-        }.asTealiumValue()
-            .getBundle()!!
+        }.asDataItem()
+            .getDataObject()!!
     }
 
     /**
@@ -544,8 +544,8 @@ class SettingsManagerTests {
     /**
      * Configures the CoreSettings in
      */
-    private fun configureSdkSettingsBundle(block: SdkSettingsBuilder.() -> SdkSettingsBuilder): TealiumBundle {
-        return block(SdkSettingsBuilder()).buildBundle()
+    private fun configureSdkSettingsDataObject(block: SdkSettingsBuilder.() -> SdkSettingsBuilder): DataObject {
+        return block(SdkSettingsBuilder()).buildDataObject()
     }
 
     /**
@@ -556,26 +556,26 @@ class SettingsManagerTests {
     }
 
     private class SdkSettingsBuilder {
-        private val settings = mutableMapOf<String, TealiumBundle>()
+        private val settings = mutableMapOf<String, DataObject>()
 
         fun configureModule(
             id: String,
-            block: TealiumBundle.Builder.() -> TealiumBundle.Builder
+            block: DataObject.Builder.() -> DataObject.Builder
         ): SdkSettingsBuilder = apply {
-            val moduleSettings = block(TealiumBundle.Builder()).getBundle()
+            val moduleSettings = block(DataObject.Builder()).build()
 
             settings[id] = moduleSettings
         }
 
         fun configureModule(
             id: String,
-            bundle: TealiumBundle
+            dataObject: DataObject
         ): SdkSettingsBuilder = apply {
-            settings[id] = bundle
+            settings[id] = dataObject
         }
 
-        fun buildBundle(): TealiumBundle {
-            return TealiumBundle.create {
+        fun buildDataObject(): DataObject {
+            return DataObject.create {
                 settings.forEach {
                     put(it.key, it.value)
                 }
@@ -590,25 +590,25 @@ class SettingsManagerTests {
     /**
      * Mocks the response from [SettingsManager.loadFromAsset]
      *
-     * If omitted, then [bundle] will return the bundle generated by the default SdkSettings.
+     * If omitted, then [dataObject] will return the [DataObject] generated by the default SdkSettings.
      */
     private fun mockAssetResponse(
-        bundle: TealiumBundle? = SdkSettings().asTealiumValue().getBundle()!!
+        dataObject: DataObject? = SdkSettings().asDataItem().getDataObject()!!
     ) {
         mockkObject(SettingsManager)
-        every { SettingsManager.loadFromAsset(any()) } returns bundle
+        every { SettingsManager.loadFromAsset(any()) } returns dataObject
     }
 
     /**
      * Mocks the response from a remote source
      *
-     * If omitted, then [bundle] will return the bundle generated by the default SdkSettings.
+     * If omitted, then [dataObject] will return the [DataObject] generated by the default SdkSettings.
      */
     private fun mockRemoteResponse(
-        bundle: TealiumBundle = SdkSettings().asTealiumValue().getBundle()!!,
+        dataObject: DataObject = SdkSettings().asDataItem().getDataObject()!!,
     ) {
-        mockNetworkHelper.mockGetTealiumDeserializableSuccess(
-            bundle, TealiumBundle.BundleDeserializer
+        mockNetworkHelper.mockGetDataItemConvertibleSuccess(
+            dataObject, DataObject.Converter
         )
     }
 }

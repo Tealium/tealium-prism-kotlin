@@ -1,9 +1,9 @@
 package com.tealium.core.api.logger
 
 import android.util.Log
-import com.tealium.core.api.data.TealiumDeserializable
-import com.tealium.core.api.data.TealiumSerializable
-import com.tealium.core.api.data.TealiumValue
+import com.tealium.core.api.data.DataItemConverter
+import com.tealium.core.api.data.DataItemConvertible
+import com.tealium.core.api.data.DataItem
 import java.util.Locale
 
 /**
@@ -12,7 +12,7 @@ import java.util.Locale
  *
  * @property level The integer value associated with the log level, used for priority comparison.
  */
-enum class LogLevel(val level: Int) : TealiumSerializable {
+enum class LogLevel(val level: Int) : DataItemConvertible {
     TRACE(Log.VERBOSE),
     DEBUG(Log.DEBUG),
     INFO(Log.INFO),
@@ -20,13 +20,13 @@ enum class LogLevel(val level: Int) : TealiumSerializable {
     ERROR(Log.ERROR),
     SILENT(Integer.MAX_VALUE);
 
-    override fun asTealiumValue(): TealiumValue {
-        return TealiumValue.string(this.name.lowercase())
+    override fun asDataItem(): DataItem {
+        return DataItem.string(this.name.lowercase())
     }
 
-    object Deserializer : TealiumDeserializable<LogLevel> {
-        override fun deserialize(value: TealiumValue): LogLevel {
-            return when (value.getString()?.lowercase(Locale.ROOT)) {
+    object Converter : DataItemConverter<LogLevel> {
+        override fun convert(dataItem: DataItem): LogLevel {
+            return when (dataItem.getString()?.lowercase(Locale.ROOT)) {
                 "trace" -> TRACE
                 "debug" -> DEBUG
                 "info" -> INFO

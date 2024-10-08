@@ -5,9 +5,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.tealium.core.api.misc.Environment
 import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.persistence.Expiry
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumList
-import com.tealium.core.api.data.TealiumValue
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.DataList
+import com.tealium.core.api.data.DataItem
 import com.tealium.core.internal.persistence.DatabaseProvider
 import com.tealium.core.internal.persistence.InMemoryDatabaseProvider
 import com.tealium.core.internal.persistence.getTimestamp
@@ -27,7 +27,7 @@ class SQLKeyValueRepositoryTests {
     private val module1 = TestModule("module1")
     private var module2Id: Long = -1
     private val module2 = TestModule("module2")
-    private val testBundle = TealiumBundle.create {
+    private val dataObject = DataObject.create {
         put("string", "value")
         put("int", 1)
         put("long", 10L)
@@ -59,7 +59,7 @@ class SQLKeyValueRepositoryTests {
     fun count_Returns_ItemCount() {
         val storage = getEmptyStorage(module1Id)
 
-        storage.upsert("key", TealiumValue.convert("value"), Expiry.SESSION)
+        storage.upsert("key", DataItem.convert("value"), Expiry.SESSION)
 
         assertEquals(1, storage.count())
     }
@@ -69,7 +69,7 @@ class SQLKeyValueRepositoryTests {
         val storage1 = getEmptyStorage(module1Id)
         val storage2 = getEmptyStorage(module2Id)
 
-        storage1.upsert("key", TealiumValue.convert("value"), Expiry.SESSION)
+        storage1.upsert("key", DataItem.convert("value"), Expiry.SESSION)
 
         assertEquals(1, storage1.count())
         storage2.assertEmpty()
@@ -80,7 +80,7 @@ class SQLKeyValueRepositoryTests {
         val storage = getEmptyStorage(module1Id)
         assertTrue(storage.keys().isEmpty())
 
-        storage.upsert("key", TealiumValue.convert("value"), Expiry.SESSION)
+        storage.upsert("key", DataItem.convert("value"), Expiry.SESSION)
 
         assertEquals(1, storage.keys().count())
         assertEquals("key", storage.keys().first())
@@ -93,8 +93,8 @@ class SQLKeyValueRepositoryTests {
         assertTrue(storage1.keys().isEmpty())
         assertTrue(storage2.keys().isEmpty())
 
-        storage1.upsert("key1", TealiumValue.convert("value"), Expiry.SESSION)
-        storage2.upsert("key2", TealiumValue.convert("value"), Expiry.SESSION)
+        storage1.upsert("key1", DataItem.convert("value"), Expiry.SESSION)
+        storage2.upsert("key2", DataItem.convert("value"), Expiry.SESSION)
 
         assertEquals(1, storage1.keys().count())
         assertEquals(1, storage2.keys().count())
@@ -106,7 +106,7 @@ class SQLKeyValueRepositoryTests {
     fun get_Returns_StringValue() {
         val storage = getEmptyStorage(module1Id)
 
-        storage.upsert("key", TealiumValue.convert("value"), Expiry.SESSION)
+        storage.upsert("key", DataItem.convert("value"), Expiry.SESSION)
 
         assertEquals("value", storage.get("key")?.value)
     }
@@ -115,7 +115,7 @@ class SQLKeyValueRepositoryTests {
     fun get_Returns_IntValue() {
         val storage = getEmptyStorage(module1Id)
 
-        storage.upsert("key", TealiumValue.convert(10), Expiry.SESSION)
+        storage.upsert("key", DataItem.convert(10), Expiry.SESSION)
 
         assertEquals(10, storage.get("key")?.value)
     }
@@ -124,8 +124,8 @@ class SQLKeyValueRepositoryTests {
     fun get_Returns_LongValue() {
         val storage = getEmptyStorage(module1Id)
 
-        storage.upsert("key", TealiumValue.convert(100L), Expiry.SESSION)
-        storage.upsert("max", TealiumValue.convert(Long.MAX_VALUE), Expiry.SESSION)
+        storage.upsert("key", DataItem.convert(100L), Expiry.SESSION)
+        storage.upsert("max", DataItem.convert(Long.MAX_VALUE), Expiry.SESSION)
 
         assertEquals(100, storage.get("key")?.value)
         assertEquals(Long.MAX_VALUE, storage.get("max")?.value)
@@ -135,9 +135,22 @@ class SQLKeyValueRepositoryTests {
     fun get_Returns_DoubleValue() {
         val storage = getEmptyStorage(module1Id)
 
-        storage.upsert("key", TealiumValue.convert(100.100), Expiry.SESSION)
+        storage.upsert("key", DataItem.convert(100.100), Expiry.SESSION)
 
         assertEquals(100.100, storage.get("key")?.value)
+    }
+
+    @Test
+    fun get_Returns_UnsupportedDoubleValue_As_Strings() {
+        val storage = getEmptyStorage(module1Id)
+
+        storage.upsert("nan", TealiumValue.double(Double.NaN), Expiry.SESSION)
+        storage.upsert("inf", TealiumValue.double(Double.POSITIVE_INFINITY), Expiry.SESSION)
+        storage.upsert("-inf", TealiumValue.double(Double.NEGATIVE_INFINITY), Expiry.SESSION)
+
+        assertEquals("NaN", storage.get("nan")?.value)
+        assertEquals("Infinity", storage.get("inf")?.value)
+        assertEquals("-Infinity", storage.get("-inf")?.value)
     }
 
     @Test
@@ -145,14 +158,14 @@ class SQLKeyValueRepositoryTests {
         val storage = getEmptyStorage(module1Id)
 
         storage.upsert(
-            "key", TealiumValue.convert(
+            "key", DataItem.convert(
                 arrayOf(1, 2, 3)
             ), Expiry.SESSION
         )
 
         assertArrayEquals(
             arrayOf(1, 2, 3),
-            (storage.get("key")?.value as TealiumList)
+            (storage.get("key")?.value as DataList)
                 .map { it.getInt() }
                 .toTypedArray()
         )
@@ -163,48 +176,48 @@ class SQLKeyValueRepositoryTests {
         val storage = getEmptyStorage(module1Id)
 
         storage.upsert(
-            "key", TealiumValue.convert(
+            "key", DataItem.convert(
                 arrayOf(1, "", true)
             ), Expiry.SESSION
         )
 
         assertArrayEquals(
             arrayOf(1, "", true),
-            (storage.get("key")?.value as TealiumList)
+            (storage.get("key")?.value as DataList)
                 .map { it.value }
                 .toTypedArray()
         )
     }
 
     @Test
-    fun get_Returns_BundleValue() {
+    fun get_Returns_DataObjectValue() {
         val storage = getEmptyStorage(module1Id)
 
-        storage.upsert("key", TealiumValue.convert(testBundle), Expiry.SESSION)
-        val storedBundle = storage.get("key")?.getBundle()!!
+        storage.upsert("key", DataItem.convert(dataObject), Expiry.SESSION)
+        val storedDataObject = storage.get("key")?.getDataObject()!!
 
-        assertEquals("value", storedBundle.getString("string"))
-        assertEquals(1, storedBundle.getInt("int"))
-        assertEquals(10L, storedBundle.getLong("long"))
-        assertEquals(100.1, storedBundle.getDouble("double"))
+        assertEquals("value", storedDataObject.getString("string"))
+        assertEquals(1, storedDataObject.getInt("int"))
+        assertEquals(10L, storedDataObject.getLong("long"))
+        assertEquals(100.1, storedDataObject.getDouble("double"))
     }
 
     @Test
     fun getAll_ReturnsAll_Values() {
-        val storage = getPrepopulatedStorage(module1Id, populatedWith = testBundle)
+        val storage = getPrepopulatedStorage(module1Id, populatedWith = dataObject)
 
-        val bundle = storage.getAll()
-        assertEquals("value", bundle.get("string")?.value)
-        assertEquals(1, bundle.get("int")?.value)
-        assertEquals(10, bundle.get("long")?.value)
-        assertEquals(10L, bundle.get("long")?.getLong())
-        assertEquals(100.1, bundle.get("double")?.value)
+        val dataObject = storage.getAll()
+        assertEquals("value", dataObject.get("string")?.value)
+        assertEquals(1, dataObject.get("int")?.value)
+        assertEquals(10, dataObject.get("long")?.value)
+        assertEquals(10L, dataObject.get("long")?.getLong())
+        assertEquals(100.1, dataObject.get("double")?.value)
     }
 
     @Test
     fun clear_RemovesAll_StoredData() {
-        val storage = getPrepopulatedStorage(module1Id, populatedWith = testBundle)
-        assertEquals(testBundle.count(), storage.count())
+        val storage = getPrepopulatedStorage(module1Id, populatedWith = dataObject)
+        assertEquals(dataObject.count(), storage.count())
 
         storage.clear()
 
@@ -213,20 +226,20 @@ class SQLKeyValueRepositoryTests {
 
     @Test
     fun clear_RemovesOnly_SpecifiedModuleStoredData() {
-        val storage1 = getPrepopulatedStorage(module1Id, populatedWith = testBundle)
-        val storage2 = getPrepopulatedStorage(module2Id, populatedWith = testBundle)
+        val storage1 = getPrepopulatedStorage(module1Id, populatedWith = dataObject)
+        val storage2 = getPrepopulatedStorage(module2Id, populatedWith = dataObject)
 
         storage1.clear()
 
         storage1.assertEmpty()
-        assertEquals(testBundle.count(), storage2.count())
+        assertEquals(dataObject.count(), storage2.count())
     }
 
     @Test
     fun delete_Removes_StoredData() {
         val storage = getPrepopulatedStorage(module1Id)
 
-        storage.prepopulate(testBundle)
+        storage.prepopulate(dataObject)
         storage.get("string").assertNotNull()
 
         storage.delete("string")
@@ -264,11 +277,11 @@ class SQLKeyValueRepositoryTests {
 
         storage.upsert(
             "expired",
-            TealiumValue.string("expired"),
+            DataItem.string("expired"),
             Expiry.afterEpochTime(getTimestamp() - 10000)
         )
         storage.upsert(
-            "not_expired", TealiumValue.string("not_expired"),
+            "not_expired", DataItem.string("not_expired"),
             Expiry.afterEpochTime(getTimestamp() + 10000)
         )
 
@@ -282,11 +295,11 @@ class SQLKeyValueRepositoryTests {
 
         storage.upsert(
             "expired",
-            TealiumValue.string("expired"),
+            DataItem.string("expired"),
             Expiry.afterEpochTime(getTimestamp() - 10000)
         )
         storage.upsert(
-            "not_expired", TealiumValue.string("not_expired"),
+            "not_expired", DataItem.string("not_expired"),
             Expiry.afterEpochTime(getTimestamp() + 10000)
         )
 
@@ -302,11 +315,11 @@ class SQLKeyValueRepositoryTests {
 
         storage.upsert(
             "expired",
-            TealiumValue.string("expired"),
+            DataItem.string("expired"),
             Expiry.afterEpochTime(getTimestamp() - 10000)
         )
         storage.upsert(
-            "not_expired", TealiumValue.string("not_expired"),
+            "not_expired", DataItem.string("not_expired"),
             Expiry.afterEpochTime(getTimestamp() + 10000)
         )
 
@@ -319,11 +332,11 @@ class SQLKeyValueRepositoryTests {
 
         storage.upsert(
             "expired",
-            TealiumValue.string("expired"),
+            DataItem.string("expired"),
             Expiry.afterEpochTime(getTimestamp() - 10000)
         )
         storage.upsert(
-            "not_expired", TealiumValue.string("not_expired"),
+            "not_expired", DataItem.string("not_expired"),
             Expiry.afterEpochTime(getTimestamp() + 10000)
         )
 
@@ -338,7 +351,7 @@ class SQLKeyValueRepositoryTests {
         val storage = getPrepopulatedStorage(module1Id)
 
         storage.upsert(
-            "new_string", TealiumValue.string("new_value"),
+            "new_string", DataItem.string("new_value"),
             Expiry.FOREVER
         )
 
@@ -352,7 +365,7 @@ class SQLKeyValueRepositoryTests {
         val storage = getPrepopulatedStorage(module1Id)
 
         storage.upsert(
-            "string", TealiumValue.string("new_value"),
+            "string", DataItem.string("new_value"),
             Expiry.FOREVER
         )
 
@@ -381,7 +394,7 @@ class SQLKeyValueRepositoryTests {
 
         storage.upsert(
             "expired",
-            TealiumValue.string("expired"),
+            DataItem.string("expired"),
             Expiry.afterEpochTime(getTimestamp() - 10000)
         )
 
@@ -394,8 +407,8 @@ class SQLKeyValueRepositoryTests {
 
         try {
             storage.transactionally {
-                it.upsert("key1", TealiumValue.string("value"), Expiry.FOREVER)
-                it.upsert("key2", TealiumValue.string("value"), Expiry.FOREVER)
+                it.upsert("key1", DataItem.string("value"), Expiry.FOREVER)
+                it.upsert("key2", DataItem.string("value"), Expiry.FOREVER)
 
                 throw SQLException("Failure")
             }
@@ -430,7 +443,7 @@ class SQLKeyValueRepositoryTests {
 
     private fun getPrepopulatedStorage(
         moduleId: Long,
-        populatedWith: TealiumBundle = testBundle,
+        populatedWith: DataObject = dataObject,
         expiry: Expiry = Expiry.SESSION
     ): SQLKeyValueRepository {
         return getEmptyStorage(moduleId).also {
@@ -443,29 +456,29 @@ class SQLKeyValueRepositoryTests {
     }
 
     private fun KeyValueRepository.prepopulate(
-        bundle: TealiumBundle,
+        dataObject: DataObject,
         expiry: Expiry = Expiry.SESSION
     ) {
         transactionally {
-            bundle.forEach {
+            dataObject.forEach {
                 upsert(it.key, it.value, expiry)
             }
         }
 
-        assertEquals(bundle.count(), count())
+        assertEquals(dataObject.count(), count())
     }
 
-    private fun TealiumValue?.assertNull() {
+    private fun DataItem?.assertNull() {
         assertNull(this)
     }
 
-    private fun TealiumValue?.assertNotNull() {
+    private fun DataItem?.assertNotNull() {
         assertNotNull(this)
     }
 
-    private fun TealiumValue?.assertValueEquals(expected: Any) {
+    private fun DataItem?.assertValueEquals(expected: Any) {
         if (this == null) {
-            fail("TealiumValue was null")
+            fail("DataItem was null")
         }
         assertEquals(expected, this!!.value)
     }

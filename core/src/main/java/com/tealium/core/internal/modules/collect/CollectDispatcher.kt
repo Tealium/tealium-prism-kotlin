@@ -2,8 +2,8 @@ package com.tealium.core.internal.modules.collect
 
 import com.tealium.core.BuildConfig
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumList
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.DataList
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.modules.Dispatcher
@@ -115,7 +115,7 @@ class CollectDispatcher(
         onProcessed: TealiumCallback<List<Dispatch>>
     ): Disposable {
         collectDispatcherSettings.profile?.let { profile ->
-            dispatch.addAll(TealiumBundle.create {
+            dispatch.addAll(DataObject.create {
                 put(Dispatch.Keys.TEALIUM_PROFILE, profile)
             })
         }
@@ -125,8 +125,8 @@ class CollectDispatcher(
         }
     }
 
-    override fun updateSettings(moduleSettings: TealiumBundle): Module? {
-        val newSettings = CollectDispatcherSettings.fromBundle(moduleSettings) ?: return null
+    override fun updateSettings(moduleSettings: DataObject): Module? {
+        val newSettings = CollectDispatcherSettings.fromDataObject(moduleSettings) ?: return null
 
         collectDispatcherSettings = newSettings
         return this
@@ -143,17 +143,17 @@ class CollectDispatcher(
             visitorId: String,
             account: String,
             profile: String
-        ): TealiumBundle? {
-            return compressBundles(dispatches.map { dispatch ->
+        ): DataObject? {
+            return compressDataObjects(dispatches.map { dispatch ->
                 dispatch.payload()
             }, visitorId, account, profile)
         }
 
         /**
-         * Compresses a collection of TealiumBundles into a new JSON format where known keys are
+         * Compresses a collection of [DataObject]s into a new JSON format where known keys are
          * in a "shared" sub key, and the events have common data removed and placed in an "events" sub key.
          *
-         * The [bundles] are expected to contain events associated to only a single Visitor Id.
+         * The [dataObjects] are expected to contain events associated to only a single Visitor Id.
          *
          * The end result is a JSON of the following format:
          * ```json
@@ -169,24 +169,24 @@ class CollectDispatcher(
          * }
          * ```
          */
-        fun compressBundles(
-            bundles: List<TealiumBundle>,
+        fun compressDataObjects(
+            dataObjects: List<DataObject>,
             visitorId: String,
             account: String,
             profile: String
-        ): TealiumBundle? {
-            if (bundles.isEmpty()) return null
+        ): DataObject? {
+            if (dataObjects.isEmpty()) return null
 
-            val compressed = TealiumBundle.Builder()
-            val shared = TealiumBundle.create {
+            val compressed = DataObject.Builder()
+            val shared = DataObject.create {
                 put(Dispatch.Keys.TEALIUM_ACCOUNT, account)
                 put(Dispatch.Keys.TEALIUM_PROFILE, profile)
                 put(Dispatch.Keys.TEALIUM_VISITOR_ID, visitorId)
             }
 
-            val events = TealiumList.create {
-                bundles.forEach { bundle ->
-                    add(bundle.copy {
+            val events = DataList.create {
+                dataObjects.forEach { dataObject ->
+                    add(dataObject.copy {
                         remove(Dispatch.Keys.TEALIUM_ACCOUNT)
                         remove(Dispatch.Keys.TEALIUM_PROFILE)
                         remove(Dispatch.Keys.TEALIUM_VISITOR_ID)
@@ -196,13 +196,13 @@ class CollectDispatcher(
 
             return compressed.put(KEY_SHARED, shared)
                 .put(KEY_EVENTS, events)
-                .getBundle()
+                .build()
         }
 
     }
 
     class Factory(
-        private val settings: TealiumBundle? = null
+        private val settings: DataObject? = null
     ) : ModuleFactory {
 
         constructor(builder: CollectDispatcherSettingsBuilder) : this(builder.build())
@@ -210,10 +210,10 @@ class CollectDispatcher(
         override val id: String
             get() = moduleName
 
-        override fun getEnforcedSettings(): TealiumBundle? = settings
+        override fun getEnforcedSettings(): DataObject? = settings
 
-        override fun create(context: TealiumContext, settings: TealiumBundle): Module? {
-            val collectDispatcherSettings = CollectDispatcherSettings.fromBundle(settings) ?: return null
+        override fun create(context: TealiumContext, settings: DataObject): Module? {
+            val collectDispatcherSettings = CollectDispatcherSettings.fromDataObject(settings) ?: return null
 
             return CollectDispatcher(
                 context,

@@ -1,7 +1,7 @@
 package com.tealium.core.internal.settings
 
 import com.tealium.core.api.barriers.ScopedBarrier
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.misc.TimeFrame
 import com.tealium.core.api.misc.TimeFrameUtils.days
@@ -9,7 +9,7 @@ import com.tealium.core.api.misc.TimeFrameUtils.minutes
 import com.tealium.core.api.misc.TimeFrameUtils.seconds
 import com.tealium.core.api.settings.CoreSettings
 import com.tealium.core.api.transform.ScopedTransformation
-import com.tealium.core.internal.misc.Deserializers
+import com.tealium.core.internal.misc.Converters
 
 class CoreSettingsImpl(
     override val logLevel: LogLevel = DEFAULT_LOG_LEVEL,
@@ -55,11 +55,11 @@ class CoreSettingsImpl(
 
         const val MAX_BATCH_SIZE = 10
 
-        fun fromBundle(settings: TealiumBundle): CoreSettingsImpl {
+        fun fromDataObject(settings: DataObject): CoreSettingsImpl {
             val dataSource = settings.getString(KEY_DATA_SOURCE)
             val visitorIdentityKey = settings.getString(KEY_VISITOR_IDENTITY_KEY)
 
-            val logs = settings.get(KEY_LOG_LEVEL, LogLevel.Deserializer) ?: DEFAULT_LOG_LEVEL
+            val logs = settings.get(KEY_LOG_LEVEL, LogLevel.Converter) ?: DEFAULT_LOG_LEVEL
             val batchSize =
                 settings.getInt(KEY_BATCH_SIZE)?.coerceAtMost(MAX_BATCH_SIZE) ?: DEFAULT_BATCH_SIZE
             val maxQueueSize = settings.getInt(KEY_MAX_QUEUE_SIZE) ?: DEFAULT_MAX_QUEUE_SIZE
@@ -73,12 +73,12 @@ class CoreSettingsImpl(
                 ?: DEFAULT_DEEPLINK_TRACKING_ENABLED
             val disableLibrary = settings.getBoolean(KEY_DISABLE_LIBRARY) ?: DEFAULT_DISABLE_LIBRARY
 
-            val barriers = settings.getList(KEY_BARRIERS)
-                ?.mapNotNull(Deserializers.ScopedBarrierDeserializable::deserialize)
+            val barriers = settings.getDataList(KEY_BARRIERS)
+                ?.mapNotNull(Converters.ScopedBarrierConverter::convert)
                 ?.toSet() ?: emptySet()
 
-            val transformations = settings.getList(KEY_TRANSFORMATIONS)
-                ?.mapNotNull(Deserializers.ScopedTransformationDeserializable::deserialize)
+            val transformations = settings.getDataList(KEY_TRANSFORMATIONS)
+                ?.mapNotNull(Converters.ScopedTransformationConverter::convert)
                 ?.toSet() ?: emptySet()
 
             return CoreSettingsImpl(

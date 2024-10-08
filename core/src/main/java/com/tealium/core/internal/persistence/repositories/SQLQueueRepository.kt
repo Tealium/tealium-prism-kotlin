@@ -3,7 +3,7 @@ package com.tealium.core.internal.persistence.repositories
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import com.tealium.core.api.tracking.Dispatch
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.misc.TimeFrame
 import com.tealium.core.api.misc.TimeFrameUtils.days
 import com.tealium.core.internal.persistence.DatabaseProvider
@@ -259,10 +259,10 @@ class SQLQueueRepository(
                 return null
             }
 
-            return TealiumBundle.fromString(dispatch)?.let { bundle ->
+            return DataObject.fromString(dispatch)?.let { dataObject ->
                 return Dispatch.create(
                     id = id,
-                    bundle = bundle,
+                    dataObject = dataObject,
                     timestamp = timestamp
                 )
             }

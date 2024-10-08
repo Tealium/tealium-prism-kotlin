@@ -15,7 +15,7 @@ class CollectDispatcherSettingsBuilderTests {
     }
 
     @Test
-    fun setUrl_Sets_Url_In_Bundle() {
+    fun setUrl_Sets_Url_In_DataObject() {
         val collectSettings = builder.setUrl("test-url").build()
 
         assertEquals(
@@ -25,7 +25,7 @@ class CollectDispatcherSettingsBuilderTests {
     }
 
     @Test
-    fun setBatchUrl_Sets_BatchUrl_In_Bundle() {
+    fun setBatchUrl_Sets_BatchUrl_In_DataObject() {
         val collectSettings = builder.setBatchUrl("test-url").build()
 
         assertEquals(
@@ -35,7 +35,7 @@ class CollectDispatcherSettingsBuilderTests {
     }
 
     @Test
-    fun setProfile_Sets_Profile_In_Bundle() {
+    fun setProfile_Sets_Profile_In_DataObject() {
         val collectSettings = builder.setProfile("profile").build()
 
         assertEquals(
@@ -45,7 +45,7 @@ class CollectDispatcherSettingsBuilderTests {
     }
 
     @Test
-    fun setDomain_Sets_Domain_In_Bundle() {
+    fun setDomain_Sets_Domain_In_DataObject() {
         val collectSettings = builder.setDomain("domain").build()
 
         assertEquals(

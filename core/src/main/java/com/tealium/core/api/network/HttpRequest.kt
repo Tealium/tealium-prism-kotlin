@@ -1,6 +1,6 @@
 package com.tealium.core.api.network
 
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import java.net.MalformedURLException
 import java.net.URL
 
@@ -110,9 +110,9 @@ class HttpRequest private constructor(
         /**
          * Sets the request body that needs to be sent.
          *
-         * @param bundle The request body to send
+         * @param dataObject The request body to send
          */
-        fun body(bundle: TealiumBundle?): Builder = body(bundle?.toString())
+        fun body(dataObject: DataObject?): Builder = body(dataObject?.toString())
 
         /**
          * Sets whether or not the outbound request will be GZipped prior to sending.

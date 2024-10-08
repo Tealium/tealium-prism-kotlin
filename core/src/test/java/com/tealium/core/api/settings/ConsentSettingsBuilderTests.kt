@@ -16,25 +16,25 @@ class ConsentSettingsBuilderTests {
     }
 
     @Test
-    fun setDispatcherToPurposes_Sets_DispatcherPurposes_In_Bundle() {
+    fun setDispatcherToPurposes_Sets_DispatcherPurposes_In_DataObject() {
         val consentSettings = builder.setDispatcherToPurposes(
             mapOf("dispatcher" to setOf("purpose_1", "purpose_2"))
         ).build()
 
-        val purposeMap = consentSettings.getBundle(ConsentSettings.KEY_DISPATCHER_PURPOSES)!!
-        val purposes = purposeMap.getList("dispatcher")!!
+        val purposeMap = consentSettings.getDataObject(ConsentSettings.KEY_DISPATCHER_PURPOSES)!!
+        val purposes = purposeMap.getDataList("dispatcher")!!
 
         assertEquals("purpose_1", purposes.getString(0))
         assertEquals("purpose_2", purposes.getString(1))
     }
 
     @Test
-    fun setShouldRefireDispatchers_Sets_DispatcherPurposes_In_Bundle() {
+    fun setShouldRefireDispatchers_Sets_DispatcherPurposes_In_DataObject() {
         val consentSettings = builder.setShouldRefireDispatchers(
             setOf("dispatcher_1", "dispatcher_2")
         ).build()
 
-        val refireList = consentSettings.getList(ConsentSettings.KEY_REFIRE_DISPATCHERS)!!
+        val refireList = consentSettings.getDataList(ConsentSettings.KEY_REFIRE_DISPATCHERS)!!
 
         assertEquals("dispatcher_1", refireList.getString(0))
         assertEquals("dispatcher_2", refireList.getString(1))

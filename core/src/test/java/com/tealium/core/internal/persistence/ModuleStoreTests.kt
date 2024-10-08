@@ -1,15 +1,27 @@
 package com.tealium.core.internal.persistence
 
+import com.tealium.core.api.data.DataItem
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.persistence.PersistenceException
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumValue
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Subject
 import com.tealium.core.internal.persistence.repositories.KeyValueRepository
-import io.mockk.*
+import io.mockk.Called
+import io.mockk.MockKAnnotations
+import io.mockk.every
 import io.mockk.impl.annotations.MockK
-import org.junit.Assert.*
+import io.mockk.invoke
+import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
+import io.mockk.verifyOrder
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -22,14 +34,14 @@ class ModuleStoreTests {
     private lateinit var keyValueRepository: KeyValueRepository
 
     private lateinit var dataStore: ModuleStore
-    private val testBundle = TealiumBundle.create {
+    private val testDataObject = DataObject.create {
         put("string", "value")
         put("int", 1)
         put("long", 10L)
         put("double", 100.1)
     }
 
-    private lateinit var onDataExpired: Subject<TealiumBundle>
+    private lateinit var onDataExpired: Subject<DataObject>
 
     @Before
     fun setUp() {
@@ -79,8 +91,8 @@ class ModuleStoreTests {
 
     @Test
     fun get_Returns_CorrectItem_WhenPresent() {
-        every { keyValueRepository.get("string") } returns TealiumValue.string("value")
-        every { keyValueRepository.get("int") } returns TealiumValue.int(10)
+        every { keyValueRepository.get("string") } returns DataItem.string("value")
+        every { keyValueRepository.get("int") } returns DataItem.int(10)
 
         assertEquals("value", dataStore.get("string")!!.value)
         assertEquals(10, dataStore.get("int")!!.value)
@@ -94,36 +106,36 @@ class ModuleStoreTests {
     }
 
     @Test
-    fun getAll_Returns_AllValues_AsBundle() {
+    fun getAll_Returns_AllValues_AsDataObject() {
         every { keyValueRepository.getAll() } returns mapOf(
-            "string" to TealiumValue.string("value"),
-            "int" to TealiumValue.int(10),
-            "bundle" to testBundle.asTealiumValue()
+            "string" to DataItem.string("value"),
+            "int" to DataItem.int(10),
+            "object" to testDataObject.asDataItem()
         )
 
         val allData = dataStore.getAll()
 
         assertEquals("value", allData.get("string")!!.value)
         assertEquals(10, allData.get("int")!!.value)
-        assertEquals(testBundle, allData.get("bundle")!!.value)
+        assertEquals(testDataObject, allData.get("object")!!.value)
     }
 
     @Test
     fun iterator_ReturnsIterator_ContainingAllKeys() {
         every { keyValueRepository.getAll() } returns mapOf(
-            "string" to TealiumValue.string("value"),
-            "int" to TealiumValue.int(10),
-            "bundle" to testBundle.asTealiumValue()
+            "string" to DataItem.string("value"),
+            "int" to DataItem.int(10),
+            "object" to testDataObject.asDataItem()
         )
 
         val keys = mutableListOf<String>()
-        val values = mutableListOf<TealiumValue>()
+        val values = mutableListOf<DataItem>()
         for ((key, value) in dataStore) {
             keys.add(key)
             values.add(value)
         }
-        assertEquals(listOf("string", "int", "bundle"), keys)
-        assertEquals(listOf("value", 10, testBundle), values.map { it.value })
+        assertEquals(listOf("string", "int", "object"), keys)
+        assertEquals(listOf("value", 10, testDataObject), values.map { it.value })
     }
 
 
@@ -131,8 +143,8 @@ class ModuleStoreTests {
     fun editor_EachMethod_ReturnsSameInstance() {
         val editor = dataStore.edit()
 
-        assertSame(editor, editor.putAll(testBundle, Expiry.SESSION))
-        assertSame(editor, editor.put("key", testBundle.asTealiumValue(), Expiry.SESSION))
+        assertSame(editor, editor.putAll(testDataObject, Expiry.SESSION))
+        assertSame(editor, editor.put("key", testDataObject.asDataItem(), Expiry.SESSION))
         assertSame(editor, editor.clear())
         assertSame(editor, editor.remove(""))
         assertSame(editor, editor.remove(listOf("", "")))
@@ -140,7 +152,7 @@ class ModuleStoreTests {
 
     @Test
     fun editor_ClearsFirst_BeforeAddingNewData() {
-        val value = TealiumValue.string("value")
+        val value = DataItem.string("value")
         dataStore.edit()
             .clear()
             .put("string", value, Expiry.SESSION)
@@ -154,10 +166,8 @@ class ModuleStoreTests {
 
     @Test
     fun editor_ExecutesUpdatesInOrderTheyWereAdded() {
-
-
-        val string = TealiumValue.string("value")
-        val int = TealiumValue.int(10)
+        val string = DataItem.string("value")
+        val int = DataItem.int(10)
         dataStore.edit()
             .put("string", string, Expiry.SESSION)
             .put("int", int, Expiry.SESSION)
@@ -212,7 +222,7 @@ class ModuleStoreTests {
 
     @Test
     fun editor_Put_UpsertsData() {
-        val string = TealiumValue.string("value")
+        val string = DataItem.string("value")
         dataStore.edit()
             .put("string", string, Expiry.SESSION)
             .commit()
@@ -223,12 +233,27 @@ class ModuleStoreTests {
     }
 
     @Test
+    fun editor_Put_UnsupportedDouble_UpsertsData_As_String() {
+        dataStore.edit()
+            .put("nan", Double.NaN, Expiry.SESSION)
+            .put("positive-infinity", Double.POSITIVE_INFINITY, Expiry.SESSION)
+            .put("negative-infinity", Double.NEGATIVE_INFINITY, Expiry.SESSION)
+            .commit()
+
+        verify {
+            keyValueRepository.upsert("nan", DataItem.string("NaN"), Expiry.SESSION)
+            keyValueRepository.upsert("positive-infinity", DataItem.string("Infinity"), Expiry.SESSION)
+            keyValueRepository.upsert("negative-infinity", DataItem.string("-Infinity"), Expiry.SESSION)
+        }
+    }
+
+    @Test
     fun editor_PutAll_UpsertsAllData() {
-        val string = TealiumValue.string("value")
-        val int = TealiumValue.int(10)
+        val string = DataItem.string("value")
+        val int = DataItem.int(10)
 
         dataStore.edit()
-            .putAll(TealiumBundle.create {
+            .putAll(DataObject.create {
                 put("string", string)
                 put("int", int)
             }, Expiry.SESSION)
@@ -242,10 +267,10 @@ class ModuleStoreTests {
 
     @Test
     fun editor_PutAll_IgnoresNullValues() {
-        val nullValue = TealiumValue.NULL
+        val nullValue = DataItem.NULL
 
         dataStore.edit()
-            .putAll(TealiumBundle.create {
+            .putAll(DataObject.create {
                 put("null", nullValue)
             }, Expiry.SESSION)
             .commit()
@@ -264,7 +289,7 @@ class ModuleStoreTests {
         }
 
         dataStore.edit()
-            .putAll(TealiumBundle.create {
+            .putAll(DataObject.create {
                 put("key1", "value1")
                 put("key2", "value2")
             }, Expiry.SESSION)
@@ -282,7 +307,7 @@ class ModuleStoreTests {
         repeat(2) {
             try {
                 dataStore.edit()
-                    .putAll(TealiumBundle.create {
+                    .putAll(DataObject.create {
                         put("key1", "value1")
                         put("key2", "value2")
                     }, Expiry.SESSION)
@@ -300,7 +325,7 @@ class ModuleStoreTests {
             assertEquals("key2", removed[1])
         }
 
-        onDataExpired.onNext(TealiumBundle.create {
+        onDataExpired.onNext(DataObject.create {
             put("key", "value")
             put("key2", "value2")
         })
@@ -368,9 +393,9 @@ class ModuleStoreTests {
             })
         }
 
-        onDataExpired.onNext(TealiumBundle.create {
-            put("expired1", TealiumValue.string("test"))
-            put("expired2", TealiumValue.string("test"))
+        onDataExpired.onNext(DataObject.create {
+            put("expired1", DataItem.string("test"))
+            put("expired2", DataItem.string("test"))
         })
         verify {
             verifier(match { removed ->
@@ -388,20 +413,20 @@ class ModuleStoreTests {
             assertEquals("value2", emission.get("key2")?.value)
         }
         dataStore.edit()
-            .put("key1", TealiumValue.string("value1"), Expiry.SESSION)
-            .put("key2", TealiumValue.string("value2"), Expiry.SESSION)
+            .put("key1", DataItem.string("value1"), Expiry.SESSION)
+            .put("key2", DataItem.string("value2"), Expiry.SESSION)
             .commit()
     }
 
     @Test
     fun onDataUpdated_DoesNot_NotifyUpdated_WhenCommitFailed() {
         every { keyValueRepository.upsert(any(), any(), any()) } returns 0
-        val verifier = mockk<(TealiumBundle) -> Unit>(relaxed = true)
+        val verifier = mockk<(DataObject) -> Unit>(relaxed = true)
 
         dataStore.onDataUpdated.subscribe(verifier)
         dataStore.edit()
-            .put("key1", TealiumValue.string("value1"), Expiry.SESSION)
-            .put("key2", TealiumValue.string("value2"), Expiry.SESSION)
+            .put("key1", DataItem.string("value1"), Expiry.SESSION)
+            .put("key2", DataItem.string("value2"), Expiry.SESSION)
             .commit()
 
         verify(inverse = true) {
@@ -414,14 +439,14 @@ class ModuleStoreTests {
         every { keyValueRepository.upsert("added", any(), Expiry.SESSION) } returns 1L
         every { keyValueRepository.delete("removed") } returns 1
 
-        val onUpdated = mockk<(TealiumBundle) -> Unit>(relaxed = true)
+        val onUpdated = mockk<(DataObject) -> Unit>(relaxed = true)
         val onRemoved = mockk<(List<String>) -> Unit>(relaxed = true)
 
         dataStore.onDataUpdated.subscribe(onUpdated)
         dataStore.onDataRemoved.subscribe(onRemoved)
 
         dataStore.edit()
-            .put("added", TealiumValue.string("value"), Expiry.SESSION)
+            .put("added", DataItem.string("value"), Expiry.SESSION)
             .remove("removed")
             .commit()
 

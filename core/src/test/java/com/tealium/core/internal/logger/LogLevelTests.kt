@@ -11,33 +11,33 @@ class LogLevelTests {
 
     @Test
     fun verifyValidSerDe() {
-        val traceSer = LogLevel.TRACE.asTealiumValue()
-        val traceDe = LogLevel.Deserializer.deserialize(traceSer)
+        val traceSer = LogLevel.TRACE.asDataItem()
+        val traceDe = LogLevel.Converter.convert(traceSer)
 
         assertEquals(LogLevel.TRACE, traceDe)
 
-        val debugSer = LogLevel.DEBUG.asTealiumValue()
-        val debugDe = LogLevel.Deserializer.deserialize(debugSer)
+        val debugSer = LogLevel.DEBUG.asDataItem()
+        val debugDe = LogLevel.Converter.convert(debugSer)
 
         assertEquals(LogLevel.DEBUG, debugDe)
 
-        val infoSer = LogLevel.INFO.asTealiumValue()
-        val infoDe = LogLevel.Deserializer.deserialize(infoSer)
+        val infoSer = LogLevel.INFO.asDataItem()
+        val infoDe = LogLevel.Converter.convert(infoSer)
 
         assertEquals(LogLevel.INFO, infoDe)
 
-        val warnSer = LogLevel.WARN.asTealiumValue()
-        val warnDe = LogLevel.Deserializer.deserialize(warnSer)
+        val warnSer = LogLevel.WARN.asDataItem()
+        val warnDe = LogLevel.Converter.convert(warnSer)
 
         assertEquals(LogLevel.WARN, warnDe)
 
-        val errorSer = LogLevel.ERROR.asTealiumValue()
-        val errorDe = LogLevel.Deserializer.deserialize(errorSer)
+        val errorSer = LogLevel.ERROR.asDataItem()
+        val errorDe = LogLevel.Converter.convert(errorSer)
 
         assertEquals(LogLevel.ERROR, errorDe)
 
-        val silentSer = LogLevel.SILENT.asTealiumValue()
-        val silentDe = LogLevel.Deserializer.deserialize(silentSer)
+        val silentSer = LogLevel.SILENT.asDataItem()
+        val silentDe = LogLevel.Converter.convert(silentSer)
 
         assertEquals(LogLevel.SILENT, silentDe)
     }

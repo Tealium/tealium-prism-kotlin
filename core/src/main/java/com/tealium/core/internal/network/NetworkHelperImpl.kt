@@ -1,9 +1,9 @@
 package com.tealium.core.internal.network
 
 import com.tealium.core.api.data.Deserializer
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumDeserializable
-import com.tealium.core.api.data.TealiumValue
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.DataItemConverter
+import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.network.DeserializedNetworkCallback
@@ -70,13 +70,13 @@ class NetworkHelperImpl(
 
     override fun post(
         url: String,
-        payload: TealiumBundle?,
+        payload: DataObject?,
         completion: NetworkCallback<NetworkResult>
     ): Disposable = send(HttpRequest.post(url, payload.toString()).gzip(true), completion)
 
     override fun post(
         url: URL,
-        payload: TealiumBundle?,
+        payload: DataObject?,
         completion: NetworkCallback<NetworkResult>
     ): Disposable = send(HttpRequest.post(url, payload.toString()).gzip(true), completion)
 
@@ -92,38 +92,38 @@ class NetworkHelperImpl(
         completion: DeserializedNetworkCallback<JSONObject>
     ): Disposable = getDeserializable(url, etag, ::JSONObject, completion)
 
-    override fun getTealiumBundle(
+    override fun getDataObject(
         url: String,
         etag: String?,
-        completion: DeserializedNetworkCallback<TealiumBundle>
+        completion: DeserializedNetworkCallback<DataObject>
     ): Disposable =
-        getTealiumDeserializable(url, etag, TealiumBundle.BundleDeserializer, completion)
+        getDataItemConvertible(url, etag, DataObject.Converter, completion)
 
-    override fun getTealiumBundle(
+    override fun getDataObject(
         url: URL,
         etag: String?,
-        completion: DeserializedNetworkCallback<TealiumBundle>
+        completion: DeserializedNetworkCallback<DataObject>
     ): Disposable =
-        getTealiumDeserializable(url, etag, TealiumBundle.BundleDeserializer, completion)
+        getDataItemConvertible(url, etag, DataObject.Converter, completion)
 
-    override fun <T> getTealiumDeserializable(
+    override fun <T> getDataItemConvertible(
         url: String,
         etag: String?,
-        deserializer: TealiumDeserializable<T>,
+        converter: DataItemConverter<T>,
         completion: DeserializedNetworkCallback<T>
-    ): Disposable = getDeserializable(url, etag, tealiumValueDeserializer(deserializer), completion)
+    ): Disposable = getDeserializable(url, etag, dataItemDeserializer(converter), completion)
 
-    override fun <T> getTealiumDeserializable(
+    override fun <T> getDataItemConvertible(
         url: URL,
         etag: String?,
-        deserializer: TealiumDeserializable<T>,
+        converter: DataItemConverter<T>,
         completion: DeserializedNetworkCallback<T>
-    ): Disposable = getDeserializable(url, etag, tealiumValueDeserializer(deserializer), completion)
+    ): Disposable = getDeserializable(url, etag, dataItemDeserializer(converter), completion)
 
-    private fun <T> tealiumValueDeserializer(deserializer: TealiumDeserializable<T>) =
+    private fun <T> dataItemDeserializer(converter: DataItemConverter<T>) =
         { str: String ->
-            val value = TealiumValue.parse(str)
-            deserializer.deserialize(value)
+            val value = DataItem.parse(str)
+            converter.convert(value)
         }
 
     override fun <T> getDeserializable(

@@ -52,25 +52,25 @@ fun JSONArray.forEachIndexed(block: (value: Any, index: Int) -> Unit) {
 }
 
 /**
- * Merges two [TealiumBundle] objects together.
+ * Merges two [DataObject] objects together.
  *
  * Keys from the right-hand-side (rhs) of this operator will be preferred over the left-hand-side (lhs).
  * In all cases, key clashes will simply take the value from the right-hand-side.
  *
  * e.g.
  * ```kotlin
- * val lhs = TealiumBundle.create {
+ * val lhs = DataObject.create {
  *     put("string", "value")
  *     put("int", 1)
- *     put("bundle", TealiumBundle.create {
+ *     put("object", DataObject.create {
  *         put("key1", "string")
  *         put("key2", true)
  *     })
  * }
  *
- * val rhs = TealiumBundle.create {
+ * val rhs = DataObject.create {
  *     put("string", "new value")
- *     put("bundle", TealiumBundle.create {
+ *     put("object", DataObject.create {
  *         put("key1", "new string")
  *         put("key3", "extra string")
  *     })
@@ -79,20 +79,20 @@ fun JSONArray.forEachIndexed(block: (value: Any, index: Int) -> Unit) {
  * val merged = lhs + rhs
  *
  * // merged will be the equivalent of this:
- * TealiumBundle.create {
+ * DataObject.create {
  *     put("string", "new value")            // from rhs
  *     put("int", 1)                         // from lhs
- *     put("bundle", TealiumBundle.create {
+ *     put("object", DataObject.create {
  *         put("key1", "new string")         // from rhs
  *         put("key3", "extra string")       // from rhs
  *     })
  * }
  * ```
  *
- * @param other The incoming values to merge into this [TealiumBundle]
- * @return A new [TealiumBundle] that contains the merged key-value pairs from both [TealiumBundle]s
+ * @param other The incoming values to merge into this [DataObject]
+ * @return A new [DataObject] that contains the merged key-value pairs from both [DataObject]s
  */
-operator fun TealiumBundle.plus(other: TealiumBundle): TealiumBundle {
+operator fun DataObject.plus(other: DataObject): DataObject {
     return this.copy {
         for ((key, value) in other) {
             put(key, value)

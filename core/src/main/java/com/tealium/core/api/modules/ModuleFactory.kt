@@ -1,7 +1,7 @@
 package com.tealium.core.api.modules
 
 import com.tealium.core.api.Tealium
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 
 /**
  * A [ModuleFactory] is responsible for creating [Module] implementations. This will occur during
@@ -39,7 +39,7 @@ interface ModuleFactory {
      * sources, however these will take precedence.
      *
      */
-    fun getEnforcedSettings(): TealiumBundle? = null
+    fun getEnforcedSettings(): DataObject? = null
 
     /**
      * Called when a new instance of the [Module] is required to be created.
@@ -51,5 +51,5 @@ interface ModuleFactory {
      * @return The new [Module] instance; or null if the Module is either disabled as configured in
      * the settings, or missing required dependencies.
      */
-    fun create(context: TealiumContext, settings: TealiumBundle): Module?
+    fun create(context: TealiumContext, settings: DataObject): Module?
 }

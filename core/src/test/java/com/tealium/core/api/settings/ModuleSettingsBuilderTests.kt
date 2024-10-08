@@ -1,6 +1,6 @@
 package com.tealium.core.api.settings
 
-import com.tealium.core.api.data.TealiumValue
+import com.tealium.core.api.data.DataItem
 import org.junit.Assert.*
 
 import org.junit.Test
@@ -8,7 +8,7 @@ import org.junit.Test
 class ModuleSettingsBuilderTests {
 
     @Test
-    fun setEnabled_True_Sets_Enabled_True_In_Bundle() {
+    fun setEnabled_True_Sets_Enabled_True_In_DataObject() {
         val settings = TestSettingsBuilder()
             .setEnabled(true)
             .build()
@@ -17,7 +17,7 @@ class ModuleSettingsBuilderTests {
     }
 
     @Test
-    fun setEnabled_False_Sets_Enabled_False_In_Bundle() {
+    fun setEnabled_False_Sets_Enabled_False_In_DataObject() {
         val settings = TestSettingsBuilder()
             .setEnabled(false)
             .build()
@@ -26,7 +26,7 @@ class ModuleSettingsBuilderTests {
     }
 
     @Test
-    fun build_Returns_Bundle_With_Custom_Properties() {
+    fun build_Returns_DataObject_With_Custom_Properties() {
         val settings = TestSettingsBuilder()
             .setProperty("my_string", "my_string")
             .setProperty("my_number", 100)
@@ -38,7 +38,7 @@ class ModuleSettingsBuilderTests {
 
     private class TestSettingsBuilder: ModuleSettingsBuilder() {
         fun setProperty(key: String, value: Any): TestSettingsBuilder = apply {
-            builder.put(key, TealiumValue.convert(value))
+            builder.put(key, DataItem.convert(value))
         }
     }
 }

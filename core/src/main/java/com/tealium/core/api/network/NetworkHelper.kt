@@ -1,9 +1,9 @@
 package com.tealium.core.api.network
 
 import com.tealium.core.api.data.Deserializer
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumDeserializable
-import com.tealium.core.api.data.TealiumValue
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.DataItemConverter
+import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.pubsub.Disposable
@@ -43,7 +43,7 @@ interface NetworkHelper {
      * @param url The Url to GET
      * @param payload The body to be POSTed
      */
-    fun post(url: String, payload: TealiumBundle?, completion: NetworkCallback<NetworkResult>): Disposable
+    fun post(url: String, payload: DataObject?, completion: NetworkCallback<NetworkResult>): Disposable
 
     /**
      * Asynchronously POSTs the [payload] to the given [url].
@@ -51,7 +51,7 @@ interface NetworkHelper {
      * @param url The Url to GET
      * @param payload The body to be POSTed
      */
-    fun post(url: URL, payload: TealiumBundle?, completion: NetworkCallback<NetworkResult>): Disposable
+    fun post(url: URL, payload: DataObject?, completion: NetworkCallback<NetworkResult>): Disposable
 
     /**
      * Asynchronously fetches the given [url] and returns the payload parsed as a [JSONObject]
@@ -74,64 +74,64 @@ interface NetworkHelper {
     fun getJson(url: URL, etag: String?, completion: DeserializedNetworkCallback<JSONObject>): Disposable
 
     /**
-     * Asynchronously fetches the given [url] and returns the payload parsed as a [TealiumBundle]
+     * Asynchronously fetches the given [url] and returns the payload parsed as a [DataObject]
      * An optional [etag] can be supplied if the resource being requested is already available on
      * the device and may be able to be re-used.
      *
      * @param url The Url to GET
      * @param etag Optional etag of the currently known resource
      */
-    fun getTealiumBundle(
+    fun getDataObject(
         url: String,
         etag: String?,
-        completion: DeserializedNetworkCallback<TealiumBundle>
+        completion: DeserializedNetworkCallback<DataObject>
     ): Disposable
 
     /**
-     * Asynchronously fetches the given [url] and returns the payload parsed as a [TealiumBundle]
+     * Asynchronously fetches the given [url] and returns the payload parsed as a [DataObject]
      * An optional [etag] can be supplied if the resource being requested is already available on
      * the device and may be able to be re-used.
      *
      * @param url The Url to GET
      * @param etag Optional etag of the currently known resource
      */
-    fun getTealiumBundle(url: URL, etag: String?, completion: DeserializedNetworkCallback<TealiumBundle>): Disposable
+    fun getDataObject(url: URL, etag: String?, completion: DeserializedNetworkCallback<DataObject>): Disposable
 
     /**
-     * Asynchronously fetches the given [url] and returns the payload parsed as a [TealiumValue] and
-     * then converted to an instance of [T] using by the given [deserializer].
+     * Asynchronously fetches the given [url] and returns the payload parsed as a [DataItem] and
+     * then converted to an instance of [T] using by the given [converter].
      *
      * An optional [etag] can be supplied if the resource being requested is already available on
      * the device and may be able to be re-used.
      *
      * @param url The Url to GET
      * @param etag Optional etag of the currently known resource
-     * @param deserializer Deserializer to convert a [TealiumValue] to an instance of [T]
+     * @param converter [DataItemConverter] to convert a [DataItem] to an instance of [T]
      * @param completion completion to be notified with the result
      */
-    fun <T> getTealiumDeserializable(
+    fun <T> getDataItemConvertible(
         url: URL,
         etag: String?,
-        deserializer: TealiumDeserializable<T>,
+        converter: DataItemConverter<T>,
         completion: DeserializedNetworkCallback<T>
     ): Disposable
 
     /**
-     * Asynchronously fetches the given [url] and returns the payload parsed as a [TealiumValue] and
-     * then converted to an instance of [T] using by the given [deserializer].
+     * Asynchronously fetches the given [url] and returns the payload parsed as a [DataItem] and
+     * then converted to an instance of [T] using by the given [converter].
      *
      * An optional [etag] can be supplied if the resource being requested is already available on
      * the device and may be able to be re-used.
      *
      * @param url The Url to GET
      * @param etag Optional etag of the currently known resource
-     * @param deserializer Deserializer to convert a [TealiumValue] to an instance of [T]
+     * @param converter [DataItemConverter] to convert a [DataItem] to an instance of [T]
      * @param completion completion to be notified with the result
      */
-    fun <T> getTealiumDeserializable(
+    fun <T> getDataItemConvertible(
         url: String,
         etag: String?,
-        deserializer: TealiumDeserializable<T>,
+        converter: DataItemConverter<T>,
         completion: DeserializedNetworkCallback<T>
     ): Disposable
 
@@ -144,7 +144,7 @@ interface NetworkHelper {
      *
      * @param url The Url to GET
      * @param etag Optional etag of the currently known resource
-     * @param deserializer Deserializer to convert a [TealiumValue] to an instance of [T]
+     * @param deserializer Deserializer to convert a [String] to an instance of [T]
      * @param completion completion to be notified with the result
      */
     fun <T> getDeserializable(
@@ -163,7 +163,7 @@ interface NetworkHelper {
      *
      * @param url The Url to GET
      * @param etag Optional etag of the currently known resource
-     * @param deserializer Deserializer to convert a [TealiumValue] to an instance of [T]
+     * @param deserializer Deserializer to convert a [String] to an instance of [T]
      * @param completion completion to be notified with the result
      */
     fun <T> getDeserializable(

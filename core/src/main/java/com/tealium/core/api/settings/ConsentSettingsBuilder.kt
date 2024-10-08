@@ -1,7 +1,7 @@
 package com.tealium.core.api.settings
 
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumList
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.DataList
 import com.tealium.core.api.modules.Dispatcher
 import com.tealium.core.internal.modules.consent.ConsentSettings
 
@@ -14,7 +14,7 @@ class ConsentSettingsBuilder : ModuleSettingsBuilder() {
      * Sets the required purposes for each [Dispatcher]
      */
     fun setDispatcherToPurposes(dispatcherToPurposes: Map<String, Set<String>>) = apply {
-        builder.put(ConsentSettings.KEY_DISPATCHER_PURPOSES, TealiumBundle.fromMap(dispatcherToPurposes))
+        builder.put(ConsentSettings.KEY_DISPATCHER_PURPOSES, DataObject.fromMap(dispatcherToPurposes))
     }
 
     /**
@@ -23,7 +23,7 @@ class ConsentSettingsBuilder : ModuleSettingsBuilder() {
     fun setShouldRefireDispatchers(refireDispatchers: Set<String>) = apply {
         builder.put(
             ConsentSettings.KEY_REFIRE_DISPATCHERS,
-            TealiumList.fromCollection(refireDispatchers).asTealiumValue()
+            DataList.fromCollection(refireDispatchers).asDataItem()
         )
     }
 }

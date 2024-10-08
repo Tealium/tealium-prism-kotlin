@@ -1,7 +1,7 @@
 package com.tealium.core.internal.persistence.repositories
 
 import com.tealium.core.api.persistence.Expiry
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.internal.persistence.getTimestamp
 
@@ -33,7 +33,7 @@ interface ModulesRepository {
      * Observable to notify of data expiration. The [Pair.first] will contain the relevant module
      * id and the [Pair.second] will contain the expired key-value pairs
      */
-    val onDataExpired: Observable<Map<Long, TealiumBundle>>
+    val onDataExpired: Observable<Map<Long, DataObject>>
 
     /**
      * Registers a new module, returning the id to use for all data storage requests.

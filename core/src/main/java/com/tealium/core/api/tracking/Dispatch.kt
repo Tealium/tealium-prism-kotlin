@@ -1,23 +1,23 @@
 package com.tealium.core.api.tracking
 
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.internal.persistence.getTimestampMilliseconds
 import java.util.*
 
 class Dispatch private constructor(
     val tealiumEvent: String,
     val type: TealiumDispatchType,
-    private var bundle: TealiumBundle,
+    private var dataObject: DataObject,
     val id: String,
     val timestamp: Long,
 ) {
 
-    fun payload(): TealiumBundle {
-        return bundle
+    fun payload(): DataObject {
+        return dataObject
     }
 
-    fun addAll(data: TealiumBundle) {
-        bundle = bundle.copy {
+    fun addAll(data: DataObject) {
+        dataObject = dataObject.copy {
             putAll(data)
         }
     }
@@ -42,23 +42,23 @@ class Dispatch private constructor(
         fun create(
             eventName: String,
             type: TealiumDispatchType = TealiumDispatchType.Event,
-            bundle: TealiumBundle = TealiumBundle.EMPTY_BUNDLE
+            dataObject: DataObject = DataObject.EMPTY_OBJECT
         ): Dispatch {
             val uuid = UUID.randomUUID().toString()
             val timestamp = getTimestampMilliseconds()
 
-            val updatedBundle: TealiumBundle = TealiumBundle.Builder()
+            val updatedDataObject: DataObject = DataObject.Builder()
                 .put(Keys.TEALIUM_EVENT, eventName)
                 .put(Keys.TEALIUM_EVENT_TYPE, type.friendlyName)
                 .put(Keys.REQUEST_UUID, uuid)
                 .put(Keys.TIMESTAMP, timestamp)
-                .putAll(bundle)
-                .getBundle()
+                .putAll(dataObject)
+                .build()
 
             return Dispatch(
                 tealiumEvent = eventName,
                 type = type,
-                bundle = updatedBundle,
+                dataObject = updatedDataObject,
                 id = uuid,
                 timestamp = timestamp
             )
@@ -79,7 +79,7 @@ class Dispatch private constructor(
         }
 
         /**
-         * Creates a Dispatch from just the [id], [bundle] and [timestamp]
+         * Creates a Dispatch from just the [id], [dataObject] and [timestamp]
          * This is expected to be used for recreating dispatches from disk, where the insertion of
          * expected key-value data is not required on construction. That is, common event data such
          * as "tealium_event" and "request_uuid" has already been added previously.
@@ -87,11 +87,11 @@ class Dispatch private constructor(
          * For creating new Dispatch instances that do require those data points to be added, you
          * should use [create]
          */
-        internal fun create(id: String, bundle: TealiumBundle, timestamp: Long): Dispatch? {
+        internal fun create(id: String, dataObject: DataObject, timestamp: Long): Dispatch? {
 
-            val tealiumEvent = bundle.getString(Keys.TEALIUM_EVENT) ?: return null
+            val tealiumEvent = dataObject.getString(Keys.TEALIUM_EVENT) ?: return null
             val type: TealiumDispatchType =
-                bundle.getString(Keys.TEALIUM_EVENT_TYPE)?.let { typeString ->
+                dataObject.getString(Keys.TEALIUM_EVENT_TYPE)?.let { typeString ->
                     TealiumDispatchType.values()
                         .find { it.friendlyName.lowercase() == typeString.lowercase() }
                 } ?: TealiumDispatchType.Event
@@ -99,7 +99,7 @@ class Dispatch private constructor(
             return Dispatch(
                 tealiumEvent = tealiumEvent,
                 type = type,
-                bundle = bundle,
+                dataObject = dataObject,
                 id = id,
                 timestamp = timestamp
             )

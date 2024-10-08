@@ -1,7 +1,7 @@
 package com.tealium.core.internal.modules.collect
 
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.network.HttpResponse
@@ -212,7 +212,7 @@ class CollectDispatcherTests {
 
         verify(timeout = 1000) {
             networkHelper.post(defaultSettings.batchUrl, match {
-                it.getBundle(CollectDispatcher.KEY_SHARED)!!
+                it.getDataObject(CollectDispatcher.KEY_SHARED)!!
                     .getString(Dispatch.Keys.TEALIUM_PROFILE) == "override"
             }, any())
             observer(match {
@@ -227,11 +227,11 @@ class CollectDispatcherTests {
         collectDispatcher = createCollectDispatcher()
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
-        val dispatch1 = createTestDispatch("test", data = testBundle.copy {
+        val dispatch1 = createTestDispatch("test", data = testDataObject.copy {
             put("key_1", "string1")
             put("key_2", "string2")
         })
-        val dispatch2 = createTestDispatch("test", data = testBundle.copy {
+        val dispatch2 = createTestDispatch("test", data = testDataObject.copy {
             put("key_3", "string3")
             put("key_4", "string4")
         })
@@ -240,10 +240,10 @@ class CollectDispatcherTests {
 
         verify(timeout = 1000) {
             networkHelper.post(defaultSettings.batchUrl, match {
-                val shared = it.getBundle(CollectDispatcher.KEY_SHARED)!!
-                val events = it.getList(CollectDispatcher.KEY_EVENTS)!!
-                val event1 = events.getBundle(0)!!
-                val event2 = events.getBundle(1)!!
+                val shared = it.getDataObject(CollectDispatcher.KEY_SHARED)!!
+                val events = it.getDataList(CollectDispatcher.KEY_EVENTS)!!
+                val event1 = events.getDataObject(0)!!
+                val event2 = events.getDataObject(1)!!
 
                 listOf(
                     Dispatch.Keys.TEALIUM_ACCOUNT,
@@ -267,11 +267,11 @@ class CollectDispatcherTests {
             )
         )
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
-        val dispatch1 = createTestDispatch("test", data = testBundle.copy {
+        val dispatch1 = createTestDispatch("test", data = testDataObject.copy {
             put("key_1", "string1")
             put("key_2", "string2")
         })
-        val dispatch2 = createTestDispatch("test", data = testBundle.copy {
+        val dispatch2 = createTestDispatch("test", data = testDataObject.copy {
             put("key_3", "string3")
             put("key_4", "string4")
         })
@@ -280,10 +280,10 @@ class CollectDispatcherTests {
 
         verify(timeout = 1000) {
             networkHelper.post(defaultSettings.batchUrl, match {
-                val shared = it.getBundle(CollectDispatcher.KEY_SHARED)!!
-                val events = it.getList(CollectDispatcher.KEY_EVENTS)!!
-                val event1 = events.getBundle(0)!!
-                val event2 = events.getBundle(1)!!
+                val shared = it.getDataObject(CollectDispatcher.KEY_SHARED)!!
+                val events = it.getDataList(CollectDispatcher.KEY_EVENTS)!!
+                val event1 = events.getDataObject(0)!!
+                val event2 = events.getDataObject(1)!!
 
                 shared.getString(Dispatch.Keys.TEALIUM_PROFILE) == "override"
                         && event1.get(Dispatch.Keys.TEALIUM_PROFILE) == null
@@ -308,7 +308,7 @@ class CollectDispatcherTests {
                 it.getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_1"
             }, any())
             networkHelper.post(defaultSettings.batchUrl, match {
-                it.getBundle(CollectDispatcher.KEY_SHARED)!!
+                it.getDataObject(CollectDispatcher.KEY_SHARED)!!
                     .getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_2"
             }, any())
 
@@ -408,7 +408,7 @@ class CollectDispatcherTests {
 
         assertSame(
             collectDispatcher,
-            collectDispatcher.updateSettings(TealiumBundle.EMPTY_BUNDLE)
+            collectDispatcher.updateSettings(DataObject.EMPTY_OBJECT)
         )
     }
 
@@ -462,9 +462,9 @@ class CollectDispatcherTests {
         name: String,
         visitorId: String = "visitor",
         profile: String = "default",
-        data: TealiumBundle = TealiumBundle.EMPTY_BUNDLE
+        data: DataObject = DataObject.EMPTY_OBJECT
     ): Dispatch {
-        return Dispatch.create(name, bundle = TealiumBundle.create {
+        return Dispatch.create(name, dataObject = DataObject.create {
             put(Dispatch.Keys.TEALIUM_PROFILE, profile)
             put(Dispatch.Keys.TEALIUM_VISITOR_ID, visitorId)
             putAll(data)
@@ -472,9 +472,9 @@ class CollectDispatcherTests {
     }
 
     /**
-     * Bundle containing known sharable keys as both key and value
+     * [DataObject] containing known sharable keys as both key and value
      */
-    private val testBundle = TealiumBundle.create {
+    private val testDataObject = DataObject.create {
         put(Dispatch.Keys.TEALIUM_ACCOUNT, account)
         put(Dispatch.Keys.TEALIUM_PROFILE, profile)
     }

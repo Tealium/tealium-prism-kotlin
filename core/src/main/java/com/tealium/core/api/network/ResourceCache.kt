@@ -1,18 +1,18 @@
 package com.tealium.core.api.network
 
-import com.tealium.core.api.data.TealiumDeserializable
-import com.tealium.core.api.data.TealiumSerializable
+import com.tealium.core.api.data.DataItemConverter
+import com.tealium.core.api.data.DataItemConvertible
 import com.tealium.core.api.persistence.DataStore
 
 /**
  * Utility class to automatically manage reading and writing resources from a [DataStore] as well
  * as providing `etag` storage support.
  */
-interface ResourceCache<T: TealiumSerializable> {
+interface ResourceCache<T: DataItemConvertible> {
 
     /**
-     * Reads the resource from disk and and returns it after deserializing it using the provide
-     * [TealiumDeserializable]
+     * Reads the resource from disk and and returns it after converting it using the provide
+     * [DataItemConverter]
      */
     val resource: T?
 

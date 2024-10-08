@@ -36,7 +36,7 @@ class ConsentTransformer(
 
     private fun isConsented(dispatch: Dispatch, requiredPurposes: List<String>): Boolean {
         val consentedPurposes =
-            dispatch.payload().getList(Dispatch.Keys.PURPOSES_WITH_CONSENT_ALL)?.mapNotNull {
+            dispatch.payload().getDataList(Dispatch.Keys.PURPOSES_WITH_CONSENT_ALL)?.mapNotNull {
                 it.getString()
             } ?: return false
 

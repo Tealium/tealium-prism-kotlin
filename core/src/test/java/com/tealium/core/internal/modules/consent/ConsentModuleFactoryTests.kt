@@ -1,6 +1,6 @@
 package com.tealium.core.internal.modules.consent
 
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.modules.ModuleManager
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.modules.consent.ConsentManagementAdapter
@@ -41,19 +41,19 @@ class ConsentModuleFactoryTests {
     fun create_Returns_Null_When_QueueManager_Not_Set() {
         val consentFactory = ConsentModule.Factory(cmp)
 
-        assertNull(consentFactory.create(context, TealiumBundle.EMPTY_BUNDLE))
+        assertNull(consentFactory.create(context, DataObject.EMPTY_OBJECT))
     }
 
     @Test
     fun create_Returns_ConsentModule_When_QueueManager_Is_Set() {
         val consentFactory = ConsentModule.Factory(cmp).copy(queueManager = mockk())
 
-        assertNotNull(consentFactory.create(context, TealiumBundle.EMPTY_BUNDLE))
+        assertNotNull(consentFactory.create(context, DataObject.EMPTY_OBJECT))
     }
 
     @Test
     fun getEnforcedSettings_Returns_Provided_Settings_Param() {
-        val settings = TealiumBundle.create {
+        val settings = DataObject.create {
             put("some_Setting", "some_value")
         }
         val consentFactory = ConsentModule.Factory(cmp, settings = settings)

@@ -1,7 +1,7 @@
 package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.barriers.BarrierState
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.modules.Dispatcher
@@ -67,9 +67,9 @@ open class DispatchManagerTestsBase {
     protected lateinit var dispatchManager: DispatchManagerImpl
 
     protected val dispatch1: Dispatch =
-        Dispatch.create("test1", TealiumDispatchType.Event, TealiumBundle.EMPTY_BUNDLE)
+        Dispatch.create("test1", TealiumDispatchType.Event, DataObject.EMPTY_OBJECT)
     protected val dispatch2: Dispatch =
-        Dispatch.create("test2", TealiumDispatchType.Event, TealiumBundle.EMPTY_BUNDLE)
+        Dispatch.create("test2", TealiumDispatchType.Event, DataObject.EMPTY_OBJECT)
 
     @Before
     fun setUp() {

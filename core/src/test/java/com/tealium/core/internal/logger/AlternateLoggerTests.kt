@@ -1,6 +1,6 @@
 package com.tealium.core.internal.logger
 
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.LogHandler
 import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.pubsub.Observables
@@ -256,16 +256,16 @@ class AlternateLoggerTests {
 
     @Test
     fun logger_Formats_LogMessages_When_Args_Provided() {
-        val bundle = TealiumBundle.create {
+        val dataObject = DataObject.create {
             put("key", "value")
         }
         val logger = AlternateLoggerImpl(handler, onLogLevel)
         onLogLevel.onNext(LogLevel.TRACE)
 
-        logger.trace(category, "Message %s formatted", bundle)
+        logger.trace(category, "Message %s formatted", dataObject)
 
         verify {
-            handler.log(category, "Message $bundle formatted", LogLevel.TRACE)
+            handler.log(category, "Message $dataObject formatted", LogLevel.TRACE)
         }
     }
 

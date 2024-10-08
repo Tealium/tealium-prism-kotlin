@@ -1,6 +1,6 @@
 package com.tealium.core.internal.modules
 
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.modules.Module
@@ -79,7 +79,7 @@ class ModuleManagerImpl(
     private fun updateOrDisableModule(
         canBeDisabled: Boolean,
         module: Module,
-        settings: TealiumBundle,
+        settings: DataObject,
         logger: Logger
     ): Module? {
         if (!canBeDisabled || settings.enabled) {
@@ -104,12 +104,12 @@ class ModuleManagerImpl(
     }
 
     companion object {
-        private val TealiumBundle.enabled: Boolean
+        private val DataObject.enabled: Boolean
             get() = this.getBoolean("enabled") ?: true
 
         private fun createModule(
             context: TealiumContext,
-            settings: TealiumBundle,
+            settings: DataObject,
             factory: ModuleFactory
         ): Module? {
             return if (!factory.canBeDisabled() || settings.enabled) {
@@ -122,15 +122,15 @@ class ModuleManagerImpl(
          */
         private fun getModuleSettings(
             moduleName: String,
-            modulesSettings: Map<String, TealiumBundle>
-        ): TealiumBundle {
-            return modulesSettings[moduleName] ?: TealiumBundle.EMPTY_BUNDLE
+            modulesSettings: Map<String, DataObject>
+        ): DataObject {
+            return modulesSettings[moduleName] ?: DataObject.EMPTY_OBJECT
         }
 
         /**
          * Extracts the module settings for the named module; otherwise returns the default settings.
          */
-        private fun Map<String, TealiumBundle>.getOrDefault(name: String): TealiumBundle {
+        private fun Map<String, DataObject>.getOrDefault(name: String): DataObject {
             return getModuleSettings(name, this)
         }
     }

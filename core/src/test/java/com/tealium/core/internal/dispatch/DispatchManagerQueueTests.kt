@@ -3,7 +3,7 @@ package com.tealium.core.internal.dispatch
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TrackResult
 import com.tealium.core.api.tracking.TealiumDispatchType
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.Ordering
 import io.mockk.mockk
@@ -13,11 +13,11 @@ import org.junit.Test
 class DispatchManagerQueueTests : DispatchManagerTestsBase() {
 
     private val dispatch3: Dispatch =
-        Dispatch.create("test3", TealiumDispatchType.Event, TealiumBundle.EMPTY_BUNDLE)
+        Dispatch.create("test3", TealiumDispatchType.Event, DataObject.EMPTY_OBJECT)
     private val dispatch4: Dispatch =
-        Dispatch.create("test4", TealiumDispatchType.Event, TealiumBundle.EMPTY_BUNDLE)
+        Dispatch.create("test4", TealiumDispatchType.Event, DataObject.EMPTY_OBJECT)
     private val dispatch5: Dispatch =
-        Dispatch.create("test5", TealiumDispatchType.Event, TealiumBundle.EMPTY_BUNDLE)
+        Dispatch.create("test5", TealiumDispatchType.Event, DataObject.EMPTY_OBJECT)
 
     @Test
     fun dispatchManager_SendsIndividualDispatches_ToAllDispatcher() {

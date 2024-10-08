@@ -1,7 +1,7 @@
 package com.tealium.core.internal.network
 
-import com.tealium.core.api.data.TealiumDeserializable
-import com.tealium.core.api.data.TealiumSerializable
+import com.tealium.core.api.data.DataItemConverter
+import com.tealium.core.api.data.DataItemConvertible
 import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.network.DeserializedNetworkCallback
 import com.tealium.core.api.network.HttpResponse
@@ -15,44 +15,44 @@ import java.net.URL
 
 val localhost = URL("https://localhost/")
 
-fun <T: TealiumSerializable> NetworkHelper.mockGetTealiumDeserializableSuccess(
+fun <T: DataItemConvertible> NetworkHelper.mockGetDataItemConvertibleSuccess(
     value: T,
-    deserializer: TealiumDeserializable<T>,
+    converter: DataItemConverter<T>,
     headers: Map<String, List<String>> = mapOf(),
     statusCode: Int = 200,
     url: URL = localhost
 ) {
-    mockGetTealiumDeserializableResponse(
+    mockGetDataItemConvertibleResponse(
         TealiumResult.success(
             NetworkHelper.HttpValue(
                 value,
-                HttpResponse(url, statusCode, "", headers, value.asTealiumValue().toString())
+                HttpResponse(url, statusCode, "", headers, value.asDataItem().toString())
             )
         ),
-        deserializer
+        converter
     )
 }
 
-fun <T> NetworkHelper.mockGetTealiumDeserializableFailure(
-    deserializer: TealiumDeserializable<T>,
+fun <T> NetworkHelper.mockGetDataItemConvertibleFailure(
+    converter: DataItemConverter<T>,
     cause: NetworkException = NetworkException.UnexpectedException(null)
 ) {
-    mockGetTealiumDeserializableResponse(
+    mockGetDataItemConvertibleResponse(
         TealiumResult.failure(cause),
-        deserializer
+        converter
     )
 }
 
-fun <T> NetworkHelper.mockGetTealiumDeserializableResponse(
+fun <T> NetworkHelper.mockGetDataItemConvertibleResponse(
     response: TealiumResult<NetworkHelper.HttpValue<T>>,
-    deserializer: TealiumDeserializable<T>,
+    converter: DataItemConverter<T>,
     completionCapture: CapturingSlot<DeserializedNetworkCallback<T>> = slot()
 ) {
     every {
-        getTealiumDeserializable(
+        getDataItemConvertible(
             any<URL>(),
             any(),
-            deserializer,
+            converter,
             capture(completionCapture)
         )
     } answers {

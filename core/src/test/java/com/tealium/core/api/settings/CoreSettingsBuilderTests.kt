@@ -1,6 +1,6 @@
 package com.tealium.core.api.settings
 
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.misc.TimeFrameUtils.days
 import com.tealium.core.api.misc.TimeFrameUtils.minutes
@@ -20,7 +20,7 @@ class CoreSettingsBuilderTests {
     }
 
     @Test
-    fun setLogLevel_Sets_LogLevel_In_Bundle() {
+    fun setLogLevel_Sets_LogLevel_In_DataObject() {
         val error = builder.setLogLevel(LogLevel.ERROR).build()
         val warn = builder.setLogLevel(LogLevel.WARN).build()
 
@@ -29,14 +29,14 @@ class CoreSettingsBuilderTests {
     }
 
     @Test
-    fun setDataSource_Sets_DataSource_In_Bundle() {
+    fun setDataSource_Sets_DataSource_In_DataObject() {
         val settings = builder.setDataSource("abc123").build()
 
         assertEquals("abc123", settings.getString(CoreSettingsImpl.KEY_DATA_SOURCE))
     }
 
     @Test
-    fun setBatchSize_Sets_BatchSize_In_Bundle() {
+    fun setBatchSize_Sets_BatchSize_In_DataObject() {
         val five = builder.setBatchSize(5).build()
         val tooSmall = builder.setBatchSize(-100).build()
         val tooBig = builder.setBatchSize(100).build()
@@ -50,14 +50,14 @@ class CoreSettingsBuilderTests {
     }
 
     @Test
-    fun setMaxQueueSize_Sets_MaxQueueSize_In_Bundle() {
+    fun setMaxQueueSize_Sets_MaxQueueSize_In_DataObject() {
         val settings = builder.setMaxQueueSize(200).build()
 
         assertEquals(200, settings.getInt(CoreSettingsImpl.KEY_MAX_QUEUE_SIZE))
     }
 
     @Test
-    fun setExpiration_Sets_Expiration_InSeconds_In_Bundle() {
+    fun setExpiration_Sets_Expiration_InSeconds_In_DataObject() {
         val oneDay = builder.setExpiration(1.days).build()
         val tenMinutes = builder.setExpiration(10.minutes).build()
 
@@ -66,7 +66,7 @@ class CoreSettingsBuilderTests {
     }
 
     @Test
-    fun setBatterySaver_Sets_BatterySaver_In_Bundle() {
+    fun setBatterySaver_Sets_BatterySaver_In_DataObject() {
         val enabled = builder.setBatterySaver(true).build()
         val disabled = builder.setBatterySaver(false).build()
 
@@ -75,7 +75,7 @@ class CoreSettingsBuilderTests {
     }
 
     @Test
-    fun setWifiOnly_Sets_WifiOnly_In_Bundle() {
+    fun setWifiOnly_Sets_WifiOnly_In_DataObject() {
         val enabled = builder.setWifiOnly(true).build()
         val disabled = builder.setWifiOnly(false).build()
 
@@ -84,7 +84,7 @@ class CoreSettingsBuilderTests {
     }
 
     @Test
-    fun setRefreshInterval_Sets_RefreshInterval_InSeconds_In_Bundle() {
+    fun setRefreshInterval_Sets_RefreshInterval_InSeconds_In_DataObject() {
         val oneDay = builder.setRefreshInterval(1.days).build()
         val tenMinutes = builder.setRefreshInterval(10.minutes).build()
 
@@ -93,7 +93,7 @@ class CoreSettingsBuilderTests {
     }
 
     @Test
-    fun setDeepLinkTrackingEnabled_Sets_DeepLinkTrackingEnabled_In_Bundle() {
+    fun setDeepLinkTrackingEnabled_Sets_DeepLinkTrackingEnabled_In_DataObject() {
         val enabled = builder.setDeepLinkTrackingEnabled(true).build()
         val disabled = builder.setDeepLinkTrackingEnabled(false).build()
 
@@ -102,7 +102,7 @@ class CoreSettingsBuilderTests {
     }
 
     @Test
-    fun setDisableLibrary_Sets_DisableLibrary_In_Bundle() {
+    fun setDisableLibrary_Sets_DisableLibrary_In_DataObject() {
         val disabled = builder.setDisableLibrary(true).build()
         val enabled = builder.setDisableLibrary(false).build()
 
@@ -111,20 +111,20 @@ class CoreSettingsBuilderTests {
     }
 
     @Test
-    fun setVisitorIdentityKey_Sets_VisitorIdentityKey_In_Bundle() {
+    fun setVisitorIdentityKey_Sets_VisitorIdentityKey_In_DataObject() {
         val settings = builder.setVisitorIdentityKey("identity").build()
 
         assertEquals("identity", settings.getString(CoreSettingsImpl.KEY_VISITOR_IDENTITY_KEY))
     }
 
     @Test
-    fun build_Returns_EmptyBundle_When_Nothing_Set() {
+    fun build_Returns_EmptyDataObject_When_Nothing_Set() {
         val settings = builder.build()
-        assertEquals(TealiumBundle.EMPTY_BUNDLE, settings)
+        assertEquals(DataObject.EMPTY_OBJECT, settings)
     }
 
     @Test
-    fun build_Returns_Bundle_Without_Unset_Properties() {
+    fun build_Returns_DataObject_Without_Unset_Properties() {
         val settings = builder.setBatchSize(10)
             .setBatterySaver(true)
             .build()

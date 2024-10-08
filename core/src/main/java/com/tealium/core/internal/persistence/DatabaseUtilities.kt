@@ -126,21 +126,6 @@ internal fun getTimestampMilliseconds(): Long {
 }
 
 /**
- * Pre-calculated map of code to [Serialization] mappings
- */
-private val serializationLookupByCode = Serialization.values()
-    .associateBy { s -> s.code }
-
-/**
- * Helper method to easily lookup the appropriate code for a given class.
- *
- * @return the Int [code] for the provided [clazz] or null
- */
-internal fun serializationFor(code: Int): Serialization? {
-    return serializationLookupByCode[code]
-}
-
-/**
  * Returns the last [count] entries in the list.
  *
  * Negative [count] returns all entries.

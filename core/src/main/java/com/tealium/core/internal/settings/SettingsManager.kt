@@ -1,7 +1,7 @@
 package com.tealium.core.internal.settings
 
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.data.plus
 import com.tealium.core.api.logger.AlternateLogger
 import com.tealium.core.api.misc.ActivityManager
@@ -41,7 +41,7 @@ import java.net.URL
 class SettingsManager(
     private val config: TealiumConfig,
     private val networkHelper: NetworkHelper,
-    private val cache: ResourceCache<TealiumBundle>,
+    private val cache: ResourceCache<DataObject>,
     private val logger: AlternateLogger
 ) : SettingsProvider {
 
@@ -54,14 +54,14 @@ class SettingsManager(
         config, networkHelper, ResourceCacheImpl(
             dataStore,
             KEY_SETTINGS,
-            TealiumBundle.BundleDeserializer
+            DataObject.Converter
         ),
         logger
     )
 
-    private var localSettings: TealiumBundle?
+    private var localSettings: DataObject?
     private val _sdkSettings: StateSubject<SdkSettings>
-    private val resourceRefresher: ResourceRefresher<TealiumBundle>?
+    private val resourceRefresher: ResourceRefresher<DataObject>?
 
     init {
         localSettings = loadLocalSettings()
@@ -74,7 +74,7 @@ class SettingsManager(
             logger.debug(
                 LogCategory.SETTINGS_MANAGER,
                 "Applying settings: %s",
-                it.asTealiumValue()
+                it.asDataItem()
             )
         }
 
@@ -90,19 +90,19 @@ class SettingsManager(
     override val sdkSettings: ObservableState<SdkSettings>
         get() = _sdkSettings.asObservableState()
 
-    private fun loadLocalSettings(): TealiumBundle? {
+    private fun loadLocalSettings(): DataObject? {
         val localSettings = loadFromAsset(config)
 
         logger.trace(
             LogCategory.SETTINGS_MANAGER,
             "Settings loaded from local file: %s",
-            localSettings ?: TealiumBundle.EMPTY_BUNDLE
+            localSettings ?: DataObject.EMPTY_OBJECT
         )
 
         return localSettings
     }
 
-    private fun loadCachedSettings(): TealiumBundle? {
+    private fun loadCachedSettings(): DataObject? {
         if (!config.useRemoteSettings) return null
 
         val cachedSettings = cache.resource
@@ -110,13 +110,13 @@ class SettingsManager(
         logger.trace(
             LogCategory.SETTINGS_MANAGER,
             "Settings loaded from cache: %s",
-            cachedSettings ?: TealiumBundle.EMPTY_BUNDLE
+            cachedSettings ?: DataObject.EMPTY_OBJECT
         )
 
         return cachedSettings
     }
 
-    private fun loadEnforcedSettings(): TealiumBundle {
+    private fun loadEnforcedSettings(): DataObject {
         val enforcedSettings = config.enforcedSdkSettings
 
         logger.trace(
@@ -147,7 +147,7 @@ class SettingsManager(
         return subscriptions
     }
 
-    internal fun newSettingsMerged(refresher: ResourceRefresher<TealiumBundle>): Observable<SdkSettings> {
+    internal fun newSettingsMerged(refresher: ResourceRefresher<DataObject>): Observable<SdkSettings> {
         return refresher.resource
             .map { newRemoteSettings ->
                 logger.debug(LogCategory.SETTINGS_MANAGER, "New SDK settings downloaded")
@@ -164,54 +164,54 @@ class SettingsManager(
         const val KEY_SETTINGS = "settings"
 
         /**
-         * Merges the given settings bundles in the order of priority that they are provided in, with
-         * the lowest priority bundle given first, and the highest priority bundle given last.
+         * Merges the given settings [DataObject]s in the order of priority that they are provided in, with
+         * the lowest priority settings given first, and the highest priority settings given last.
          */
         fun mergeSettings(
-            vararg settings: TealiumBundle?
+            vararg settings: DataObject?
         ): SdkSettings {
             val nonNullSettings = settings.filterNotNull()
             if (nonNullSettings.isEmpty()) return SdkSettings()
 
             val merged = nonNullSettings
-                .reduce(::mergeSettingsBundles)
+                .reduce(::mergeSettingsObjects)
 
-            return SdkSettings.Deserializer.deserialize(merged.asTealiumValue())
+            return SdkSettings.Converter.convert(merged.asDataItem())
                 ?: SdkSettings()
         }
 
         /**
-         * Merges two settings bundles together.
+         * Merges two settings [DataObject]s together.
          *
-         * Key clashes at the top level (i.e. module id) of the given [TealiumBundle]s will be "merged".
-         * That is, values from both [TealiumBundle]s will appear in the result.
+         * Key clashes at the top level (i.e. module id) of the given [DataObject]s will be "merged".
+         * That is, values from both [DataObject]s will appear in the result.
          *
          * Key clashes in deeper levels will simply prefer the higher-priority settings according to
-         * the [TealiumBundle.plus] operator.
+         * the [DataObject.plus] operator.
          */
-        private fun mergeSettingsBundles(
-            lowerPriority: TealiumBundle,
-            higherPriority: TealiumBundle
-        ): TealiumBundle {
+        private fun mergeSettingsObjects(
+            lowerPriority: DataObject,
+            higherPriority: DataObject
+        ): DataObject {
             return lowerPriority.copy {
                 higherPriority.forEach { (id, settings) ->
-                    val higherPrioritySettings = settings.getBundle()
+                    val higherPrioritySettings = settings.getDataObject()
                         ?: return@forEach
 
                     val lowerPrioritySettings =
-                        lowerPriority.getBundle(id) ?: TealiumBundle.EMPTY_BUNDLE
+                        lowerPriority.getDataObject(id) ?: DataObject.EMPTY_OBJECT
 
                     put(id, lowerPrioritySettings + higherPrioritySettings)
                 }
             }
         }
 
-        internal fun loadFromAsset(config: TealiumConfig): TealiumBundle? {
+        internal fun loadFromAsset(config: TealiumConfig): DataObject? {
             val fileName = config.localSdkSettingsFileName ?: return null
 
             return try {
                 config.application.assets.open(fileName).bufferedReader().use {
-                    TealiumBundle.fromString(it.readText())
+                    DataObject.fromString(it.readText())
                 }
             } catch (ioe: IOException) {
                 null
@@ -220,7 +220,7 @@ class SettingsManager(
 
         internal fun shouldRefresh(
             activities: Observable<ActivityManager.ApplicationStatus>,
-            refresher: ResourceRefresher<TealiumBundle>
+            refresher: ResourceRefresher<DataObject>
         ): Observable<Unit> {
             return activities.filter { newStatus ->
                 (newStatus is ActivityManager.ApplicationStatus.Init
@@ -241,16 +241,16 @@ class SettingsManager(
             config: TealiumConfig,
             networkHelper: NetworkHelper,
             refreshInterval: TimeFrame,
-            cache: ResourceCache<TealiumBundle>,
+            cache: ResourceCache<DataObject>,
             logger: AlternateLogger
-        ): ResourceRefresher<TealiumBundle>? {
+        ): ResourceRefresher<DataObject>? {
             if (config.useRemoteSettings && config.sdkSettingsUrl == null) return null
 
             return try {
                 val url = URL(config.sdkSettingsUrl)
                 ResourceRefresherImpl(
                     networkHelper,
-                    TealiumBundle.BundleDeserializer,
+                    DataObject.Converter,
                     ResourceRefresher.Parameters(
                         KEY_SETTINGS,
                         url,

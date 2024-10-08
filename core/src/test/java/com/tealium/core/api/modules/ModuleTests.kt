@@ -1,6 +1,6 @@
 package com.tealium.core.api.modules
 
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import org.junit.Assert.assertSame
 import org.junit.Test
 
@@ -10,7 +10,7 @@ class ModuleTests {
     fun updateSettings_Returns_Self() {
         val module = createModule()
 
-        assertSame(module, module.updateSettings(TealiumBundle.EMPTY_BUNDLE))
+        assertSame(module, module.updateSettings(DataObject.EMPTY_OBJECT))
     }
 
     private fun createModule(): Module {

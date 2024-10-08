@@ -5,8 +5,8 @@ import android.util.Log
 import com.tealium.core.api.Modules
 import com.tealium.core.api.Tealium
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumValue
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.misc.Environment
 import com.tealium.core.api.modules.ModuleFactory
@@ -40,8 +40,8 @@ object TealiumHelper {
         Log.d("Helper", "This Updated VisitorId: $visitorId")
     }
 
-    private fun onDataUpdated(bundle: TealiumBundle) {
-        for (entry in bundle) {
+    private fun onDataUpdated(dataObject: DataObject) {
+        for (entry in dataObject) {
             onDataUpdated(entry.key, entry.value)
         }
     }
@@ -87,8 +87,8 @@ object TealiumHelper {
             }
 
             tealium.dataLayer.edit {
-                it.put("key", TealiumValue.string("value"), Expiry.SESSION)
-                it.put("key2", TealiumValue.string("value2"), Expiry.SESSION)
+                it.put("key", DataItem.string("value"), Expiry.SESSION)
+                it.put("key2", DataItem.string("value2"), Expiry.SESSION)
                 it.remove("key2")
             }
             tealium.dataLayer.get("key") {
@@ -108,7 +108,7 @@ object TealiumHelper {
 //            it.track(Dispatch("testEvent", TealiumDispatchType.Event))
 //            it.track(
 //                Dispatches.event("testEvent")
-//                    .putContextData(TealiumBundle.create {
+//                    .putContextData(DataObject.create {
 //                        put("key", "value")
 //                    })
 //                    .build()
@@ -119,7 +119,7 @@ object TealiumHelper {
     fun track(
         event: String,
         type: TealiumDispatchType = TealiumDispatchType.Event,
-        data: TealiumBundle = TealiumBundle.EMPTY_BUNDLE
+        data: DataObject = DataObject.EMPTY_OBJECT
     ) {
         shared?.track(Dispatch.create(event, type, data), ::onTracked)
     }

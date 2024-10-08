@@ -1,6 +1,6 @@
 package com.tealium.core.internal.modules
 
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.modules.*
 import com.tealium.core.api.pubsub.Observables
@@ -193,13 +193,13 @@ class ModuleManagerImplTests {
 
     @Test
     fun updateSettings_ProvidesSettings_ToSpecificModules() {
-        val testCollectorSettings = TealiumBundle.create {
+        val testCollectorSettings = DataObject.create {
             put("collector_setting", "10")
         }
-        val testDispatcherSettings = TealiumBundle.create {
+        val testDispatcherSettings = DataObject.create {
             put("dispatcher_setting", "10")
         }
-        val testModuleSettings = TealiumBundle.create {
+        val testModuleSettings = DataObject.create {
             put("module_setting", "10")
         }
         moduleManager.updateModuleSettings(
@@ -221,7 +221,7 @@ class ModuleManagerImplTests {
 
     @Test
     fun updateSettings_Does_Not_Create_Module_When_Settings_Disabled() {
-        val creator = mockk<(TealiumContext, TealiumBundle) -> Module>()
+        val creator = mockk<(TealiumContext, DataObject) -> Module>()
 
         moduleManager.addModuleFactory(TestModuleFactory("disabled_module", creator = creator))
         moduleManager.updateModuleSettings(
@@ -239,7 +239,7 @@ class ModuleManagerImplTests {
 
     @Test
     fun updateSettings_Does_Create_Module_When_Settings_Disabled_But_Module_Cannot_Be_Disabled() {
-        val creator = mockk<(TealiumContext, TealiumBundle) -> Module>()
+        val creator = mockk<(TealiumContext, DataObject) -> Module>()
         every { creator.invoke(any(), any()) } returns mockk(relaxed = true)
 
         moduleManager.addModuleFactory(
@@ -264,7 +264,7 @@ class ModuleManagerImplTests {
 
     @Test
     fun updateSettings_Updates_Module_Settings_When_Settings_Disabled_But_Module_Cannot_Be_Disabled() {
-        val creator = mockk<(TealiumContext, TealiumBundle) -> Module>(relaxed = true)
+        val creator = mockk<(TealiumContext, DataObject) -> Module>(relaxed = true)
         val nonDisableableModule = TestModule.mock("disabled_module")
         every { creator.invoke(any(), any()) } returns nonDisableableModule
 
@@ -291,7 +291,7 @@ class ModuleManagerImplTests {
     }
 
 
-    private val disabledModuleSettings: TealiumBundle = ModuleSettingsBuilder()
+    private val disabledModuleSettings: DataObject = ModuleSettingsBuilder()
         .setEnabled(false)
         .build()
 }

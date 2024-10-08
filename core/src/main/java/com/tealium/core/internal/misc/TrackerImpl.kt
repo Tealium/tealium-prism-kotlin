@@ -3,7 +3,7 @@ package com.tealium.core.internal.misc
 import com.tealium.core.api.modules.Collector
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.Tracker
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.internal.dispatch.DispatchManager
@@ -26,10 +26,10 @@ class TrackerImpl(
         logger.trace?.log(LogCategory.TEALIUM, "Event data: ${dispatch.payload()}")
         // collection
         val builder = modules.getModulesOfType(Collector::class.java)
-            .fold(TealiumBundle.Builder()) { builder, collector ->
+            .fold(DataObject.Builder()) { builder, collector ->
                 builder.putAll(collector.collect())
             }
-        dispatch.addAll(builder.getBundle())
+        dispatch.addAll(builder.build())
 
         logger.debug?.log(LogCategory.TEALIUM, "Event: ${dispatch.logDescription()} has been enriched by collectors")
         logger.trace?.log(LogCategory.TEALIUM, "Enriched event data: ${dispatch.payload()}")

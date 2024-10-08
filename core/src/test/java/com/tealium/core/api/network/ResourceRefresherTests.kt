@@ -2,7 +2,7 @@ package com.tealium.core.api.network
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
-import com.tealium.core.api.data.TestBundleSerializable
+import com.tealium.core.api.data.TestDataObjectConvertible
 import com.tealium.core.api.misc.TealiumIOException
 import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.misc.TimeFrame
@@ -13,7 +13,7 @@ import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Subject
 import com.tealium.core.internal.network.ResourceCacheImpl
 import com.tealium.core.internal.network.ResourceRefresherImpl
-import com.tealium.core.internal.network.mockGetTealiumDeserializableResponse
+import com.tealium.core.internal.network.mockGetDataItemConvertibleResponse
 import com.tealium.core.internal.persistence.getSharedDataStore
 import com.tealium.core.internal.persistence.getTimestamp
 import com.tealium.tests.common.AltSystemLogger
@@ -38,8 +38,8 @@ class ResourceRefresherTests {
     @MockK
     private lateinit var networkHelper: NetworkHelper
 
-    private lateinit var bundleCacher: ResourceCache<TestBundleSerializable>
-    private val exampleResource = TestBundleSerializable("value", 10)
+    private lateinit var dataObjectCacher: ResourceCache<TestDataObjectConvertible>
+    private val exampleResource = TestDataObjectConvertible("value", 10)
     private val localhost = URL("http://localhost/")
 
     @Before
@@ -47,13 +47,13 @@ class ResourceRefresherTests {
         MockKAnnotations.init(this)
 
         val app = ApplicationProvider.getApplicationContext<Application>()
-        bundleCacher =
-            ResourceCacheImpl(getSharedDataStore(app), "test", TestBundleSerializable.Deserializer)
+        dataObjectCacher =
+            ResourceCacheImpl(getSharedDataStore(app), "test", TestDataObjectConvertible.Converter)
     }
 
     @Test
     fun getResource_DoesNot_Emit_When_Cache_IsEmpty() {
-        val observer = mockk<(TestBundleSerializable) -> Unit>(relaxed = true)
+        val observer = mockk<(TestDataObjectConvertible) -> Unit>(relaxed = true)
 
         val refresher = createRefresher()
 
@@ -66,8 +66,8 @@ class ResourceRefresherTests {
 
     @Test
     fun getResource_Emits_What_Is_Initially_On_Disk() {
-        val observer = mockk<(TestBundleSerializable) -> Unit>(relaxed = true)
-        bundleCacher.saveResource(exampleResource, null)
+        val observer = mockk<(TestDataObjectConvertible) -> Unit>(relaxed = true)
+        dataObjectCacher.saveResource(exampleResource, null)
 
         val refresher = createRefresher()
 
@@ -80,8 +80,8 @@ class ResourceRefresherTests {
 
     @Test
     fun getResource_Emits_Future_Updates() {
-        val observer = mockk<(TestBundleSerializable) -> Unit>(relaxed = true)
-        val onResource = Observables.publishSubject<TestBundleSerializable>()
+        val observer = mockk<(TestDataObjectConvertible) -> Unit>(relaxed = true)
+        val onResource = Observables.publishSubject<TestDataObjectConvertible>()
 
         val refresher = createRefresher(onResourceLoaded = onResource)
         refresher.resource.subscribe(observer)
@@ -124,7 +124,7 @@ class ResourceRefresherTests {
     @Test
     fun getErrors_Emits_Errors_From_Saving_Resource() {
         val observer = mockk<(TealiumIOException) -> Unit>(relaxed = true)
-        val mockCache = mockk<ResourceCache<TestBundleSerializable>>()
+        val mockCache = mockk<ResourceCache<TestDataObjectConvertible>>()
         every { mockCache.resource } returns null
         every {
             mockCache.saveResource(
@@ -146,7 +146,7 @@ class ResourceRefresherTests {
 
     @Test
     fun requestRefresh_Refreshes_From_Remote() {
-        val observer = mockk<(TestBundleSerializable) -> Unit>(relaxed = true)
+        val observer = mockk<(TestDataObjectConvertible) -> Unit>(relaxed = true)
 
         mockSuccessResponse()
         val refresher = createRefresher()
@@ -161,7 +161,7 @@ class ResourceRefresherTests {
 
     @Test
     fun requestRefresh_Discards_From_Remote_When_Validator_Invalid() {
-        val observer = mockk<(TestBundleSerializable) -> Unit>(relaxed = true)
+        val observer = mockk<(TestDataObjectConvertible) -> Unit>(relaxed = true)
 
         mockSuccessResponse()
         val refresher = createRefresher()
@@ -181,19 +181,19 @@ class ResourceRefresherTests {
 
     @Test
     fun requestRefresh_Always_Refreshes_When_Last_Refresh_Is_Null() {
-        every { networkHelper.getTealiumDeserializable(any<URL>(), any(), TestBundleSerializable.Deserializer, any()) } returns mockk()
+        every { networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any()) } returns mockk()
         val refresher = createRefresher(lastRefresh = null)
 
         refresher.requestRefresh()
 
         verify {
-            networkHelper.getTealiumDeserializable(any<URL>(), any(), TestBundleSerializable.Deserializer, any())
+            networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any())
         }
     }
 
     @Test
     fun requestRefresh_Does_Not_Refresh_When_Already_Refreshing() {
-        every { networkHelper.getTealiumDeserializable(any<URL>(), any(), TestBundleSerializable.Deserializer, any()) } returns mockk()
+        every { networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any()) } returns mockk()
         val refresher = createRefresher()
 
         refresher.requestRefresh()
@@ -201,13 +201,13 @@ class ResourceRefresherTests {
         refresher.requestRefresh()
 
         verify(exactly = 1) {
-            networkHelper.getTealiumDeserializable(any<URL>(), any(), TestBundleSerializable.Deserializer, any())
+            networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any())
         }
     }
 
     @Test
     fun requestRefresh_Does_Not_Refresh_When_In_Cooldown_And_Not_Cached() {
-        every { networkHelper.getTealiumDeserializable(any<URL>(), any(), TestBundleSerializable.Deserializer, any()) } returns mockk()
+        every { networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any()) } returns mockk()
         val cooldownHelper = CooldownHelper.create(10.minutes, 2.minutes)!!
         val refresher =
             createRefresher(cooldownHelper = cooldownHelper, lastRefresh = getTimestamp())
@@ -216,14 +216,14 @@ class ResourceRefresherTests {
         refresher.requestRefresh()
 
         verify(exactly = 0) {
-            networkHelper.getTealiumDeserializable(any<URL>(), any(), TestBundleSerializable.Deserializer, any())
+            networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any())
         }
     }
 
     @Test
     fun requestRefresh_Ignores_Cooldown_When_Already_Cached() {
-        bundleCacher.saveResource(exampleResource, null)
-        every { networkHelper.getTealiumDeserializable(any<URL>(), any(), TestBundleSerializable.Deserializer, any()) } returns mockk()
+        dataObjectCacher.saveResource(exampleResource, null)
+        every { networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any()) } returns mockk()
         val cooldownHelper = mockk<CooldownHelper>()
         val refresher = createRefresher(cooldownHelper = cooldownHelper, lastRefresh = 0)
 
@@ -236,7 +236,7 @@ class ResourceRefresherTests {
 
     @Test
     fun requestRefresh_Does_Not_Refresh_When_Refresh_Interval_Not_Elapsed() {
-        every { networkHelper.getTealiumDeserializable(any<URL>(), any(), TestBundleSerializable.Deserializer, any()) } returns mockk()
+        every { networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any()) } returns mockk()
         val timingProvider = mockk<() -> Long>()
         every { timingProvider.invoke() } returnsMany listOf(0, 60, 120)
 
@@ -253,20 +253,20 @@ class ResourceRefresherTests {
         refresher.requestRefresh() // success
 
         verify(exactly = 1) {
-            networkHelper.getTealiumDeserializable(any<URL>(), any(), TestBundleSerializable.Deserializer, any())
+            networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any())
         }
     }
 
     @Test
     fun requestRefresh_Uses_Previous_Etag() {
-        bundleCacher.saveResource(exampleResource, "abcd1234")
-        every { networkHelper.getTealiumDeserializable(any<URL>(), any(), TestBundleSerializable.Deserializer, any()) } returns mockk()
+        dataObjectCacher.saveResource(exampleResource, "abcd1234")
+        every { networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any()) } returns mockk()
         val refresher = createRefresher(lastRefresh = null)
 
         refresher.requestRefresh()
 
         verify(exactly = 1) {
-            networkHelper.getTealiumDeserializable(any<URL>(), "abcd1234", TestBundleSerializable.Deserializer, any())
+            networkHelper.getDataItemConvertible(any<URL>(), "abcd1234", TestDataObjectConvertible.Converter, any())
         }
     }
 
@@ -352,7 +352,7 @@ class ResourceRefresherTests {
 
     @Test
     fun setRefreshInterval_Updates_RefreshInterval() {
-        every { networkHelper.getTealiumDeserializable(any<URL>(), any(), TestBundleSerializable.Deserializer, any()) } returns mockk()
+        every { networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any()) } returns mockk()
         val timingProvider = mockk<() -> Long>()
         every { timingProvider.invoke() } returns 60
 
@@ -369,15 +369,15 @@ class ResourceRefresherTests {
         refresher.requestRefresh() // success
 
         verify(exactly = 1) {
-            networkHelper.getTealiumDeserializable(any<URL>(), any(), TestBundleSerializable.Deserializer, any())
+            networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any())
         }
     }
 
     private fun mockCache(
-        resource: TestBundleSerializable? = null,
+        resource: TestDataObjectConvertible? = null,
         etag: String? = null
-    ): ResourceCache<TestBundleSerializable> {
-        val cache = mockk<ResourceCache<TestBundleSerializable>>()
+    ): ResourceCache<TestDataObjectConvertible> {
+        val cache = mockk<ResourceCache<TestDataObjectConvertible>>()
         every { cache.resource } returns resource
         every { cache.etag } returns etag
         every { cache.saveResource(any(), any()) } just Runs
@@ -385,46 +385,46 @@ class ResourceRefresherTests {
     }
 
     private fun mockSuccessResponse(
-        value: TestBundleSerializable = exampleResource,
+        value: TestDataObjectConvertible = exampleResource,
         headers: Map<String, List<String>> = mapOf(),
         statusCode: Int = 200
     ) {
-        networkHelper.mockGetTealiumDeserializableResponse(
+        networkHelper.mockGetDataItemConvertibleResponse(
             TealiumResult.success(
                 NetworkHelper.HttpValue(
                     value,
-                    HttpResponse(com.tealium.core.internal.network.localhost, statusCode, "", headers, value.asTealiumValue().toString())
+                    HttpResponse(com.tealium.core.internal.network.localhost, statusCode, "", headers, value.asDataItem().toString())
                 )
             ),
-            TestBundleSerializable.Deserializer
+            TestDataObjectConvertible.Converter
         )
     }
 
     private fun mockFailureResponse(
         cause: NetworkException = NetworkException.UnexpectedException(null)
     ) {
-        networkHelper.mockGetTealiumDeserializableResponse(
+        networkHelper.mockGetDataItemConvertibleResponse(
             TealiumResult.failure(cause),
-            TestBundleSerializable.Deserializer
+            TestDataObjectConvertible.Converter
         )
     }
 
     private fun createRefresher(
         networkHelper: NetworkHelper = this.networkHelper,
-        cache: ResourceCache<TestBundleSerializable> = this.bundleCacher,
+        cache: ResourceCache<TestDataObjectConvertible> = this.dataObjectCacher,
         id: String = "test",
         url: URL = this.localhost,
         refreshInterval: TimeFrame = 10.minutes,
         baseErrorInterval: TimeFrame? = 2.minutes,
         cooldownHelper: CooldownHelper? = null,
-        onResourceLoaded: Subject<TestBundleSerializable> = Observables.publishSubject(),
+        onResourceLoaded: Subject<TestDataObjectConvertible> = Observables.publishSubject(),
         onRefreshError: Subject<TealiumIOException> = Observables.publishSubject(),
         lastRefresh: Long? = null,
         timingProvider: () -> Long = ::getTimestamp
-    ): ResourceRefresher<TestBundleSerializable> {
+    ): ResourceRefresher<TestDataObjectConvertible> {
         return ResourceRefresherImpl(
             networkHelper,
-            TestBundleSerializable.Deserializer,
+            TestDataObjectConvertible.Converter,
             ResourceRefresher.Parameters(
                 id, url, refreshInterval, baseErrorInterval
             ),

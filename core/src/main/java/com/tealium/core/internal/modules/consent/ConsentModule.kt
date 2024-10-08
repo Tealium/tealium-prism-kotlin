@@ -1,8 +1,8 @@
 package com.tealium.core.internal.modules.consent
 
 import com.tealium.core.BuildConfig
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumList
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.DataList
 import com.tealium.core.api.modules.Dispatcher
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
@@ -100,8 +100,8 @@ class ConsentModule(
         queueManager.storeDispatches(listOf(consentedDispatch), processors)
     }
 
-    override fun updateSettings(moduleSettings: TealiumBundle): Module? {
-        consentSettings.onNext(ConsentSettings.fromBundle(moduleSettings))
+    override fun updateSettings(moduleSettings: DataObject): Module? {
+        consentSettings.onNext(ConsentSettings.fromDataObject(moduleSettings))
         return this
     }
 
@@ -154,7 +154,7 @@ class ConsentModule(
 
         fun applyDecision(decision: ConsentDecision, dispatch: Dispatch): Dispatch? {
             val processedPurposes = dispatch.payload()
-                .getList(Dispatch.Keys.PURPOSES_WITH_CONSENT_ALL) ?: TealiumList.EMPTY_LIST
+                .getDataList(Dispatch.Keys.PURPOSES_WITH_CONSENT_ALL) ?: DataList.EMPTY_LIST
 
             val unprocessedPurposes = decision.purposes.filter { purpose ->
                 processedPurposes.find {
@@ -163,15 +163,15 @@ class ConsentModule(
             }
             if (unprocessedPurposes.isEmpty()) return null
 
-            dispatch.addAll(TealiumBundle.create {
+            dispatch.addAll(DataObject.create {
                 put(
                     Dispatch.Keys.PURPOSES_WITH_CONSENT_UNPROCESSED,
-                    TealiumList.fromCollection(unprocessedPurposes)
+                    DataList.fromCollection(unprocessedPurposes)
                 )
                 put(Dispatch.Keys.PURPOSES_WITH_CONSENT_PROCESSED, processedPurposes)
                 put(
                     Dispatch.Keys.PURPOSES_WITH_CONSENT_ALL,
-                    TealiumList.fromCollection(decision.purposes)
+                    DataList.fromCollection(decision.purposes)
                 )
                 put(
                     Dispatch.Keys.CONSENT_TYPE,
@@ -198,7 +198,7 @@ class ConsentModule(
     data class Factory(
         private val cmp: ConsentManagementAdapter,
         private val queueManager: QueueManager? = null,
-        private var settings: TealiumBundle? = null
+        private var settings: DataObject? = null
     ) : ModuleFactory {
 
         constructor(cmp: ConsentManagementAdapter, settings: ModuleSettingsBuilder): this(cmp, null, settings.build())
@@ -206,10 +206,10 @@ class ConsentModule(
         override val id: String
             get() = NAME
 
-        override fun create(context: TealiumContext, settings: TealiumBundle): Module? {
+        override fun create(context: TealiumContext, settings: DataObject): Module? {
             if (queueManager == null) return null
 
-            val consentSettings = ConsentSettings.fromBundle(settings)
+            val consentSettings = ConsentSettings.fromDataObject(settings)
 
             return ConsentModule(
                 context.moduleManager.modules,
@@ -220,6 +220,6 @@ class ConsentModule(
             )
         }
 
-        override fun getEnforcedSettings(): TealiumBundle? = settings
+        override fun getEnforcedSettings(): DataObject? = settings
     }
 }

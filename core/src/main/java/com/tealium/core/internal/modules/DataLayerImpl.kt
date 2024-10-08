@@ -9,8 +9,8 @@ import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.ModuleManager
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumValue
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.pubsub.Subscribable
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.pubsub.Observable
@@ -30,15 +30,15 @@ class DataLayerWrapper(
         }
     }
 
-    override fun put(bundle: TealiumBundle, expiry: Expiry) {
+    override fun put(dataObject: DataObject, expiry: Expiry) {
         moduleProxy.getModule { dataLayer ->
             dataLayer?.edit {
-                it.putAll(bundle, expiry)
+                it.putAll(dataObject, expiry)
             }
         }
     }
 
-    override fun get(key: String, callback: TealiumCallback<TealiumValue?>) {
+    override fun get(key: String, callback: TealiumCallback<DataItem?>) {
         moduleProxy.getModule { dataLayer ->
             val value = dataLayer?.get(key)
             callback.onComplete(value)
@@ -53,7 +53,7 @@ class DataLayerWrapper(
         }
     }
 
-    override val onDataUpdated: Subscribable<TealiumBundle>
+    override val onDataUpdated: Subscribable<DataObject>
         get() = moduleProxy.getModule()
             .flatMap { it.onDataUpdated }
 
@@ -66,7 +66,7 @@ class DataLayerImpl(
     private val dataStore: DataStore,
 ) : Collector {
 
-    val onDataUpdated: Observable<TealiumBundle>
+    val onDataUpdated: Observable<DataObject>
         get() = dataStore.onDataUpdated
     val onDataRemoved: Observable<List<String>>
         get() = dataStore.onDataRemoved
@@ -82,11 +82,11 @@ class DataLayerImpl(
             .commit()
     }
 
-    override fun collect(): TealiumBundle {
+    override fun collect(): DataObject {
         return dataStore.getAll()
     }
 
-    fun get(key: String): TealiumValue? {
+    fun get(key: String): DataItem? {
         return dataStore.get(key)
     }
 
@@ -96,7 +96,7 @@ class DataLayerImpl(
         override val id: String
             get() = moduleName
 
-        override fun create(context: TealiumContext, settings: TealiumBundle): Module? {
+        override fun create(context: TealiumContext, settings: DataObject): Module? {
             val dataStore = context.storageProvider.getModuleStore(this)
             return DataLayerImpl(dataStore)
         }

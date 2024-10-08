@@ -1,7 +1,7 @@
 package com.tealium.core.api.barriers
 
-import com.tealium.core.api.data.TealiumSerializable
-import com.tealium.core.api.data.TealiumValue
+import com.tealium.core.api.data.DataItemConvertible
+import com.tealium.core.api.data.DataItem
 
 /**
  * The [BarrierScope] defines the available scopes that can be assigned to a [Barrier] via a [ScopedBarrier]
@@ -15,7 +15,7 @@ import com.tealium.core.api.data.TealiumValue
  * A [Barrier] scoped to [Dispatcher] will only be checked for its state for the specific [Dispatcher]
  * as identified by the given [Dispatcher] name.
  */
-sealed class BarrierScope(val value: String): TealiumSerializable {
+sealed class BarrierScope(val value: String): DataItemConvertible {
     /**
      * This [BarrierScope] will affect all [Dispatcher] implementations.
      */
@@ -29,7 +29,7 @@ sealed class BarrierScope(val value: String): TealiumSerializable {
      */
     data class Dispatcher(val dispatcher: String) : BarrierScope(dispatcher)
 
-    override fun asTealiumValue(): TealiumValue {
-        return TealiumValue.string(value)
+    override fun asDataItem(): DataItem {
+        return DataItem.string(value)
     }
 }

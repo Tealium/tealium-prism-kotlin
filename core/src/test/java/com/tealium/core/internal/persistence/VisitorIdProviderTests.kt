@@ -1,6 +1,6 @@
 package com.tealium.core.internal.persistence
 
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Subject
 import com.tealium.core.internal.persistence.repositories.VisitorStorage
@@ -27,7 +27,7 @@ class VisitorIdProviderTests {
     @RelaxedMockK
     private lateinit var visitorIdMigrator: VisitorIdProviderImpl.VisitorIdMigrator
 
-    private val onDataLayerUpdated: Subject<TealiumBundle> = spyk(Observables.publishSubject())
+    private val onDataLayerUpdated: Subject<DataObject> = spyk(Observables.publishSubject())
     private val currentVisitorId = "visitor123"
     private val currentIdentity = "identity123"
     private val hashedCurrentIdentity = currentIdentity.sha256()
@@ -89,7 +89,7 @@ class VisitorIdProviderTests {
         val visitorIdProvider = createDefaultVisitorIdProvider(visitorStorage = visitorStorage)
         visitorIdProvider.visitorId.subscribe(onNext)
 
-        onDataLayerUpdated.onNext(TealiumBundle.create {
+        onDataLayerUpdated.onNext(DataObject.create {
             put("incorrect_key", "newIdentity")
         })
 

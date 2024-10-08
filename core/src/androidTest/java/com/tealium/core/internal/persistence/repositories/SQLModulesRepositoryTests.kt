@@ -9,8 +9,8 @@ import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.modules.Module
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumValue
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.DataItem
 import com.tealium.core.internal.persistence.DatabaseProvider
 import com.tealium.core.internal.persistence.InMemoryDatabaseProvider
 import com.tealium.core.internal.persistence.ModuleStore
@@ -215,7 +215,7 @@ open class SQLModulesRepositoryTests {
         @Test
         fun deleteExpired_NotifiesOnDataExpired_WithExpiredData() {
             val moduleIds = preregisterModules(listOf(module1, module2), true)
-            val verifier = spyk<(Map<Long, TealiumBundle>) -> Unit>({ expired ->
+            val verifier = spyk<(Map<Long, DataObject>) -> Unit>({ expired ->
                 assertEquals(moduleIds.count(), expired.keys.count())
                 assertTrue(expired.keys.containsAll(moduleIds))
 
@@ -264,17 +264,17 @@ open class SQLModulesRepositoryTests {
         getModuleStore(moduleId).edit().apply {
             put(
                 "one_second",
-                TealiumValue.boolean(true),
+                DataItem.boolean(true),
                 Expiry.afterTimeUnit(1, TimeUnit.SECONDS)
             )
             put(
                 "one_hour",
-                TealiumValue.boolean(true),
+                DataItem.boolean(true),
                 Expiry.afterTimeUnit(1, TimeUnit.HOURS)
             )
-            put("until_restart", TealiumValue.boolean(true), Expiry.UNTIL_RESTART)
-            put("session", TealiumValue.boolean(true), Expiry.SESSION)
-            put("forever", TealiumValue.boolean(true), Expiry.FOREVER)
+            put("until_restart", DataItem.boolean(true), Expiry.UNTIL_RESTART)
+            put("session", DataItem.boolean(true), Expiry.SESSION)
+            put("forever", DataItem.boolean(true), Expiry.FOREVER)
 
             block?.invoke(this)
         }.commit()

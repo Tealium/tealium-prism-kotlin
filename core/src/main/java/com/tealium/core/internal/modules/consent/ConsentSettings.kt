@@ -1,6 +1,6 @@
 package com.tealium.core.internal.modules.consent
 
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 
 /**
  * Holds all relevant configuration options for the Consent Management system.
@@ -17,17 +17,17 @@ class ConsentSettings(
         /**
          * Convenience method for
          */
-        fun fromBundle(bundle: TealiumBundle) : ConsentSettings {
+        fun fromDataObject(dataObject: DataObject) : ConsentSettings {
             val purposeMap =
-                bundle.getBundle(KEY_DISPATCHER_PURPOSES)?.getAll()?.mapNotNull { entry ->
-                    entry.value.getList()?.let { value ->
+                dataObject.getDataObject(KEY_DISPATCHER_PURPOSES)?.getAll()?.mapNotNull { entry ->
+                    entry.value.getDataList()?.let { value ->
                         entry.key to value.mapNotNull { entry ->
                             entry.getString()
                         }
                     }
                 }?.toMap() ?: emptyMap()
             val refireDispatchers =
-                bundle.getList(KEY_REFIRE_DISPATCHERS)?.mapNotNull { it.getString() } ?: emptyList()
+                dataObject.getDataList(KEY_REFIRE_DISPATCHERS)?.mapNotNull { it.getString() } ?: emptyList()
 
             return ConsentSettings(purposeMap, refireDispatchers)
         }

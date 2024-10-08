@@ -2,13 +2,13 @@ package com.tealium.core.api.transform
 
 import com.tealium.core.api.modules.Collector
 import com.tealium.core.api.tracking.Dispatch
-import com.tealium.core.api.data.TealiumSerializable
-import com.tealium.core.api.data.TealiumValue
+import com.tealium.core.api.data.DataItemConvertible
+import com.tealium.core.api.data.DataItem
 
 /**
  * Sets out the available extension points during the [Dispatch] lifecycle.
  */
-sealed class TransformationScope(val value: String): TealiumSerializable {
+sealed class TransformationScope(val value: String): DataItemConvertible {
 
     /**
      * This scope happens directly after all data collection has been completed from any [Collector]
@@ -30,7 +30,7 @@ sealed class TransformationScope(val value: String): TealiumSerializable {
      */
     data class Dispatcher(val dispatcher: String) : TransformationScope(dispatcher)
 
-    override fun asTealiumValue(): TealiumValue {
-        return TealiumValue.string(value)
+    override fun asDataItem(): DataItem {
+        return DataItem.string(value)
     }
 }

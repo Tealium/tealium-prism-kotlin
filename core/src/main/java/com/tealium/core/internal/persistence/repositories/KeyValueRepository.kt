@@ -2,7 +2,7 @@ package com.tealium.core.internal.persistence.repositories
 
 import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.persistence.PersistenceException
-import com.tealium.core.api.data.TealiumValue
+import com.tealium.core.api.data.DataItem
 
 
 /**
@@ -30,12 +30,12 @@ interface KeyValueRepository {
      * @param key The key to use to lookup the value
      * @return Then value for the given key, else null
      */
-    fun get(key: String): TealiumValue?
+    fun get(key: String): DataItem?
 
     /**
      * Fetch all items in the storage. Returning as a map of key/value pairs.
      */
-    fun getAll(): Map<String, TealiumValue>
+    fun getAll(): Map<String, DataItem>
 
     /**
      * Removes and item from storage given the [key].
@@ -56,7 +56,7 @@ interface KeyValueRepository {
      * @return The id of the newly added data. Negative values indicate no values written.
      */
     @Throws(PersistenceException::class)
-    fun upsert(key: String, value: TealiumValue, expiry: Expiry): Long
+    fun upsert(key: String, value: DataItem, expiry: Expiry): Long
 
     /**
      * Removes all entries from the storage.

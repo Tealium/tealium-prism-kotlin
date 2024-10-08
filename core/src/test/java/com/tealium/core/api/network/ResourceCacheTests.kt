@@ -2,8 +2,8 @@ package com.tealium.core.api.network
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
-import com.tealium.core.api.data.TestBundleSerializable
-import com.tealium.core.api.data.TestListSerializable
+import com.tealium.core.api.data.TestDataObjectConvertible
+import com.tealium.core.api.data.TestDataListConvertible
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.internal.network.ResourceCacheImpl
@@ -17,11 +17,11 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class ResourceCacheTests {
 
-    private val list = TestListSerializable("value", 10)
-    private val bundle = TestBundleSerializable("value", 10)
+    private val list = TestDataListConvertible("value", 10)
+    private val dataObject = TestDataObjectConvertible("value", 10)
 
-    private lateinit var bundleCacher: ResourceCache<TestBundleSerializable>
-    private lateinit var listCacher: ResourceCache<TestListSerializable>
+    private lateinit var dataObjectCacher: ResourceCache<TestDataObjectConvertible>
+    private lateinit var dataListCacher: ResourceCache<TestDataListConvertible>
     private lateinit var dataStore: DataStore
     private lateinit var app: Application
 
@@ -31,94 +31,94 @@ class ResourceCacheTests {
 
         dataStore = getSharedDataStore(app)
 
-        bundleCacher = ResourceCacheImpl(dataStore, "bundle", TestBundleSerializable.Deserializer)
-        listCacher = ResourceCacheImpl(dataStore, "list", TestListSerializable.Deserializer)
+        dataObjectCacher = ResourceCacheImpl(dataStore, "object", TestDataObjectConvertible.Converter)
+        dataListCacher = ResourceCacheImpl(dataStore, "list", TestDataListConvertible.Converter)
     }
 
     @Test
     fun readResource_Returns_Null_When_Nothing_Cached() {
-        assertNull(bundleCacher.resource)
-        assertNull(listCacher.resource)
+        assertNull(dataObjectCacher.resource)
+        assertNull(dataListCacher.resource)
     }
 
     @Test
-    fun readResource_Returns_Null_When_Not_Deserializable() {
-        val list = TestListSerializable("value", 10)
-        val bundle = TestBundleSerializable("value", 10)
+    fun readResource_Returns_Null_When_Not_Convertible() {
+        val dataListConvertible = TestDataListConvertible("value", 10)
+        val dataObjectConvertible = TestDataObjectConvertible("value", 10)
         dataStore.edit()
-            .put("bundle", list, Expiry.FOREVER)
-            .put("list", bundle, Expiry.FOREVER)
+            .put("object", dataListConvertible, Expiry.FOREVER)
+            .put("list", dataObjectConvertible, Expiry.FOREVER)
             .commit()
 
-        assertNull(bundleCacher.resource)
-        assertNull(listCacher.resource)
+        assertNull(dataObjectCacher.resource)
+        assertNull(dataListCacher.resource)
     }
 
     @Test
-    fun readResource_Returns_Valid_Instance_When_Cache_Is_Deserializable() {
+    fun readResource_Returns_Valid_Instance_When_Cache_Is_Convertible() {
         dataStore.edit()
-            .put("bundle", bundle, Expiry.FOREVER)
+            .put("object", dataObject, Expiry.FOREVER)
             .put("list", list, Expiry.FOREVER)
             .commit()
 
-        val deserializedBundle = bundleCacher.resource!!
-        val deserializedList = listCacher.resource!!
+        val convertedDataObject = dataObjectCacher.resource!!
+        val convertedDataList = dataListCacher.resource!!
 
-        assertEquals("value", deserializedBundle.string)
-        assertEquals(10, deserializedBundle.int)
-        assertEquals("value", deserializedList.string)
-        assertEquals(10, deserializedList.int)
+        assertEquals("value", convertedDataObject.string)
+        assertEquals(10, convertedDataObject.int)
+        assertEquals("value", convertedDataList.string)
+        assertEquals(10, convertedDataList.int)
     }
 
     @Test
     fun readEtag_Returns_Null_When_Not_Present() {
-        assertNull(bundleCacher.etag)
-        assertNull(listCacher.etag)
+        assertNull(dataObjectCacher.etag)
+        assertNull(dataListCacher.etag)
     }
 
     @Test
     fun readEtag_Returns_Etag_When_Present() {
         dataStore.edit()
-            .put("bundle_etag", "12345", Expiry.FOREVER)
+            .put("object_etag", "12345", Expiry.FOREVER)
             .put("list_etag", "67890", Expiry.FOREVER)
             .commit()
 
-        assertEquals("12345", bundleCacher.etag)
-        assertEquals("67890", listCacher.etag)
+        assertEquals("12345", dataObjectCacher.etag)
+        assertEquals("67890", dataListCacher.etag)
     }
 
     @Test
     fun saveResource_Saves_Resource_Without_Etag() {
-        bundleCacher.saveResource(bundle, null)
-        listCacher.saveResource(list, null)
+        dataObjectCacher.saveResource(dataObject, null)
+        dataListCacher.saveResource(list, null)
 
-        assertEquals(bundle, bundleCacher.resource)
-        assertEquals(list, listCacher.resource)
+        assertEquals(dataObject, dataObjectCacher.resource)
+        assertEquals(list, dataListCacher.resource)
 
-        assertNull(bundleCacher.etag)
-        assertNull(listCacher.etag)
+        assertNull(dataObjectCacher.etag)
+        assertNull(dataListCacher.etag)
     }
 
     @Test
     fun saveResource_Saves_Resource_With_Etag() {
-        bundleCacher.saveResource(bundle, "12345")
-        listCacher.saveResource(list, "67890")
+        dataObjectCacher.saveResource(dataObject, "12345")
+        dataListCacher.saveResource(list, "67890")
 
-        assertEquals(bundle, bundleCacher.resource)
-        assertEquals(list, listCacher.resource)
+        assertEquals(dataObject, dataObjectCacher.resource)
+        assertEquals(list, dataListCacher.resource)
 
-        assertEquals("12345", bundleCacher.etag)
-        assertEquals("67890", listCacher.etag)
+        assertEquals("12345", dataObjectCacher.etag)
+        assertEquals("67890", dataListCacher.etag)
     }
 
     @Test
     fun saveResource_Removes_Existing_Etag_When_New_Etag_Is_Null() {
-        bundleCacher.saveResource(bundle, "12345")
-        bundleCacher.saveResource(bundle, null)
-        listCacher.saveResource(list, "67890")
-        listCacher.saveResource(list, null)
+        dataObjectCacher.saveResource(dataObject, "12345")
+        dataObjectCacher.saveResource(dataObject, null)
+        dataListCacher.saveResource(list, "67890")
+        dataListCacher.saveResource(list, null)
 
-        assertNull(bundleCacher.etag)
-        assertNull(listCacher.etag)
+        assertNull(dataObjectCacher.etag)
+        assertNull(dataListCacher.etag)
     }
 }

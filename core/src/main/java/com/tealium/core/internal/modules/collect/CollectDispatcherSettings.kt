@@ -1,7 +1,7 @@
 package com.tealium.core.internal.modules.collect
 
 import android.net.Uri
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import java.net.MalformedURLException
 import java.net.URL
 
@@ -39,7 +39,7 @@ data class CollectDispatcherSettings(
         const val KEY_COLLECT_BATCH_URL = "batch_dispatch_url"
         const val KEY_COLLECT_PROFILE = "dispatch_profile"
 
-        fun fromBundle(settings: TealiumBundle): CollectDispatcherSettings? {
+        fun fromDataObject(settings: DataObject): CollectDispatcherSettings? {
             val profile = settings.getString(KEY_COLLECT_PROFILE)
             val url = settings.parseUrl(KEY_COLLECT_URL, DEFAULT_COLLECT_URL)
             val batchUrl = settings.parseUrl(KEY_COLLECT_BATCH_URL, DEFAULT_COLLECT_BATCH_URL)
@@ -63,7 +63,7 @@ data class CollectDispatcherSettings(
                 .parseUrl()
         }
 
-        private fun TealiumBundle.parseUrl(key: String, default: String): URL? {
+        private fun DataObject.parseUrl(key: String, default: String): URL? {
             val urlString = getString(key)
             if (urlString != null) {
                 // url override set; do not fall back to defaults.

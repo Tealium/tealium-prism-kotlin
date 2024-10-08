@@ -1,11 +1,11 @@
 package com.tealium.core.api.transform
 
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumSerializable
-import com.tealium.core.api.data.TealiumValue
-import com.tealium.core.internal.misc.Deserializers.ScopedTransformationDeserializable.KEY_SCOPES
-import com.tealium.core.internal.misc.Deserializers.ScopedTransformationDeserializable.KEY_TRANSFORMATION_ID
-import com.tealium.core.internal.misc.Deserializers.ScopedTransformationDeserializable.KEY_TRANSFORMER_ID
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.DataItemConvertible
+import com.tealium.core.api.data.DataItem
+import com.tealium.core.internal.misc.Converters.ScopedTransformationConverter.KEY_SCOPES
+import com.tealium.core.internal.misc.Converters.ScopedTransformationConverter.KEY_TRANSFORMATION_ID
+import com.tealium.core.internal.misc.Converters.ScopedTransformationConverter.KEY_TRANSFORMER_ID
 
 
 /**
@@ -27,13 +27,13 @@ data class ScopedTransformation(
      * The set of [TransformationScope]s that this transformation is applicable for.
      */
     val scope: Set<TransformationScope>
-) : TealiumSerializable {
+) : DataItemConvertible {
 
-    override fun asTealiumValue(): TealiumValue {
-        return TealiumBundle.create {
+    override fun asDataItem(): DataItem {
+        return DataObject.create {
             put(KEY_TRANSFORMATION_ID, id)
             put(KEY_TRANSFORMER_ID, transformerId)
-            put(KEY_SCOPES, TealiumValue.convert(scope))
-        }.asTealiumValue()
+            put(KEY_SCOPES, DataItem.convert(scope))
+        }.asDataItem()
     }
 }

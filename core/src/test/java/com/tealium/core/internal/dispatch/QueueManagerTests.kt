@@ -1,6 +1,6 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.misc.TimeFrameUtils.days
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
@@ -29,11 +29,11 @@ class QueueManagerTests {
     private val dispatcher3 = "dispatcher_3"
     private val allProcessors = setOf(dispatcher1, dispatcher2, dispatcher3)
     private val dispatch1: Dispatch =
-        Dispatch.create("test1", TealiumDispatchType.Event, TealiumBundle.EMPTY_BUNDLE)
+        Dispatch.create("test1", TealiumDispatchType.Event, DataObject.EMPTY_OBJECT)
     private val dispatch2: Dispatch =
-        Dispatch.create("test2", TealiumDispatchType.Event, TealiumBundle.EMPTY_BUNDLE)
+        Dispatch.create("test2", TealiumDispatchType.Event, DataObject.EMPTY_OBJECT)
     private val dispatch3: Dispatch =
-        Dispatch.create("test3", TealiumDispatchType.Event, TealiumBundle.EMPTY_BUNDLE)
+        Dispatch.create("test3", TealiumDispatchType.Event, DataObject.EMPTY_OBJECT)
 
     private lateinit var coreSettings: Subject<CoreSettings>
     private lateinit var processors: Subject<Set<String>>

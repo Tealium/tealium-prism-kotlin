@@ -3,7 +3,7 @@ package com.tealium.core.internal.persistence.repositories
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.persistence.Expiry
-import com.tealium.core.api.data.TealiumValue
+import com.tealium.core.api.data.DataItem
 
 /**
  * [VisitorStorage] provides a set of methods to store, retrieve and associate visitors to known
@@ -104,13 +104,13 @@ class VisitorStorageImpl(
 
     private fun DataStore.Editor.setCurrentIdentity(identity: String): DataStore.Editor = put(
         KEY_CURRENT_IDENTITY,
-        TealiumValue.string(identity),
+        DataItem.string(identity),
         Expiry.FOREVER
     )
 
     private fun DataStore.Editor.setVisitorId(visitorId: String): DataStore.Editor = put(
         Dispatch.Keys.TEALIUM_VISITOR_ID,
-        TealiumValue.string(visitorId),
+        DataItem.string(visitorId),
         Expiry.FOREVER
     )
 
@@ -121,7 +121,7 @@ class VisitorStorageImpl(
         identity?.let {
             put(
                 identity,
-                TealiumValue.string(visitorId),
+                DataItem.string(visitorId),
                 Expiry.FOREVER
             )
         } ?: this

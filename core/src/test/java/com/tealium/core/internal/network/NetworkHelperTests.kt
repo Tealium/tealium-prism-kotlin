@@ -1,7 +1,7 @@
 package com.tealium.core.internal.network
 
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TestBundleSerializable
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.TestDataObjectConvertible
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.network.DeserializedNetworkCallback
 import com.tealium.core.api.network.HttpRequest
@@ -85,7 +85,7 @@ class NetworkHelperTests {
 
     @Test
     fun post_Makes_Network_Request() {
-        val payload: TealiumBundle = TealiumBundle.EMPTY_BUNDLE
+        val payload: DataObject = DataObject.EMPTY_OBJECT
         val request = HttpRequest.post("http://localhost", payload.toString()).gzip(true).build()
         val callback = mockCallback<NetworkResult>()
         mockRequest(request, success())
@@ -100,7 +100,7 @@ class NetworkHelperTests {
 
     @Test
     fun post_Completes_With_Success() {
-        val payload: TealiumBundle = TealiumBundle.EMPTY_BUNDLE
+        val payload: DataObject = DataObject.EMPTY_OBJECT
         val request = HttpRequest.post("http://localhost", payload.toString()).gzip(true).build()
         val callback = mockCallback<NetworkResult>()
         mockRequest(request, success(body = "result"))
@@ -118,7 +118,7 @@ class NetworkHelperTests {
 
     @Test
     fun post_Completes_With_Failure() {
-        val payload: TealiumBundle = TealiumBundle.EMPTY_BUNDLE
+        val payload: DataObject = DataObject.EMPTY_OBJECT
         val request = HttpRequest.post("http://localhost", payload.toString()).gzip(true).build()
         val callback = mockCallback<NetworkResult>()
         mockRequest(request, failure())
@@ -196,13 +196,13 @@ class NetworkHelperTests {
     }
 
     @Test
-    fun getTealiumBundle_Makes_Network_Request() {
+    fun getDataObject_Makes_Network_Request() {
         val request = HttpRequest.get("http://localhost", null).build()
-        val callback = mockDeserializedCallback<TealiumBundle>()
+        val callback = mockDeserializedCallback<DataObject>()
         mockRequest(request, success(body = "{\"key\": \"value\"}"))
 
-        networkHelper.getTealiumBundle(request.url, null, callback)
-        networkHelper.getTealiumBundle(request.url.toString(), null, callback)
+        networkHelper.getDataObject(request.url, null, callback)
+        networkHelper.getDataObject(request.url.toString(), null, callback)
 
         verify(exactly = 2) {
             networkClient.sendRequest(request, any())
@@ -210,13 +210,13 @@ class NetworkHelperTests {
     }
 
     @Test
-    fun getTealiumBundle_Completes_With_Success() {
+    fun getDataObject_Completes_With_Success() {
         val request = HttpRequest.get("http://localhost", null).build()
-        val callback = mockDeserializedCallback<TealiumBundle>()
+        val callback = mockDeserializedCallback<DataObject>()
         mockRequest(request, success(body = "{\"key\": \"value\"}"))
 
-        networkHelper.getTealiumBundle(request.url, null, callback)
-        networkHelper.getTealiumBundle(request.url.toString(), null, callback)
+        networkHelper.getDataObject(request.url, null, callback)
+        networkHelper.getDataObject(request.url.toString(), null, callback)
 
         verify(exactly = 2) {
             callback.onComplete(match { result ->
@@ -226,13 +226,13 @@ class NetworkHelperTests {
     }
 
     @Test
-    fun getTealiumBundle_Completes_With_Failure_When_Invalid_Json() {
+    fun getDataObject_Completes_With_Failure_When_Invalid_Json() {
         val request = HttpRequest.get("http://localhost", null).build()
-        val callback = mockDeserializedCallback<TealiumBundle>()
+        val callback = mockDeserializedCallback<DataObject>()
         mockRequest(request, success(body = "{..."))
 
-        networkHelper.getTealiumBundle(request.url, null, callback)
-        networkHelper.getTealiumBundle(request.url.toString(), null, callback)
+        networkHelper.getDataObject(request.url, null, callback)
+        networkHelper.getDataObject(request.url.toString(), null, callback)
 
         verify(exactly = 2) {
             callback.onComplete(match { result ->
@@ -242,15 +242,15 @@ class NetworkHelperTests {
     }
 
     @Test
-    fun getTealiumDeserializable_Makes_Network_Request() {
-        val testSerializable = TestBundleSerializable("value", 10)
+    fun getDataItemConvertible_Makes_Network_Request() {
+        val testConvertible = TestDataObjectConvertible("value", 10)
         val request = HttpRequest.get("http://localhost", null).build()
-        val callback = mockDeserializedCallback<TestBundleSerializable>()
-        mockRequest(request, success(body = testSerializable.asTealiumValue().toString()))
+        val callback = mockDeserializedCallback<TestDataObjectConvertible>()
+        mockRequest(request, success(body = testConvertible.asDataItem().toString()))
 
-        val deserializer = TestBundleSerializable.Deserializer
-        networkHelper.getTealiumDeserializable(request.url, null, deserializer, callback)
-        networkHelper.getTealiumDeserializable(request.url.toString(), null, deserializer, callback)
+        val converter = TestDataObjectConvertible.Converter
+        networkHelper.getDataItemConvertible(request.url, null, converter, callback)
+        networkHelper.getDataItemConvertible(request.url.toString(), null, converter, callback)
 
         verify(exactly = 2) {
             networkClient.sendRequest(request, any())
@@ -258,15 +258,15 @@ class NetworkHelperTests {
     }
 
     @Test
-    fun getTealiumDeserializable_Completes_With_Success() {
-        val testSerializable = TestBundleSerializable("value", 10)
+    fun getDataItemConvertible_Completes_With_Success() {
+        val testConvertible = TestDataObjectConvertible("value", 10)
         val request = HttpRequest.get("http://localhost", null).build()
-        val callback = mockDeserializedCallback<TestBundleSerializable>()
-        mockRequest(request, success(body = testSerializable.asTealiumValue().toString()))
+        val callback = mockDeserializedCallback<TestDataObjectConvertible>()
+        mockRequest(request, success(body = testConvertible.asDataItem().toString()))
 
-        val deserializer = TestBundleSerializable.Deserializer
-        networkHelper.getTealiumDeserializable(request.url, null, deserializer, callback)
-        networkHelper.getTealiumDeserializable(request.url.toString(), null, deserializer, callback)
+        val converter = TestDataObjectConvertible.Converter
+        networkHelper.getDataItemConvertible(request.url, null, converter, callback)
+        networkHelper.getDataItemConvertible(request.url.toString(), null, converter, callback)
 
         verify(exactly = 2) {
             callback.onComplete(match { result ->
@@ -277,14 +277,14 @@ class NetworkHelperTests {
     }
 
     @Test
-    fun getTealiumDeserializable_Completes_With_UnexpectedFailure_When_Not_Deserializable() {
+    fun getDataItemConvertible_Completes_With_UnexpectedFailure_When_Not_Convertible() {
         val request = HttpRequest.get("http://localhost", null).build()
-        val callback = mockDeserializedCallback<TestBundleSerializable>()
+        val callback = mockDeserializedCallback<TestDataObjectConvertible>()
         mockRequest(request, success(body = "{..."))
 
-        val deserializer = TestBundleSerializable.Deserializer
-        networkHelper.getTealiumDeserializable(request.url, null, deserializer, callback)
-        networkHelper.getTealiumDeserializable(request.url.toString(), null, deserializer, callback)
+        val converter = TestDataObjectConvertible.Converter
+        networkHelper.getDataItemConvertible(request.url, null, converter, callback)
+        networkHelper.getDataItemConvertible(request.url.toString(), null, converter, callback)
 
         verify(exactly = 2) {
             callback.onComplete(match { result ->
@@ -295,14 +295,14 @@ class NetworkHelperTests {
     }
 
     @Test
-    fun getTealiumDeserializable_Completes_With_Failure_When_NetworkException() {
+    fun getDataItemConvertible_Completes_With_Failure_When_NetworkException() {
         val request = HttpRequest.get("http://localhost", null).build()
-        val callback = mockDeserializedCallback<TestBundleSerializable>()
+        val callback = mockDeserializedCallback<TestDataObjectConvertible>()
         mockRequest(request, failure(NetworkException.NetworkIOException(null)))
 
-        val deserializer = TestBundleSerializable.Deserializer
-        networkHelper.getTealiumDeserializable(request.url, null, deserializer, callback)
-        networkHelper.getTealiumDeserializable(request.url.toString(), null, deserializer, callback)
+        val converter = TestDataObjectConvertible.Converter
+        networkHelper.getDataItemConvertible(request.url, null, converter, callback)
+        networkHelper.getDataItemConvertible(request.url.toString(), null, converter, callback)
 
         verify(exactly = 2) {
             callback.onComplete(match { result ->

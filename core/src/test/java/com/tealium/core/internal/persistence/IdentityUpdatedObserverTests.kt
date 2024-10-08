@@ -1,6 +1,6 @@
 package com.tealium.core.internal.persistence
 
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Subject
@@ -24,7 +24,7 @@ class IdentityUpdatedObserverTests {
     private lateinit var dataLayer: DataStore
 
     private val defaultIdentityKey = "identity"
-    private lateinit var onDataLayerUpdated: Subject<TealiumBundle>
+    private lateinit var onDataLayerUpdated: Subject<DataObject>
     private lateinit var coreSettings: Subject<CoreSettings>
 
     @Before
@@ -83,7 +83,7 @@ class IdentityUpdatedObserverTests {
     fun subscribeIdentityUpdates_Calls_Identify_When_DataLayer_Updated_With_Correct_Key() {
         IdentityUpdatedObserver.subscribeIdentityUpdates(coreSettings, dataLayer, visitorIdProvider)
 
-        onDataLayerUpdated.onNext(TealiumBundle.create {
+        onDataLayerUpdated.onNext(DataObject.create {
             put(defaultIdentityKey, "identity")
         })
 
@@ -95,7 +95,7 @@ class IdentityUpdatedObserverTests {
     @Test
     fun subscribeIdentityUpdates_DoesNot_Call_Identify_When_DataLayer_Updated_With_Incorrect_Key() {
         IdentityUpdatedObserver.subscribeIdentityUpdates(coreSettings, dataLayer, visitorIdProvider)
-        onDataLayerUpdated.onNext(TealiumBundle.create {
+        onDataLayerUpdated.onNext(DataObject.create {
             put("incorrectKey", "identity")
         })
 
@@ -113,10 +113,10 @@ class IdentityUpdatedObserverTests {
 
         coreSettings.onNext(CoreSettingsImpl(visitorIdentityKey = "newKey"))
 
-        onDataLayerUpdated.onNext(TealiumBundle.create {
+        onDataLayerUpdated.onNext(DataObject.create {
             put("newKey", "newIdentity")
         })
-        onDataLayerUpdated.onNext(TealiumBundle.create {
+        onDataLayerUpdated.onNext(DataObject.create {
             put(defaultIdentityKey, "identity")
         })
 
@@ -145,7 +145,7 @@ class IdentityUpdatedObserverTests {
         IdentityUpdatedObserver.subscribeIdentityUpdates(coreSettings, dataLayer, visitorIdProvider)
         coreSettings.onNext(CoreSettingsImpl(visitorIdentityKey = null))
 
-        onDataLayerUpdated.onNext(TealiumBundle.create {
+        onDataLayerUpdated.onNext(DataObject.create {
             put(defaultIdentityKey, "identity")
         })
 

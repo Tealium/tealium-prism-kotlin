@@ -1,26 +1,26 @@
 package com.tealium.core.api.transform
 
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumList
-import com.tealium.core.api.data.TealiumValue
-import com.tealium.core.internal.misc.Deserializers
-import com.tealium.core.internal.misc.Deserializers.ScopedTransformationDeserializable.KEY_SCOPES
-import com.tealium.core.internal.misc.Deserializers.ScopedTransformationDeserializable.KEY_TRANSFORMATION_ID
-import com.tealium.core.internal.misc.Deserializers.ScopedTransformationDeserializable.KEY_TRANSFORMER_ID
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.DataList
+import com.tealium.core.api.data.DataItem
+import com.tealium.core.internal.misc.Converters
+import com.tealium.core.internal.misc.Converters.ScopedTransformationConverter.KEY_SCOPES
+import com.tealium.core.internal.misc.Converters.ScopedTransformationConverter.KEY_TRANSFORMATION_ID
+import com.tealium.core.internal.misc.Converters.ScopedTransformationConverter.KEY_TRANSFORMER_ID
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ScopedTransformationTests {
 
-    val deserializer = Deserializers.ScopedTransformationDeserializable
+    val scopedTransformationConverter = Converters.ScopedTransformationConverter
 
     @Test
-    fun deserialize_Returns_Null_When_Not_Bundle() {
-        assertNull(deserializer.deserialize(TealiumValue.NULL))
+    fun convert_Returns_Null_When_Not_DataObject() {
+        assertNull(scopedTransformationConverter.convert(DataItem.NULL))
         assertNull(
-            deserializer.deserialize(
-                TealiumValue.string(
+            scopedTransformationConverter.convert(
+                DataItem.string(
                     """{
                 "transformer_id": "test",
                 "transformation_id": "test",
@@ -31,49 +31,49 @@ class ScopedTransformationTests {
                 )
             )
         )
-        assertNull(deserializer.deserialize(TealiumList.EMPTY_LIST.asTealiumValue()))
+        assertNull(scopedTransformationConverter.convert(DataList.EMPTY_LIST.asDataItem()))
     }
 
     @Test
-    fun deserialize_Returns_Null_When_Missing_TransformerId() {
-        val bundle = createTransformationBundle(
+    fun convert_Returns_Null_When_Missing_TransformerId() {
+        val dataObject = createTransformationDataObject(
             transformerId = null,
             transformationId = "transformation",
             scopes = listOf(TransformationScope.AllDispatchers.value, "some_dispatcher")
         )
-        assertNull(deserializer.deserialize(bundle.asTealiumValue()))
+        assertNull(scopedTransformationConverter.convert(dataObject.asDataItem()))
     }
 
     @Test
-    fun deserialize_Returns_Null_When_Missing_TransformationId() {
-        val bundle = createTransformationBundle(
+    fun convert_Returns_Null_When_Missing_TransformationId() {
+        val dataObject = createTransformationDataObject(
             transformerId = "transformer",
             transformationId = null,
             scopes = listOf(TransformationScope.AllDispatchers.value, "some_dispatcher")
         )
-        assertNull(deserializer.deserialize(bundle.asTealiumValue()))
+        assertNull(scopedTransformationConverter.convert(dataObject.asDataItem()))
     }
 
     @Test
-    fun deserialize_Returns_Null_When_Missing_Scopes() {
-        val bundle = createTransformationBundle(
+    fun convert_Returns_Null_When_Missing_Scopes() {
+        val dataObject = createTransformationDataObject(
             transformerId = "transformer",
             transformationId = "transformation",
             scopes = null
         )
-        assertNull(deserializer.deserialize(bundle.asTealiumValue()))
+        assertNull(scopedTransformationConverter.convert(dataObject.asDataItem()))
     }
 
     @Test
-    fun deserialize_Ignores_Scopes_That_Arent_Strings() {
-        val bundle =
-            createTransformationBundle(
+    fun convert_Ignores_Scopes_That_Arent_Strings() {
+        val dataObject =
+            createTransformationDataObject(
                 transformerId = "transformer",
                 transformationId = "transformation",
                 scopes = listOf(TransformationScope.AllDispatchers.value, 1, "some_dispatcher")
             )
 
-        val scopedTransformation = deserializer.deserialize(bundle.asTealiumValue())!!
+        val scopedTransformation = scopedTransformationConverter.convert(dataObject.asDataItem())!!
         assertEquals(2, scopedTransformation.scope.size)
         assertEquals(TransformationScope.AllDispatchers, scopedTransformation.scope.elementAt(0))
         assertEquals(
@@ -83,8 +83,8 @@ class ScopedTransformationTests {
     }
 
     @Test
-    fun deserialize_Creates_New_Scoped_Barrier() {
-        val bundle = createTransformationBundle(
+    fun convert_Creates_New_Scoped_Barrier() {
+        val dataObject = createTransformationDataObject(
             transformerId = "transformer",
             transformationId = "transformation",
             scopes = listOf(
@@ -94,7 +94,7 @@ class ScopedTransformationTests {
             )
         )
 
-        val scopedTransformation = deserializer.deserialize(bundle.asTealiumValue())!!
+        val scopedTransformation = scopedTransformationConverter.convert(dataObject.asDataItem())!!
         assertEquals("transformation", scopedTransformation.id)
         assertEquals("transformer", scopedTransformation.transformerId)
         assertEquals(3, scopedTransformation.scope.size)
@@ -107,7 +107,7 @@ class ScopedTransformationTests {
     }
 
     @Test
-    fun serializable_Returns_All_Fields_As_Bundle() {
+    fun asDataItem_Returns_All_Fields_As_DataObject() {
         val scopedTransformation =
             ScopedTransformation(
                 "transformation",
@@ -119,27 +119,27 @@ class ScopedTransformationTests {
                 )
             )
 
-        val serialized = scopedTransformation.asTealiumValue()
-        val bundle = serialized.getBundle()!!
+        val dataItem = scopedTransformation.asDataItem()
+        val dataObject = dataItem.getDataObject()!!
 
-        assertEquals("transformation", bundle.getString(KEY_TRANSFORMATION_ID))
-        assertEquals("transformer", bundle.getString(KEY_TRANSFORMER_ID))
+        assertEquals("transformation", dataObject.getString(KEY_TRANSFORMATION_ID))
+        assertEquals("transformer", dataObject.getString(KEY_TRANSFORMER_ID))
         assertEquals(
             TransformationScope.AllDispatchers.value,
-            bundle.getList(KEY_SCOPES)!!.getString(0)
+            dataObject.getDataList(KEY_SCOPES)!!.getString(0)
         )
         assertEquals(
             TransformationScope.AfterCollectors.value,
-            bundle.getList(KEY_SCOPES)!!.getString(1)
+            dataObject.getDataList(KEY_SCOPES)!!.getString(1)
         )
         assertEquals(
             TransformationScope.Dispatcher("dispatcher1").value,
-            bundle.getList(KEY_SCOPES)!!.getString(2)
+            dataObject.getDataList(KEY_SCOPES)!!.getString(2)
         )
     }
 
     @Test
-    fun serializable_Deserialized_Returns_Equal_Object() {
+    fun dataItemConvertible_Converted_Returns_Equal_Object() {
         val scopedTransformation =
             ScopedTransformation(
                 "transformation",
@@ -151,18 +151,18 @@ class ScopedTransformationTests {
                 )
             )
 
-        val deserialized = deserializer.deserialize(scopedTransformation.asTealiumValue())
+        val converted = scopedTransformationConverter.convert(scopedTransformation.asDataItem())
 
-        assertEquals(scopedTransformation, deserialized)
+        assertEquals(scopedTransformation, converted)
     }
 
 
-    private fun createTransformationBundle(
+    private fun createTransformationDataObject(
         transformerId: String?,
         transformationId: String?,
         scopes: List<Any>?
-    ): TealiumBundle {
-        return TealiumBundle.create {
+    ): DataObject {
+        return DataObject.create {
             transformerId?.let {
                 put(KEY_TRANSFORMER_ID, it)
             }
@@ -170,7 +170,7 @@ class ScopedTransformationTests {
                 put(KEY_TRANSFORMATION_ID, it)
             }
             scopes?.let {
-                put(KEY_SCOPES, TealiumValue.convert(scopes))
+                put(KEY_SCOPES, DataItem.convert(scopes))
             }
         }
     }

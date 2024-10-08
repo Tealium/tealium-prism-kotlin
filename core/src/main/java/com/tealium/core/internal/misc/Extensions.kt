@@ -1,24 +1,24 @@
 package com.tealium.core.internal.misc
 
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumList
-import com.tealium.core.api.data.TealiumValue
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.DataList
+import com.tealium.core.api.data.DataItem
 import org.json.JSONStringer
 
-fun TealiumValue.stringify(stringer: JSONStringer) {
-    if (this == TealiumValue.NULL) {
+fun DataItem.stringify(stringer: JSONStringer) {
+    if (this == DataItem.NULL) {
         stringer.value(null)
         return
     }
 
     when (val it = value) {
-        is TealiumList -> it.stringify(stringer)
-        is TealiumBundle -> it.stringify(stringer)
+        is DataList -> it.stringify(stringer)
+        is DataObject -> it.stringify(stringer)
         else -> stringer.value(it)
     }
 }
 
-fun TealiumList.stringify(stringer: JSONStringer) {
+fun DataList.stringify(stringer: JSONStringer) {
     stringer.array()
     for (value in this) {
         value.stringify(stringer)
@@ -26,7 +26,7 @@ fun TealiumList.stringify(stringer: JSONStringer) {
     stringer.endArray()
 }
 
-fun TealiumBundle.stringify(stringer: JSONStringer) {
+fun DataObject.stringify(stringer: JSONStringer) {
     stringer.`object`()
 
     getAll().forEach { (key, value) ->

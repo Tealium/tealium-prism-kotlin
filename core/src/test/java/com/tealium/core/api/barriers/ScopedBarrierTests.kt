@@ -1,25 +1,25 @@
 package com.tealium.core.api.barriers
 
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumList
-import com.tealium.core.api.data.TealiumValue
-import com.tealium.core.internal.misc.Deserializers.ScopedBarrierDeserializable.KEY_BARRIER_ID
-import com.tealium.core.internal.misc.Deserializers.ScopedBarrierDeserializable.KEY_SCOPES
-import com.tealium.core.internal.misc.Deserializers
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.DataList
+import com.tealium.core.api.data.DataItem
+import com.tealium.core.internal.misc.Converters.ScopedBarrierConverter.KEY_BARRIER_ID
+import com.tealium.core.internal.misc.Converters.ScopedBarrierConverter.KEY_SCOPES
+import com.tealium.core.internal.misc.Converters
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ScopedBarrierTests {
 
-    val deserializer = Deserializers.ScopedBarrierDeserializable
+    val scopedBarrierConverter = Converters.ScopedBarrierConverter
 
     @Test
-    fun deserialize_Returns_Null_When_Not_Bundle() {
-        assertNull(deserializer.deserialize(TealiumValue.NULL))
+    fun convert_Returns_Null_When_Not_DataObject() {
+        assertNull(scopedBarrierConverter.convert(DataItem.NULL))
         assertNull(
-            deserializer.deserialize(
-                TealiumValue.string(
+            scopedBarrierConverter.convert(
+                DataItem.string(
                     """{
                 "barrier_id": "test",
                 "scopes": [
@@ -29,45 +29,45 @@ class ScopedBarrierTests {
                 )
             )
         )
-        assertNull(deserializer.deserialize(TealiumList.EMPTY_LIST.asTealiumValue()))
+        assertNull(scopedBarrierConverter.convert(DataList.EMPTY_LIST.asDataItem()))
     }
 
     @Test
-    fun deserialize_Returns_Null_When_Missing_BarriedId() {
-        val bundle = createBarrierBundle(
+    fun convert_Returns_Null_When_Missing_BarriedId() {
+        val dataObject = createBarrierDataObject(
             barrierId = null,
             scopes = listOf(BarrierScope.All.value, "some_dispatcher")
         )
-        assertNull(deserializer.deserialize(bundle.asTealiumValue()))
+        assertNull(scopedBarrierConverter.convert(dataObject.asDataItem()))
     }
 
     @Test
-    fun deserialize_Returns_Null_When_Missing_Scopes() {
-        val bundle = createBarrierBundle(barrierId = "test", scopes = null)
-        assertNull(deserializer.deserialize(bundle.asTealiumValue()))
+    fun convert_Returns_Null_When_Missing_Scopes() {
+        val dataObject = createBarrierDataObject(barrierId = "test", scopes = null)
+        assertNull(scopedBarrierConverter.convert(dataObject.asDataItem()))
     }
 
     @Test
-    fun deserialize_Ignores_Scopes_That_Arent_Strings() {
-        val bundle = createBarrierBundle(
+    fun convert_Ignores_Scopes_That_Arent_Strings() {
+        val dataObject = createBarrierDataObject(
             barrierId = "test",
             scopes = listOf(BarrierScope.All.value, 1, "some_dispatcher")
         )
 
-        val scopedBarrier = deserializer.deserialize(bundle.asTealiumValue())!!
+        val scopedBarrier = scopedBarrierConverter.convert(dataObject.asDataItem())!!
         assertEquals(2, scopedBarrier.scope.size)
         assertEquals(BarrierScope.All, scopedBarrier.scope.elementAt(0))
         assertEquals(BarrierScope.Dispatcher("some_dispatcher"), scopedBarrier.scope.elementAt(1))
     }
 
     @Test
-    fun deserialize_Creates_New_Scoped_Barrier() {
-        val bundle = createBarrierBundle(
+    fun convert_Creates_New_Scoped_Barrier() {
+        val dataObject = createBarrierDataObject(
             barrierId = "test",
             scopes = listOf(BarrierScope.All.value, "some_dispatcher", "other_dispatcher")
         )
 
-        val scopedBarrier = deserializer.deserialize(bundle.asTealiumValue())!!
+        val scopedBarrier = scopedBarrierConverter.convert(dataObject.asDataItem())!!
         assertEquals("test", scopedBarrier.barrierId)
         assertEquals(3, scopedBarrier.scope.size)
         assertEquals(BarrierScope.All, scopedBarrier.scope.elementAt(0))
@@ -76,42 +76,42 @@ class ScopedBarrierTests {
     }
 
     @Test
-    fun serializable_Returns_All_Fields_As_Bundle() {
+    fun asDataItem_Returns_All_Fields_As_DataObject() {
         val scopedBarrier =
             ScopedBarrier("testId", setOf(BarrierScope.All, BarrierScope.Dispatcher("dispatcher1")))
 
-        val serialized = scopedBarrier.asTealiumValue()
-        val bundle = serialized.getBundle()!!
+        val dataItem = scopedBarrier.asDataItem()
+        val dataObject = dataItem.getDataObject()!!
 
-        assertEquals("testId", bundle.getString(KEY_BARRIER_ID))
+        assertEquals("testId", dataObject.getString(KEY_BARRIER_ID))
         assertEquals(
             BarrierScope.All.value,
-            bundle.getList(KEY_SCOPES)!!.getString(0)
+            dataObject.getDataList(KEY_SCOPES)!!.getString(0)
         )
         assertEquals(
             BarrierScope.Dispatcher("dispatcher1").value,
-            bundle.getList(KEY_SCOPES)!!.getString(1)
+            dataObject.getDataList(KEY_SCOPES)!!.getString(1)
         )
     }
 
     @Test
-    fun serializable_Deserialized_Returns_Equal_Object() {
+    fun dataItemConvertible_Converted_Returns_Equal_Object() {
         val scopedBarrier =
             ScopedBarrier("testId", setOf(BarrierScope.All, BarrierScope.Dispatcher("dispatcher1")))
 
-        val deserialized = deserializer.deserialize(scopedBarrier.asTealiumValue())
+        val converted = scopedBarrierConverter.convert(scopedBarrier.asDataItem())
 
-        assertEquals(scopedBarrier, deserialized)
+        assertEquals(scopedBarrier, converted)
     }
 
 
-    private fun createBarrierBundle(barrierId: String?, scopes: List<Any>?): TealiumBundle {
-        return TealiumBundle.create {
+    private fun createBarrierDataObject(barrierId: String?, scopes: List<Any>?): DataObject {
+        return DataObject.create {
             barrierId?.let {
                 put(KEY_BARRIER_ID, it)
             }
             scopes?.let {
-                put(KEY_SCOPES, TealiumValue.convert(scopes))
+                put(KEY_SCOPES, DataItem.convert(scopes))
             }
         }
     }

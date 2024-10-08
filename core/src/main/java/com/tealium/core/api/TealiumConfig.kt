@@ -2,7 +2,7 @@ package com.tealium.core.api
 
 import android.app.Application
 import com.tealium.core.api.barriers.Barrier
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.LogHandler
 import com.tealium.core.api.misc.Environment
 import com.tealium.core.api.modules.ModuleFactory
@@ -54,7 +54,7 @@ class TealiumConfig @JvmOverloads constructor(
     var existingVisitorId: String? = null
 
 
-    val enforcedSdkSettings: TealiumBundle = TealiumBundle.create {
+    val enforcedSdkSettings: DataObject = DataObject.create {
         enforcingCoreSettings?.let { builderBlock ->
             val coreSettings = builderBlock.invoke(CoreSettingsBuilder())
                 .build()

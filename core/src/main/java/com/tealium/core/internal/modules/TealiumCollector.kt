@@ -6,7 +6,7 @@ import com.tealium.core.api.modules.Collector
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import java.security.SecureRandom
 import java.util.*
 import kotlin.math.abs
@@ -22,7 +22,7 @@ class TealiumCollector(
             return String.format(Locale.ROOT, "%016d", abs(rand));
         }
 
-    private val baseData = TealiumBundle.create {
+    private val baseData = DataObject.create {
         put(Dispatch.Keys.TEALIUM_ACCOUNT, context.config.accountName)
         put(Dispatch.Keys.TEALIUM_PROFILE, context.config.profileName)
         put(Dispatch.Keys.TEALIUM_ENVIRONMENT, context.config.environment)
@@ -33,7 +33,7 @@ class TealiumCollector(
         put(Dispatch.Keys.TEALIUM_LIBRARY_VERSION, BuildConfig.TEALIUM_LIBRARY_VERSION)
     }
 
-    override fun collect(): TealiumBundle {
+    override fun collect(): DataObject {
         return baseData.copy {
             put(Dispatch.Keys.TEALIUM_RANDOM, random)
             put(Dispatch.Keys.TEALIUM_VISITOR_ID, context.visitorId.value)
@@ -49,7 +49,7 @@ class TealiumCollector(
         private const val moduleName = "TealiumCollector"
         override val id = moduleName
 
-        override fun create(context: TealiumContext, settings: TealiumBundle): Module? {
+        override fun create(context: TealiumContext, settings: DataObject): Module? {
             return TealiumCollector(context)
         }
     }

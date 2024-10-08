@@ -1,12 +1,12 @@
 package com.tealium.core.api.network
 
-import com.tealium.core.api.data.TealiumSerializable
+import com.tealium.core.api.data.DataItemConvertible
 import com.tealium.core.api.misc.TealiumIOException
 import com.tealium.core.api.misc.TimeFrame
 import com.tealium.core.api.pubsub.Observable
 import java.net.URL
 
-interface ResourceRefresher<T : TealiumSerializable> {
+interface ResourceRefresher<T : DataItemConvertible> {
 
     /**
      * An observable stream of valid resources.

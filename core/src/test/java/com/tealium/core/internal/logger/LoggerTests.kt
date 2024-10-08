@@ -1,7 +1,7 @@
 package com.tealium.core.internal.logger
 
 import com.tealium.core.api.logger.LogLevel
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.LogHandler
 import com.tealium.core.internal.settings.SdkSettings
 import com.tealium.core.internal.settings.SettingsProvider
@@ -78,7 +78,7 @@ class LoggerTests {
         logger.onSettingsUpdated(
             SdkSettings(
                 moduleSettings = mapOf(
-                    "core" to TealiumBundle.create {
+                    "core" to DataObject.create {
                         put(CoreSettingsImpl.KEY_LOG_LEVEL, LogLevel.SILENT)
                     }
                 )
@@ -98,7 +98,7 @@ class LoggerTests {
         logger.onSettingsUpdated(
             SdkSettings(
                 moduleSettings = mapOf(
-                    "core" to TealiumBundle.create {
+                    "core" to DataObject.create {
                         put(CoreSettingsImpl.KEY_LOG_LEVEL, LogLevel.SILENT)
                     }
                 )

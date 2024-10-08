@@ -1,11 +1,11 @@
 package com.tealium.core.api.barriers
 
 import com.tealium.core.api.modules.Dispatcher
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumSerializable
-import com.tealium.core.api.data.TealiumValue
-import com.tealium.core.internal.misc.Deserializers.ScopedBarrierDeserializable.KEY_BARRIER_ID
-import com.tealium.core.internal.misc.Deserializers.ScopedBarrierDeserializable.KEY_SCOPES
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.DataItemConvertible
+import com.tealium.core.api.data.DataItem
+import com.tealium.core.internal.misc.Converters.ScopedBarrierConverter.KEY_BARRIER_ID
+import com.tealium.core.internal.misc.Converters.ScopedBarrierConverter.KEY_SCOPES
 
 /**
  * A [ScopedBarrier] describes which [Dispatcher] implementation any given [Barrier] should be
@@ -21,12 +21,12 @@ import com.tealium.core.internal.misc.Deserializers.ScopedBarrierDeserializable.
 data class ScopedBarrier(
     val barrierId: String,
     val scope: Set<BarrierScope>
-) : TealiumSerializable {
+) : DataItemConvertible {
 
-    override fun asTealiumValue(): TealiumValue {
-        return TealiumBundle.create {
+    override fun asDataItem(): DataItem {
+        return DataObject.create {
             put(KEY_BARRIER_ID, barrierId)
-            put(KEY_SCOPES, TealiumValue.convert(scope))
-        }.asTealiumValue()
+            put(KEY_SCOPES, DataItem.convert(scope))
+        }.asDataItem()
     }
 }

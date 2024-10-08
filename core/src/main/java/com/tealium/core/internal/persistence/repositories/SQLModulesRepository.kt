@@ -2,7 +2,7 @@ package com.tealium.core.internal.persistence.repositories
 
 import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Subject
@@ -16,7 +16,7 @@ import com.tealium.core.internal.persistence.selectAll
  */
 class SQLModulesRepository(
     private val dbProvider: DatabaseProvider,
-    onDataExpired: Subject<Map<Long, TealiumBundle>> = Observables.publishSubject(),
+    onDataExpired: Subject<Map<Long, DataObject>> = Observables.publishSubject(),
 ) : ModulesRepository {
 
     private val db: SQLiteDatabase
@@ -25,8 +25,8 @@ class SQLModulesRepository(
     override val modules: Map<String, Long>
         get() = readModules()
 
-    private val _onDataExpired: Subject<Map<Long, TealiumBundle>> = onDataExpired
-    override val onDataExpired: Observable<Map<Long, TealiumBundle>>
+    private val _onDataExpired: Subject<Map<Long, DataObject>> = onDataExpired
+    override val onDataExpired: Observable<Map<Long, DataObject>>
         get() = _onDataExpired
 
     internal fun readModules(): Map<String, Long> {
@@ -111,12 +111,12 @@ class SQLModulesRepository(
         notifyExpired(expiredData)
     }
 
-    private fun notifyExpired(expiredData: Map<Long, TealiumBundle>) {
+    private fun notifyExpired(expiredData: Map<Long, DataObject>) {
         _onDataExpired.onNext(expiredData)
     }
 
     /**
-     * Fetches all expired data points in a bundle, grouping them by their module id.
+     * Fetches all expired data points in a [DataObject], grouping them by their module id.
      *
      * @param whereClause Should be the SQL WHERE clause, including any required binding '?'
      * @param whereArgs Should be the binding variables for any required in the [whereClause]
@@ -124,8 +124,8 @@ class SQLModulesRepository(
     internal fun getExpiredData(
         whereClause: String,
         whereArgs: Array<String>
-    ): Map<Long, TealiumBundle> {
-        val results = mutableMapOf<Long, TealiumBundle.Builder>()
+    ): Map<Long, DataObject> {
+        val results = mutableMapOf<Long, DataObject.Builder>()
 
         db.select(
             Schema.ModuleStorageTable.TABLE_NAME,
@@ -146,8 +146,8 @@ class SQLModulesRepository(
             while (it.moveToNext()) {
                 val moduleId = it.getLong(moduleIdColumn)
                 val key = it.getString(keyColumn)
-                SQLKeyValueRepository.readTealiumValue(it, valueColumn)?.let { value ->
-                    val builder = results[moduleId] ?: TealiumBundle.Builder().also { builder ->
+                SQLKeyValueRepository.readDataItem(it, valueColumn)?.let { value ->
+                    val builder = results[moduleId] ?: DataObject.Builder().also { builder ->
                         results[moduleId] = builder
                     }
 
@@ -156,6 +156,6 @@ class SQLModulesRepository(
             }
         }
 
-        return results.mapValues { it.value.getBundle() }
+        return results.mapValues { it.value.build() }
     }
 }

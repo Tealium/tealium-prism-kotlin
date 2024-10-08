@@ -2,7 +2,7 @@ package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TealiumDispatchType
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.misc.TimeFrame
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.coVerify
@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit
 class DispatchManagerTrackTests : DispatchManagerTestsBase() {
 
     private val dispatch3: Dispatch =
-        Dispatch.create("test3", TealiumDispatchType.Event, TealiumBundle.EMPTY_BUNDLE)
+        Dispatch.create("test3", TealiumDispatchType.Event, DataObject.EMPTY_OBJECT)
 
     @Test
     fun dispatchManager_SlowDispatcher_DoesNotDelayOthers() {

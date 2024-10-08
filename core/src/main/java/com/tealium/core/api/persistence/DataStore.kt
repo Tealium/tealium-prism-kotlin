@@ -1,14 +1,14 @@
 package com.tealium.core.api.persistence
 
-import com.tealium.core.api.data.TealiumBundle
-import com.tealium.core.api.data.TealiumDeserializable
-import com.tealium.core.api.data.TealiumList
-import com.tealium.core.api.data.TealiumSerializable
-import com.tealium.core.api.data.TealiumValue
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.DataItemConverter
+import com.tealium.core.api.data.DataList
+import com.tealium.core.api.data.DataItemConvertible
+import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.pubsub.Observable
 
 /**
- * Generic data storage for storing and retrieving [TealiumValue] objects.
+ * Generic data storage for storing and retrieving [DataItem] objects.
  *
  * Implementations are not guaranteed to be persistent. For instance, in cases where there may be
  * insufficient storage space on the device, or other reasons such as write permissions etc.
@@ -19,7 +19,7 @@ import com.tealium.core.api.pubsub.Observable
  *
  * @see [Expiry]
  */
-interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
+interface DataStore : Iterable<Map.Entry<String, DataItem>> {
 
     /**
      * Enables editing multiple entries in the module storage in a transactional way.
@@ -27,14 +27,14 @@ interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
     interface Editor {
 
         /**
-         * Adds all key-value pairs from the bundle into the storage.
+         * Adds all key-value pairs from the [dataObject] into the storage.
          *
-         * @param bundle A TealiumBundle containing the key-value pairs to be stored
+         * @param dataObject A [DataObject] containing the key-value pairs to be stored
          * @param expiry The time frame for this data to remain stored
          *
          * @return Editor to continue editing this storage
          */
-        fun putAll(bundle: TealiumBundle, expiry: Expiry): Editor
+        fun putAll(dataObject: DataObject, expiry: Expiry): Editor
 
         /**
          * Adds a single key-value pair to the storage
@@ -45,7 +45,7 @@ interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
          *
          * @return Editor to continue editing this storage
          */
-        fun put(key: String, value: TealiumValue, expiry: Expiry): Editor
+        fun put(key: String, value: DataItem, expiry: Expiry): Editor
 
         /**
          * Adds a single key-value pair to the storage
@@ -56,8 +56,8 @@ interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
          *
          * @return Editor to continue editing this storage
          */
-        fun put(key: String, value: TealiumSerializable, expiry: Expiry): Editor =
-            put(key, value.asTealiumValue(), expiry)
+        fun put(key: String, value: DataItemConvertible, expiry: Expiry): Editor =
+            put(key, value.asDataItem(), expiry)
 
         /**
          * Adds a single key-value pair to the storage
@@ -69,7 +69,7 @@ interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
          * @return Editor to continue editing this storage
          */
         fun put(key: String, value: String, expiry: Expiry): Editor =
-            put(key, TealiumValue.string(value), expiry)
+            put(key, DataItem.string(value), expiry)
 
         /**
          * Adds a single key-value pair to the storage
@@ -81,7 +81,7 @@ interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
          * @return Editor to continue editing this storage
          */
         fun put(key: String, value: Int, expiry: Expiry): Editor =
-            put(key, TealiumValue.int(value), expiry)
+            put(key, DataItem.int(value), expiry)
 
         /**
          * Adds a single key-value pair to the storage
@@ -93,7 +93,7 @@ interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
          * @return Editor to continue editing this storage
          */
         fun put(key: String, value: Double, expiry: Expiry): Editor =
-            put(key, TealiumValue.double(value), expiry)
+            put(key, DataItem.double(value), expiry)
 
         /**
          * Adds a single key-value pair to the storage
@@ -105,7 +105,7 @@ interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
          * @return Editor to continue editing this storage
          */
         fun put(key: String, value: Long, expiry: Expiry): Editor =
-            put(key, TealiumValue.long(value), expiry)
+            put(key, DataItem.long(value), expiry)
 
         /**
          * Adds a single key-value pair to the storage
@@ -117,7 +117,7 @@ interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
          * @return Editor to continue editing this storage
          */
         fun put(key: String, value: Boolean, expiry: Expiry): Editor =
-            put(key, TealiumValue.boolean(value), expiry)
+            put(key, DataItem.boolean(value), expiry)
 
         /**
          * Adds a single key-value pair to the storage
@@ -128,8 +128,8 @@ interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
          *
          * @return Editor to continue editing this storage
          */
-        fun put(key: String, value: TealiumList, expiry: Expiry): Editor =
-            put(key, value.asTealiumValue(), expiry)
+        fun put(key: String, value: DataList, expiry: Expiry): Editor =
+            put(key, value.asDataItem(), expiry)
 
         /**
          * Adds a single key-value pair to the storage
@@ -140,8 +140,8 @@ interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
          *
          * @return Editor to continue editing this storage
          */
-        fun put(key: String, value: TealiumBundle, expiry: Expiry): Editor =
-            put(key, value.asTealiumValue(), expiry)
+        fun put(key: String, value: DataObject, expiry: Expiry): Editor =
+            put(key, value.asDataItem(), expiry)
 
         /**
          * Removes and individual key from storage
@@ -188,24 +188,24 @@ interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
     fun edit(): Editor
 
     /**
-     * Gets the [TealiumValue] stored at the given [key] if there is one
+     * Gets the [DataItem] stored at the given [key] if there is one
      *
      * @param key The key for the required value
      *
-     * @return The [TealiumValue] or null
+     * @return The [DataItem] or null
      */
-    fun get(key: String): TealiumValue?
+    fun get(key: String): DataItem?
 
     /**
-     * Gets the [TealiumValue] stored at the given [key] if there is one, and uses the given
-     * [deserializer] to translate it into an instance of type [T]
+     * Gets the [DataItem] stored at the given [key] if there is one, and uses the given
+     * [converter] to translate it into an instance of type [T]
      *
      * @param key The key for the required value
-     * @param deserializer The [TealiumDeserializable] implementation for converting the [TealiumValue] to the required type.
+     * @param converter The [DataItemConverter] implementation for converting the [DataItem] to the required type.
      *
-     * @return The [TealiumValue] or null
+     * @return The [DataItem] or null
      */
-    fun <T> get(key: String, deserializer: TealiumDeserializable<T>): T?
+    fun <T> get(key: String, converter: DataItemConverter<T>): T?
 
     /**
      * Gets the String stored at the given [key] if there is one
@@ -253,29 +253,29 @@ interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
     fun getBoolean(key: String): Boolean? = get(key)?.getBoolean()
 
     /**
-     * Gets the [TealiumList] stored at the given [key] if there is one
+     * Gets the [DataList] stored at the given [key] if there is one
      *
      * @param key The key for the required value
      *
-     * @return The [TealiumList] or null
+     * @return The [DataList] or null
      */
-    fun getList(key: String): TealiumList? = get(key)?.getList()
+    fun getDataList(key: String): DataList? = get(key)?.getDataList()
 
     /**
-     * Gets the [TealiumBundle] stored at the given [key] if there is one
+     * Gets the [DataObject] stored at the given [key] if there is one
      *
      * @param key The key for the required value
      *
-     * @return The [TealiumBundle] or null
+     * @return The [DataObject] or null
      */
-    fun getBundle(key: String): TealiumBundle? = get(key)?.getBundle()
+    fun getDataObject(key: String): DataObject? = get(key)?.getDataObject()
 
     /**
-     * Gets the entire [TealiumBundle] containing all data stored.
+     * Gets the entire [DataObject] containing all data stored.
      *
-     * @return The [TealiumBundle] containing all key-value pairs
+     * @return The [DataObject] containing all key-value pairs
      */
-    fun getAll(): TealiumBundle
+    fun getAll(): DataObject
 
     /**
      * Returns all keys stored in this DataStore
@@ -294,7 +294,7 @@ interface DataStore : Iterable<Map.Entry<String, TealiumValue>> {
     /**
      * Flow of key-value pairs from this [DataStore] that have been updated.
      */
-    val onDataUpdated: Observable<TealiumBundle>
+    val onDataUpdated: Observable<DataObject>
 
     /**
      * Flow of keys from this [DataStore] that have been removed.

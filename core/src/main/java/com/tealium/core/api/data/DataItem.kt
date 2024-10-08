@@ -1,5 +1,7 @@
 package com.tealium.core.api.data
 
+import com.tealium.core.api.data.DataItem.Companion.convert
+import com.tealium.core.api.data.DataItem.Companion.string
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -13,8 +15,8 @@ import java.lang.reflect.Array
  *  - String data will be quoted; i.e.  "my string"
  *  - Numeric data will not be quoted; i.e. 10 or 3.141..
  *  - Boolean data will not be quoted; i.e. true/false
- *  - TealiumList data will be formatted as a JSON Array; i.e. [["value", 10, true]]
- *  - TealiumBundle data will be formatted as a JSON Object; i.e. { "key":"value", "number":10 }
+ *  - DataList data will be formatted as a JSON Array; i.e. [["value", 10, true]]
+ *  - DataObject data will be formatted as a JSON Object; i.e. { "key":"value", "number":10 }
  *
  * This class is currently broadly similar to the [JSONObject] and makes use of several methods
  * provided by the [org.json] package on Android.
@@ -30,10 +32,10 @@ import java.lang.reflect.Array
  * @param string The string value representing the value of [any]; at least this or the [string]
  *      value need to be provided
  */
-class TealiumValue private constructor(
+class DataItem private constructor(
     any: Any? = null,
     string: String? = null,
-): TealiumSerializable {
+): DataItemConvertible {
     private var _value: Any? = any
     private var _toString: String? = string
     private var isLazy: Boolean = (any == null && string != null)
@@ -50,8 +52,8 @@ class TealiumValue private constructor(
      * @see getLong
      * @see getDouble
      * @see getBoolean
-     * @see getList
-     * @see getBundle
+     * @see getDataList
+     * @see getDataObject
      */
     val value: Any?
         get() {
@@ -76,21 +78,21 @@ class TealiumValue private constructor(
     }
 
     /**
-     * Indicates whether the contained value is a [TealiumBundle]
+     * Indicates whether the contained value is a [DataObject]
      *
-     * @return true if [value] is a [TealiumBundle]; else false
+     * @return true if [value] is a [DataObject]; else false
      */
-    fun isBundle(): Boolean {
-        return value is TealiumBundle
+    fun isDataObject(): Boolean {
+        return value is DataObject
     }
 
     /**
-     * Indicates whether the contained value is a [TealiumList]
+     * Indicates whether the contained value is a [DataList]
      *
-     * @return true if [value] is a [TealiumList]; else false
+     * @return true if [value] is a [DataList]; else false
      */
-    fun isList(): Boolean {
-        return value is TealiumList
+    fun isDataList(): Boolean {
+        return value is DataList
     }
 
     /**
@@ -150,6 +152,8 @@ class TealiumValue private constructor(
     /**
      * Returns the contained value as a [String] if the contained value is a [String].
      *
+     * No type coercion is attempted.
+     *
      * @return [value] as a [String]; else null
      */
     fun getString(): String? {
@@ -159,6 +163,7 @@ class TealiumValue private constructor(
     /**
      * Returns the contained value as an [Int] if the contained value is an [Int], or a [Number]
      * that can be coerced to an [Int].
+     *
      * If [value] is a [Double] or [Long] then the returned value will possibly lose accuracy as a
      * result.
      *
@@ -169,11 +174,12 @@ class TealiumValue private constructor(
     }
 
     /**
-     * Returns the contained value as an [Long] if the contained value is an [Long], or a [Number]
+     * Returns the contained value as an [Long] if the contained value is a [Long], or a [Number]
      * that can be coerced to an [Long].
+     *
      * If [value] is a [Double] then the returned value will possibly lose accuracy as a result.
      *
-     * @return [value] as an [Long]; else converted to an [Long] if possible; else null
+     * @return [value] as a [Long]; else converted to an [Long] if possible; else null
      */
     fun getLong(): Long? {
         return if (isLong()) value as Long
@@ -181,10 +187,10 @@ class TealiumValue private constructor(
     }
 
     /**
-     * Returns the contained value as an [Double] if the contained value is an [Double], or a [Number]
+     * Returns the contained value as an [Double] if the contained value is a [Double], or a [Number]
      * that can be coerced to an [Double].
      *
-     * @return [value] as an [Double]; else converted to an [Double] if possible; else null
+     * @return [value] as a [Double]; else converted to an [Double] if possible; else null
      */
     fun getDouble(): Double? {
         return if (isDouble()) value as Double else asNumber()?.toDouble()
@@ -192,39 +198,42 @@ class TealiumValue private constructor(
 
     /**
      * Returns the contained value as an [Boolean] if the contained value is a [Boolean].
+     *
      * No type coercion is attempted.
      *
-     * @return [value] as an [Boolean]; else null
+     * @return [value] as a [Boolean]; else null
      */
     fun getBoolean(): Boolean? {
         return if (isBoolean()) value as Boolean else null
     }
 
     /**
-     * Returns the contained value as an [TealiumList] if the contained value is a [TealiumList].
+     * Returns the contained value as an [DataList] if the contained value is a [DataList].
+     *
      * No type coercion is attempted.
      *
-     * @return [value] as an [TealiumList]; else null
+     * @return [value] as a [DataList]; else null
      */
-    fun getList(): TealiumList? {
-        return if (isList()) value as TealiumList else null
+    fun getDataList(): DataList? {
+        return if (isDataList()) value as DataList else null
     }
 
     /**
-     * Returns the contained value as an [TealiumBundle] if the contained value is a [TealiumBundle].
+     * Returns the contained value as an [DataObject] if the contained value is a [DataObject].
+     *
      * No type coercion is attempted.
      *
-     * @return [value] as an [TealiumBundle]; else null
+     * @return [value] as a [DataObject]; else null
      */
-    fun getBundle(): TealiumBundle? {
-        return if (isBundle()) value as TealiumBundle else null
+    fun getDataObject(): DataObject? {
+        return if (isDataObject()) value as DataObject else null
     }
 
     /**
      * Returns the contained value as a [Number] if the contained value is a [Number].
      * No type coercion is attempted.
      *
-     * @return [value] as an [Number]; else null
+     * @return [value] as a [Number]; else null
      */
     private fun asNumber(): Number? {
         return value as? Number
@@ -234,7 +243,7 @@ class TealiumValue private constructor(
      * Returns the String representation of the [value] in a JSON compliant format.
      *
      * @return [value] as a String
-     * @see TealiumValue
+     * @see DataItem
      */
     override fun toString(): String {
         return (_toString ?: if (isNull()) {
@@ -245,12 +254,15 @@ class TealiumValue private constructor(
                     is String -> {
                         JSONObject.quote(value as String)
                     }
+
                     is Number -> {
                         JSONObject.numberToString(value as Number)
                     }
-                    is TealiumBundle, is TealiumList -> {
+
+                    is DataObject, is DataList -> {
                         value.toString()
                     }
+
                     else -> {
                         value.toString()
                     }
@@ -263,26 +275,26 @@ class TealiumValue private constructor(
     }
 
     override fun equals(other: Any?): Boolean {
-        val otherValue = other as? TealiumValue ?: return false
+        val otherDataItem = other as? DataItem ?: return false
 
-        if (isNull() && otherValue.isNull()) return true
+        if (isNull() && otherDataItem.isNull()) return true
 
-        if (isNumber() && otherValue.isNumber()) {
-            if (isDouble() && otherValue.isDouble()) {
-                return getDouble() == otherValue.getDouble()
+        if (isNumber() && otherDataItem.isNumber()) {
+            if (isDouble() && otherDataItem.isDouble()) {
+                return getDouble() == otherDataItem.getDouble()
             }
 
-            return getLong() == otherValue.getLong()
+            return getLong() == otherDataItem.getLong()
         }
 
-        return value == otherValue.value
+        return value == otherDataItem.value
     }
 
     override fun hashCode(): Int {
         return value.hashCode()
     }
 
-    override fun asTealiumValue(): TealiumValue = this
+    override fun asDataItem(): DataItem = this
 
     companion object {
         private const val NULL_STRING = "null"
@@ -294,56 +306,58 @@ class TealiumValue private constructor(
          * creation.
          */
         @JvmField
-        val NULL = TealiumValue(any = null)
+        val NULL = DataItem(any = null)
 
         /**
-         * Creates a [TealiumValue] that contains a [string] as its [value]
+         * Creates a [DataItem] that contains a [string] as its [value]
          *
-         * @param string [String] value to wrap as a [TealiumValue]
+         * @param string [String] value to wrap as a [DataItem]
          */
         @JvmStatic
-        fun string(string: String): TealiumValue {
-            return convert(string)
+        fun string(string: String?): DataItem {
+            return convertOrNull(string)
         }
 
         /**
-         * Creates a [TealiumValue] that contains a [int] as its [value]
+         * Creates a [DataItem] that contains a [int] as its [value]
          *
-         * @param int [Int] value to wrap as a [TealiumValue]
+         * @param int [Int] value to wrap as a [DataItem]
          */
         @JvmStatic
-        fun int(int: Int): TealiumValue {
-            return convert(int)
+        fun int(int: Int?): DataItem {
+            return convertOrNull(int)
         }
 
         /**
-         * Creates a [TealiumValue] that contains a [double] as its [value]
+         * Creates a [DataItem] that contains a [double] as its [value]
          *
-         * @param double [Double] value to wrap as a [TealiumValue]
+         * NaN and Infinity are not supported, and will be replaced with [NULL]
+         *
+         * @param double [Double] value to wrap as a [DataItem]
          */
         @JvmStatic
-        fun double(double: Double): TealiumValue {
-            return convert(double)
+        fun double(double: Double?): DataItem {
+            return convertOrNull(double)
         }
 
         /**
-         * Creates a [TealiumValue] that contains a [long] as its [value]
+         * Creates a [DataItem] that contains a [long] as its [value]
          *
-         * @param long [Long] value to wrap as a [TealiumValue]
+         * @param long [Long] value to wrap as a [DataItem]
          */
         @JvmStatic
-        fun long(long: Long): TealiumValue {
-            return convert(long)
+        fun long(long: Long?): DataItem {
+            return convertOrNull(long)
         }
 
         /**
-         * Creates a [TealiumValue] that contains a [boolean] as its [value]
+         * Creates a [DataItem] that contains a [boolean] as its [value]
          *
-         * @param boolean [Boolean] value to wrap as a [TealiumValue]
+         * @param boolean [Boolean] value to wrap as a [DataItem]
          */
         @JvmStatic
-        fun boolean(boolean: Boolean): TealiumValue {
-            return convert(boolean)
+        fun boolean(boolean: Boolean?): DataItem {
+            return convertOrNull(boolean)
         }
 
         /**
@@ -351,66 +365,69 @@ class TealiumValue private constructor(
          * For unsupported types, [NULL] will be returned.
          */
         @JvmStatic
-        fun convertOrNull(any: Any?): TealiumValue {
+        fun convertOrNull(any: Any?): DataItem {
             return convert(any, NULL)
         }
 
         /**
-         * Attempts to create a [TealiumValue] that contains [any] as its [value].
-         * If the conversion to a [TealiumValue] fails for any reason, then the [default] value is
+         * Attempts to create a [DataItem] that contains [any] as its [value].
+         * If the conversion to a [DataItem] fails for any reason, then the [default] value is
          * returned instead.
          *
-         * @param any Value to wrap as a [TealiumValue]
-         * @param default Default value to use if conversion to [TealiumValue] fails
+         * @param any Value to wrap as a [DataItem]
+         * @param default Default value to use if conversion to [DataItem] fails
          */
         @JvmStatic
         fun convert(
             any: Any?,
-            default: TealiumValue
-        ): TealiumValue {
-            val tValue =
+            default: DataItem
+        ): DataItem {
+            return try {
                 convert(any)
-            return if (tValue != NULL) tValue else default
-        }
-
-        /**
-         * Attempts to create a [TealiumValue] that contains [any] as its [value].
-         * If the conversion to a [TealiumValue] fails for any reason, then the [NULL] value is
-         * returned instead.
-         *
-         * Types that require no conversion are as follows:
-         * [String], [Int], [Long], [Double], [Boolean], [TealiumList], [TealiumBundle]
-         *
-         * If [any] is a [TealiumSerializable], then it will first be converted using
-         * [TealiumSerializable.asTealiumValue]
-         *
-         * [Float] and [Short] are coerced to [Double] and [Int] respectively, whilst [Char] is also
-         * coerced to a [String]
-         *
-         * [Collection], [JSONArray] and [Array] types will be converted to a [TealiumList]. Any
-         * contained objects that cannot be converted to a [TealiumValue] will be omitted from the
-         * resulting [TealiumList]
-         *
-         * [Map] and [JSONObject] types will be converted to a [TealiumBundle]. Any contained
-         * objects that cannot be converted to a [TealiumValue] will be omitted from the resulting
-         * [TealiumBundle]
-         *
-         * @param any Value to wrap as a [TealiumValue]
-         * @return [any] as a [TealiumValue] if possible, else [NULL]
-         */
-        @JvmStatic
-        fun convert(any: Any?): TealiumValue {
-            val supportedType = convertToSupported(any)
-
-            return if (supportedType is TealiumValue) {
-                supportedType
-            } else {
-                TealiumValue(supportedType)
+            } catch (e: Exception) {
+                default
             }
         }
 
         /**
-         * Unsafe method allowing a [TealiumValue] to be instantiated from a stringified version of
+         * Attempts to create a [DataItem] that contains [any] as its [value].
+         * If the conversion to a [DataItem] fails for any reason, then the [NULL] value is
+         * returned instead.
+         *
+         * Types that require no conversion are as follows:
+         * [String], [Int], [Long], [Double], [Boolean], [DataList], [DataObject]
+         *
+         * If [any] is a [DataItemConvertible], then it will first be converted using
+         * [DataItemConvertible.asDataItem]
+         *
+         * [Float] and [Short] are coerced to [Double] and [Int] respectively, whilst [Char] is also
+         * coerced to a [String]
+         *
+         * [Collection], [JSONArray] and [Array] types will be converted to a [DataList]. Any
+         * contained objects that cannot be converted to a [DataItem] will be omitted from the
+         * resulting [DataList]
+         *
+         * [Map] and [JSONObject] types will be converted to a [DataObject]. Any contained
+         * objects that cannot be converted to a [DataItem] will be omitted from the resulting
+         * [DataObject]
+         *
+         * @param any Value to wrap as a [DataItem]
+         * @return [any] as a [DataItem] if possible, else [NULL]
+         */
+        @JvmStatic
+        @Throws(UnsupportedDataItemException::class)
+        fun convert(any: Any?): DataItem {
+            val supportedType = convertToSupported(any)
+
+            return if (supportedType is DataItem) {
+                supportedType
+            } else {
+                DataItem(supportedType)
+            }
+        }
+
+        /**
+         * Unsafe method allowing a [DataItem] to be instantiated from a stringified version of
          * its [value].
          *
          * The [value] will remain uninitialized until its first access, either directly or
@@ -419,20 +436,20 @@ class TealiumValue private constructor(
          * required.
          *
          * @param string The stringified representation of this value.
-         * @return A TealiumValue with the [value] currently unparsed which could lead to errors
+         * @return A [DataItem] with the [value] currently unparsed which could lead to errors
          */
-        internal fun lazy(string: String): TealiumValue {
+        internal fun lazy(string: String): DataItem {
             if (NULL_STRING == string) return NULL
 
-            return TealiumValue(string = string)
+            return DataItem(string = string)
         }
 
         /**
-         * Creates a [TealiumValue] from it's string representation, parsing the contents of the
+         * Creates a [DataItem] from it's string representation, parsing the contents of the
          * string as if it were JSON
          * i.e. string values should be quoted "value"
          */
-        fun parse(string: String): TealiumValue {
+        fun parse(string: String): DataItem {
             return convert(parseSupported(string))
         }
 
@@ -453,10 +470,10 @@ class TealiumValue private constructor(
                 val tokener = JSONTokener(string)
 
                 val any = convertToSupported(tokener.nextValue())
-                if (any is TealiumValue) {
+                if (any is DataItem) {
                     any.value
                 } else any
-            } catch (ex: JSONException) {
+            } catch (ex: Exception) {
                 null
             }
         }
@@ -465,27 +482,28 @@ class TealiumValue private constructor(
          * Takes an object of any type and converts it into one of the supported data types if
          * possible.
          *
-         * Returned values may already be instances of [TealiumValue] if the value provided as [any]
+         * Returned values may already be instances of [DataItem] if the value provided as [any]
          * was either:
-         * a) already a [TealiumValue], including [NULL]
-         * b) implements [TealiumSerializable]
+         * a) already a [DataItem], including [NULL]
+         * b) implements [DataItemConvertible]
          *
          * Returned types are limited to: [String], [Int], [Long], [Double], [Boolean],
-         * [TealiumList], [TealiumBundle] and [TealiumValue]
+         * [DataList], [DataObject] and [DataItem]
          *
          * @param any The object to be converted to a supported type
          *
          * @return An instance of a supported value.
          */
+        @Throws(UnsupportedDataItemException::class)
         private fun convertToSupported(any: Any?): Any {
             if (any == null || any === JSONObject.NULL || any === NULL) {
                 return NULL
             }
-            if (any is TealiumValue) {
+            if (any is DataItem) {
                 return any
             }
-            if (any is TealiumBundle ||
-                any is TealiumList ||
+            if (any is DataObject ||
+                any is DataList ||
                 any is Boolean ||
                 any is Int ||
                 any is Long ||
@@ -493,8 +511,8 @@ class TealiumValue private constructor(
             ) {
                 return any
             }
-            if (any is TealiumSerializable) {
-                return any.asTealiumValue()
+            if (any is DataItemConvertible) {
+                return any.asDataItem()
             }
             if (any is Byte || any is Short) {
                 return (any as Number).toInt()
@@ -502,35 +520,39 @@ class TealiumValue private constructor(
             if (any is Char) {
                 return any.toString()
             }
-            if (any is Float) {
-                return (any as Number).toDouble()
-            }
-            if (any is Double) {
-                if (any.isInfinite() || any.isNaN()) {
-                    return NULL
+            if (any is Double || any is Float) {
+                val double = (any as Number).toDouble()
+                if (!double.isFinite()) {
+                    return double.toString()
                 }
-                return any
+
+                return double
             }
             try {
                 if (any is JSONArray) {
-                    return TealiumList.fromJSONArray(any)
+                    return DataList.fromJSONArray(any)
                 }
                 if (any is JSONObject) {
-                    return TealiumBundle.fromJSONObject(any)
+                    return DataObject.fromJSONObject(any)
                 }
                 if (any is Collection<*>) {
-                    return TealiumList.fromCollection(any)
+                    return DataList.fromCollection(any)
                 }
                 if (any.javaClass.isArray) {
-                    return TealiumList.fromArray(any) ?: NULL
+                    return DataList.fromArray(any)
                 }
                 if (any is Map<*, *>) {
-                    return TealiumBundle.fromMap(any)
+                    return DataObject.fromMap(any)
                 }
+            } catch (exception: UnsupportedDataItemException) {
+                throw exception
             } catch (exception: Exception) {
-                // TODO, log this
+                throw UnsupportedDataItemException(
+                    "DataItem conversion failed.",
+                    cause = exception
+                )
             }
-            return NULL
+            throw UnsupportedDataItemException("Unsupported type for DataItem.")
         }
     }
 }

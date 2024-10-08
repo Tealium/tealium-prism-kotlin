@@ -1,6 +1,6 @@
 package com.tealium.core.internal.modules.collect
 
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.settings.CollectDispatcherSettingsBuilder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -16,8 +16,8 @@ class CollectDispatcherSettingsTests {
     private val localhost = URL("https://localhost/")
 
     @Test
-    fun fromBundle_Uses_UrlOverrides() {
-        val settings = CollectDispatcherSettings.fromBundle(
+    fun fromDataObject_Uses_UrlOverrides() {
+        val settings = CollectDispatcherSettings.fromDataObject(
             createSettings {
                 it.setUrl(localhost.toString())
                     .setBatchUrl(localhost.toString())
@@ -29,8 +29,8 @@ class CollectDispatcherSettingsTests {
     }
 
     @Test
-    fun fromBundle_PrefersUrlOverrides_ToDomainOverride() {
-        val settings = CollectDispatcherSettings.fromBundle(
+    fun fromDataObject_PrefersUrlOverrides_ToDomainOverride() {
+        val settings = CollectDispatcherSettings.fromDataObject(
             createSettings {
                 it.setUrl(localhost.toString())
                     .setBatchUrl(localhost.toString())
@@ -45,8 +45,8 @@ class CollectDispatcherSettingsTests {
     }
 
     @Test
-    fun fromBundle_UsesDomainOverride_WhenNoUrlOverride() {
-        val settings = CollectDispatcherSettings.fromBundle(
+    fun fromDataObject_UsesDomainOverride_WhenNoUrlOverride() {
+        val settings = CollectDispatcherSettings.fromDataObject(
             createSettings { it.setDomain("domain") }
         )
 
@@ -55,8 +55,8 @@ class CollectDispatcherSettingsTests {
     }
 
     @Test
-    fun fromBundle_Returns_Null_When_Invalid_Url_Provided() {
-        val collectSettings = CollectDispatcherSettings.fromBundle(
+    fun fromDataObject_Returns_Null_When_Invalid_Url_Provided() {
+        val collectSettings = CollectDispatcherSettings.fromDataObject(
             createSettings {
                 it.setUrl("some_invalid_url")
             }
@@ -66,8 +66,8 @@ class CollectDispatcherSettingsTests {
     }
 
     @Test
-    fun fromBundle_Returns_Null_When_Invalid_BatchUrl_Provided() {
-        val collectSettings = CollectDispatcherSettings.fromBundle(
+    fun fromDataObject_Returns_Null_When_Invalid_BatchUrl_Provided() {
+        val collectSettings = CollectDispatcherSettings.fromDataObject(
             createSettings {
                 it.setBatchUrl("some_invalid_url")
             }
@@ -79,7 +79,7 @@ class CollectDispatcherSettingsTests {
 
 inline fun createSettings(
     block: (CollectDispatcherSettingsBuilder) -> Unit
-): TealiumBundle {
+): DataObject {
     val builder = CollectDispatcherSettingsBuilder()
     block.invoke(builder)
     return builder.build()

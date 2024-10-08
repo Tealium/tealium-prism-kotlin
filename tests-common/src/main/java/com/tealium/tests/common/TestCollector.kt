@@ -1,21 +1,21 @@
 package com.tealium.tests.common
 
 import com.tealium.core.api.modules.Collector
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import io.mockk.spyk
 
 class TestCollector(
     override val id: String,
     override val version: String = "1.0",
-    private var onCollect: () -> TealiumBundle = { TealiumBundle.EMPTY_BUNDLE }
+    private var onCollect: () -> DataObject = { DataObject.EMPTY_OBJECT }
 ) : Collector {
-    override fun collect(): TealiumBundle = onCollect.invoke()
+    override fun collect(): DataObject = onCollect.invoke()
 
     companion object {
         fun mock(
             name: String,
             version: String = "1.0",
-            onCollect: () -> TealiumBundle = { TealiumBundle.EMPTY_BUNDLE }
+            onCollect: () -> DataObject = { DataObject.EMPTY_OBJECT }
         ): TestCollector {
             return spyk(TestCollector(name, version, onCollect))
         }

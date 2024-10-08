@@ -1,6 +1,6 @@
 package com.tealium.core.api.network
 
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import org.junit.Assert.*
 
 import org.junit.Test
@@ -143,7 +143,7 @@ class HttpRequestTests {
     @Test
     fun builder_Stringifies_Payload_When_Provided() {
         val req = HttpRequest.Builder("http://localhost", HttpMethod.Post)
-            .body(TealiumBundle.EMPTY_BUNDLE)
+            .body(DataObject.EMPTY_OBJECT)
             .build()
 
         assertEquals("{}", req.body)

@@ -1,7 +1,7 @@
 package com.tealium.core.internal.modules.collect
 
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.api.data.TealiumBundle
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.network.NetworkHelper
 import com.tealium.core.api.network.NetworkUtilities
@@ -40,7 +40,7 @@ class CollectDispatcherFactoryTests {
     @Test
     fun create_ReturnsCollectDispatcher_When_ModuleSettings_Enabled() {
         val module = CollectDispatcher.Factory()
-            .create(context, TealiumBundle.EMPTY_BUNDLE)
+            .create(context, DataObject.EMPTY_OBJECT)
 
         Assert.assertNotNull(module)
         Assert.assertTrue(module is CollectDispatcher)
