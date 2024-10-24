@@ -1,0 +1,53 @@
+package com.tealium.core.internal.modules
+
+import com.tealium.core.BuildConfig
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.modules.Collector
+import com.tealium.core.api.modules.Module
+import com.tealium.core.api.modules.ModuleFactory
+import com.tealium.core.api.modules.TealiumContext
+import com.tealium.core.api.persistence.DataStore
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.Dispatch.Keys.APP_UUID
+
+/**
+ * Collects data related to the application package.
+ */
+class AppDataCollector(
+    private val appDataProvider: AppDataProvider
+) : Collector {
+
+    constructor(tealiumContext: TealiumContext, dataStore: DataStore) : this(AppDataProviderImpl(
+        tealiumContext.context,
+        dataStore
+    ))
+
+    private val baseData = DataObject.create {
+        put(APP_UUID, appDataProvider.appUuid)
+        put(Dispatch.Keys.APP_RDNS, appDataProvider.appRdns)
+        put(Dispatch.Keys.APP_NAME, appDataProvider.appName)
+        put(Dispatch.Keys.APP_BUILD, appDataProvider.appBuild)
+        put(Dispatch.Keys.APP_VERSION, appDataProvider.appVersion)
+    }
+
+    override fun collect(): DataObject {
+        return baseData.copy {
+            put(Dispatch.Keys.APP_MEMORY_USAGE, appDataProvider.appMemoryUsage)
+        }
+    }
+
+    override val id: String
+        get() = Factory.id
+    override val version: String
+        get() = BuildConfig.TEALIUM_LIBRARY_VERSION
+
+    object Factory : ModuleFactory {
+        override val id: String
+            get() = "AppDataCollector"
+
+        override fun create(context: TealiumContext, settings: DataObject): Module? {
+            val dataStore = context.storageProvider.getModuleStore(this)
+            return AppDataCollector(context, dataStore)
+        }
+    }
+}

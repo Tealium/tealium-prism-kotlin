@@ -135,7 +135,9 @@ object TealiumHelper {
         return listOf(
             configureConsent(),
             configureCollect(),
-            Modules.connectivityCollector()
+            Modules.connectivityCollector(),
+            Modules.appDataCollector(),
+            Modules.deviceDataCollector()
         )
     }
 

@@ -110,4 +110,18 @@ object Modules {
     @JvmStatic
     fun connectivityCollector(): ModuleFactory =
         com.tealium.core.internal.modules.ConnectivityCollector.Factory
+
+    /**
+     * Collects data related to the user's device.
+     */
+    @JvmStatic
+    fun deviceDataCollector(): ModuleFactory =
+        com.tealium.core.internal.modules.DeviceDataCollector.Factory
+
+    /**
+     * Collects data related to the app package.
+     */
+    @JvmStatic
+    fun appDataCollector(): ModuleFactory =
+        com.tealium.core.internal.modules.AppDataCollector.Factory
 }
