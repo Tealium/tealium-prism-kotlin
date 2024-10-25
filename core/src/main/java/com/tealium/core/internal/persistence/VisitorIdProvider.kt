@@ -74,7 +74,7 @@ class VisitorIdProviderImpl(
         get() = _visitorId.asObservableState()
 
     override fun resetVisitorId(): String {
-        logger.debug?.log("VisitorIdProvider", "Resetting current visitor id")
+        logger.debug("VisitorIdProvider", "Resetting current visitor id")
 
         return generateVisitorId().also { newId ->
             visitorStorage.changeVisitor(newId)
@@ -83,7 +83,7 @@ class VisitorIdProviderImpl(
     }
 
     override fun clearStoredVisitorIds() {
-        logger.debug?.log("VisitorIdProvider", "Clearing stored visitor ids")
+        logger.debug("VisitorIdProvider", "Clearing stored visitor ids")
 
         generateVisitorId().let { newId ->
             visitorStorage.clear(newId)
@@ -99,7 +99,7 @@ class VisitorIdProviderImpl(
 
         if (hashedNewIdentity == oldIdentity) return
 
-        logger.debug?.log("VisitorIdProvider", "Identity change has been detected.")
+        logger.debug("VisitorIdProvider", "Identity change has been detected.")
 
         // check for known matching visitor id
         val knownVisitorId = visitorStorage.getKnownVisitorId(hashedNewIdentity)
@@ -118,7 +118,7 @@ class VisitorIdProviderImpl(
     }
 
     private fun handleExistingIdentity(knownVisitorId: String, identity: String) {
-        logger.debug?.log(
+        logger.debug(
             "VisitorIdProvider",
             "Identity has been seen before; setting known visitor id"
         )
@@ -129,7 +129,7 @@ class VisitorIdProviderImpl(
     }
 
     private fun handleChangedIdentity(identity: String) {
-        logger.debug?.log(
+        logger.debug(
             "VisitorIdProvider",
             "Identity has been seen before; but visitor id has not changed"
         )
@@ -138,7 +138,7 @@ class VisitorIdProviderImpl(
     }
 
     private fun handleFirstIdentity(identity: String) {
-        logger.debug?.log(
+        logger.debug(
             "VisitorIdProvider",
             "Identity unknown; linking to current visitor id"
         )
@@ -147,7 +147,7 @@ class VisitorIdProviderImpl(
     }
 
     private fun handleNewIdentity(identity: String) {
-        logger.debug?.log("VisitorIdProvider", "Identity unknown; resetting visitor id")
+        logger.debug("VisitorIdProvider", "Identity unknown; resetting visitor id")
 
         val newVisitorId = generateVisitorId()
         visitorStorage.changeVisitor(newVisitorId, identity)

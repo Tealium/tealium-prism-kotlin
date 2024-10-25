@@ -133,7 +133,7 @@ object TealiumHelper {
 
     private fun configureModules(): List<ModuleFactory> {
         return listOf(
-            configureConsent(),
+//            configureConsent(),
             configureCollect(),
             Modules.connectivityCollector(),
             Modules.appDataCollector(),

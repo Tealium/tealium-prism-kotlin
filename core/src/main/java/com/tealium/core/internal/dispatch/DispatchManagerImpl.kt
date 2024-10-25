@@ -13,6 +13,8 @@ import com.tealium.core.api.tracking.TrackResult
 import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.api.transform.DispatchScope
 import com.tealium.core.internal.logger.LogCategory
+import com.tealium.core.api.logger.logIfDebugEnabled
+import com.tealium.core.internal.logger.logDescriptions
 import com.tealium.core.internal.modules.InternalModuleManager
 import com.tealium.core.internal.modules.consent.ConsentManager
 import com.tealium.core.internal.pubsub.DisposableContainer
@@ -24,7 +26,7 @@ class DispatchManagerImpl(
     private val transformerCoordinator: TransformerCoordinator,
     private val queueManager: QueueManager,
     private val dispatchers: Observable<Set<Dispatcher>>,
-    private val logger: Logger? = null,
+    private val logger: Logger,
     private val maxInFlightPerDispatcher: Int = MAXIMUM_INFLIGHT_EVENTS_PER_DISPATCHER
 ) : DispatchManager {
 
@@ -56,10 +58,9 @@ class DispatchManagerImpl(
 
     override fun track(dispatch: Dispatch, onComplete: TrackResultListener?) {
         if (tealiumPurposeExplicitlyBlocked()) {
-            logger?.debug?.log(
-                LogCategory.DISPATCH_MANAGER,
+            logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
                 "Tealium consent purpose is explicitly blocked. Event ${dispatch.logDescription()} will be dropped."
-            )
+            }
 
             onComplete?.onTrackResultReady(dispatch, TrackResult.Dropped)
             return
@@ -67,10 +68,9 @@ class DispatchManagerImpl(
 
         transformerCoordinator.transform(dispatch, DispatchScope.AfterCollectors) { transformed ->
             if (transformed == null) {
-                logger?.debug?.log(
-                    LogCategory.DISPATCH_MANAGER,
+                logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
                     "Event ${dispatch.logDescription()} dropped due to transformer"
-                )
+                }
 
                 onComplete?.onTrackResultReady(dispatch, TrackResult.Dropped)
                 return@transform
@@ -78,19 +78,17 @@ class DispatchManagerImpl(
 
             val consentManager = consentManager
             if (consentManager != null) {
-                logger?.debug?.log(
-                    LogCategory.DISPATCH_MANAGER,
+                logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
                     "Event ${transformed.logDescription()} consent applied"
-                )
+                }
 
                 consentManager.applyConsent(transformed)
                 // TODO - This call may need to be moved into the Consent Manager implementation once it's done.
                 onComplete?.onTrackResultReady(transformed, TrackResult.Accepted)
             } else {
-                logger?.debug?.log(
-                    LogCategory.DISPATCH_MANAGER,
+                logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
                     "Event ${transformed.logDescription()} accepted for processing"
-                )
+                }
 
                 queueManager.storeDispatches(
                     listOf(transformed),
@@ -112,9 +110,9 @@ class DispatchManagerImpl(
             }.flatMap { dispatcher ->
                 barrierCoordinator.onBarriersState(dispatcher.id)
                     .flatMapLatest { active ->
-                        logger?.debug?.log(
+                        logger.debug(
                             LogCategory.DISPATCH_MANAGER,
-                            "BarrierState changed for ${dispatcher.id}: $active"
+                            "BarrierState changed for %s: %s", dispatcher.id, active
                         )
 
                         if (active == BarrierState.Open) {
@@ -123,10 +121,9 @@ class DispatchManagerImpl(
                             Observables.empty()
                         }
                     }.async { dispatches, observer: Observer<Pair<Dispatcher, List<Dispatch>>> ->
-                        logger?.debug?.log(
-                            LogCategory.DISPATCH_MANAGER,
-                            "Sending events to dispatcher ${dispatcher.id}: ${dispatches.map(Dispatch::logDescription)}"
-                        )
+                        logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
+                            "Sending events to dispatcher ${dispatcher.id}: ${dispatches.logDescriptions()}"
+                        }
 
                         transformAndDispatch(dispatches, dispatcher) { completedDispatches ->
                             observer.onNext(Pair(dispatcher, completedDispatches))
@@ -138,10 +135,9 @@ class DispatchManagerImpl(
                     dispatcher.id
                 )
 
-                logger?.debug?.log(
-                    LogCategory.DISPATCH_MANAGER,
-                    "Dispatcher: ${dispatcher.id} processed events: ${completedDispatches.map(Dispatch::logDescription)}"
-                )
+                logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
+                    "Dispatcher: ${dispatcher.id} processed events: ${completedDispatches.logDescriptions()}"
+                }
             }
     }
 

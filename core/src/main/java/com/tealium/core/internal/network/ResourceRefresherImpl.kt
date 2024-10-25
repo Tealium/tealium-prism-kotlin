@@ -2,10 +2,11 @@ package com.tealium.core.internal.network
 
 import com.tealium.core.api.data.DataItemConverter
 import com.tealium.core.api.data.DataItemConvertible
-import com.tealium.core.api.logger.AlternateLogger
+import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.misc.TealiumIOException
 import com.tealium.core.api.misc.TimeFrame
 import com.tealium.core.api.misc.TimeFrameUtils.inSeconds
+import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.network.CooldownHelper
 import com.tealium.core.api.network.HttpRequest
 import com.tealium.core.api.network.NetworkException
@@ -35,40 +36,37 @@ class ResourceRefresherImpl<T : DataItemConvertible> internal constructor(
     private val onResourceLoaded: Subject<T> = Observables.publishSubject(),
     private val _onRefreshError: Subject<TealiumIOException> = Observables.publishSubject(),
     private var lastRefresh: Long? = null,
-    private val logger: AlternateLogger
+    private val logger: Logger
 ) : ResourceRefresher<T> {
 
-//    constructor(
-//        context: TealiumContext,
-//        cache: ResourceCache<T>,
-//        deserializer: TealiumDeserializable<T>,
-//        params: ResourceRefresher.Parameters,
-//    ) : this(
-//        context.network.networkHelper,
-//        deserializer,
-//        params,
-//        cache,
-//        // TODO - context needs the new logger before this can work.
-//        logger = context.logger
-//    )
-//
-//    /**
-//     * Convenience constructor that creates the default [ResourceCache] for the
-//     */
-//    constructor(
-//        context: TealiumContext,
-//        dataStore: DataStore,
-//        deserializer: TealiumDeserializable<T>,
-//        params: ResourceRefresher.Parameters,
-//        logger: AlternateLogger
-//    ) : this(
-//        context.network.networkHelper,
-//        deserializer,
-//        params,
-//        ResourceCacher(dataStore, params.id, deserializer),
-//        // TODO - context needs the new logger before this can work.
-//        logger = context.logger
-//    )
+    constructor(
+        context: TealiumContext,
+        cache: ResourceCache<T>,
+        converter: DataItemConverter<T>,
+        params: ResourceRefresher.Parameters,
+    ) : this(
+        context.network.networkHelper,
+        converter,
+        params,
+        cache,
+        logger = context.logger
+    )
+
+    /**
+     * Convenience constructor that creates the default [ResourceCache] for the
+     */
+    constructor(
+        context: TealiumContext,
+        dataStore: DataStore,
+        converter: DataItemConverter<T>,
+        params: ResourceRefresher.Parameters,
+    ) : this(
+        context.network.networkHelper,
+        converter,
+        params,
+        ResourceCacheImpl(dataStore, params.id, converter),
+        logger = context.logger
+    )
 
     /**
      * Convenience constructor that creates the default [ResourceCache] for the
@@ -78,7 +76,7 @@ class ResourceRefresherImpl<T : DataItemConvertible> internal constructor(
         dataStore: DataStore,
         converter: DataItemConverter<T>,
         params: ResourceRefresher.Parameters,
-        logger: AlternateLogger
+        logger: Logger
     ) : this(
         networkHelper,
         converter,

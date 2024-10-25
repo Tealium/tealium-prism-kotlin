@@ -7,13 +7,14 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.Build
 import com.tealium.core.BuildConfig
-import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.network.Connectivity
 import com.tealium.core.api.network.Connectivity.ConnectivityType
-import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.pubsub.ObservableState
 import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.StateSubject
+import com.tealium.core.internal.logger.nonNullMessage
 
 /**
  * The [ConnectivityRetriever] is the default implementation of [Connectivity], making connectivity
@@ -29,7 +30,7 @@ class ConnectivityRetriever(
         .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED).build(),
     private val statusSubject: StateSubject<Connectivity.Status> =
         Observables.stateSubject(Connectivity.Status.NotConnected),
-    private val logger: Logger? = null
+    private val logger: Logger
 ) : Connectivity, ConnectivityManager.NetworkCallback() {
 
     private val connectivityManager =
@@ -42,7 +43,7 @@ class ConnectivityRetriever(
         get() = try {
             connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
         } catch (ex: Exception) {
-            logger?.warn?.log(BuildConfig.TAG, "Error retrieving active network capabilities, ${ex.message}")
+            logger.warn(BuildConfig.TAG, "Error retrieving active network capabilities, %s", ex.nonNullMessage())
             null
         }
 

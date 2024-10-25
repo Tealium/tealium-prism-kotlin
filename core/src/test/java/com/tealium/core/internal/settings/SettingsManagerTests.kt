@@ -4,7 +4,7 @@ import android.app.Application
 import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.data.DataItem
-import com.tealium.core.api.logger.AlternateLogger
+import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.misc.ActivityManager
 import com.tealium.core.api.misc.TimeFrame
 import com.tealium.core.api.misc.TimeFrameUtils.minutes
@@ -16,6 +16,7 @@ import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.settings.CoreSettingsBuilder
 import com.tealium.core.internal.network.mockGetDataItemConvertibleSuccess
+import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.getDefaultConfig
 import io.mockk.Called
 import io.mockk.MockKAnnotations
@@ -48,9 +49,8 @@ class SettingsManagerTests {
     @RelaxedMockK
     lateinit var mockCache: ResourceCache<DataObject>
 
-    @RelaxedMockK
-    lateinit var mockLogger: AlternateLogger
 
+    private lateinit var logger: Logger
     private lateinit var config: TealiumConfig
     private lateinit var settingsManager: SettingsManager
     private lateinit var settingsSubject: StateSubject<SdkSettings>
@@ -59,6 +59,7 @@ class SettingsManagerTests {
     fun setUp() {
         MockKAnnotations.init(this)
 
+        logger = SystemLogger
         app = RuntimeEnvironment.getApplication()
         config = getDefaultConfig(app)
         every {
@@ -112,7 +113,7 @@ class SettingsManagerTests {
         config.useRemoteSettings = false
         config.sdkSettingsUrl = "https://localhost/"
         val refresher = SettingsManager.createResourceRefresher(
-            config, mockNetworkHelper, 10.minutes, mockCache, mockLogger
+            config, mockNetworkHelper, 10.minutes, mockCache, logger
         )
 
         assertNotNull(refresher)
@@ -122,7 +123,7 @@ class SettingsManagerTests {
     fun init_Does_Not_Create_ResourceRefresher_When_RemoteSettings_Disabled() {
         config.useRemoteSettings = false
         val refresher = SettingsManager.createResourceRefresher(
-            config, mockNetworkHelper, 10.minutes, mockCache, mockLogger
+            config, mockNetworkHelper, 10.minutes, mockCache, logger
         )
 
         assertNull(refresher)
@@ -132,7 +133,7 @@ class SettingsManagerTests {
     fun init_Does_Not_Create_ResourceRefresher_When_Missing_Url() {
         config.sdkSettingsUrl = null
         val refresher = SettingsManager.createResourceRefresher(
-            config, mockNetworkHelper, 10.minutes, mockCache, mockLogger
+            config, mockNetworkHelper, 10.minutes, mockCache, logger
         )
 
         assertNull(refresher)
@@ -498,7 +499,7 @@ class SettingsManagerTests {
         config: TealiumConfig = this.config,
         mockNetworkHelper: NetworkHelper = this.mockNetworkHelper,
         mockCache: ResourceCache<DataObject> = this.mockCache,
-        mockLogger: AlternateLogger = this.mockLogger,
+        mockLogger: Logger = this.logger,
     ): SettingsManager {
         settingsManager = SettingsManager(
             config,

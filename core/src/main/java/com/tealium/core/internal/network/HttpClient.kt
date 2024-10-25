@@ -1,7 +1,7 @@
 package com.tealium.core.internal.network
 
+import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.logger.Logger
-import com.tealium.core.api.logger.Logs
 import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.misc.TimeFrame
@@ -22,6 +22,7 @@ import com.tealium.core.api.network.RetryPolicy.RetryAfterEvent
 import com.tealium.core.api.pubsub.Disposable
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.internal.logger.LogCategory
+import com.tealium.core.api.logger.logIfTraceEnabled
 import com.tealium.core.internal.pubsub.AsyncSubscription
 import com.tealium.core.internal.pubsub.DisposableContainer
 import com.tealium.core.internal.pubsub.addTo
@@ -49,16 +50,18 @@ class HttpClient(
         request: HttpRequest,
         completion: TealiumCallback<NetworkResult>
     ): Disposable {
-        logger.trace?.log(LogCategory.HTTP_CLIENT, "Sending request ${request.url} ${request.body}")
+        logger.logIfTraceEnabled(LogCategory.HTTP_CLIENT) {
+            "Sending request ${request.url}"
+        }
+
         return sendRetryableRequest(request, 0) { result ->
-            val resultLogger: Logs? = when (result) {
-                is Success -> logger.trace
-                is Failure -> logger.error
-            }
-            resultLogger?.log(
+            logger.log(
+                if (result is Success) LogLevel.TRACE else LogLevel.ERROR,
                 LogCategory.HTTP_CLIENT,
-                "Completed request ${request.url} ${request.body} with $result"
+                "Completed request %s with %s",
+                request.url, result
             )
+
             completion.onComplete(result)
         }
     }
@@ -79,10 +82,9 @@ class HttpClient(
 
                 if (shouldRetry) {
                     val newRetryCount = retryCount + 1
-                    logger.trace?.log(
-                        LogCategory.HTTP_CLIENT,
-                        "Retrying request ${request.url} ${request.body} Retry count: $newRetryCount"
-                    )
+                    logger.logIfTraceEnabled(LogCategory.HTTP_CLIENT) {
+                        "Retrying request ${request.url} Retry count: $newRetryCount"
+                    }
                     sendRetryableRequest(request, newRetryCount, completion)
                         .addTo(disposableContainer)
                 } else {

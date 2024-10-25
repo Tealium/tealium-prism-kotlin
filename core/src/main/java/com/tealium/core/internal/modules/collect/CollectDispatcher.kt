@@ -2,8 +2,8 @@ package com.tealium.core.internal.modules.collect
 
 import com.tealium.core.BuildConfig
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.data.DataList
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.modules.Dispatcher
@@ -15,6 +15,8 @@ import com.tealium.core.api.pubsub.Disposable
 import com.tealium.core.api.settings.CollectDispatcherSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.internal.logger.LogCategory
+import com.tealium.core.api.logger.logIfTraceEnabled
+import com.tealium.core.internal.logger.logDescriptions
 import com.tealium.core.internal.pubsub.CompletedDisposable
 import com.tealium.core.internal.pubsub.DisposableContainer
 import com.tealium.core.internal.pubsub.addTo
@@ -67,11 +69,11 @@ class CollectDispatcher(
         val groupedDispatches = dispatches.groupBy {
             it.payload().getString(Dispatch.Keys.TEALIUM_VISITOR_ID)
         }
-        logger.trace?.log(
-            LogCategory.COLLECT, "Collect events split in batches ${
-                groupedDispatches.mapValues { it.value.map(Dispatch::logDescription) }
+        logger.logIfTraceEnabled(LogCategory.COLLECT) {
+            "Collect events split in batches ${
+                groupedDispatches.mapValues { it.value.logDescriptions() }
             }"
-        )
+        }
 
         groupedDispatches.mapNotNull { (visitorId, dispatches) ->
             if (visitorId == null) { // shouldn't happen
@@ -213,7 +215,8 @@ class CollectDispatcher(
         override fun getEnforcedSettings(): DataObject? = settings
 
         override fun create(context: TealiumContext, settings: DataObject): Module? {
-            val collectDispatcherSettings = CollectDispatcherSettings.fromDataObject(settings) ?: return null
+            val collectDispatcherSettings =
+                CollectDispatcherSettings.fromDataObject(settings) ?: return null
 
             return CollectDispatcher(
                 context,

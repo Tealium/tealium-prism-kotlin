@@ -1,10 +1,12 @@
 package com.tealium.core.internal.network
 
-import com.tealium.core.api.data.Deserializer
-import com.tealium.core.api.data.DataObject
-import com.tealium.core.api.data.DataItemConverter
 import com.tealium.core.api.data.DataItem
+import com.tealium.core.api.data.DataItemConverter
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.Deserializer
+import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.logger.logIfTraceEnabled
 import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.network.DeserializedNetworkCallback
 import com.tealium.core.api.network.HttpRequest
@@ -33,13 +35,12 @@ class NetworkHelperImpl(
 
     private fun loggedCompletion(completion: NetworkCallback<NetworkResult>): NetworkCallback<NetworkResult> =
         NetworkCallback { result ->
-            when (result) {
-                is Success -> logger.trace
-                is Failure -> logger.error
-            }?.log(
+            logger.log(
+                if (result is Success) LogLevel.TRACE else LogLevel.ERROR,
                 LogCategory.NETWORK_HELPER,
-                "Completed request with $result"
+                "Completed request with %s", result
             )
+
             completion.onComplete(result)
         }
 
@@ -50,22 +51,35 @@ class NetworkHelperImpl(
         val loggedCompletion = loggedCompletion(completion)
 
         return try {
+            logger.logIfTraceEnabled(LogCategory.NETWORK_HELPER) {
+                "Building request\n${builder.description()}"
+            }
             val httpRequest = builder.build()
-            logger.trace?.log(LogCategory.NETWORK_HELPER, "Built request $httpRequest")
+            logger.logIfTraceEnabled(LogCategory.NETWORK_HELPER) {
+                "Built request $httpRequest"
+            }
 
             networkClient.sendRequest(httpRequest, loggedCompletion)
         } catch (e: MalformedURLException) {
-            logger.error?.log(LogCategory.NETWORK_HELPER, "Failed to build request")
+            logger.error(LogCategory.NETWORK_HELPER, "Failed to build request")
 
             loggedCompletion.onComplete(Failure(UnexpectedException(e)))
             CompletedDisposable
         }
     }
 
-    override fun get(url: String, etag: String?, completion: NetworkCallback<NetworkResult>): Disposable =
+    override fun get(
+        url: String,
+        etag: String?,
+        completion: NetworkCallback<NetworkResult>
+    ): Disposable =
         send(HttpRequest.get(url, etag), completion)
 
-    override fun get(url: URL, etag: String?, completion: NetworkCallback<NetworkResult>): Disposable =
+    override fun get(
+        url: URL,
+        etag: String?,
+        completion: NetworkCallback<NetworkResult>
+    ): Disposable =
         send(HttpRequest.get(url, etag), completion)
 
     override fun post(
@@ -173,7 +187,8 @@ class NetworkHelperImpl(
                     )
                 }
             } catch (e: Exception) {
-                logger.debug?.log("NetworkHelper", "Invalid")
+                // TODO - this log seems useless; remove or update to correct statement
+                logger.debug("NetworkHelper", "Invalid")
                 error = e
             }
         }

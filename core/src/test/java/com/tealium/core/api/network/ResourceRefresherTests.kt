@@ -16,7 +16,7 @@ import com.tealium.core.internal.network.ResourceRefresherImpl
 import com.tealium.core.internal.network.mockGetDataItemConvertibleResponse
 import com.tealium.core.internal.persistence.getSharedDataStore
 import com.tealium.core.internal.persistence.getTimestamp
-import com.tealium.tests.common.AltSystemLogger
+import com.tealium.tests.common.SystemLogger
 import io.mockk.MockKAnnotations
 import io.mockk.Runs
 import io.mockk.every
@@ -437,7 +437,7 @@ class ResourceRefresherTests {
             _onRefreshError = onRefreshError,
             lastRefresh = lastRefresh,
             timingProvider = timingProvider,
-            logger = AltSystemLogger
+            logger = SystemLogger
         )
     }
 }

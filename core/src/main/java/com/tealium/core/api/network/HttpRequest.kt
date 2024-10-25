@@ -1,6 +1,7 @@
 package com.tealium.core.api.network
 
 import com.tealium.core.api.data.DataObject
+import java.lang.StringBuilder
 import java.net.MalformedURLException
 import java.net.URL
 
@@ -72,11 +73,12 @@ class HttpRequest private constructor(
      */
     class Builder private constructor(
         private val urlSupplier: () -> URL,
+        private val urlString: String,
         private val method: HttpMethod
     ) {
 
-        constructor(url: URL, method: HttpMethod): this({ url }, method)
-        constructor(url: String, method: HttpMethod): this({ URL(url) }, method)
+        constructor(url: URL, method: HttpMethod): this({ url }, url.toString(), method)
+        constructor(url: String, method: HttpMethod): this({ URL(url) }, url, method)
 
         private val headers = mutableMapOf<String, String>()
         private var body: String? = null
@@ -158,6 +160,18 @@ class HttpRequest private constructor(
             }
 
             return HttpRequest(urlSupplier.invoke(), method, body, headers.toMap())
+        }
+
+        fun description() : String {
+            val stringBuilder = StringBuilder()
+                .appendLine("${method.value}: $urlString")
+                .appendLine("Headers: $headers")
+
+            body?.let {
+                stringBuilder.appendLine("Body: $it")
+            }
+
+            return stringBuilder.toString()
         }
     }
 

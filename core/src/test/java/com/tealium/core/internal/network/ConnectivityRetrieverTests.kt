@@ -11,6 +11,7 @@ import com.tealium.core.api.network.Connectivity.ConnectivityType
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.tests.common.SynchronousScheduler
+import com.tealium.tests.common.SystemLogger
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
 import org.junit.Assert.assertEquals
@@ -65,7 +66,7 @@ class ConnectivityRetrieverTests {
         }
 
         connectionStatus = Observables.stateSubject(Connectivity.Status.Connected)
-        connectivityRetriever = ConnectivityRetriever(mockApplication, statusSubject = connectionStatus, scheduler = synchronousScheduler)
+        connectivityRetriever = ConnectivityRetriever(mockApplication, statusSubject = connectionStatus, scheduler = synchronousScheduler, logger = SystemLogger)
     }
 
     @Test

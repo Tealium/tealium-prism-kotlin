@@ -103,6 +103,7 @@ open class DispatchManagerTestsBase {
                 settings = coreSettings,
                 processors = processors,
                 inFlightDispatches = inFlightEvents,
+                logger = SystemLogger
             )
         )
 

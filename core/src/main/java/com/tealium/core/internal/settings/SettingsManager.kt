@@ -3,7 +3,7 @@ package com.tealium.core.internal.settings
 import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.data.plus
-import com.tealium.core.api.logger.AlternateLogger
+import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.misc.ActivityManager
 import com.tealium.core.api.misc.TimeFrame
 import com.tealium.core.api.misc.TimeFrameUtils.seconds
@@ -42,14 +42,14 @@ class SettingsManager(
     private val config: TealiumConfig,
     private val networkHelper: NetworkHelper,
     private val cache: ResourceCache<DataObject>,
-    private val logger: AlternateLogger
+    private val logger: Logger
 ) : SettingsProvider {
 
     constructor(
         config: TealiumConfig,
         networkHelper: NetworkHelper,
         dataStore: DataStore,
-        logger: AlternateLogger
+        logger: Logger
     ) : this(
         config, networkHelper, ResourceCacheImpl(
             dataStore,
@@ -71,11 +71,9 @@ class SettingsManager(
         _sdkSettings = Observables.stateSubject(mergedSettings)
 
         _sdkSettings.subscribe {
-            logger.debug(
-                LogCategory.SETTINGS_MANAGER,
-                "Applying settings: %s",
-                it.asDataItem()
-            )
+            logger.debug(LogCategory.SETTINGS_MANAGER) {
+                "Applying settings: ${it.asDataItem()}"
+            }
         }
 
         resourceRefresher = createResourceRefresher(
@@ -242,7 +240,7 @@ class SettingsManager(
             networkHelper: NetworkHelper,
             refreshInterval: TimeFrame,
             cache: ResourceCache<DataObject>,
-            logger: AlternateLogger
+            logger: Logger
         ): ResourceRefresher<DataObject>? {
             if (config.useRemoteSettings && config.sdkSettingsUrl == null) return null
 

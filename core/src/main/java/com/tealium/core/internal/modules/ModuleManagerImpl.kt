@@ -2,15 +2,16 @@ package com.tealium.core.internal.modules
 
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.Logger
-import com.tealium.core.api.modules.TealiumContext
-import com.tealium.core.api.modules.Module
-import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.misc.TealiumCallback
-import com.tealium.core.internal.settings.SdkSettings
+import com.tealium.core.api.modules.Module
+import com.tealium.core.api.modules.ModuleFactory
+import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.pubsub.ObservableState
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
+import com.tealium.core.api.logger.logIfTraceEnabled
+import com.tealium.core.internal.settings.SdkSettings
 
 class ModuleManagerImpl(
     moduleFactories: List<ModuleFactory>,
@@ -86,16 +87,15 @@ class ModuleManagerImpl(
             // update
             val updatedModule = module.updateSettings(settings)
             if (updatedModule != null) {
-                logger.trace?.log(
-                    module.id,
+                logger.logIfTraceEnabled(module.id) {
                     "Settings updated to $settings"
-                )
+                }
                 return updatedModule
             }
         }
 
         // shutdown
-        logger.trace?.log(
+        logger.trace(
             module.id,
             "Module failed to update settings. Module will be shut down."
         )

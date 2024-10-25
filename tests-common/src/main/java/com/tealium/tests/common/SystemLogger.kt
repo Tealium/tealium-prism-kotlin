@@ -2,30 +2,10 @@ package com.tealium.tests.common
 
 import com.tealium.core.api.logger.LogHandler
 import com.tealium.core.api.logger.LogLevel
-import com.tealium.core.api.logger.Logger
-import com.tealium.core.api.logger.Logs
 import com.tealium.core.api.pubsub.Observables
-import com.tealium.core.internal.logger.AlternateLoggerImpl
+import com.tealium.core.internal.logger.LoggerImpl
 
-object SystemLogger : Logger {
-    private val systemLog: Logs = object : Logs {
-        override fun log(category: String, message: String) {
-            println("$category - $message")
-        }
-    }
-    override val trace: Logs?
-        get() = systemLog
-    override val debug: Logs?
-        get() = systemLog
-    override val info: Logs?
-        get() = systemLog
-    override val warn: Logs?
-        get() = systemLog
-    override val error: Logs?
-        get() = systemLog
-}
-
-val AltSystemLogger = AlternateLoggerImpl(object : LogHandler {
+val SystemLogger = LoggerImpl(object : LogHandler {
     override fun log(category: String, message: String, logLevel: LogLevel) {
         println("$category - $message")
     }

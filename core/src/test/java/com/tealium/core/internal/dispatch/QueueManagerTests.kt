@@ -10,6 +10,7 @@ import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.internal.persistence.repositories.QueueRepository
 import com.tealium.core.internal.settings.CoreSettingsImpl
+import com.tealium.tests.common.SystemLogger
 import io.mockk.MockKAnnotations
 import io.mockk.confirmVerified
 import io.mockk.every
@@ -52,7 +53,7 @@ class QueueManagerTests {
         coreSettings = Observables.publishSubject()
 
         queueManager = QueueManagerImpl(
-            queueRepository, coreSettings, processors, inFlightDispatches, enqueuedDispatches
+            queueRepository, coreSettings, processors, inFlightDispatches, enqueuedDispatches, SystemLogger
         )
     }
 
@@ -61,7 +62,7 @@ class QueueManagerTests {
         val processors = Observables.replaySubject<Set<String>>(1)
         processors.onNext(setOf(dispatcher1))
         queueManager = QueueManagerImpl(
-            queueRepository, coreSettings, processors, inFlightDispatches, enqueuedDispatches
+            queueRepository, coreSettings, processors, inFlightDispatches, enqueuedDispatches, SystemLogger
         )
 
         verify {
@@ -72,7 +73,7 @@ class QueueManagerTests {
     @Test
     fun processors_Removes_ProcessorQueues_When_Modules_Update() {
         queueManager = QueueManagerImpl(
-            queueRepository, coreSettings, processors, inFlightDispatches, enqueuedDispatches
+            queueRepository, coreSettings, processors, inFlightDispatches, enqueuedDispatches, SystemLogger
         )
         processors.onNext(setOf(dispatcher1))
 
@@ -87,7 +88,7 @@ class QueueManagerTests {
         val inFlightCount = mockk<(Int) -> Unit>(relaxed = true)
 
         queueManager = QueueManagerImpl(
-            queueRepository, coreSettings, processors, inFlightDispatches, enqueuedDispatches
+            queueRepository, coreSettings, processors, inFlightDispatches, enqueuedDispatches, SystemLogger
         )
         queueManager.inFlightCount(dispatcher1).subscribe(inFlightCount)
         processors.onNext(setOf(dispatcher2))

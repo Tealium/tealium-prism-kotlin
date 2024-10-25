@@ -2,7 +2,7 @@ package com.tealium.core.api.network
 
 import com.tealium.core.api.data.DataItemConverter
 import com.tealium.core.api.data.DataItemConvertible
-import com.tealium.core.api.logger.AlternateLogger
+import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.internal.network.ResourceCacheImpl
 import com.tealium.core.internal.network.ResourceRefresherImpl
@@ -18,7 +18,7 @@ class NetworkUtilities(
     private val connectivity: Connectivity,
     val networkClient: NetworkClient,
     val networkHelper: NetworkHelper,
-    private val logger: AlternateLogger
+    private val logger: Logger
 ) : Connectivity by connectivity {
 
     /**

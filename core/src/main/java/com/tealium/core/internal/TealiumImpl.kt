@@ -3,7 +3,6 @@ package com.tealium.core.internal
 import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.barriers.BarrierScope
 import com.tealium.core.api.barriers.ScopedBarrier
-import com.tealium.core.api.logger.AlternateLogger
 import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.misc.ActivityManager
@@ -32,13 +31,11 @@ import com.tealium.core.internal.dispatch.QueueManagerImpl
 import com.tealium.core.internal.dispatch.TransformerCoordinator
 import com.tealium.core.internal.dispatch.TransformerCoordinatorImpl
 import com.tealium.core.internal.dispatch.TransformerRegistryImpl
-import com.tealium.core.internal.logger.AlternateLoggerImpl
 import com.tealium.core.internal.logger.LogCategory
 import com.tealium.core.internal.logger.LoggerImpl
 import com.tealium.core.internal.misc.ActivityManagerProxy
 import com.tealium.core.internal.misc.SchedulersImpl
 import com.tealium.core.internal.misc.TrackerImpl
-import com.tealium.core.internal.modules.collect.CollectDispatcher
 import com.tealium.core.internal.modules.DataLayerImpl
 import com.tealium.core.internal.modules.DeeplinkManagerImpl
 import com.tealium.core.internal.modules.InternalModuleManager
@@ -46,6 +43,7 @@ import com.tealium.core.internal.modules.ModuleManagerImpl
 import com.tealium.core.internal.modules.TealiumCollector
 import com.tealium.core.internal.modules.TimedEventsManagerImpl
 import com.tealium.core.internal.modules.TraceManagerImpl
+import com.tealium.core.internal.modules.collect.CollectDispatcher
 import com.tealium.core.internal.modules.consent.ConsentModule
 import com.tealium.core.internal.network.ConnectivityBarrier
 import com.tealium.core.internal.network.ConnectivityInterceptor
@@ -84,7 +82,6 @@ class TealiumImpl(
     private val schedulers: Schedulers
     private val settings: ObservableState<SdkSettings>
     private val coreSettings: ObservableState<CoreSettings>
-    private val altLogger: AlternateLogger
     private val logger: Logger
     private val networkUtilities: NetworkUtilities
     private val dispatchManager: DispatchManagerImpl
@@ -109,7 +106,7 @@ class TealiumImpl(
         // ALT-LOGGER
         val sdkSettingsSubject = Observables.replaySubject<SdkSettings>(1)
         val logLevel = sdkSettingsSubject.map { it.coreSettings.logLevel }
-        altLogger = AlternateLoggerImpl(
+        logger = LoggerImpl(
             config.logHandler,
             logLevel,
             config.enforcedSdkSettings.getDataObject(CoreSettingsImpl.MODULE_NAME)
@@ -117,14 +114,8 @@ class TealiumImpl(
         )
         // ALT-LOGGER - end
 
-        // TODO - replace with AltLogger... and all use-sites.
-        logger = LoggerImpl(
-            config.logHandler,
-            onSdkSettingsUpdated = sdkSettingsSubject // todo - this is broke?!?
-        )
-
         // TODO - clear session data if necessary
-        altLogger.debug(LogCategory.TEALIUM, "Purging expired data from the database")
+        logger.debug(LogCategory.TEALIUM, "Purging expired data from the database")
         modulesRepository.deleteExpired(ModulesRepository.ExpirationType.UntilRestart)
 
         schedulers = SchedulersImpl(
@@ -135,13 +126,13 @@ class TealiumImpl(
         connectivityRetriever =
             ConnectivityRetriever(config.application, tealiumScheduler, logger = logger)
         connectivityRetriever.subscribe()
-        networkUtilities = createNetworkUtilities(logger, schedulers, connectivityRetriever, altLogger)
+        networkUtilities = createNetworkUtilities(logger, schedulers, connectivityRetriever)
 
         val settingsManager = SettingsManager(
             config,
             networkUtilities.networkHelper,
             sharedDataStore,
-            logger = altLogger
+            logger = logger
         )
 
         settings = settingsManager.sdkSettings
@@ -164,7 +155,7 @@ class TealiumImpl(
             coreSettings.value.maxQueueSize,
             coreSettings.value.expiration
         )
-        val queueManager = createQueueManager(queueRepository, coreSettings, moduleManager.modules)
+        val queueManager = createQueueManager(queueRepository, coreSettings, moduleManager.modules, logger)
 
         dispatchManager = DispatchManagerImpl(
             moduleManager = moduleManager,
@@ -226,7 +217,7 @@ class TealiumImpl(
 
         dispatchManager.startDispatchLoop()
 
-        altLogger.info(LogCategory.TEALIUM, "Instance %s initialized.", instanceName)
+        logger.info(LogCategory.TEALIUM, "Instance %s initialized.", instanceName)
         // todo - might have queued incoming events + dispatch them now.
     }
 
@@ -249,7 +240,7 @@ class TealiumImpl(
     }
 
     fun shutdown() {
-        altLogger.info(LogCategory.TEALIUM, "Instance %s shutting down.", instanceName)
+        logger.info(LogCategory.TEALIUM, "Instance %s shutting down.", instanceName)
 
         disposables.dispose()
         dispatchManager.stopDispatchLoop()
@@ -272,7 +263,6 @@ class TealiumImpl(
             logger: Logger,
             schedulers: Schedulers,
             connectivity: Connectivity,
-            alternateLogger: AlternateLogger
         ): NetworkUtilities {
             val networkClient = HttpClient(
                 logger = logger,
@@ -284,7 +274,7 @@ class TealiumImpl(
                 connectivity = connectivity,
                 networkClient = networkClient,
                 networkHelper = NetworkHelperImpl(networkClient, logger),
-                logger = alternateLogger
+                logger = logger
             )
         }
 
@@ -328,14 +318,16 @@ class TealiumImpl(
         fun createQueueManager(
             queueRepository: QueueRepository,
             coreSettings: Observable<CoreSettings>,
-            allModules: ObservableState<Set<Module>>
+            allModules: ObservableState<Set<Module>>,
+            logger: Logger
         ): QueueManager {
             return QueueManagerImpl(
                 queueRepository,
                 coreSettings,
                 allModules.filter { modules -> modules.isNotEmpty() }
                     .map { modules -> modules.filter { module -> module is Dispatcher || module is ConsentModule } }
-                    .map { processors -> processors.map { it.id }.toSet() }
+                    .map { processors -> processors.map { it.id }.toSet() },
+                logger = logger
             )
         }
 
