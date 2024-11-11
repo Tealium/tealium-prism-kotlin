@@ -1,4 +1,4 @@
-package com.tealium.core.internal.persistence
+package com.tealium.core.internal.persistence.database
 
 import com.tealium.core.api.tracking.Dispatch
 
@@ -43,7 +43,7 @@ object Schema {
         """.trimIndent()
 
         val CREATE_INDEX_TIMESTAMP = """
-            CREATE INDEX idx_${TABLE_NAME}_${COLUMN_TIMESTAMP}
+            CREATE INDEX idx_${TABLE_NAME}_$COLUMN_TIMESTAMP
             ON $TABLE_NAME ($COLUMN_TIMESTAMP)
         """.trimIndent()
 

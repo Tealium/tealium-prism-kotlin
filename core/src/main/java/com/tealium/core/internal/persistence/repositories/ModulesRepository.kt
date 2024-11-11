@@ -3,7 +3,7 @@ package com.tealium.core.internal.persistence.repositories
 import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.pubsub.Observable
-import com.tealium.core.internal.persistence.getTimestamp
+import com.tealium.core.internal.persistence.database.getTimestamp
 
 /**
  * Repository class for registering and managing modules.

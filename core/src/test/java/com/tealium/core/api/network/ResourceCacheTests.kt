@@ -7,7 +7,7 @@ import com.tealium.core.api.data.TestDataListConvertible
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.internal.network.ResourceCacheImpl
-import com.tealium.core.internal.persistence.getSharedDataStore
+import com.tealium.core.internal.persistence.stores.getSharedDataStore
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test

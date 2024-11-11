@@ -9,4 +9,5 @@ object LogCategory {
     const val RESOURCE_REFRESHER = "ResourceRefresher"
     const val SETTINGS_MANAGER = "SettingsManager"
     const val TEALIUM = "Tealium"
+    const val VISITOR_ID_PROVIDER = "VisitorIdProvider"
 }

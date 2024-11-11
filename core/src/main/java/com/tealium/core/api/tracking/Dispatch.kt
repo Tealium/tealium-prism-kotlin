@@ -1,7 +1,7 @@
 package com.tealium.core.api.tracking
 
 import com.tealium.core.api.data.DataObject
-import com.tealium.core.internal.persistence.getTimestampMilliseconds
+import com.tealium.core.internal.persistence.database.getTimestampMilliseconds
 import java.util.*
 
 class Dispatch private constructor(

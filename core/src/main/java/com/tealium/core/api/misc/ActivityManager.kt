@@ -2,7 +2,7 @@ package com.tealium.core.api.misc
 
 import android.app.Activity
 import com.tealium.core.api.pubsub.Observable
-import com.tealium.core.internal.persistence.getTimestamp
+import com.tealium.core.internal.persistence.database.getTimestamp
 
 /**
  * Shared utility class for monitoring the current lifecycle state of a running application.

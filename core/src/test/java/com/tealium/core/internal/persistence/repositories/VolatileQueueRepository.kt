@@ -1,8 +1,7 @@
-package com.tealium.core.internal.persistence
+package com.tealium.core.internal.persistence.repositories
 
 import com.tealium.core.api.misc.TimeFrame
 import com.tealium.core.api.tracking.Dispatch
-import com.tealium.core.internal.persistence.repositories.QueueRepository
 import kotlin.math.min
 
 class VolatileQueueRepository(

@@ -6,11 +6,11 @@ import android.database.sqlite.SQLiteDatabase
 import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.persistence.PersistenceException
 import com.tealium.core.api.data.DataItem
-import com.tealium.core.internal.persistence.DatabaseProvider
-import com.tealium.core.internal.persistence.Schema
-import com.tealium.core.internal.persistence.getTimestamp
-import com.tealium.core.internal.persistence.select
-import com.tealium.core.internal.persistence.transaction
+import com.tealium.core.internal.persistence.database.DatabaseProvider
+import com.tealium.core.internal.persistence.database.Schema
+import com.tealium.core.internal.persistence.database.getTimestamp
+import com.tealium.core.internal.persistence.database.select
+import com.tealium.core.internal.persistence.database.transaction
 
 /**
  * This is the default implementation for reading and writing [DataItem] objects to and from

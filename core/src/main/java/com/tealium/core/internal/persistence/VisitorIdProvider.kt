@@ -1,13 +1,15 @@
 package com.tealium.core.internal.persistence
 
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.persistence.DataStore
+import com.tealium.core.api.persistence.PersistenceException
 import com.tealium.core.api.pubsub.ObservableState
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
-import com.tealium.core.internal.persistence.repositories.VisitorStorage
-import com.tealium.core.internal.persistence.repositories.VisitorStorageImpl
+import com.tealium.core.internal.logger.LogCategory
+import com.tealium.core.internal.persistence.stores.VisitorStorage
+import com.tealium.core.internal.persistence.stores.VisitorStorageImpl
 import com.tealium.core.internal.utils.sha256
 import java.util.UUID
 
@@ -28,13 +30,15 @@ interface VisitorIdProvider {
      *
      * @return The new anonymous visitor id
      */
+    @Throws(PersistenceException::class)
     fun resetVisitorId(): String
 
     /**
      * Removes all stored visitor identifiers as hashed identities, and generates a new
      * anonymous visitor id.
      */
-    fun clearStoredVisitorIds()
+    @Throws(PersistenceException::class)
+    fun clearStoredVisitorIds(): String
 
     /**
      * Notifies that the identity has changed.
@@ -47,6 +51,7 @@ interface VisitorIdProvider {
      *
      * @param identity The new identity of the user
      */
+    @Throws(PersistenceException::class)
     fun identify(identity: String)
 }
 
@@ -69,25 +74,41 @@ class VisitorIdProviderImpl(
         logger
     )
 
-    private val _visitorId: StateSubject<String> = Observables.stateSubject(getOrCreateVisitorId())
+    private val _visitorId: StateSubject<String>
+
+    init {
+        val visitorId = getOrCreateVisitorId()
+        _visitorId = Observables.stateSubject(visitorId)
+
+        if (visitorId != visitorStorage.visitorId) {
+            changeVisitor(visitorId, null)
+        }
+    }
+
     override val visitorId: ObservableState<String>
         get() = _visitorId.asObservableState()
 
     override fun resetVisitorId(): String {
-        logger.debug("VisitorIdProvider", "Resetting current visitor id")
+        logger.debug(LogCategory.VISITOR_ID_PROVIDER, "Resetting current visitor id")
 
         return generateVisitorId().also { newId ->
-            visitorStorage.changeVisitor(newId)
-            _visitorId.onNext(newId)
+            try {
+                visitorStorage.changeVisitor(newId)
+            } finally {
+                _visitorId.onNext(newId)
+            }
         }
     }
 
-    override fun clearStoredVisitorIds() {
-        logger.debug("VisitorIdProvider", "Clearing stored visitor ids")
+    override fun clearStoredVisitorIds(): String {
+        logger.debug(LogCategory.VISITOR_ID_PROVIDER, "Clearing stored visitor ids")
 
-        generateVisitorId().let { newId ->
-            visitorStorage.clear(newId)
-            _visitorId.onNext(newId)
+        return generateVisitorId().also { newId ->
+            try {
+                visitorStorage.clear(newId)
+            } finally {
+                _visitorId.onNext(newId)
+            }
         }
     }
 
@@ -99,7 +120,7 @@ class VisitorIdProviderImpl(
 
         if (hashedNewIdentity == oldIdentity) return
 
-        logger.debug("VisitorIdProvider", "Identity change has been detected.")
+        logger.debug(LogCategory.VISITOR_ID_PROVIDER, "Identity change has been detected.")
 
         // check for known matching visitor id
         val knownVisitorId = visitorStorage.getKnownVisitorId(hashedNewIdentity)
@@ -119,40 +140,60 @@ class VisitorIdProviderImpl(
 
     private fun handleExistingIdentity(knownVisitorId: String, identity: String) {
         logger.debug(
-            "VisitorIdProvider",
+            LogCategory.VISITOR_ID_PROVIDER,
             "Identity has been seen before; setting known visitor id"
         )
 
-        visitorStorage.changeVisitor(knownVisitorId, identity)
-
-        _visitorId.onNext(knownVisitorId)
+        changeVisitor(knownVisitorId, identity)
     }
 
     private fun handleChangedIdentity(identity: String) {
         logger.debug(
-            "VisitorIdProvider",
+            LogCategory.VISITOR_ID_PROVIDER,
             "Identity has been seen before; but visitor id has not changed"
         )
 
-        visitorStorage.changeIdentity(identity)
+        try {
+            visitorStorage.changeIdentity(identity)
+        } catch (e: Exception) {
+            logger.error(
+                LogCategory.VISITOR_ID_PROVIDER,
+                "Failed to change identity.\nError: ${e.message}"
+            )
+        }
     }
 
     private fun handleFirstIdentity(identity: String) {
         logger.debug(
-            "VisitorIdProvider",
+            LogCategory.VISITOR_ID_PROVIDER,
             "Identity unknown; linking to current visitor id"
         )
 
-        visitorStorage.changeVisitor(visitorId.value, identity)
+        changeVisitor(visitorId.value, identity)
     }
 
     private fun handleNewIdentity(identity: String) {
-        logger.debug("VisitorIdProvider", "Identity unknown; resetting visitor id")
+        logger.debug(LogCategory.VISITOR_ID_PROVIDER, "Identity unknown; resetting visitor id")
 
         val newVisitorId = generateVisitorId()
-        visitorStorage.changeVisitor(newVisitorId, identity)
+        changeVisitor(newVisitorId, identity)
+    }
 
-        _visitorId.onNext(newVisitorId)
+    private fun changeVisitor(visitorId: String, identity: String?) {
+        try {
+            if (identity != null) {
+                visitorStorage.changeVisitor(visitorId, identity)
+            } else {
+                visitorStorage.changeVisitor(visitorId)
+            }
+        } catch (e: Exception) {
+            logger.error(
+                LogCategory.VISITOR_ID_PROVIDER,
+                "Failed to change visitor.\nError: ${e.message}"
+            )
+        } finally {
+            _visitorId.onNext(visitorId)
+        }
     }
 
     /**
@@ -169,14 +210,13 @@ class VisitorIdProviderImpl(
 
         val migratedVisitorId = migrator.visitorId
         if (migratedVisitorId != null) {
+            // TODO - handle possible exception
             visitorStorage.changeVisitor(migratedVisitorId)
             migrator.delete()
             return migratedVisitorId
         }
 
-        val visitorId = existingVisitorId ?: generateVisitorId()
-        visitorStorage.changeVisitor(visitorId)
-        return visitorId
+        return existingVisitorId ?: generateVisitorId()
     }
 
     private fun generateVisitorId(uuid: UUID = UUID.randomUUID()): String {

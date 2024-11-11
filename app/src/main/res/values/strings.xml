@@ -3,4 +3,7 @@
     <string name="track_event">Track Event</string>
     <string name="activity_2">Activity 2</string>
     <string name="back">Back</string>
+    <string name="feature_name">Feature Name</string>
+    <string name="feature_list">Feature List</string>
+    <string name="features">Features</string>
 </resources>

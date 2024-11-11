@@ -12,7 +12,7 @@ import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.Observer
 import com.tealium.core.internal.misc.ActivityManagerImpl
 import com.tealium.core.internal.misc.SingleThreadedScheduler
-import com.tealium.core.internal.persistence.DatabaseProvider
+import com.tealium.core.internal.persistence.database.DatabaseProvider
 import com.tealium.tests.common.TestModuleFactory
 import com.tealium.tests.common.createTealiumProxy
 import com.tealium.tests.common.getDefaultConfig

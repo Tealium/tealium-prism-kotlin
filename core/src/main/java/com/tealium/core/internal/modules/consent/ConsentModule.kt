@@ -19,7 +19,7 @@ import com.tealium.core.api.transform.ScopedTransformation
 import com.tealium.core.api.transform.TransformationScope
 import com.tealium.core.api.transform.TransformerRegistry
 import com.tealium.core.internal.dispatch.QueueManager
-import com.tealium.core.internal.persistence.getTimestampMilliseconds
+import com.tealium.core.internal.persistence.database.getTimestampMilliseconds
 
 class ConsentModule(
     private val modules: SubscribableState<Set<Module>>,

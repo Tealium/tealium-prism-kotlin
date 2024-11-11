@@ -4,7 +4,9 @@ import android.app.Application
 import android.database.sqlite.SQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
 import com.tealium.core.internal.persistence.DatabaseTestUtils.upgrade
+import com.tealium.core.internal.persistence.database.DatabaseProvider
 import com.tealium.core.internal.persistence.repositories.SQLKeyValueRepository
+import com.tealium.core.internal.persistence.stores.ModuleStore
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.Assert.assertEquals

@@ -4,9 +4,11 @@ import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.ModuleStoreProvider
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
+import com.tealium.core.internal.persistence.database.DatabaseProvider
 import com.tealium.core.internal.persistence.repositories.KeyValueRepository
 import com.tealium.core.internal.persistence.repositories.ModulesRepository
 import com.tealium.core.internal.persistence.repositories.SQLKeyValueRepository
+import com.tealium.core.internal.persistence.stores.ModuleStore
 
 /**
  * This is the default implementation of [ModuleStoreProvider] for registering and returning

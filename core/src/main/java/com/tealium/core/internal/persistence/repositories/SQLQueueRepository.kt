@@ -6,19 +6,19 @@ import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.misc.TimeFrame
 import com.tealium.core.api.misc.TimeFrameUtils.days
-import com.tealium.core.internal.persistence.DatabaseProvider
-import com.tealium.core.internal.persistence.Schema.COUNT_TABLE_NAME
-import com.tealium.core.internal.persistence.Schema.DispatchTable
-import com.tealium.core.internal.persistence.Schema.LegacyTables
-import com.tealium.core.internal.persistence.Schema.QueueTable
-import com.tealium.core.internal.persistence.dropTableIfExists
-import com.tealium.core.internal.persistence.getFirstIntOrNull
-import com.tealium.core.internal.persistence.getLongOrNull
-import com.tealium.core.internal.persistence.getStringOrNull
-import com.tealium.core.internal.persistence.getTimestampMilliseconds
-import com.tealium.core.internal.persistence.mapNotNull
-import com.tealium.core.internal.persistence.tail
-import com.tealium.core.internal.persistence.transaction
+import com.tealium.core.internal.persistence.database.DatabaseProvider
+import com.tealium.core.internal.persistence.database.Schema.COUNT_TABLE_NAME
+import com.tealium.core.internal.persistence.database.Schema.DispatchTable
+import com.tealium.core.internal.persistence.database.Schema.LegacyTables
+import com.tealium.core.internal.persistence.database.Schema.QueueTable
+import com.tealium.core.internal.persistence.database.dropTableIfExists
+import com.tealium.core.internal.persistence.database.getFirstIntOrNull
+import com.tealium.core.internal.persistence.database.getLongOrNull
+import com.tealium.core.internal.persistence.database.getStringOrNull
+import com.tealium.core.internal.persistence.database.getTimestampMilliseconds
+import com.tealium.core.internal.persistence.database.mapNotNull
+import com.tealium.core.internal.persistence.database.tail
+import com.tealium.core.internal.persistence.database.transaction
 
 
 class SQLQueueRepository(

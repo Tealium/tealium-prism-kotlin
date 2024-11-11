@@ -10,7 +10,7 @@ import com.tealium.core.internal.TealiumProxy
 import com.tealium.core.internal.misc.ActivityManagerImpl
 import com.tealium.core.internal.misc.SingleThreadedScheduler
 import com.tealium.core.internal.misc.ThreadPoolScheduler
-import com.tealium.core.internal.persistence.DatabaseProvider
+import com.tealium.core.internal.persistence.database.DatabaseProvider
 
 val testTealiumScheduler = SingleThreadedScheduler("tealium-test")
 val testNetworkScheduler = ThreadPoolScheduler(0)

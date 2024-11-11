@@ -4,40 +4,66 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:id="@+id/main_layout"
     tools:context=".MainActivity">
-
-    <TextView
-        android:id="@+id/textView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Hello World!"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
 
     <Button
         android:id="@+id/btn_track_event"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/track_event"
-        app:layout_constraintBottom_toTopOf="@+id/textView"
+        android:layout_marginTop="16dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.498"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.051" />
 
-    <Button
-        android:id="@+id/btn_second_activity"
-        android:layout_width="wrap_content"
+    <View style="@style/Divider"
+        android:layout_margin="12dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/btn_track_event"
+        app:layout_constraintBottom_toTopOf="@id/fragment_container"
+        />
+
+    <LinearLayout
+        android:id="@+id/fragment_container"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="16dp"
+        app:layout_constraintBottom_toTopOf="@id/nav_layout"
+        app:layout_constraintTop_toBottomOf="@id/btn_track_event"
+        app:layout_constraintVertical_bias="0.0"
+        android:orientation="vertical"
+        android:gravity="center_horizontal">
+    </LinearLayout>
+
+    <View style="@style/Divider"
+        android:layout_margin="12dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/fragment_container"
+        app:layout_constraintBottom_toTopOf="@id/nav_layout"
+        />
+
+    <LinearLayout
+        android:id="@+id/nav_layout"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="160dp"
-        android:layout_marginBottom="32dp"
-        android:text="@string/activity_2"
+        android:paddingBottom="12dp"
+        android:gravity="center_horizontal"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/textView"
-        app:layout_constraintVertical_bias="1.0" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/fragment_container">
+
+        <Button
+            android:id="@+id/btn_second_activity"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/activity_2" />
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

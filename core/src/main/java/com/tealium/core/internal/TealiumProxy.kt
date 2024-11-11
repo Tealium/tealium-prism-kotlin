@@ -5,6 +5,7 @@ import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.misc.ActivityManager
 import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.misc.TealiumCallback
+import com.tealium.core.api.misc.TealiumException
 import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.modules.DataLayer
 import com.tealium.core.api.modules.DeeplinkManager
@@ -27,8 +28,8 @@ import com.tealium.core.internal.modules.ModuleManagerImpl
 import com.tealium.core.internal.modules.TimedEventsManagerWrapper
 import com.tealium.core.internal.modules.TraceManagerWrapper
 import com.tealium.core.internal.modules.VisitorServiceWrapper
-import com.tealium.core.internal.persistence.DatabaseProvider
-import com.tealium.core.internal.persistence.FileDatabaseProvider
+import com.tealium.core.internal.persistence.database.DatabaseProvider
+import com.tealium.core.internal.persistence.database.FileDatabaseProvider
 import com.tealium.core.internal.pubsub.DisposableContainer
 import com.tealium.core.internal.pubsub.addTo
 import com.tealium.core.internal.pubsub.subscribeOnce
@@ -56,6 +57,7 @@ class TealiumProxy(
     override val visitorService: VisitorService? = VisitorServiceWrapper(moduleManager)
 
     private val disposable = DisposableContainer()
+    private var initException: Exception? = null
 
     init {
         tealiumScheduler.execute {
@@ -74,6 +76,7 @@ class TealiumProxy(
                 onTealiumImplReady.onNext(tealiumImpl)
                 onReady?.onComplete(TealiumResult.success(this))
             } catch (ex: Exception) {
+                initException = ex
                 onTealiumImplReady.onNext(null)
                 disposable.dispose()
                 onReady?.onComplete(TealiumResult.failure(ex))
@@ -126,6 +129,23 @@ class TealiumProxy(
             .addTo(disposable)
     }
 
+    private fun <T> onTealiumSuccess(onSuccess: TealiumCallback<TealiumResult<T>>? = null, task: (TealiumImpl) -> T) {
+        onTealiumImplReady { tealium ->
+            if (tealium == null) {
+                // TODO - handle shutdown case as well as init errors
+                onSuccess?.onComplete(TealiumResult.failure(TealiumException("Instance has failed to initialize.", initException)))
+                return@onTealiumImplReady
+            }
+
+            try {
+                val result = task.invoke(tealium)
+                onSuccess?.onComplete(TealiumResult.success(result))
+            } catch (e: Exception) {
+                onSuccess?.onComplete(TealiumResult.failure(e))
+            }
+        }
+    }
+
     override fun track(dispatch: Dispatch) = onTealiumImplReady { tealium ->
         tealium?.track(dispatch)
     }
@@ -138,6 +158,16 @@ class TealiumProxy(
     override fun flushEventQueue() = onTealiumImplReady { tealium ->
         tealium?.flushEventQueue()
     }
+
+    override fun resetVisitorId(callback: TealiumCallback<TealiumResult<String>>) =
+        onTealiumSuccess(callback) { tealium ->
+            tealium.resetVisitorId()
+        }
+
+    override fun clearStoredVisitorIds(callback: TealiumCallback<TealiumResult<String>>) =
+        onTealiumSuccess(callback) { tealium ->
+            tealium.clearStoredVisitorIds()
+        }
 
     override fun <T> getModule(clazz: Class<T>, callback: TealiumCallback<T?>) =
         moduleManager.getModuleOfType(clazz, callback)

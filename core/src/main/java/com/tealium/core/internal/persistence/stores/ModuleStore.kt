@@ -1,4 +1,4 @@
-package com.tealium.core.internal.persistence
+package com.tealium.core.internal.persistence.stores
 
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.data.DataItemConverter

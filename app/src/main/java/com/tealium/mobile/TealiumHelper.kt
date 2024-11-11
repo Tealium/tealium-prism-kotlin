@@ -32,7 +32,7 @@ object TealiumHelper {
     private const val TAG = "TealiumHelper"
     private const val INSTANCE_NAME = "main"
 
-    private val shared: Tealium?
+    val shared: Tealium?
         get() = Tealium[INSTANCE_NAME]
 
     private fun onVisitorIdUpdated(visitorId: String) {

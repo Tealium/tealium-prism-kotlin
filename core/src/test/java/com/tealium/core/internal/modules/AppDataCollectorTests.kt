@@ -34,7 +34,7 @@ class AppDataCollectorTests {
         every { appDataProvider.appVersion } returns "1.0.0"
         every { appDataProvider.appMemoryUsage } returns 50L
 
-        appDataCollector = AppDataCollector(tealiumContext, dataStore, appDataProvider)
+        appDataCollector = AppDataCollector(appDataProvider)
     }
 
     @Test

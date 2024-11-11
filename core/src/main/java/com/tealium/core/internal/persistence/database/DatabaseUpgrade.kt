@@ -1,4 +1,4 @@
-package com.tealium.core.internal.persistence
+package com.tealium.core.internal.persistence.database
 
 import android.database.sqlite.SQLiteDatabase
 

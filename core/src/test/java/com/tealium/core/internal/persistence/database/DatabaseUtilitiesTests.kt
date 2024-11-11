@@ -1,9 +1,13 @@
-package com.tealium.core.internal.persistence
+package com.tealium.core.internal.persistence.database
 
 import android.database.sqlite.SQLiteDatabase
+import com.tealium.core.internal.persistence.database.dropTable
+import com.tealium.core.internal.persistence.database.dropTableIfExists
+import com.tealium.core.internal.persistence.database.placeholderList
+import com.tealium.core.internal.persistence.database.tail
+import com.tealium.core.internal.persistence.database.transaction
 import io.mockk.MockKAnnotations
 import io.mockk.impl.annotations.RelaxedMockK
-import io.mockk.mockk
 import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Before

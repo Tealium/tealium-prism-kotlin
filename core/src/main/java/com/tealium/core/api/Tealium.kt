@@ -1,5 +1,6 @@
 package com.tealium.core.api
 
+import android.app.appsearch.BatchResultCallback
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.modules.DataLayer
@@ -39,6 +40,23 @@ interface Tealium {
     fun track(dispatch: Dispatch, onComplete: TrackResultListener)
 
     fun flushEventQueue()
+
+    /**
+     * Resets the current visitor id to a new anonymous one.
+     *
+     * Note. the new anonymous id will be associated to any identity currently set.
+     *
+     * @param callback The block called with the new `visitorId`, if successful, or an error
+     */
+    fun resetVisitorId(callback: TealiumCallback<TealiumResult<String>>)
+
+    /**
+     * Removes all stored visitor identifiers as hashed identities, and generates a new
+     * anonymous visitor id.
+     *
+     * * @param callback The block called with the new `visitorId`, if successful, or an error
+     */
+    fun clearStoredVisitorIds(callback: TealiumCallback<TealiumResult<String>>)
 
     companion object {
         private val instances = mutableMapOf<String, TealiumProxy>()

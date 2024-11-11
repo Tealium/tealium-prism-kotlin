@@ -15,7 +15,7 @@ import com.tealium.core.api.transform.ScopedTransformation
 import com.tealium.core.api.transform.Transformer
 import com.tealium.core.internal.modules.InternalModuleManager
 import com.tealium.core.internal.modules.consent.ConsentManager
-import com.tealium.core.internal.persistence.VolatileQueueRepository
+import com.tealium.core.internal.persistence.repositories.VolatileQueueRepository
 import com.tealium.core.internal.persistence.repositories.QueueRepository
 import com.tealium.core.internal.settings.CoreSettingsImpl
 import com.tealium.tests.common.SystemLogger

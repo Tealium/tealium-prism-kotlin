@@ -1,7 +1,7 @@
 package com.tealium.core.api.network
 
 import com.tealium.core.api.misc.TimeFrameUtils.seconds
-import com.tealium.core.internal.persistence.getTimestamp
+import com.tealium.core.internal.persistence.database.getTimestamp
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.MockK

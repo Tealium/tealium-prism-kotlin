@@ -2,8 +2,10 @@ package com.tealium.core.internal.persistence.repositories
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
-import com.tealium.core.internal.persistence.InMemoryDatabaseProvider
+import com.tealium.core.internal.persistence.database.InMemoryDatabaseProvider
 import com.tealium.core.internal.persistence.ModuleStoreProviderImpl
+import com.tealium.core.internal.persistence.stores.VisitorStorage
+import com.tealium.core.internal.persistence.stores.VisitorStorageImpl
 import com.tealium.tests.common.getDefaultConfig
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

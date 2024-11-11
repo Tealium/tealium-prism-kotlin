@@ -50,10 +50,11 @@ import com.tealium.core.internal.network.ConnectivityInterceptor
 import com.tealium.core.internal.network.ConnectivityRetriever
 import com.tealium.core.internal.network.HttpClient
 import com.tealium.core.internal.network.NetworkHelperImpl
-import com.tealium.core.internal.persistence.DatabaseProvider
-import com.tealium.core.internal.persistence.FileDatabaseProvider
+import com.tealium.core.internal.persistence.database.DatabaseProvider
+import com.tealium.core.internal.persistence.database.FileDatabaseProvider
 import com.tealium.core.internal.persistence.IdentityUpdatedObserver.subscribeIdentityUpdates
 import com.tealium.core.internal.persistence.ModuleStoreProviderImpl
+import com.tealium.core.internal.persistence.VisitorIdProvider
 import com.tealium.core.internal.persistence.VisitorIdProviderImpl
 import com.tealium.core.internal.persistence.repositories.ModulesRepository
 import com.tealium.core.internal.persistence.repositories.QueueRepository
@@ -89,6 +90,7 @@ class TealiumImpl(
     private val tealiumContext: TealiumContext
     private val disposables: CompositeDisposable = DisposableContainer()
     private val connectivityRetriever: ConnectivityRetriever
+    private val visitorIdProvider: VisitorIdProvider
 
     init {
         makeTealiumDirectory(config)
@@ -168,7 +170,7 @@ class TealiumImpl(
         )
         tracker = TrackerImpl(moduleManager, dispatchManager, logger)
 
-        val visitorIdProvider = VisitorIdProviderImpl(
+        visitorIdProvider = VisitorIdProviderImpl(
             config,
             sharedDataStore,
             logger
@@ -238,6 +240,12 @@ class TealiumImpl(
     fun flushEventQueue() {
         TODO("Not yet implemented")
     }
+
+    @Throws(PersistenceException::class)
+    fun resetVisitorId(): String = visitorIdProvider.resetVisitorId()
+
+    @Throws(PersistenceException::class)
+    fun clearStoredVisitorIds(): String = visitorIdProvider.clearStoredVisitorIds()
 
     fun shutdown() {
         logger.info(LogCategory.TEALIUM, "Instance %s shutting down.", instanceName)

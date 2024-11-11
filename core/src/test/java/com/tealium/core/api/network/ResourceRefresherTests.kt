@@ -14,8 +14,8 @@ import com.tealium.core.api.pubsub.Subject
 import com.tealium.core.internal.network.ResourceCacheImpl
 import com.tealium.core.internal.network.ResourceRefresherImpl
 import com.tealium.core.internal.network.mockGetDataItemConvertibleResponse
-import com.tealium.core.internal.persistence.getSharedDataStore
-import com.tealium.core.internal.persistence.getTimestamp
+import com.tealium.core.internal.persistence.stores.getSharedDataStore
+import com.tealium.core.internal.persistence.database.getTimestamp
 import com.tealium.tests.common.SystemLogger
 import io.mockk.MockKAnnotations
 import io.mockk.Runs

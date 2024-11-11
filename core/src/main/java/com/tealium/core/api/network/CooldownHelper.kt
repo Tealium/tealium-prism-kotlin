@@ -2,7 +2,7 @@ package com.tealium.core.api.network
 
 import com.tealium.core.api.misc.TimeFrame
 import com.tealium.core.api.misc.TimeFrameUtils.inSeconds
-import com.tealium.core.internal.persistence.getTimestamp
+import com.tealium.core.internal.persistence.database.getTimestamp
 import kotlin.math.min
 
 /**

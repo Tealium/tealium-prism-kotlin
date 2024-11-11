@@ -11,10 +11,10 @@ import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.data.DataItem
-import com.tealium.core.internal.persistence.DatabaseProvider
-import com.tealium.core.internal.persistence.InMemoryDatabaseProvider
-import com.tealium.core.internal.persistence.ModuleStore
-import com.tealium.core.internal.persistence.getTimestamp
+import com.tealium.core.internal.persistence.database.DatabaseProvider
+import com.tealium.core.internal.persistence.database.InMemoryDatabaseProvider
+import com.tealium.core.internal.persistence.stores.ModuleStore
+import com.tealium.core.internal.persistence.database.getTimestamp
 import com.tealium.tests.common.TestModule
 import io.mockk.every
 import io.mockk.mockk

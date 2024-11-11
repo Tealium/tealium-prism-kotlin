@@ -6,10 +6,10 @@ import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Subject
-import com.tealium.core.internal.persistence.DatabaseProvider
-import com.tealium.core.internal.persistence.Schema
-import com.tealium.core.internal.persistence.select
-import com.tealium.core.internal.persistence.selectAll
+import com.tealium.core.internal.persistence.database.DatabaseProvider
+import com.tealium.core.internal.persistence.database.Schema
+import com.tealium.core.internal.persistence.database.select
+import com.tealium.core.internal.persistence.database.selectAll
 
 /**
  * This is the default implementation of [ModulesRepository] and is backed by a SQLite database

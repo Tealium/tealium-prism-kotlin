@@ -3,6 +3,7 @@ package com.tealium.core.internal.persistence
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Subject
+import com.tealium.core.internal.persistence.database.DatabaseProvider
 import com.tealium.core.internal.persistence.repositories.ModulesRepository
 import com.tealium.core.internal.persistence.repositories.SQLKeyValueRepository
 import com.tealium.tests.common.TestModule

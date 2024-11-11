@@ -1,9 +1,10 @@
 package com.tealium.core.internal.persistence
 
 import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.persistence.PersistenceException
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Subject
-import com.tealium.core.internal.persistence.repositories.VisitorStorage
+import com.tealium.core.internal.persistence.stores.VisitorStorage
 import com.tealium.core.internal.utils.sha256
 import com.tealium.tests.common.SystemLogger
 import io.mockk.MockKAnnotations
@@ -247,6 +248,37 @@ class VisitorIdProviderTests {
         }
     }
 
+    @Test(expected = PersistenceException::class)
+    fun resetVisitorId_Throws_When_DataStore_Throws() {
+        every { visitorStorage.changeVisitor(any()) } throws PersistenceException("TestError", mockk())
+
+        val visitorIdProvider = createDefaultVisitorIdProvider(visitorStorage = visitorStorage)
+
+        visitorIdProvider.resetVisitorId()
+    }
+
+    fun resetVisitorId_Still_Emits_New_VisitorId_When_DataStore_Throws() {
+        every { visitorStorage.changeVisitor(any()) } throws PersistenceException("TestError", mockk())
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdProvider = createDefaultVisitorIdProvider(visitorStorage = visitorStorage)
+        visitorIdProvider.visitorId.subscribe(onNext)
+
+        var exception: Exception? = null
+        val visitorId = try {
+            visitorIdProvider.resetVisitorId()
+        } catch (e: Exception) {
+            exception = e
+            null
+        }
+
+        assertTrue(exception is PersistenceException)
+        verify {
+            visitorStorage.changeVisitor(visitorId!!)
+            onNext(visitorId)
+        }
+    }
+
     @Test
     fun clearStoredVisitorIds_ResetsCurrentVisitorId_And_ClearsStoredIdentities() {
         every { visitorStorage.visitorId } returns currentVisitorId
@@ -256,11 +288,42 @@ class VisitorIdProviderTests {
         val visitorIdProvider = createDefaultVisitorIdProvider(visitorStorage = visitorStorage)
         visitorIdProvider.visitorId.subscribe(onNext)
 
-        visitorIdProvider.clearStoredVisitorIds()
+        val visitorId = visitorIdProvider.clearStoredVisitorIds()
 
         verify {
-            visitorStorage.clear(neq(currentVisitorId))
-            onNext(neq(currentVisitorId))
+            visitorStorage.clear(visitorId)
+            onNext(visitorId)
+        }
+    }
+
+    @Test(expected = PersistenceException::class)
+    fun clearStoredVisitorIds_Throws_When_DataStore_Throws() {
+        every { visitorStorage.clear(any()) } throws PersistenceException("TestError", mockk())
+
+        val visitorIdProvider = createDefaultVisitorIdProvider(visitorStorage = visitorStorage)
+
+        visitorIdProvider.clearStoredVisitorIds()
+    }
+
+    fun clearStoredVisitorIds_Still_Emits_New_VisitorId_When_DataStore_Throws() {
+        every { visitorStorage.clear(any()) } throws PersistenceException("TestError", mockk())
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdProvider = createDefaultVisitorIdProvider(visitorStorage = visitorStorage)
+        visitorIdProvider.visitorId.subscribe(onNext)
+
+        var exception: Exception? = null
+        val visitorId = try {
+            visitorIdProvider.clearStoredVisitorIds()
+        } catch (e: Exception) {
+            exception = e
+            null
+        }
+
+        assertTrue(exception is PersistenceException)
+        verify {
+            visitorStorage.clear(visitorId!!)
+            onNext(visitorId)
         }
     }
 

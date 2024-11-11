@@ -20,7 +20,7 @@ import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Subject
 import com.tealium.core.internal.logger.LogCategory
-import com.tealium.core.internal.persistence.getTimestamp
+import com.tealium.core.internal.persistence.database.getTimestamp
 import com.tealium.core.internal.pubsub.filterNotNull
 
 class ResourceRefresherImpl<T : DataItemConvertible> internal constructor(

@@ -6,11 +6,11 @@ import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.misc.TimeFrameUtils.days
-import com.tealium.core.internal.persistence.DatabaseProvider
+import com.tealium.core.internal.persistence.database.DatabaseProvider
 import com.tealium.core.internal.persistence.DatabaseTestUtils
 import com.tealium.core.internal.persistence.DatabaseTestUtils.upgrade
-import com.tealium.core.internal.persistence.InMemoryDatabaseProvider
-import com.tealium.core.internal.persistence.getTimestampMilliseconds
+import com.tealium.core.internal.persistence.database.InMemoryDatabaseProvider
+import com.tealium.core.internal.persistence.database.getTimestampMilliseconds
 import com.tealium.tests.common.getDefaultConfig
 import io.mockk.every
 import io.mockk.mockk

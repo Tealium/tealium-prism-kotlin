@@ -1,6 +1,6 @@
 package com.tealium.core.api.persistence
 
-import com.tealium.core.internal.persistence.getTimestamp
+import com.tealium.core.internal.persistence.database.getTimestamp
 import java.util.concurrent.TimeUnit
 
 /**

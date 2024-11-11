@@ -1,9 +1,10 @@
-package com.tealium.core.internal.persistence.repositories
+package com.tealium.core.internal.persistence.stores
 
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.data.DataItem
+import com.tealium.core.api.persistence.PersistenceException
 
 /**
  * [VisitorStorage] provides a set of methods to store, retrieve and associate visitors to known
@@ -34,6 +35,7 @@ interface VisitorStorage {
      *
      * @param visitorId The visitor id to store as the current visitor id
      */
+    @Throws(PersistenceException::class)
     fun changeVisitor(visitorId: String)
 
     /**
@@ -46,6 +48,7 @@ interface VisitorStorage {
      * @param visitorId The visitor id to store as the current visitor id
      * @param identity The identity to store as the current identity, and to associate with the [visitorId]
      */
+    @Throws(PersistenceException::class)
     fun changeVisitor(visitorId: String, identity: String)
 
     /**
@@ -55,6 +58,7 @@ interface VisitorStorage {
      *
      * @param identity The identity to change to.
      */
+    @Throws(PersistenceException::class)
     fun changeIdentity(identity: String)
 
     /**
@@ -67,6 +71,7 @@ interface VisitorStorage {
      *
      * @param newVisitorId the replacement visitor to save after clearing
      */
+    @Throws(PersistenceException::class)
     fun clear(newVisitorId: String)
 }
 

@@ -1,15 +1,15 @@
-package com.tealium.core.internal.persistence
+package com.tealium.core.internal.persistence.database
 
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteException
 import android.database.sqlite.SQLiteOpenHelper
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.internal.persistence.Schema.DispatchTable.CREATE_DISPATCH_TABLE
-import com.tealium.core.internal.persistence.Schema.DispatchTable.CREATE_INDEX_TIMESTAMP
-import com.tealium.core.internal.persistence.Schema.QueueTable.CREATE_QUEUE_TABLE
-import com.tealium.core.internal.persistence.Schema.ModuleStorageTable.CREATE_MODULE_STORAGE_TABLE
-import com.tealium.core.internal.persistence.Schema.ModuleTable.CREATE_MODULE_TABLE
-import com.tealium.core.internal.persistence.Schema.QueueTable.CREATE_TRIGGER_REMOVE_PROCESSED_DISPATCHES
+import com.tealium.core.internal.persistence.database.Schema.DispatchTable.CREATE_DISPATCH_TABLE
+import com.tealium.core.internal.persistence.database.Schema.DispatchTable.CREATE_INDEX_TIMESTAMP
+import com.tealium.core.internal.persistence.database.Schema.QueueTable.CREATE_QUEUE_TABLE
+import com.tealium.core.internal.persistence.database.Schema.ModuleStorageTable.CREATE_MODULE_STORAGE_TABLE
+import com.tealium.core.internal.persistence.database.Schema.ModuleTable.CREATE_MODULE_TABLE
+import com.tealium.core.internal.persistence.database.Schema.QueueTable.CREATE_TRIGGER_REMOVE_PROCESSED_DISPATCHES
 import java.io.File
 
 internal class DatabaseHelper(

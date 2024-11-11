@@ -10,6 +10,9 @@ import com.tealium.core.api.TealiumConfig
 import com.tealium.core.internal.persistence.DatabaseTestUtils.assertV3TablesExist
 import com.tealium.core.internal.persistence.DatabaseTestUtils.createV3Database
 import com.tealium.core.internal.persistence.DatabaseTestUtils.isInMemory
+import com.tealium.core.internal.persistence.database.DatabaseHelper
+import com.tealium.core.internal.persistence.database.DatabaseProvider
+import com.tealium.core.internal.persistence.database.FileDatabaseProvider
 import com.tealium.tests.common.getDefaultConfig
 import io.mockk.every
 import io.mockk.mockk
