@@ -7,10 +7,10 @@ import com.tealium.core.Dispatches;
 import com.tealium.core.api.Modules;
 import com.tealium.core.api.Tealium;
 import com.tealium.core.api.TealiumConfig;
-import com.tealium.core.api.data.DataObject;
-import com.tealium.core.api.data.DataList;
 import com.tealium.core.api.data.DataItem;
 import com.tealium.core.api.data.DataItemUtils;
+import com.tealium.core.api.data.DataList;
+import com.tealium.core.api.data.DataObject;
 import com.tealium.core.api.data.UnsupportedDataItemException;
 import com.tealium.core.api.misc.Environment;
 import com.tealium.core.api.modules.ModuleFactory;
@@ -19,12 +19,9 @@ import com.tealium.core.api.tracking.Dispatch;
 import com.tealium.core.api.tracking.TealiumDispatchType;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import kotlin.collections.CollectionsKt;
 
 public class TealiumJavaHelper {
     private TealiumJavaHelper() {
@@ -34,7 +31,7 @@ public class TealiumJavaHelper {
         TealiumConfig config = new TealiumConfig(app, "tealiummobile", "android", Environment.DEV,
                 configureModules());
 
-        Tealium teal = Tealium.create("", config, (result) -> {
+        Tealium teal = Tealium.create(config, (result) -> {
             if (result.isSuccess()) {
                 Log.d("", "Ready");
             } else {
@@ -45,61 +42,62 @@ public class TealiumJavaHelper {
     }
 
     public void track() {
-        Tealium tealium = Tealium.get("teal");
-        if (tealium == null) return;
+        Tealium.get("teal", (tealium) -> {
+            if (tealium == null) return;
 
-        List<Integer> ints = Arrays.asList(1, 2, 3);
-        DataList intList = DataList.fromIntCollection(ints);
+            List<Integer> ints = Arrays.asList(1, 2, 3);
+            DataList intList = DataList.fromIntCollection(ints);
 
-        Map<String, List<Integer>> mapOfIntLists = new HashMap<>();
-        mapOfIntLists.put("one", ints);
-        mapOfIntLists.put("two", ints);
-        mapOfIntLists.put("three", ints);
-        DataObject list = DataItemUtils.dataObjectFromMapOfIntCollections(mapOfIntLists);
+            Map<String, List<Integer>> mapOfIntLists = new HashMap<>();
+            mapOfIntLists.put("one", ints);
+            mapOfIntLists.put("two", ints);
+            mapOfIntLists.put("three", ints);
+            DataObject list = DataItemUtils.dataObjectFromMapOfIntCollections(mapOfIntLists);
 
-        try {
-            int[] intArr = new int[]{1, 2, 3};
-            DataList intListPrim = DataList.fromArray(intArr);
-            DataList intListObj = DataList.fromArray(intArr);
-        } catch (UnsupportedDataItemException ignore) {
-        }
+            try {
+                int[] intArr = new int[]{1, 2, 3};
+                DataList intListPrim = DataList.fromArray(intArr);
+                DataList intListObj = DataList.fromArray(intArr);
+            } catch (UnsupportedDataItemException ignore) {
+            }
 
-        Map<String, String> stringMap = new HashMap<>();
-        stringMap.put("1", "1");
-        stringMap.put("2", "2");
-        DataObject.fromMapOfStrings(stringMap);
+            Map<String, String> stringMap = new HashMap<>();
+            stringMap.put("1", "1");
+            stringMap.put("2", "2");
+            DataObject.fromMapOfStrings(stringMap);
 
-        try {
-            Map<Object, String> data = new HashMap<>();
-            data.put("", "");
-            data.put(1, "");
-            // Unsafe
-            DataObject.fromMap(data);
-        } catch (UnsupportedDataItemException ignore) {
-        }
+            try {
+                Map<Object, String> data = new HashMap<>();
+                data.put("", "");
+                data.put(1, "");
+                // Unsafe
+                DataObject.fromMap(data);
+            } catch (UnsupportedDataItemException ignore) {
+            }
 
-        DataObject dataObject = new DataObject.Builder()
-                .put("", "")
-                .put("", () -> DataItem.string(""))
-                .build();
+            DataObject dataObject = new DataObject.Builder()
+                    .put("", "")
+                    .put("", () -> DataItem.string(""))
+                    .build();
 
-        tealium.track(Dispatch.create("",
-                TealiumDispatchType.Event,
-                DataObject.EMPTY_OBJECT));
+            tealium.track(Dispatch.create("",
+                    TealiumDispatchType.Event,
+                    DataObject.EMPTY_OBJECT));
 
-        tealium.track(Dispatch.create("",
-                TealiumDispatchType.Event,
-                DataObject.EMPTY_OBJECT), (dispatch, status) -> {
-            Log.d("TealiumJavaHelper", "Processing status: " + dispatch.getTealiumEvent() + " - " + status);
+            tealium.track(Dispatch.create("",
+                    TealiumDispatchType.Event,
+                    DataObject.EMPTY_OBJECT), (dispatch, status) -> {
+                Log.d("TealiumJavaHelper", "Processing status: " + dispatch.getTealiumEvent() + " - " + status);
+            });
+
+            tealium.track(
+                    Dispatches.event("")
+                            .putContextData(new DataObject.Builder()
+                                    .put("some_key", "some string value")
+                                    .build())
+                            .build()
+            );
         });
-
-        tealium.track(
-                Dispatches.event("")
-                        .putContextData(new DataObject.Builder()
-                                .put("some_key", "some string value")
-                                .build())
-                        .build()
-        );
     }
 
     private static List<ModuleFactory> configureModules() {

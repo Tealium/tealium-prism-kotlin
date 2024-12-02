@@ -83,11 +83,13 @@ open class DispatchManagerTestsBase {
         every { moduleManager.getModuleOfType(ConsentManager::class.java) } returns null
 
         // Two available test dispatchers
-        dispatcher1Name = "dispatcher_1" // Workaround; spyk in verify blocks fails on `Dispatcher.name`
+        dispatcher1Name =
+            "dispatcher_1" // Workaround; spyk in verify blocks fails on `Dispatcher.name`
         dispatcher2Name = "dispatcher_2" // but direct string values dont.
         dispatcher1 = spyk(TestDispatcher(dispatcher1Name))
         dispatcher2 = spyk(TestDispatcher(dispatcher2Name))
         dispatchers = Observables.stateSubject(setOf(dispatcher1, dispatcher2))
+        every { moduleManager.getModulesOfType(Dispatcher::class.java) } answers { dispatchers.value.toList() }
 
         // Queue defaulted to empty
         // concurrent due to test async nature.

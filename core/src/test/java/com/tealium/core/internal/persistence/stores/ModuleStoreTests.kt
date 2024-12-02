@@ -2,6 +2,7 @@ package com.tealium.core.internal.persistence.stores
 
 import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.persistence.PersistenceException
 import com.tealium.core.api.pubsub.Observables
@@ -11,9 +12,7 @@ import io.mockk.Called
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
-import io.mockk.invoke
 import io.mockk.mockk
-import io.mockk.slot
 import io.mockk.verify
 import io.mockk.verifyOrder
 import org.junit.Assert.assertEquals
@@ -46,22 +45,11 @@ class ModuleStoreTests {
     @Before
     fun setUp() {
         MockKAnnotations.init(this)
-        val transactionBlock = slot<(KeyValueRepository) -> Unit>()
-        every {
-            keyValueRepository.transactionally(
-                block = capture(transactionBlock)
-            )
-        } answers {
-            transactionBlock.invoke(keyValueRepository)
-        }
-        every {
-            keyValueRepository.transactionally(
-                block = capture(transactionBlock)
-            )
-        } answers {
-            transactionBlock.invoke(keyValueRepository)
-        }
 
+        every { keyValueRepository.transactionally(any()) } answers {
+            @Suppress("UNCHECKED_CAST")
+            (it.invocation.args[0] as (KeyValueRepository) -> Unit).invoke(keyValueRepository)
+        }
         onDataExpired = Observables.publishSubject()
 
         dataStore = ModuleStore(keyValueRepository, onDataExpired)
@@ -82,11 +70,27 @@ class ModuleStoreTests {
         assertEquals(1, dataStore.count())
     }
 
+    @Test(expected = DataStore.Editor.EditorClosedException::class)
+    fun editor_Count_Throws_EditorClosedException_After_Close() {
+        val editor = dataStore.edit()
+
+        editor.close()
+        editor.count()
+    }
+
     @Test
     fun keys_Returns_ItemKeys() {
         every { keyValueRepository.keys() } returns listOf("key1", "key2", "key3")
 
         assertEquals(listOf("key1", "key2", "key3"), dataStore.keys())
+    }
+
+    @Test(expected = DataStore.Editor.EditorClosedException::class)
+    fun editor_Keys_Throws_EditorClosedException_After_Close() {
+        val editor = dataStore.edit()
+
+        editor.close()
+        editor.keys()
     }
 
     @Test
@@ -105,6 +109,78 @@ class ModuleStoreTests {
         assertNull(dataStore.get("missing_key"))
     }
 
+    @Test(expected = DataStore.Editor.EditorClosedException::class)
+    fun editor_get_Throws_EditorClosedException_After_Close() {
+        val editor = dataStore.edit()
+
+        editor.close()
+        editor.get("key")
+    }
+
+    @Test(expected = DataStore.Editor.EditorClosedException::class)
+    fun editor_getString_Throws_EditorClosedException_After_Close() {
+        val editor = dataStore.edit()
+
+        editor.close()
+        editor.getString("key")
+    }
+
+    @Test(expected = DataStore.Editor.EditorClosedException::class)
+    fun editor_getInt_Throws_EditorClosedException_After_Close() {
+        val editor = dataStore.edit()
+
+        editor.close()
+        editor.getInt("key")
+    }
+
+    @Test(expected = DataStore.Editor.EditorClosedException::class)
+    fun editor_getLong_Throws_EditorClosedException_After_Close() {
+        val editor = dataStore.edit()
+
+        editor.close()
+        editor.getLong("key")
+    }
+
+    @Test(expected = DataStore.Editor.EditorClosedException::class)
+    fun editor_getDouble_Throws_EditorClosedException_After_Close() {
+        val editor = dataStore.edit()
+
+        editor.close()
+        editor.getDouble("key")
+    }
+
+    @Test(expected = DataStore.Editor.EditorClosedException::class)
+    fun editor_getBoolean_Throws_EditorClosedException_After_Close() {
+        val editor = dataStore.edit()
+
+        editor.close()
+        editor.getBoolean("key")
+    }
+
+    @Test(expected = DataStore.Editor.EditorClosedException::class)
+    fun editor_getDataList_Throws_EditorClosedException_After_Close() {
+        val editor = dataStore.edit()
+
+        editor.close()
+        editor.getDataList("key")
+    }
+
+    @Test(expected = DataStore.Editor.EditorClosedException::class)
+    fun editor_getDataObject_Throws_EditorClosedException_After_Close() {
+        val editor = dataStore.edit()
+
+        editor.close()
+        editor.getDataObject("key")
+    }
+
+    @Test(expected = DataStore.Editor.EditorClosedException::class)
+    fun editor_getConvertible_Throws_EditorClosedException_After_Close() {
+        val editor = dataStore.edit()
+
+        editor.close()
+        editor.get("key") { it.toString() }
+    }
+
     @Test
     fun getAll_Returns_AllValues_AsDataObject() {
         every { keyValueRepository.getAll() } returns mapOf(
@@ -118,6 +194,14 @@ class ModuleStoreTests {
         assertEquals("value", allData.get("string")!!.value)
         assertEquals(10, allData.get("int")!!.value)
         assertEquals(testDataObject, allData.get("object")!!.value)
+    }
+
+    @Test(expected = DataStore.Editor.EditorClosedException::class)
+    fun editor_getAll_Throws_EditorClosedException_After_Close() {
+        val editor = dataStore.edit()
+
+        editor.close()
+        editor.getAll()
     }
 
     @Test
@@ -137,7 +221,6 @@ class ModuleStoreTests {
         assertEquals(listOf("string", "int", "object"), keys)
         assertEquals(listOf("value", 10, testDataObject), values.map { it.value })
     }
-
 
     @Test
     fun editor_EachMethod_ReturnsSameInstance() {
@@ -162,6 +245,14 @@ class ModuleStoreTests {
             keyValueRepository.clear()
             keyValueRepository.upsert("string", value, Expiry.SESSION)
         }
+    }
+
+    @Test(expected = DataStore.Editor.EditorClosedException::class)
+    fun editor_clear_Throws_EditorClosedException_After_Close() {
+        val editor = dataStore.edit()
+
+        editor.close()
+        editor.clear()
     }
 
     @Test
@@ -208,6 +299,14 @@ class ModuleStoreTests {
         }
     }
 
+    @Test(expected = DataStore.Editor.EditorClosedException::class)
+    fun editor_remove_Throws_EditorClosedException_After_Close() {
+        val editor = dataStore.edit()
+
+        editor.close()
+        editor.remove("key")
+    }
+
     @Test
     fun editor_RemoveAll_DeletesAll() {
         dataStore.edit()
@@ -218,6 +317,14 @@ class ModuleStoreTests {
             keyValueRepository.delete("key1")
             keyValueRepository.delete("key2")
         }
+    }
+
+    @Test(expected = DataStore.Editor.EditorClosedException::class)
+    fun editor_removeAll_Throws_EditorClosedException_After_Close() {
+        val editor = dataStore.edit()
+
+        editor.close()
+        editor.remove(listOf("key", "key2"))
     }
 
     @Test
@@ -232,6 +339,14 @@ class ModuleStoreTests {
         }
     }
 
+    @Test(expected = DataStore.Editor.EditorClosedException::class)
+    fun editor_put_Throws_EditorClosedException_After_Close() {
+        val editor = dataStore.edit()
+
+        editor.close()
+        editor.put("key", "value", Expiry.FOREVER)
+    }
+
     @Test
     fun editor_Put_UnsupportedDouble_UpsertsData_As_String() {
         dataStore.edit()
@@ -242,8 +357,16 @@ class ModuleStoreTests {
 
         verify {
             keyValueRepository.upsert("nan", DataItem.string("NaN"), Expiry.SESSION)
-            keyValueRepository.upsert("positive-infinity", DataItem.string("Infinity"), Expiry.SESSION)
-            keyValueRepository.upsert("negative-infinity", DataItem.string("-Infinity"), Expiry.SESSION)
+            keyValueRepository.upsert(
+                "positive-infinity",
+                DataItem.string("Infinity"),
+                Expiry.SESSION
+            )
+            keyValueRepository.upsert(
+                "negative-infinity",
+                DataItem.string("-Infinity"),
+                Expiry.SESSION
+            )
         }
     }
 
@@ -280,13 +403,20 @@ class ModuleStoreTests {
         }
     }
 
+    @Test(expected = DataStore.Editor.EditorClosedException::class)
+    fun editor_putAll_Throws_EditorClosedException_After_Close() {
+        val editor = dataStore.edit()
+
+        editor.close()
+        editor.putAll(DataObject.create { put("key", "value") }, Expiry.FOREVER)
+    }
+
     @Test(expected = PersistenceException::class)
     fun editor_Commit_ThrowsPersistenceException_OnFailure() {
-        every { keyValueRepository.upsert(any(), any(), any()) } answers {
-            1
-        } andThenAnswer {
-            throw PersistenceException("", Exception())
-        }
+        every { keyValueRepository.transactionally(any()) } throws PersistenceException(
+            "",
+            Exception()
+        )
 
         dataStore.edit()
             .putAll(DataObject.create {
@@ -296,25 +426,14 @@ class ModuleStoreTests {
             .commit()
     }
 
-    @Test
-    fun editor_Commit_CanRetry_WhenThrowsPersistenceException() {
-        every { keyValueRepository.upsert(any(), any(), any()) } answers {
-            1
-        } andThenAnswer {
-            throw PersistenceException("", Exception())
-        }
+    @Test(expected = DataStore.Editor.EditorClosedException::class)
+    fun editor_Commit_Throws_EditorClosedException_After_Close() {
+        val editor = dataStore.edit()
 
-        repeat(2) {
-            try {
-                dataStore.edit()
-                    .putAll(DataObject.create {
-                        put("key1", "value1")
-                        put("key2", "value2")
-                    }, Expiry.SESSION)
-                    .commit()
-            } catch (ignored: PersistenceException) {
-            }
-        }
+        editor.close()
+        editor.commit()
+
+        verify(inverse = true) { keyValueRepository.transactionally(any()) }
     }
 
     @Test
@@ -455,7 +574,7 @@ class ModuleStoreTests {
                 updatedItems.size == 1 && updatedItems.get("added")?.value == "value"
             })
 
-            onRemoved(match {  removedKeys ->
+            onRemoved(match { removedKeys ->
                 removedKeys.first() == "removed"
             })
         }

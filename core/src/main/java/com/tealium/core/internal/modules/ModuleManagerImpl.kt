@@ -2,15 +2,16 @@ package com.tealium.core.internal.modules
 
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.logger.logIfTraceEnabled
 import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.TealiumContext
+import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.ObservableState
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
-import com.tealium.core.api.logger.logIfTraceEnabled
 import com.tealium.core.internal.settings.SdkSettings
 
 class ModuleManagerImpl(
@@ -29,11 +30,11 @@ class ModuleManagerImpl(
         moduleFactories.addAll(moduleFactory)
     }
 
-    override fun <T> getModulesOfType(clazz: Class<T>): List<T> {
+    override fun <T: Module> getModulesOfType(clazz: Class<T>): List<T> {
         return _modules.values.filterIsInstance(clazz)
     }
 
-    override fun <T> getModuleOfType(clazz: Class<T>): T? {
+    override fun <T: Module> getModuleOfType(clazz: Class<T>): T? {
         for (module in _modules.values) {
             if (clazz.isInstance(module)) {
                 return clazz.cast(module)
@@ -43,10 +44,40 @@ class ModuleManagerImpl(
         return null
     }
 
-    override fun <T> getModuleOfType(clazz: Class<T>, callback: TealiumCallback<T?>) {
+    override fun <T: Module> getModuleOfType(clazz: Class<T>, callback: TealiumCallback<T?>) {
         scheduler.execute {
             callback.onComplete(getModuleOfType(clazz))
         }
+    }
+
+    override fun <T : Module> observeModule(clazz: Class<T>): Observable<T?> =
+        modulesSubject.map { modules ->
+            modules.filterIsInstance(clazz).firstOrNull()
+        }.distinct()
+            .subscribeOn(scheduler)
+
+    override fun <T : Module, R> observeModule(
+        clazz: Class<T>,
+        transform: (T) -> Observable<R>
+    ): Observable<R> = observeModule(clazz)
+        .flatMapLatest { module ->
+            if (module != null) {
+                transform(module)
+            } else {
+                Observables.empty()
+            }
+        }.subscribeOn(scheduler)
+
+
+    override fun shutdown() {
+        val toShutdown = _modules
+        _modules = emptyMap()
+
+        for ((_, module) in toShutdown) {
+            module.onShutdown()
+        }
+        moduleFactories.clear()
+        modulesSubject.onNext(emptySet())
     }
 
     override fun updateModuleSettings(context: TealiumContext, settings: SdkSettings) {

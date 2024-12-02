@@ -1,10 +1,11 @@
 package com.tealium.core.api.persistence
 
-import com.tealium.core.api.data.DataObject
-import com.tealium.core.api.data.DataItemConverter
-import com.tealium.core.api.data.DataList
-import com.tealium.core.api.data.DataItemConvertible
 import com.tealium.core.api.data.DataItem
+import com.tealium.core.api.data.DataItemConvertible
+import com.tealium.core.api.data.DataList
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.misc.TealiumException
+import com.tealium.core.api.persistence.DataStore.Editor.EditorClosedException
 import com.tealium.core.api.pubsub.Observable
 
 /**
@@ -19,12 +20,15 @@ import com.tealium.core.api.pubsub.Observable
  *
  * @see [Expiry]
  */
-interface DataStore : Iterable<Map.Entry<String, DataItem>> {
+interface DataStore : ReadableDataStore, Iterable<Map.Entry<String, DataItem>> {
 
     /**
      * Enables editing multiple entries in the module storage in a transactional way.
+     *
+     * All updating/reading methods will throw [EditorClosedException] if the [Editor] has already
+     * been closed.
      */
-    interface Editor {
+    interface Editor: ReadableDataStore, AutoCloseable {
 
         /**
          * Adds all key-value pairs from the [dataObject] into the storage.
@@ -178,6 +182,10 @@ interface DataStore : Iterable<Map.Entry<String, DataItem>> {
         @Throws(PersistenceException::class)
         fun commit()
 
+        /**
+         * This exception signifies that the [Editor] was interacted with after it has been closed.
+         */
+        class EditorClosedException(message: String): TealiumException(message)
     }
 
     /**
@@ -186,110 +194,6 @@ interface DataStore : Iterable<Map.Entry<String, DataItem>> {
      * @return Editor to update the stored data
      */
     fun edit(): Editor
-
-    /**
-     * Gets the [DataItem] stored at the given [key] if there is one
-     *
-     * @param key The key for the required value
-     *
-     * @return The [DataItem] or null
-     */
-    fun get(key: String): DataItem?
-
-    /**
-     * Gets the [DataItem] stored at the given [key] if there is one, and uses the given
-     * [converter] to translate it into an instance of type [T]
-     *
-     * @param key The key for the required value
-     * @param converter The [DataItemConverter] implementation for converting the [DataItem] to the required type.
-     *
-     * @return The [DataItem] or null
-     */
-    fun <T> get(key: String, converter: DataItemConverter<T>): T?
-
-    /**
-     * Gets the String stored at the given [key] if there is one
-     *
-     * @param key The key for the required value
-     *
-     * @return The [String] or null
-     */
-    fun getString(key: String): String? = get(key)?.getString()
-
-    /**
-     * Gets the Int stored at the given [key] if there is one
-     *
-     * @param key The key for the required value
-     *
-     * @return The [Int] or null
-     */
-    fun getInt(key: String): Int? = get(key)?.getInt()
-
-    /**
-     * Gets the Double stored at the given [key] if there is one
-     *
-     * @param key The key for the required value
-     *
-     * @return The [Double] or null
-     */
-    fun getDouble(key: String): Double? = get(key)?.getDouble()
-
-    /**
-     * Gets the Long stored at the given [key] if there is one
-     *
-     * @param key The key for the required value
-     *
-     * @return The [Long] or null
-     */
-    fun getLong(key: String): Long? = get(key)?.getLong()
-
-    /**
-     * Gets the Boolean stored at the given [key] if there is one
-     *
-     * @param key The key for the required value
-     *
-     * @return The [Boolean] or null
-     */
-    fun getBoolean(key: String): Boolean? = get(key)?.getBoolean()
-
-    /**
-     * Gets the [DataList] stored at the given [key] if there is one
-     *
-     * @param key The key for the required value
-     *
-     * @return The [DataList] or null
-     */
-    fun getDataList(key: String): DataList? = get(key)?.getDataList()
-
-    /**
-     * Gets the [DataObject] stored at the given [key] if there is one
-     *
-     * @param key The key for the required value
-     *
-     * @return The [DataObject] or null
-     */
-    fun getDataObject(key: String): DataObject? = get(key)?.getDataObject()
-
-    /**
-     * Gets the entire [DataObject] containing all data stored.
-     *
-     * @return The [DataObject] containing all key-value pairs
-     */
-    fun getAll(): DataObject
-
-    /**
-     * Returns all keys stored in this DataStore
-     *
-     * @return A list of all string keys present in the DataStore
-     */
-    fun keys(): List<String>
-
-    /**
-     * Returns the number of entries in this DataStore
-     *
-     * @return the count of all key-value pairs in the DataStore
-     */
-    fun count(): Int
 
     /**
      * Flow of key-value pairs from this [DataStore] that have been updated.

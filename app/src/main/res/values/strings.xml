@@ -6,4 +6,5 @@
     <string name="feature_name">Feature Name</string>
     <string name="feature_list">Feature List</string>
     <string name="features">Features</string>
+    <string name="tealium_enabled">Enabled</string>
 </resources>

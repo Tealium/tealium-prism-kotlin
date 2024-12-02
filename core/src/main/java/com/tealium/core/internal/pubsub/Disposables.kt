@@ -3,16 +3,17 @@ package com.tealium.core.internal.pubsub
 import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.pubsub.CompositeDisposable
 import com.tealium.core.api.pubsub.Disposable
-import java.util.concurrent.ExecutorService
+import com.tealium.core.internal.pubsub.CompletedDisposable.dispose
+import com.tealium.core.internal.pubsub.CompletedDisposable.isDisposed
+import java.util.concurrent.atomic.AtomicBoolean
 
 
 /**
  * Base implementation of a [Disposable] that maintains the current disposed state.
  * Inheritors can use `super.dispose()` to mark the object as disposed.
  */
-abstract class BaseDisposable: Disposable {
+abstract class BaseDisposable : Disposable {
 
-    @Volatile
     protected var _disposed = false
 
     override val isDisposed: Boolean
@@ -28,11 +29,12 @@ abstract class BaseDisposable: Disposable {
  * disposed of at once.
  */
 class DisposableContainer(
-    private val disposables: MutableList<Disposable>
+    private val disposables: MutableList<Disposable> = mutableListOf()
 ) : BaseDisposable(), CompositeDisposable {
     constructor() : this(mutableListOf())
 
     override fun dispose() {
+        if (isDisposed) return
         super.dispose()
 
         val old = disposables.toList()
@@ -59,47 +61,53 @@ class DisposableContainer(
  * this is disposed of - useful for clearing up references.
  */
 class Subscription(
-    private val onDispose: (() -> Unit)? = null
-): BaseDisposable(), Disposable {
+    private var onDispose: (() -> Unit)? = null
+) : BaseDisposable(), Disposable {
 
     override fun dispose() {
         if (isDisposed) return
+        super.dispose()
 
         onDispose?.invoke()
-        super.dispose()
+        onDispose = null
     }
 }
 
 /**
- * Implementation of [Disposable] that disposes of the subscription on the given [ExecutorService]
+ * Asynchronous [CompositeDisposable] implementation which supports adding/remove/disposing on a
+ * specific [Scheduler].
  */
-class AsyncSubscription(
+class AsyncDisposableContainer internal constructor(
     private val disposeOn: Scheduler,
-    var subscription: Disposable? = null
-): BaseDisposable() {
+    private val container: CompositeDisposable = DisposableContainer(),
+) : CompositeDisposable {
+
+    internal constructor(
+        disposeOn: Scheduler,
+        disposables: MutableList<Disposable> = mutableListOf()
+    ) : this(disposeOn, DisposableContainer(disposables))
+
+    constructor(
+        disposeOn: Scheduler,
+    ) : this(disposeOn, DisposableContainer())
+
+    private val _disposed = AtomicBoolean(false)
+
+    override val isDisposed: Boolean
+        get() = _disposed.get()
 
     override fun dispose() {
-        if (isDisposed) return
-
-        disposeOn.execute {
-            subscription?.dispose()
+        if (_disposed.compareAndSet(false, true)) {
+            disposeOn.execute {
+                container.dispose()
+            }
         }
-        super.dispose()
     }
-}
 
-/**
- * Implementation of [Disposable] that holds a mutable underlying disposable.
- */
-class SubscriptionWrapper(
-    var subscription: Disposable? = null
-): BaseDisposable(), Disposable {
-
-    override fun dispose() {
-        if (isDisposed) return
-
-        subscription?.dispose()
-        super.dispose()
+    override fun add(disposable: Disposable) {
+        disposeOn.execute {
+            container.add(disposable)
+        }
     }
 }
 
@@ -126,7 +134,7 @@ class DisposableRunnable(
  *
  * [isDisposed] is always `true` and [dispose] does executes nothing.
  */
-object CompletedDisposable: Disposable {
+object CompletedDisposable : Disposable {
     override val isDisposed: Boolean = true
-    override fun dispose() { }
+    override fun dispose() {}
 }

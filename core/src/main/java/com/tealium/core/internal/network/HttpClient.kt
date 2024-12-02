@@ -2,6 +2,7 @@ package com.tealium.core.internal.network
 
 import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.logger.logIfTraceEnabled
 import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.misc.TimeFrame
@@ -22,9 +23,7 @@ import com.tealium.core.api.network.RetryPolicy.RetryAfterEvent
 import com.tealium.core.api.pubsub.Disposable
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.internal.logger.LogCategory
-import com.tealium.core.api.logger.logIfTraceEnabled
-import com.tealium.core.internal.pubsub.AsyncSubscription
-import com.tealium.core.internal.pubsub.DisposableContainer
+import com.tealium.core.internal.pubsub.AsyncDisposableContainer
 import com.tealium.core.internal.pubsub.addTo
 import java.io.DataOutputStream
 import java.io.IOException
@@ -71,7 +70,7 @@ class HttpClient(
         retryCount: Int,
         completion: (NetworkResult) -> Unit
     ): Disposable {
-        val disposableContainer = DisposableContainer()
+        val disposableContainer = AsyncDisposableContainer(tealiumScheduler)
         send(request, networkScheduler, tealiumScheduler) { result ->
             notifyInterceptors(request, result)
             processInterceptorsForDelay(request, result, retryCount) { shouldRetry ->
@@ -93,7 +92,7 @@ class HttpClient(
             }
         }
 
-        return AsyncSubscription(tealiumScheduler, disposableContainer)
+        return disposableContainer
     }
 
     private fun notifyInterceptors(request: HttpRequest, result: NetworkResult) {
@@ -139,7 +138,7 @@ class HttpClient(
     }
 
     private fun delayRequest(interval: Long, completion: () -> Unit) {
-        networkScheduler.schedule(TimeFrame(interval, TimeUnit.MILLISECONDS)) {
+        tealiumScheduler.schedule(TimeFrame(interval, TimeUnit.MILLISECONDS)) {
             completion()
         }
     }
@@ -185,7 +184,7 @@ class HttpClient(
          * and [send] should be preferred to ensure control of the Thread used when making the request.
          */
         private fun executeRequest(request: HttpRequest): NetworkResult {
-            lateinit var connection: HttpURLConnection
+            var connection: HttpURLConnection? = null
             return try {
                 connection = request.url.openConnection() as HttpURLConnection
                 with(connection) {
@@ -259,7 +258,7 @@ class HttpClient(
             } catch (e: Exception) {
                 Failure(UnexpectedException(e))
             } finally {
-                connection.disconnect()
+                connection?.disconnect()
             }
         }
     }

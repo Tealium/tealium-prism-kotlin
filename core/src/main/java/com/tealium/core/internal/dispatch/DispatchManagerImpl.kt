@@ -31,17 +31,12 @@ class DispatchManagerImpl(
 ) : DispatchManager {
 
     private var dispatchLoop: Disposable? = null
-    private var _dispatchers: Set<Dispatcher> = setOf()
+    private val _dispatchers: Set<Dispatcher>
+        get() = moduleManager.getModulesOfType(Dispatcher::class.java).toSet()
 
     private val consentManager: ConsentManager?
         get() = moduleManager.getModuleOfType(ConsentManager::class.java)
-
-    init {
-        dispatchers.subscribe {
-            _dispatchers = it
-        }
-    }
-
+    
     private fun tealiumPurposeExplicitlyBlocked(): Boolean {
         val consentManager = consentManager ?: return false
 

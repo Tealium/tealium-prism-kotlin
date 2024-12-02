@@ -1,8 +1,8 @@
 package com.tealium.core.internal.modules.consent
 
 import com.tealium.core.BuildConfig
-import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.data.DataList
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.modules.Dispatcher
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
@@ -10,6 +10,7 @@ import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.modules.consent.ConsentDecision
 import com.tealium.core.api.modules.consent.ConsentManagementAdapter
 import com.tealium.core.api.pubsub.Disposable
+import com.tealium.core.api.pubsub.ObservableState
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.pubsub.SubscribableState
@@ -198,21 +199,27 @@ class ConsentModule(
     data class Factory(
         private val cmp: ConsentManagementAdapter,
         private val queueManager: QueueManager? = null,
+        private val modules: ObservableState<Set<Module>>? = null,
         private var settings: DataObject? = null
     ) : ModuleFactory {
 
-        constructor(cmp: ConsentManagementAdapter, settings: ModuleSettingsBuilder): this(cmp, null, settings.build())
+        constructor(cmp: ConsentManagementAdapter, settings: ModuleSettingsBuilder) : this(
+            cmp,
+            null,
+            null,
+            settings.build()
+        )
 
         override val id: String
             get() = NAME
 
         override fun create(context: TealiumContext, settings: DataObject): Module? {
-            if (queueManager == null) return null
+            if (queueManager == null || modules == null) return null
 
             val consentSettings = ConsentSettings.fromDataObject(settings)
 
             return ConsentModule(
-                context.moduleManager.modules,
+                modules,
                 queueManager,
                 context.transformerRegistry,
                 cmp,

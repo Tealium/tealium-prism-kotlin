@@ -2,16 +2,26 @@ package com.tealium.core.internal.modules
 
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.misc.TealiumCallback
-import com.tealium.core.api.modules.*
+import com.tealium.core.api.modules.Collector
+import com.tealium.core.api.modules.Dispatcher
+import com.tealium.core.api.modules.Module
+import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.Observer
 import com.tealium.core.api.pubsub.StateSubject
-import com.tealium.core.api.settings.ModuleSettingsBuilder
+import com.tealium.core.internal.modules.datalayer.DataLayerModule
 import com.tealium.core.internal.settings.SdkSettings
-import com.tealium.tests.common.*
+import com.tealium.tests.common.SynchronousScheduler
+import com.tealium.tests.common.SystemLogger
+import com.tealium.tests.common.TestCollector
+import com.tealium.tests.common.TestDispatcher
+import com.tealium.tests.common.TestModule
+import com.tealium.tests.common.TestModuleFactory
 import io.mockk.Called
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import io.mockk.verifyOrder
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -27,10 +37,12 @@ class ModuleManagerImplTests {
     private val testDispatcher = TestDispatcher.mock("dispatcher")
     private val testCollector = TestCollector.mock("collector")
     private val testModule = TestModule.mock("module")
+    private val moduleWithObservable = ModuleWithObservable(Observables.publishSubject(), "module_with_observable")
     private val defaultFactories = listOf(
         TestModuleFactory(testCollector),
         TestModuleFactory(testDispatcher),
-        TestModuleFactory(testModule)
+        TestModuleFactory(testModule),
+        TestModuleFactory(moduleWithObservable)
     )
 
     private lateinit var moduleManager: InternalModuleManager
@@ -42,7 +54,7 @@ class ModuleManagerImplTests {
         modulesSubject = Observables.stateSubject(setOf())
 
         moduleManager = ModuleManagerImpl(
-            defaultFactories, testTealiumScheduler, modulesSubject
+            defaultFactories, SynchronousScheduler(), modulesSubject
         )
         context = mockk<TealiumContext>()
         every { context.logger } returns SystemLogger
@@ -78,7 +90,7 @@ class ModuleManagerImplTests {
 
     @Test
     fun getModuleOfType_ReturnsNull_When_MatchingNone() {
-        val module = moduleManager.getModuleOfType(ModuleManager::class.java)
+        val module = moduleManager.getModuleOfType(DataLayerModule::class.java)
 
         assertNull(module)
     }
@@ -124,8 +136,8 @@ class ModuleManagerImplTests {
 
     @Test
     fun getModuleOfType_ReturnsNull_When_MatchingNone_OnGivenScheduler() {
-        val onModule = mockk<TealiumCallback<ModuleManager?>>(relaxed = true)
-        moduleManager.getModuleOfType(ModuleManager::class.java, onModule)
+        val onModule = mockk<TealiumCallback<DataLayerModule?>>(relaxed = true)
+        moduleManager.getModuleOfType(DataLayerModule::class.java, onModule)
 
         verify(timeout = 1000) {
             onModule.onComplete(null)
@@ -143,8 +155,105 @@ class ModuleManagerImplTests {
 
     @Test
     fun getModulesOfType_ReturnsEmpty_When_MatchingNone() {
-        val modules = moduleManager.getModulesOfType(ModuleManager::class.java)
+        val modules = moduleManager.getModulesOfType(DataLayerModule::class.java)
         assertTrue(modules.isEmpty())
+    }
+
+    @Test
+    fun observeModule_Emits_Module_When_The_Module_Is_Available() {
+        val observer = mockk<Observer<TestDispatcher?>>(relaxed = true)
+
+        moduleManager.observeModule(TestDispatcher::class.java)
+            .subscribe(observer)
+
+        verify {
+            observer.onNext(testDispatcher)
+        }
+    }
+
+    @Test
+    fun observeModule_Emits_Null_When_The_Module_Is_Unavailable() {
+        val observer = mockk<Observer<TestDispatcher?>>(relaxed = true)
+        moduleManager.updateModuleSettings(context, disableModuleSettings(testDispatcher.id))
+
+        moduleManager.observeModule(TestDispatcher::class.java)
+            .subscribe(observer)
+
+        verify {
+            observer.onNext(null)
+        }
+    }
+
+    @Test
+    fun observeModule_Emits_Updated_Module_When_Enabled_And_Disabled() {
+        val observer = mockk<Observer<TestDispatcher?>>(relaxed = true)
+        moduleManager.updateModuleSettings(context, disableModuleSettings(testDispatcher.id))
+
+        moduleManager.observeModule(TestDispatcher::class.java).subscribe(observer)
+        moduleManager.updateModuleSettings(context, enableModuleSettings(testDispatcher.id))
+        moduleManager.updateModuleSettings(context, disableModuleSettings(testDispatcher.id))
+        moduleManager.updateModuleSettings(context, enableModuleSettings(testDispatcher.id))
+
+        verifyOrder {
+            observer.onNext(null)
+            observer.onNext(testDispatcher)
+            observer.onNext(null)
+            observer.onNext(testDispatcher)
+        }
+    }
+
+    @Test
+    fun observeModule_Emits_Transformed_Module_When_The_Module_Is_Available() {
+        val observer = mockk<Observer<Int>>(relaxed = true)
+
+        moduleManager.observeModule(ModuleWithObservable::class.java) { it.subject }
+            .subscribe(observer)
+        moduleWithObservable.subject.onNext(1)
+        moduleWithObservable.subject.onNext(2)
+
+        verify {
+            observer.onNext(1)
+            observer.onNext(2)
+        }
+    }
+
+    @Test
+    fun observeModule_With_Transform_Emits_Nothing_When_The_Module_Is_Unavailable() {
+        val observer = mockk<Observer<Int>>(relaxed = true)
+        moduleManager.updateModuleSettings(context, disableModuleSettings(moduleWithObservable.id))
+
+        moduleManager.observeModule(ModuleWithObservable::class.java) { it.subject }
+            .subscribe(observer)
+        moduleWithObservable.subject.onNext(1)
+
+        verify(inverse = true) {
+            observer.onNext(any())
+        }
+    }
+
+    @Test
+    fun observeModule_Emits_Updated_Transformed_Module_When_Enabled_And_Disabled() {
+        val observer = mockk<Observer<Int>>(relaxed = true)
+        moduleManager.updateModuleSettings(context, disableModuleSettings(moduleWithObservable.id))
+
+        moduleManager.observeModule(ModuleWithObservable::class.java) { it.subject }
+            .subscribe(observer)
+        moduleWithObservable.subject.onNext(1)
+        moduleManager.updateModuleSettings(context, enableModuleSettings(moduleWithObservable.id))
+        moduleWithObservable.subject.onNext(2)
+        moduleManager.updateModuleSettings(context, disableModuleSettings(moduleWithObservable.id))
+        moduleWithObservable.subject.onNext(3)
+        moduleManager.updateModuleSettings(context, enableModuleSettings(moduleWithObservable.id))
+        moduleWithObservable.subject.onNext(4)
+
+        verifyOrder {
+            observer.onNext(2)
+            observer.onNext(4)
+        }
+        verify(inverse = true) {
+            observer.onNext(1)
+            observer.onNext(3)
+        }
     }
 
     @Test
@@ -180,13 +289,7 @@ class ModuleManagerImplTests {
     @Test
     fun updateSettings_Calls_OnShutdown_WhenModuleSettingsDisabled() {
         every { testModule.updateSettings(any()) } returns null
-        moduleManager.updateModuleSettings(
-            context, SdkSettings(
-                mapOf(
-                    testModule.id to disabledModuleSettings
-                )
-            )
-        )
+        moduleManager.updateModuleSettings(context, disableModuleSettings(testModule.id))
 
         verify { testModule.onShutdown() }
     }
@@ -224,13 +327,7 @@ class ModuleManagerImplTests {
         val creator = mockk<(TealiumContext, DataObject) -> Module>()
 
         moduleManager.addModuleFactory(TestModuleFactory("disabled_module", creator = creator))
-        moduleManager.updateModuleSettings(
-            context, SdkSettings(
-                mapOf(
-                    "disabled_module" to disabledModuleSettings
-                )
-            )
-        )
+        moduleManager.updateModuleSettings(context, disableModuleSettings("disabled_module"))
 
         verify {
             creator wasNot Called
@@ -249,13 +346,7 @@ class ModuleManagerImplTests {
                 creator = creator
             )
         )
-        moduleManager.updateModuleSettings(
-            context, SdkSettings(
-                mapOf(
-                    "disabled_module" to disabledModuleSettings
-                )
-            )
-        )
+        moduleManager.updateModuleSettings(context, disableModuleSettings("disabled_module"))
 
         verify {
             creator(any(), any())
@@ -275,11 +366,8 @@ class ModuleManagerImplTests {
                 creator = creator
             )
         )
-        val disabledSettings = SdkSettings(
-            mapOf(
-                "disabled_module" to disabledModuleSettings
-            )
-        )
+        val disabledSettings = disableModuleSettings("disabled_module")
+
         // creates
         moduleManager.updateModuleSettings(context, disabledSettings)
         // updates
@@ -290,8 +378,24 @@ class ModuleManagerImplTests {
         }
     }
 
+    @Test
+    fun shutdown_Emits_Empty_Modules() {
+        val observer = mockk<Observer<Set<Module>>>(relaxed = true)
 
-    private val disabledModuleSettings: DataObject = ModuleSettingsBuilder()
-        .setEnabled(false)
-        .build()
+        moduleManager.modules.subscribe(observer)
+        moduleManager.shutdown()
+
+        verify { observer.onNext(emptySet()) }
+    }
+
+    @Test
+    fun shutdown_Shuts_Down_All_Modules() {
+        moduleManager.shutdown()
+
+        verify {
+            testModule.onShutdown()
+            testCollector.onShutdown()
+            testDispatcher.onShutdown()
+        }
+    }
 }

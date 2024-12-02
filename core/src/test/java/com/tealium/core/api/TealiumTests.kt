@@ -27,7 +27,7 @@ class TealiumTests {
     @Test
     fun tealium_ReturnsTealiumInstance_WhenReady() {
         val callback = mockk<TealiumCallback<TealiumResult<Tealium>>>(relaxed = true)
-        Tealium.create("main", getDefaultConfig(app), callback)
+        Tealium.create(getDefaultConfig(app), callback)
 
         verify(timeout = 2000) {
             callback.onComplete(match { result ->
@@ -47,12 +47,10 @@ class TealiumTests {
         }
 
         val tealium1 = Tealium.create(
-            "instance1",
             getDefaultConfig(app, accountName = "tealium1"),
             callback
         )
         val tealium2 = Tealium.create(
-            "instance2",
             getDefaultConfig(app, accountName = "tealium2"),
             callback
         )

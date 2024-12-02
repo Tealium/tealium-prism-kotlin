@@ -5,10 +5,11 @@ import android.util.Log
 import com.tealium.core.api.Modules
 import com.tealium.core.api.Tealium
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.data.DataItem
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.misc.Environment
+import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.network.HttpRequest
 import com.tealium.core.api.network.Interceptor
@@ -30,10 +31,11 @@ import com.tealium.core.api.tracking.TrackResult
 object TealiumHelper {
 
     private const val TAG = "TealiumHelper"
-    private const val INSTANCE_NAME = "main"
 
-    val shared: Tealium?
-        get() = Tealium[INSTANCE_NAME]
+    var shared: Tealium? = null
+        private set
+
+    val isEnabled: Boolean get() = shared != null
 
     private fun onVisitorIdUpdated(visitorId: String) {
         Log.d("OnMain?", "Executing on ${Thread.currentThread().name}")
@@ -54,7 +56,7 @@ object TealiumHelper {
         Log.d("Helper", "DataRemoved ${keys.joinToString(", ")}")
     }
 
-    fun init(application: Application) {
+    fun init(application: Application, onReady: ((TealiumResult<Tealium>) -> Unit)? = null) {
         val config = TealiumConfig(
             application = application,
             modules = configureModules(),
@@ -71,7 +73,7 @@ object TealiumHelper {
 //            localSdkSettingsFileName = "tealium-settings.json"
         }
 
-        Tealium.create(INSTANCE_NAME, config) { result ->
+        shared = Tealium.create(config) { result ->
             val tealium = result.getOrNull() ?: return@create
 
 //            it.events.subscribe(this)
@@ -86,10 +88,10 @@ object TealiumHelper {
                 }
             }
 
-            tealium.dataLayer.edit {
-                it.put("key", DataItem.string("value"), Expiry.SESSION)
-                it.put("key2", DataItem.string("value2"), Expiry.SESSION)
-                it.remove("key2")
+            tealium.dataLayer.transactionally { editor ->
+                editor.put("key", DataItem.string("value"), Expiry.SESSION)
+                    .put("key2", DataItem.string("value2"), Expiry.SESSION)
+                    .remove("key2")
             }
             tealium.dataLayer.get("key") {
                 Log.d("DataLayer", "Retrieved key with value: $it")
@@ -113,7 +115,14 @@ object TealiumHelper {
 //                    })
 //                    .build()
 //            )
+
+            onReady?.invoke(result)
         }
+    }
+
+    fun shutdown() {
+        shared?.shutdown()
+        shared = null
     }
 
     fun track(
@@ -121,7 +130,16 @@ object TealiumHelper {
         type: TealiumDispatchType = TealiumDispatchType.Event,
         data: DataObject = DataObject.EMPTY_OBJECT
     ) {
-        shared?.track(Dispatch.create(event, type, data), ::onTracked)
+        shared?.apply {
+            track(Dispatch.create(event, type, data), ::onTracked)
+
+            dataLayer.transactionally { editor ->
+                val sessionEvents = editor.getInt("count") ?: 1
+                editor.put("count", sessionEvents + 1, Expiry.SESSION)
+                    .commit()
+            }
+        }
+
     }
 
     private fun onTracked(dispatch: Dispatch, status: TrackResult) {

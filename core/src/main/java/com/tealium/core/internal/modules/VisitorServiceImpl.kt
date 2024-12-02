@@ -1,10 +1,11 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.BuildConfig
+import com.tealium.core.api.Tealium
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
-import com.tealium.core.api.modules.ModuleManager
+import com.tealium.core.api.modules.ModuleProxy
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.modules.VisitorProfile
 import com.tealium.core.api.modules.VisitorService
@@ -21,15 +22,13 @@ class VisitorServiceWrapper(
 ) : VisitorService {
 
     constructor(
-        moduleManager: ModuleManager
-    ) : this(ModuleProxy(VisitorServiceImpl::class.java, moduleManager))
+        tealium: Tealium
+    ) : this(tealium.createModuleProxy(VisitorServiceImpl::class.java))
 
     override val onVisitorIdUpdated: Subscribable<String>
-        get() = moduleProxy.getModule()
-            .flatMap { it.onVisitorIdUpdated }
+        get() = moduleProxy.observeModule(VisitorServiceImpl::onVisitorIdUpdated)
     override val onVisitorProfileUpdated: Subscribable<VisitorProfile>
-        get() = moduleProxy.getModule()
-            .flatMap { it.onVisitorProfileUpdated }
+        get() = moduleProxy.observeModule(VisitorServiceImpl::onVisitorProfileUpdated)
 
     override fun resetVisitorId() {
         moduleProxy.getModule { visitorService ->

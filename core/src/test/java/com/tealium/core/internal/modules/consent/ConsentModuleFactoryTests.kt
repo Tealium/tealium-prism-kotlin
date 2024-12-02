@@ -29,24 +29,41 @@ class ConsentModuleFactoryTests {
     fun setUp() {
         MockKAnnotations.init(this)
 
-        val modulesManager = mockk<ModuleManager>()
-        every { modulesManager.modules } returns Observables.stateSubject(setOf())
-
         every { context.logger } returns SystemLogger
-        every { context.moduleManager } returns modulesManager
         every { context.transformerRegistry } returns mockk(relaxed = true)
     }
 
     @Test
-    fun create_Returns_Null_When_QueueManager_Not_Set() {
+    fun create_Returns_Null_When_Neither_QueueManager_Or_Modules_Are_Set() {
         val consentFactory = ConsentModule.Factory(cmp)
 
         assertNull(consentFactory.create(context, DataObject.EMPTY_OBJECT))
     }
 
     @Test
-    fun create_Returns_ConsentModule_When_QueueManager_Is_Set() {
-        val consentFactory = ConsentModule.Factory(cmp).copy(queueManager = mockk())
+    fun create_Returns_Null_When_Only_QueueManager_Set() {
+        val consentFactory = ConsentModule.Factory(cmp).copy(
+            queueManager = mockk()
+        )
+
+        assertNull(consentFactory.create(context, DataObject.EMPTY_OBJECT))
+    }
+
+    @Test
+    fun create_Returns_Null_When_Only_Modules_Are_Set() {
+        val consentFactory = ConsentModule.Factory(cmp).copy(
+            modules = Observables.stateSubject(setOf())
+        )
+
+        assertNull(consentFactory.create(context, DataObject.EMPTY_OBJECT))
+    }
+
+    @Test
+    fun create_Returns_ConsentModule_When_QueueManager_And_Modules_Are_Set() {
+        val consentFactory = ConsentModule.Factory(cmp).copy(
+            queueManager = mockk(),
+            modules = Observables.stateSubject(setOf())
+        )
 
         assertNotNull(consentFactory.create(context, DataObject.EMPTY_OBJECT))
     }

@@ -1,24 +1,23 @@
 package com.tealium.core.api
 
-import android.app.appsearch.BatchResultCallback
 import com.tealium.core.api.misc.TealiumCallback
+import com.tealium.core.api.misc.TealiumException
 import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.modules.DataLayer
 import com.tealium.core.api.modules.DeeplinkManager
 import com.tealium.core.api.modules.Module
+import com.tealium.core.api.modules.ModuleProxy
 import com.tealium.core.api.modules.TimedEventsManager
 import com.tealium.core.api.modules.TraceManager
 import com.tealium.core.api.modules.VisitorService
 import com.tealium.core.api.modules.consent.ConsentManager
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TrackResultListener
-import com.tealium.core.internal.TealiumProxy
-import com.tealium.core.internal.misc.SingleThreadedScheduler
-import com.tealium.core.internal.misc.ThreadPoolScheduler
-import java.util.concurrent.Executors
+import com.tealium.core.internal.TealiumInstanceManager
 
 interface Tealium {
 
+    val key: String
     val trace: TraceManager
     val deeplink: DeeplinkManager
     val timedEvents: TimedEventsManager
@@ -28,13 +27,7 @@ interface Tealium {
     // Optionals
     val visitorService: VisitorService?
 
-    /**
-     * Returns the first [Module] implementation that implements or extends the given [Class].
-     *
-     * @param clazz The Class or Interface to match against
-     * @param callback The block of code to receive the [Module]
-     */
-    fun <T> getModule(clazz: Class<T>, callback: TealiumCallback<T?>)
+    fun <T: Module> createModuleProxy(clazz: Class<T>) : ModuleProxy<T>
 
     fun track(dispatch: Dispatch)
     fun track(dispatch: Dispatch, onComplete: TrackResultListener)
@@ -58,61 +51,37 @@ interface Tealium {
      */
     fun clearStoredVisitorIds(callback: TealiumCallback<TealiumResult<String>>)
 
-    companion object {
-        private val instances = mutableMapOf<String, TealiumProxy>()
-        private val tealiumScheduler by lazy {
-            SingleThreadedScheduler("tealium")
-        }
-        private val ioExecutor by lazy {
-            Executors.newScheduledThreadPool(0)
-        }
+    /**
+     * Shuts this instance of [Tealium] down and frees up all memory usage.
+     *
+     * After calling this method, no further input will be processed and future method calls to the
+     * [Tealium] instance will fail.
+     *
+     * @see Tealium.shutdown
+     */
+    fun shutdown()
+
+    /**
+     * An [Exception] to signify that the [Tealium] instance has already been shutdown.
+     */
+    class TealiumShutdownException(message: String?): TealiumException(message)
+
+    companion object: InstanceManager {
+        private val instanceManager: InstanceManager = TealiumInstanceManager()
 
         @JvmStatic
-        fun default(): Tealium? {
-            return instances.values.firstOrNull()
-        }
-
-        /**
-         * Creates a new [Tealium] instance
-         */
-        @JvmStatic
-        fun create(
-            name: String,
-            config: TealiumConfig,
-        ): Tealium {
-            return create(name, config, null)
-        }
-
-        /**
-         * Creates a new [Tealium] instance
-         */
-        @JvmStatic
-        fun create(
-            name: String,
+        override fun create(
             config: TealiumConfig,
             onReady: TealiumCallback<TealiumResult<Tealium>>?
-        ): Tealium {
-            return TealiumProxy(
-                config,
-                onReady,
-                tealiumScheduler,
-                {
-                    ThreadPoolScheduler(ioExecutor)
-                }
-            ).also {
-                instances[name] = it
-            }
-        }
+        ): Tealium =
+            instanceManager.create(config, onReady)
 
         @JvmStatic
-        fun destroy(name: String) {
-            instances[name]?.shutdown()
-            instances.remove(name)
-        }
+        override fun shutdown(instanceKey: String) =
+            instanceManager.shutdown(instanceKey)
 
         @JvmStatic
-        operator fun get(name: String): Tealium? {
-            return instances[name]
-        }
+        override fun get(instanceKey: String, callback: TealiumCallback<Tealium?>) =
+            instanceManager.get(instanceKey, callback)
     }
 }

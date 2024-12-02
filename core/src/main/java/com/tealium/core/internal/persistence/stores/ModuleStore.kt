@@ -1,11 +1,12 @@
 package com.tealium.core.internal.persistence.stores
 
-import com.tealium.core.api.data.DataObject
-import com.tealium.core.api.data.DataItemConverter
 import com.tealium.core.api.data.DataItem
+import com.tealium.core.api.data.DataItemUtils.asDataObject
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.persistence.PersistenceException
+import com.tealium.core.api.persistence.ReadableDataStore
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Subject
@@ -22,7 +23,7 @@ class ModuleStore(
 
     private val _onDataUpdated: Subject<DataObject> = onDataUpdated
     override val onDataUpdated: Observable<DataObject>
-        get() = _onDataUpdated
+        get() = _onDataUpdated.asObservable()
 
     private val _onDataRemoved: Subject<List<String>> = onDataRemoved
     override val onDataRemoved: Observable<List<String>>
@@ -32,7 +33,7 @@ class ModuleStore(
         )
 
     override fun edit(): DataStore.Editor =
-        DataStorageEditor(keyValueRepository) { edits ->
+        DataStorageEditor(keyValueRepository, this) { edits ->
             val updates = edits.filterIsInstance(Edit.Put::class.java)
             val removals = edits.filterIsInstance(Edit.Remove::class.java)
 
@@ -56,21 +57,8 @@ class ModuleStore(
     override fun get(key: String): DataItem? =
         keyValueRepository.get(key)
 
-    override fun <T> get(key: String, converter: DataItemConverter<T>): T? {
-        return keyValueRepository.get(key)?.let {
-            converter.convert(it)
-        }
-    }
-
-    override fun getAll(): DataObject {
-        val dataObjectBuilder = DataObject.Builder()
-
-        keyValueRepository.getAll().forEach { (key, value) ->
-            dataObjectBuilder.put(key, value)
-        }
-
-        return dataObjectBuilder.build()
-    }
+    override fun getAll(): DataObject =
+        keyValueRepository.getAll().asDataObject()
 
     override fun keys(): List<String> =
         keyValueRepository.keys()
@@ -81,20 +69,25 @@ class ModuleStore(
     override fun iterator(): Iterator<Map.Entry<String, DataItem>> =
         getAll().iterator()
 
-    private class DataStorageEditor(
+    class DataStorageEditor(
         private val keyValueRepository: KeyValueRepository,
+        private val reader: ReadableDataStore,
         private val onCommit: (List<Edit>) -> Unit
-    ) : DataStore.Editor {
+    ) : DataStore.Editor, AutoCloseable {
+        private var closed: Boolean = false
         private var committed: Boolean = false
         private var clear: Boolean = false
         private var edits: Queue<Edit> = LinkedList()
 
-        override fun put(key: String, value: DataItem, expiry: Expiry): DataStore.Editor =
-            apply {
-                edits.add(Edit.Put(key, value, expiry))
-            }
+        override fun put(key: String, value: DataItem, expiry: Expiry): DataStore.Editor = apply {
+            ensureNotClosed()
+
+            edits.add(Edit.Put(key, value, expiry))
+        }
 
         override fun putAll(dataObject: DataObject, expiry: Expiry): DataStore.Editor = apply {
+            ensureNotClosed()
+
             dataObject.forEach { (key, value) ->
                 if (value != DataItem.NULL) {
                     // Can't store nulls; ignore it.
@@ -104,20 +97,29 @@ class ModuleStore(
         }
 
         override fun remove(key: String): DataStore.Editor = apply {
+            ensureNotClosed()
+
             edits.add(Edit.Remove(key))
         }
 
+
         override fun remove(keys: List<String>): DataStore.Editor = apply {
+            ensureNotClosed()
+
             keys.forEach { key ->
                 edits.add(Edit.Remove(key))
             }
         }
 
         override fun clear(): DataStore.Editor = apply {
+            ensureNotClosed()
+
             clear = true
         }
 
         override fun commit() {
+            ensureNotClosed()
+
             if (committed) return
             if (edits.isEmpty() && !clear) return
 
@@ -149,15 +151,50 @@ class ModuleStore(
                     }
                 }
             } catch (ex: PersistenceException) {
-                committed = false
                 throw ex
             }
 
             onCommit.invoke(appliedEdits)
         }
+
+        override fun get(key: String): DataItem? {
+            ensureNotClosed()
+
+            return reader.get(key)
+        }
+
+        override fun getAll(): DataObject {
+            ensureNotClosed()
+
+            return reader.getAll()
+        }
+
+        override fun keys(): List<String> {
+            ensureNotClosed()
+
+            return reader.keys()
+        }
+
+        override fun count(): Int {
+            ensureNotClosed()
+
+            return reader.count()
+        }
+
+        override fun close() {
+            closed = true
+            if (!committed && (edits.isNotEmpty() || clear)) {
+                // TODO - log that there are uncommitted edits
+            }
+        }
+
+        private fun ensureNotClosed() {
+            if (closed)
+                throw DataStore.Editor.EditorClosedException("Editor is already closed.")
+        }
     }
 
-    private sealed class Edit {
+    sealed class Edit {
         class Put(val key: String, val value: DataItem, val expiry: Expiry) : Edit()
         class Remove(val key: String) : Edit()
     }

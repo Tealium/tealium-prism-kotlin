@@ -20,7 +20,7 @@ import org.json.*
 class DataObject private constructor(
     data: Map<String, DataItem>? = null,
     string: String? = null
-) : Iterable<Map.Entry<String, DataItem>>, DataItemConvertible {
+) : Iterable<Map.Entry<String, DataItem>>, DataItemConvertible, DataItemExtractor {
 
     private lateinit var _data: Map<String, DataItem>
     private var _toString: String? = string
@@ -54,96 +54,10 @@ class DataObject private constructor(
      * @param key The key to use to lookup the item.
      * @return The [DataItem] stored at the given [key]; else null
      */
-    fun get(key: String): DataItem? {
+    override fun get(key: String): DataItem? {
         return map[key]
     }
-
-    /**
-     * Gets the [String] stored at the given [key] if it exists and is a [String].
-     *
-     * No type coercion is attempted.
-     *
-     * @param key The key to use to lookup the item.
-     * @return The [String] stored at the given [key]; else null
-     */
-    fun getString(key: String): String? = map[key]?.getString()
-
-    /**
-     * Gets the [Int] stored at the given [key] if it exists and the value is an [Int], or a [Number]
-     * that can be coerced to an [Int].
-     *
-     * If it is a [Double] or [Long] then the returned value will possibly lose accuracy as a
-     * result.
-     *
-     * @param key The key to use to lookup the item.
-     * @return The [Int] stored at the given [key]; else null
-     */
-    fun getInt(key: String): Int? = map[key]?.getInt()
-
-    /**
-     * Gets the [Long] stored at the given [key] if it exists and the value is a [Long], or a [Number]
-     * that can be coerced to an [Long].
-     *
-     * If it is a [Double] then the returned value will possibly lose accuracy as a result.
-     *
-     * @param key The key to use to lookup the item.
-     * @return The [Long] stored at the given [key]; else null
-     */
-    fun getLong(key: String): Long? = map[key]?.getLong()
-
-    /**
-     * Gets the [Double] stored at the given [key] if it exists and the value is a [Double], or a [Number]
-     * that can be coerced to an [Double].
-     *
-     * @param key The key to use to lookup the item.
-     * @return The [Double] stored at the given [key]; else null
-     */
-    fun getDouble(key: String): Double? = map[key]?.getDouble()
-
-    /**
-     * Gets the [Boolean] stored at the given [key] if it exists and is a [Boolean].
-     *
-     * No type coercion is attempted.
-     *
-     * @param key The key to use to lookup the item.
-     * @return The [Boolean] stored at the given [key]; else null
-     */
-    fun getBoolean(key: String): Boolean? = map[key]?.getBoolean()
-
-    /**
-     * Gets the [DataList] stored at the given [key] if it exists and is a [DataList].
-     *
-     * No type coercion is attempted.
-     *
-     * @param key The key to use to lookup the item.
-     * @return The [DataList] stored at the given [key]; else null
-     */
-    fun getDataList(key: String): DataList? = map[key]?.getDataList()
-
-    /**
-     * Gets the [DataObject] stored at the given [key] if it exists and is a [DataObject].
-     *
-     * No type coercion is attempted.
-     *
-     * @param key The key to use to lookup the item.
-     * @return The [DataObject] stored at the given [key]; else null
-     */
-    fun getDataObject(key: String): DataObject? = map[key]?.getDataObject()
-
-    /**
-     * Gets the [DataItem] at the given [key], and attempts to convert it into the type [T]
-     * using the provided [DataItemConverter].
-     *
-     * @param key The key to use to lookup the item.
-     * @param converter The [DataItemConverter] to use to recreate the object of type [T]
-     * @return The reconstructed instance of [T]; else null
-     */
-    fun <T> get(key: String, converter: DataItemConverter<T>): T? {
-        return map[key]?.let { obj ->
-            converter.convert(obj)
-        }
-    }
-
+    
     /**
      * Returns all entries stored in the [DataObject]
      *

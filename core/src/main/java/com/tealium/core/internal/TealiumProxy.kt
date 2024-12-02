@@ -1,162 +1,114 @@
 package com.tealium.core.internal
 
 import com.tealium.core.api.Tealium
-import com.tealium.core.api.TealiumConfig
-import com.tealium.core.api.misc.ActivityManager
 import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.misc.TealiumCallback
-import com.tealium.core.api.misc.TealiumException
 import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.modules.DataLayer
 import com.tealium.core.api.modules.DeeplinkManager
+import com.tealium.core.api.modules.Module
+import com.tealium.core.api.modules.ModuleManager
+import com.tealium.core.api.modules.ModuleProxy
 import com.tealium.core.api.modules.TimedEventsManager
 import com.tealium.core.api.modules.TraceManager
 import com.tealium.core.api.modules.VisitorService
 import com.tealium.core.api.modules.consent.ConsentManager
 import com.tealium.core.api.pubsub.Observable
-import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Observer
-import com.tealium.core.api.pubsub.ReplaySubject
 import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.TrackResult
 import com.tealium.core.api.tracking.TrackResultListener
-import com.tealium.core.internal.misc.ActivityManagerImpl
-import com.tealium.core.internal.misc.ActivityManagerProxy
-import com.tealium.core.internal.modules.DataLayerWrapper
+import com.tealium.core.internal.modules.datalayer.DataLayerWrapper
 import com.tealium.core.internal.modules.DeepLinkManagerWrapper
-import com.tealium.core.internal.modules.InternalModuleManager
-import com.tealium.core.internal.modules.ModuleManagerImpl
+import com.tealium.core.internal.modules.ModuleProxyImpl
 import com.tealium.core.internal.modules.TimedEventsManagerWrapper
 import com.tealium.core.internal.modules.TraceManagerWrapper
 import com.tealium.core.internal.modules.VisitorServiceWrapper
-import com.tealium.core.internal.persistence.database.DatabaseProvider
-import com.tealium.core.internal.persistence.database.FileDatabaseProvider
-import com.tealium.core.internal.pubsub.DisposableContainer
+import com.tealium.core.internal.pubsub.AsyncDisposableContainer
 import com.tealium.core.internal.pubsub.addTo
-import com.tealium.core.internal.pubsub.subscribeOnce
 
+
+/**
+ * The [TealiumProxy] is the default [Tealium] implementation. It is a lightweight wrapper around
+ * an underlying [TealiumImpl] instance.
+ *
+ * All methods and properties are expected to schedule their work asynchronously to ensure proper ordering
+ * of events, and also to ensure that the underlying [TealiumImpl] instance is still valid.
+ *
+ * @param key The key that identifies the underlying [TealiumImpl] instance.
+ * @param tealiumScheduler The [Scheduler] to synchronize all work on
+ * @param onTealiumImplReady The [Observable] to inform this [TealiumProxy] of when the [TealiumImpl] has been created, or the error
+ * @param onShutdown The callback to call when the [shutdown] method is called.
+ */
 class TealiumProxy(
-    private val config: TealiumConfig,
-    private val onReady: TealiumCallback<TealiumResult<Tealium>>? = null,
+    override val key: String,
     private val tealiumScheduler: Scheduler,
-    private val networkSchedulerSupplier: () -> Scheduler,
-    private val onTealiumImplReady: ReplaySubject<TealiumImpl?> = Observables.replaySubject(1),
-    private val databaseProvider: DatabaseProvider? = null,
-    private val moduleManager: InternalModuleManager = ModuleManagerImpl(
-        TealiumImpl.getDefaultModules(),
-        tealiumScheduler
-    ),
-    private val activityManager: ActivityManager = ActivityManagerImpl.getInstance(config.application)
+    private val onTealiumImplReady: Observable<TealiumResult<TealiumImpl>>,
+    private val onShutdown: (String) -> Unit = {}
 ) : Tealium {
 
-    override val trace: TraceManager = TraceManagerWrapper(moduleManager)
-    override val deeplink: DeeplinkManager = DeepLinkManagerWrapper(moduleManager)
-    override val timedEvents: TimedEventsManager = TimedEventsManagerWrapper(moduleManager)
-    override val dataLayer: DataLayer = DataLayerWrapper(moduleManager)
+    private val moduleManager: Observable<ModuleManager?> =
+        onTealiumImplReady.map { result ->
+            result.getOrNull()?.moduleManager
+        }
+
+    override val trace: TraceManager = TraceManagerWrapper(this)
+    override val deeplink: DeeplinkManager = DeepLinkManagerWrapper(this)
+    override val timedEvents: TimedEventsManager = TimedEventsManagerWrapper(this)
+    override val dataLayer: DataLayer = DataLayerWrapper(this)
     override val consent: ConsentManager
         get() = TODO()
-    override val visitorService: VisitorService? = VisitorServiceWrapper(moduleManager)
+    override val visitorService: VisitorService? = VisitorServiceWrapper(this)
 
-    private val disposable = DisposableContainer()
-    private var initException: Exception? = null
+    private val disposable = AsyncDisposableContainer(disposeOn = tealiumScheduler)
 
     init {
-        tealiumScheduler.execute {
-            try {
-                val activityManagerProxy = subscribeActivityManager()
-
-                val tealiumImpl = TealiumImpl(
-                    config,
-                    databaseProvider ?: FileDatabaseProvider(config),
-                    tealiumScheduler = tealiumScheduler,
-                    networkScheduler = networkSchedulerSupplier.invoke(),
-                    moduleManager = moduleManager,
-                    activityManager = activityManagerProxy
-                )
-
-                onTealiumImplReady.onNext(tealiumImpl)
-                onReady?.onComplete(TealiumResult.success(this))
-            } catch (ex: Exception) {
-                initException = ex
-                onTealiumImplReady.onNext(null)
-                disposable.dispose()
-                onReady?.onComplete(TealiumResult.failure(ex))
-            }
-        }
-    }
-
-    /**
-     * The main [ActivityManagerImpl] publishes updates on the Main scheduler. Allowing internal
-     * components to simply subscribe/observe on the tealium scheduler would mean that they each would
-     * receive their notifications in a separate [Runnable].
-     *
-     * This method sets up a new ActivityManager for use within this Tealium instance, to
-     * publish each update to all components in one go.
-     *
-     * It also schedules the activity/application notifications to be sent once the TealiumImpl
-     * is finished loading. This could potentially be moved into the TealiumImpl instead, after the
-     * Modules have finished loading.
-     */
-    private fun subscribeActivityManager(): ActivityManager {
-        val activitySubject = Observables.publishSubject<ActivityManager.ActivityStatus>()
-        val appSubject = Observables.publishSubject<ActivityManager.ApplicationStatus>()
-        val activityManagerProxy = ActivityManagerProxy(activitySubject, appSubject)
-
-        activityManager.applicationStatus.observeOn(tealiumScheduler)
-            .combine(onTealiumImplReadyOnce) { status, _ ->
-                status
-            }
-            .subscribe(appSubject)
-            .addTo(disposable)
-
-        activityManager.activities.observeOn(tealiumScheduler)
-            .combine(onTealiumImplReadyOnce) { status, _ ->
-                status
-            }
-            .subscribe(activitySubject)
-            .addTo(disposable)
-
-        return activityManagerProxy
-    }
-
-    private val onTealiumImplReadyOnce: Observable<TealiumImpl?>
-        get() = onTealiumImplReady
+        onTealiumImplReady.filter { it.exceptionOrNull() != null }
             .take(1)
+            .subscribeOn(tealiumScheduler)
+            .subscribe {
+                doShutdown()
+            }
+    }
 
-    private fun onTealiumImplReady(observer: Observer<TealiumImpl?>) {
+    private fun onTealiumImplReady(observer: Observer<TealiumResult<TealiumImpl>>) {
         onTealiumImplReady
+            .take(1)
             .subscribeOn(scheduler = tealiumScheduler)
-            .subscribeOnce(observer)
+            .subscribe(observer)
             .addTo(disposable)
     }
 
-    private fun <T> onTealiumSuccess(onSuccess: TealiumCallback<TealiumResult<T>>? = null, task: (TealiumImpl) -> T) {
-        onTealiumImplReady { tealium ->
-            if (tealium == null) {
-                // TODO - handle shutdown case as well as init errors
-                onSuccess?.onComplete(TealiumResult.failure(TealiumException("Instance has failed to initialize.", initException)))
-                return@onTealiumImplReady
-            }
-
-            try {
-                val result = task.invoke(tealium)
-                onSuccess?.onComplete(TealiumResult.success(result))
-            } catch (e: Exception) {
-                onSuccess?.onComplete(TealiumResult.failure(e))
-            }
+    private fun <T> onTealiumSuccess(
+        onSuccess: TealiumCallback<TealiumResult<T>>? = null,
+        task: (TealiumImpl) -> T
+    ) = onTealiumImplReady { initResult ->
+        try {
+            val tealiumImpl = initResult.getOrThrow()
+            val result = task.invoke(tealiumImpl)
+            onSuccess?.onComplete(TealiumResult.success(result))
+        } catch (e: Exception) {
+            onSuccess?.onComplete(TealiumResult.failure(e))
         }
     }
 
     override fun track(dispatch: Dispatch) = onTealiumImplReady { tealium ->
-        tealium?.track(dispatch)
+        tealium.getOrNull()?.track(dispatch)
     }
 
     override fun track(dispatch: Dispatch, onComplete: TrackResultListener) =
         onTealiumImplReady { tealium ->
-            tealium?.track(dispatch, onComplete)
+            try {
+                val tealiumImpl = tealium.getOrThrow()
+                tealiumImpl.track(dispatch, onComplete)
+            } catch (e: Exception) {
+                onComplete.onTrackResultReady(dispatch, TrackResult.Dropped)
+            }
+            // TODO - arrange better error handling
         }
 
-    override fun flushEventQueue() = onTealiumImplReady { tealium ->
-        tealium?.flushEventQueue()
+    override fun flushEventQueue() = onTealiumSuccess { tealium ->
+        tealium.flushEventQueue()
     }
 
     override fun resetVisitorId(callback: TealiumCallback<TealiumResult<String>>) =
@@ -169,12 +121,14 @@ class TealiumProxy(
             tealium.clearStoredVisitorIds()
         }
 
-    override fun <T> getModule(clazz: Class<T>, callback: TealiumCallback<T?>) =
-        moduleManager.getModuleOfType(clazz, callback)
+    override fun <T : Module> createModuleProxy(clazz: Class<T>): ModuleProxy<T> =
+        ModuleProxyImpl(clazz, moduleManager, tealiumScheduler)
 
-    internal fun shutdown() = onTealiumImplReady { tealium ->
+    private fun doShutdown() {
         disposable.dispose()
+    }
 
-        tealium?.shutdown()
+    override fun shutdown() {
+        onShutdown(key)
     }
 }

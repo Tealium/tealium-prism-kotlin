@@ -1,19 +1,29 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.BuildConfig
-import com.tealium.core.api.modules.TealiumContext
+import com.tealium.core.api.TealiumConfig
+import com.tealium.core.api.data.DataItemUtils.asDataList
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.modules.Collector
-import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
-import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.modules.TealiumContext
+import com.tealium.core.api.pubsub.ObservableState
+import com.tealium.core.api.tracking.Dispatch
 import java.security.SecureRandom
-import java.util.*
+import java.util.Locale
 import kotlin.math.abs
 
 class TealiumCollector(
-    private val context: TealiumContext
-): Module, Collector {
+    private val config: TealiumConfig,
+    private val visitorId: ObservableState<String>,
+    private val modules: ObservableState<Set<Module>>
+) : Module, Collector {
+
+    constructor(
+        context: TealiumContext,
+        modules: ObservableState<Set<Module>>
+    ) : this(context.config, context.visitorId, modules)
 
     private val secureRandom = SecureRandom()
     private val random: String
@@ -23,11 +33,11 @@ class TealiumCollector(
         }
 
     private val baseData = DataObject.create {
-        put(Dispatch.Keys.TEALIUM_ACCOUNT, context.config.accountName)
-        put(Dispatch.Keys.TEALIUM_PROFILE, context.config.profileName)
-        put(Dispatch.Keys.TEALIUM_ENVIRONMENT, context.config.environment)
-        context.config.datasource?.let {
-            put(Dispatch.Keys.TEALIUM_ACCOUNT, it)
+        put(Dispatch.Keys.TEALIUM_ACCOUNT, config.accountName)
+        put(Dispatch.Keys.TEALIUM_PROFILE, config.profileName)
+        put(Dispatch.Keys.TEALIUM_ENVIRONMENT, config.environment)
+        config.datasource?.let {
+            put(Dispatch.Keys.TEALIUM_DATASOURCE_ID, it)
         }
         put(Dispatch.Keys.TEALIUM_LIBRARY_NAME, BuildConfig.TEALIUM_LIBRARY_NAME)
         put(Dispatch.Keys.TEALIUM_LIBRARY_VERSION, BuildConfig.TEALIUM_LIBRARY_VERSION)
@@ -36,7 +46,12 @@ class TealiumCollector(
     override fun collect(): DataObject {
         return baseData.copy {
             put(Dispatch.Keys.TEALIUM_RANDOM, random)
-            put(Dispatch.Keys.TEALIUM_VISITOR_ID, context.visitorId.value)
+            put(Dispatch.Keys.TEALIUM_VISITOR_ID, visitorId.value)
+            put(Dispatch.Keys.ENABLED_MODULES, modules.value.map(Module::id).asDataList())
+            put(
+                Dispatch.Keys.ENABLED_MODULES_VERSIONS,
+                modules.value.map(Module::version).asDataList()
+            )
         }
     }
 
@@ -45,12 +60,15 @@ class TealiumCollector(
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
-    companion object: ModuleFactory {
+    companion object {
         private const val moduleName = "TealiumCollector"
+    }
+
+    class Factory(private val modules: ObservableState<Set<Module>>): ModuleFactory {
         override val id = moduleName
 
         override fun create(context: TealiumContext, settings: DataObject): Module? {
-            return TealiumCollector(context)
+            return TealiumCollector(context, modules)
         }
     }
 }

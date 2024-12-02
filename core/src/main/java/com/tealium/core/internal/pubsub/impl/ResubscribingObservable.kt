@@ -1,9 +1,11 @@
 package com.tealium.core.internal.pubsub.impl
 
+import com.tealium.core.api.pubsub.CompositeDisposable
 import com.tealium.core.api.pubsub.Disposable
-import com.tealium.core.api.pubsub.Observer
 import com.tealium.core.api.pubsub.Observable
-import com.tealium.core.internal.pubsub.SubscriptionWrapper
+import com.tealium.core.api.pubsub.Observer
+import com.tealium.core.internal.pubsub.DisposableContainer
+import com.tealium.core.internal.pubsub.addTo
 import com.tealium.core.internal.pubsub.subscribeOnce
 
 class ResubscribingObservable<T>(
@@ -13,27 +15,26 @@ class ResubscribingObservable<T>(
 
     private fun subscribeOnceInfiniteLoop(
         observer: Observer<T>,
-        subscription: SubscriptionWrapper
+        disposables: CompositeDisposable
     ): Disposable {
         return source.subscribeOnce { element ->
-            if (subscription.isDisposed) return@subscribeOnce
+            if (disposables.isDisposed) return@subscribeOnce
 
-            subscription.subscription?.dispose()
             observer.onNext(element)
             if (predicate(element)) {
-                subscription.subscription = subscribeOnceInfiniteLoop(
+                subscribeOnceInfiniteLoop(
                     observer,
-                    subscription
-                )
+                    disposables
+                ).addTo(disposables)
             }
         }
     }
 
     override fun subscribe(observer: Observer<T>): Disposable {
-        val subscription = SubscriptionWrapper()
-        subscription.subscription =
-            subscribeOnceInfiniteLoop(observer, subscription)
+        val container = DisposableContainer()
+        subscribeOnceInfiniteLoop(observer, container)
+            .addTo(container)
 
-        return subscription
+        return container
     }
 }

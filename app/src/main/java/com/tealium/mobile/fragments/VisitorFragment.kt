@@ -1,7 +1,6 @@
 package com.tealium.mobile.fragments
 
 import android.content.Context
-import android.widget.Toast
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar

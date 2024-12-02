@@ -21,6 +21,7 @@ class TealiumConfig @JvmOverloads constructor(
     val datasource: String? = null,
     enforcingCoreSettings: ((CoreSettingsBuilder) -> CoreSettingsBuilder)? = null
 ) {
+    val key: String = "${accountName}-${profileName}"
 
     private val pathName
         get() = "${application.filesDir}${File.separatorChar}tealium${File.separatorChar}${accountName}${File.separatorChar}${profileName}${File.separatorChar}${environment.environment}"

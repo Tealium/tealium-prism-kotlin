@@ -12,7 +12,7 @@ import com.tealium.core.internal.pubsub.impl.ObservableStateImpl
 /**
  * Add the current disposable to a specific container for easier cleanup.
  */
-fun Disposable.addTo(container: CompositeDisposable): Disposable = apply {
+fun <T: Disposable> T.addTo(container: CompositeDisposable): T = apply {
     container.add(this)
 }
 

@@ -1,10 +1,11 @@
 package com.tealium.core.internal.modules
 
+import com.tealium.core.api.Tealium
 import com.tealium.core.api.data.DataObject
-import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
-import com.tealium.core.api.modules.ModuleManager
+import com.tealium.core.api.modules.ModuleProxy
+import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.modules.TraceManager
 
 class TraceManagerWrapper(
@@ -12,8 +13,8 @@ class TraceManagerWrapper(
 ) : TraceManager {
 
     constructor(
-        moduleManager: ModuleManager
-    ) : this(ModuleProxy(TraceManagerImpl::class.java, moduleManager))
+        tealium: Tealium
+    ) : this(tealium.createModuleProxy(TraceManagerImpl::class.java))
 
     override fun killVisitorSession() {
         moduleProxy.getModule { trace ->
