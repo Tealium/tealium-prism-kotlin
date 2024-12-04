@@ -1,13 +1,9 @@
-package com.tealium.core.internal.persistence
+package com.tealium.core.internal.persistence.database
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.internal.persistence.database.DatabaseHelper
-import com.tealium.core.internal.persistence.database.DatabaseUpgrade
-import com.tealium.core.internal.persistence.database.Schema
-import com.tealium.core.internal.persistence.database.getTimestampMilliseconds
 import org.junit.Assert.fail
 import java.util.UUID
 

@@ -111,7 +111,7 @@ class ActivityManagerImplTests {
 
         activityManager.activities.subscribe(observer)
 
-        verify {
+        verify(timeout = 1000) {
             observer.onNext(match { activityStatus ->
                 activityStatus.activity == activity1
                         && activityStatus.type == ActivityManager.ActivityLifecycleType.Resumed

@@ -32,7 +32,7 @@ class ObserveOnObservable<T>(
     ) : Observer<T> {
 
         override fun onNext(value: T) {
-            scheduler.execute() {
+            scheduler.execute {
                 if (disposable.isDisposed) return@execute
 
                 observer.onNext(value)

@@ -54,6 +54,10 @@ class DisposableContainer(
 
         disposables.add(disposable)
     }
+
+    override fun remove(disposable: Disposable) {
+        disposables.remove(disposable)
+    }
 }
 
 /**
@@ -107,6 +111,12 @@ class AsyncDisposableContainer internal constructor(
     override fun add(disposable: Disposable) {
         disposeOn.execute {
             container.add(disposable)
+        }
+    }
+
+    override fun remove(disposable: Disposable) {
+        disposeOn.execute {
+            container.remove(disposable)
         }
     }
 }

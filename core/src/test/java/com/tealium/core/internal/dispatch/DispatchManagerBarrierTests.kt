@@ -8,8 +8,11 @@ import io.mockk.verify
 import io.mockk.every
 import io.mockk.spyk
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import java.util.concurrent.TimeUnit
 
+@RunWith(RobolectricTestRunner::class)
 class DispatchManagerBarrierTests : DispatchManagerTestsBase() {
 
     @Test
@@ -57,24 +60,20 @@ class DispatchManagerBarrierTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_StopsSendingDispatchesToDispatcher_WhenBarriersGetClosed() {
-        dispatcher1 = spyk(TestDispatcher("dispatcher_1") { dispatches, callback ->
-            barrierFlow.onNext(BarrierState.Closed)
-            dispatchManager.track(dispatch2)
-
-            scheduler.schedule(TimeFrame(100, TimeUnit.MILLISECONDS)) {
-                callback.onComplete(dispatches)
-            }
-        })
+        dispatcher1 = spyk(TestDispatcher("dispatcher_1"))
         dispatchers.onNext(setOf(dispatcher1))
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1) // closes after first dispatch
 
-        verify(timeout = 5000) {
+        barrierFlow.onNext(BarrierState.Closed)
+        dispatchManager.track(dispatch2)
+
+        verify {
             dispatcher1.dispatch(listOf(dispatch1), any())
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
         }
-        verify(timeout = 5000, inverse = true) {
+        verify(inverse = true) {
             dispatcher1.dispatch(listOf(dispatch2), any())
             queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
         }

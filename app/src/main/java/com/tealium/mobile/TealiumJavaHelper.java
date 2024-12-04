@@ -3,7 +3,6 @@ package com.tealium.mobile;
 import android.app.Application;
 import android.util.Log;
 
-import com.tealium.core.Dispatches;
 import com.tealium.core.api.Modules;
 import com.tealium.core.api.Tealium;
 import com.tealium.core.api.TealiumConfig;
@@ -89,14 +88,6 @@ public class TealiumJavaHelper {
                     DataObject.EMPTY_OBJECT), (dispatch, status) -> {
                 Log.d("TealiumJavaHelper", "Processing status: " + dispatch.getTealiumEvent() + " - " + status);
             });
-
-            tealium.track(
-                    Dispatches.event("")
-                            .putContextData(new DataObject.Builder()
-                                    .put("some_key", "some string value")
-                                    .build())
-                            .build()
-            );
         });
     }
 

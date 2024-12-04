@@ -1,21 +1,15 @@
 package com.tealium.core.internal.persistence.database
 
 import android.database.sqlite.SQLiteDatabase
-import com.tealium.core.internal.persistence.database.dropTable
-import com.tealium.core.internal.persistence.database.dropTableIfExists
-import com.tealium.core.internal.persistence.database.placeholderList
-import com.tealium.core.internal.persistence.database.tail
-import com.tealium.core.internal.persistence.database.transaction
+import android.os.Build
+import androidx.test.filters.SdkSuppress
 import io.mockk.MockKAnnotations
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
 
-@RunWith(RobolectricTestRunner::class)
 class DatabaseUtilitiesTests {
 
     @RelaxedMockK
@@ -27,6 +21,7 @@ class DatabaseUtilitiesTests {
     }
 
     @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.P)
     fun transaction_MarksTransactionSuccessful_AndEndsTransaction() {
         mockDb.transaction { }
 
@@ -38,7 +33,8 @@ class DatabaseUtilitiesTests {
     }
 
     @Test
-    fun dropTable_DropsNamedTable() {
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.P)
+    fun dropTable_DoesNothing_WhenTableNameIsEmptyDropTable_DropsNamedTable() {
         mockDb.dropTable("")
         mockDb.dropTable("   ")
 
@@ -48,7 +44,8 @@ class DatabaseUtilitiesTests {
     }
 
     @Test
-    fun dropTable_DoesNothing_WhenTableNameIsEmpty() {
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.P)
+    fun dropTable_DropsNamedTable() {
         mockDb.dropTable("test_table")
 
         verify {
@@ -57,6 +54,7 @@ class DatabaseUtilitiesTests {
     }
 
     @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.P)
     fun dropTableIfExists_DoesNothing_WhenTableNameIsEmpty() {
         mockDb.dropTableIfExists("")
         mockDb.dropTableIfExists("   ")

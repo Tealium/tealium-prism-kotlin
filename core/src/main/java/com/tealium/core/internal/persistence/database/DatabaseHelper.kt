@@ -12,7 +12,7 @@ import com.tealium.core.internal.persistence.database.Schema.ModuleTable.CREATE_
 import com.tealium.core.internal.persistence.database.Schema.QueueTable.CREATE_TRIGGER_REMOVE_PROCESSED_DISPATCHES
 import java.io.File
 
-internal class DatabaseHelper(
+internal open class DatabaseHelper(
     private val config: TealiumConfig,
     databaseName: String? = databaseName(config),
 ) :

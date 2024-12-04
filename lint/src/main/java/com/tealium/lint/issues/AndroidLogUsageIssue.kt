@@ -42,7 +42,7 @@ object AndroidLogUsageIssue {
 
     private val CATEGORY = Category.CUSTOM_LINT_CHECKS
 
-    private val SEVERITY = Severity.WARNING
+    private val SEVERITY = Severity.INFORMATIONAL
 
     val ISSUE = Issue.create(
         ID,

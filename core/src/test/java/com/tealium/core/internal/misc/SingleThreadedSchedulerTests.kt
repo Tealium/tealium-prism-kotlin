@@ -27,7 +27,7 @@ class SingleThreadedSchedulerTests {
     fun setUp() {
         task = mockk(relaxed = true)
         threadFactory = SingleThreadedScheduler.SingleThreadFactory("tealium-test")
-        executorService = spyk(Executors.newSingleThreadScheduledExecutor(threadFactory))
+        executorService = spyk(MockDelegatingScheduler(Executors.newSingleThreadScheduledExecutor(threadFactory)))
 
         scheduler = SingleThreadedScheduler(threadFactory, executorService)
     }
@@ -143,3 +143,8 @@ class SingleThreadedSchedulerTests {
         assertNotNull(thread)
     }
 }
+
+// Spyk failing on Java packaged executors, so this is our own impl that simply delegates to the
+// provided one anyway, but this can be mocked for method call recording.
+class MockDelegatingScheduler(private val delegate: ScheduledExecutorService) :
+    ScheduledExecutorService by delegate

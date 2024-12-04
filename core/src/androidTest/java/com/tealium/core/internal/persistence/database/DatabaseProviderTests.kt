@@ -1,24 +1,21 @@
-package com.tealium.core.internal.persistence
+package com.tealium.core.internal.persistence.database
 
 import android.app.Application
+import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteException
-import android.os.Build
 import androidx.test.core.app.ApplicationProvider
-import androidx.test.filters.SdkSuppress
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.internal.persistence.DatabaseTestUtils.assertV3TablesExist
-import com.tealium.core.internal.persistence.DatabaseTestUtils.createV3Database
-import com.tealium.core.internal.persistence.DatabaseTestUtils.isInMemory
-import com.tealium.core.internal.persistence.database.DatabaseHelper
-import com.tealium.core.internal.persistence.database.DatabaseProvider
-import com.tealium.core.internal.persistence.database.FileDatabaseProvider
+import com.tealium.core.internal.persistence.database.DatabaseTestUtils.assertV3TablesExist
+import com.tealium.core.internal.persistence.database.DatabaseTestUtils.createV3Database
+import com.tealium.core.internal.persistence.database.DatabaseTestUtils.isInMemory
 import com.tealium.tests.common.getDefaultConfig
 import io.mockk.every
-import io.mockk.mockk
 import io.mockk.spyk
 import org.junit.After
-import org.junit.Assert.*
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.io.File
@@ -30,6 +27,7 @@ class DatabaseProviderTests {
     lateinit var app: Application
     lateinit var config: TealiumConfig
     lateinit var databaseProvider: DatabaseProvider
+    lateinit var persistentDatabase: SQLiteDatabase
     private lateinit var dbFile: File
 
     @Before
@@ -37,6 +35,7 @@ class DatabaseProviderTests {
         app = ApplicationProvider.getApplicationContext() as Application
         config = getDefaultConfig(app)
         dbFile = File(app.filesDir, "test.db")
+        persistentDatabase = createPersistentDatabase(file = dbFile) // persistent
         mockDatabaseHelper = spyk(DatabaseHelper(config, dbFile.path))
 
         databaseProvider = FileDatabaseProvider(config, { mockDatabaseHelper })
@@ -50,11 +49,8 @@ class DatabaseProviderTests {
     }
 
     @Test
-    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.P)
     fun getDatabase_Returns_PersistentDatabase_WhenWritable() {
-        val mockDatabase = mockk<SQLiteDatabase>(relaxed = true)
-        every { mockDatabase.isReadOnly } returns false
-        every { mockDatabaseHelper.writableDatabase } returns mockDatabase
+        every { mockDatabaseHelper.writableDatabase } returns persistentDatabase
 
         val db = databaseProvider.database
 
@@ -64,11 +60,13 @@ class DatabaseProviderTests {
     }
 
     @Test
-    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.P)
     fun getDatabase_Returns_InMemoryDatabase_WhenOnlyReadable() {
-        val mockDatabase = mockk<SQLiteDatabase>()
-        every { mockDatabase.isReadOnly } returns true
-        every { mockDatabaseHelper.writableDatabase } returns mockDatabase
+        val readOnlyDatabase = SQLiteDatabase.openDatabase(
+            dbFile.path,
+            null,
+            SQLiteDatabase.OPEN_READONLY
+        )
+        every { mockDatabaseHelper.writableDatabase } returns readOnlyDatabase
 
         val db = databaseProvider.database
 
@@ -78,10 +76,7 @@ class DatabaseProviderTests {
     }
 
     @Test
-    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.P)
     fun getDatabase_Returns_InMemoryDatabase_WhenWritableIsNull() {
-        val mockDatabase = mockk<SQLiteDatabase>()
-        every { mockDatabase.isReadOnly } returns true
         every { mockDatabaseHelper.writableDatabase } returns null
 
         val db = databaseProvider.database
@@ -92,10 +87,7 @@ class DatabaseProviderTests {
     }
 
     @Test
-    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.P)
     fun getDatabase_Returns_InMemoryDatabase_WhenWritableThrows() {
-        val mockDatabase = mockk<SQLiteDatabase>()
-        every { mockDatabase.isReadOnly } returns true
         every { mockDatabaseHelper.writableDatabase } throws SQLiteException()
 
         val db = databaseProvider.database
@@ -108,10 +100,8 @@ class DatabaseProviderTests {
     @Test(expected = DatabaseHelper.UnsupportedDowngrade::class)
     fun downgrade_ThrowsUnsupportedDowngrade() {
         val persistentDb =
-            DatabaseTestUtils.createBlankDatabase(
-                config.application.applicationContext,
-                dbFile.path,
-                DatabaseHelper.DATABASE_VERSION + 1
+            createPersistentDatabase(
+                version = DatabaseHelper.DATABASE_VERSION + 1
             )
         persistentDb.close()
         createV3Database(config, dbFile.path)
@@ -120,10 +110,8 @@ class DatabaseProviderTests {
     @Test
     fun databaseProvider_onDowngrade_IsDestructive_AndRecreates() {
         var persistentDb =
-            DatabaseTestUtils.createBlankDatabase(
-                config.application.applicationContext,
-                dbFile.path,
-                DatabaseHelper.DATABASE_VERSION + 1
+            createPersistentDatabase(
+                version = DatabaseHelper.DATABASE_VERSION + 1
             )
         persistentDb.close()
         persistentDb =
@@ -133,4 +121,15 @@ class DatabaseProviderTests {
         assertFalse(persistentDb.isInMemory)
         assertV3TablesExist(persistentDb)
     }
+
+    private fun createPersistentDatabase(
+        context: Context = config.application.applicationContext,
+        file: File = dbFile,
+        version: Int = DatabaseHelper.DATABASE_VERSION
+    ): SQLiteDatabase =
+        DatabaseTestUtils.createBlankDatabase(
+            context,
+            file.path,
+            version
+        )
 }

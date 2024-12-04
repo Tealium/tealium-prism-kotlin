@@ -4,25 +4,26 @@ import android.app.Application
 import android.database.sqlite.SQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.tealium.core.api.misc.Environment
 import com.tealium.core.api.TealiumConfig
+import com.tealium.core.api.data.DataItem
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.misc.Environment
+import com.tealium.core.api.modules.Module
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.Expiry
-import com.tealium.core.api.modules.Module
-import com.tealium.core.api.data.DataObject
-import com.tealium.core.api.data.DataItem
 import com.tealium.core.internal.persistence.database.DatabaseProvider
 import com.tealium.core.internal.persistence.database.InMemoryDatabaseProvider
-import com.tealium.core.internal.persistence.stores.ModuleStore
 import com.tealium.core.internal.persistence.database.getTimestamp
+import com.tealium.core.internal.persistence.stores.ModuleStore
 import com.tealium.tests.common.TestModule
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.spyk
-import io.mockk.verify
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import org.junit.Assert.*
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.experimental.runners.Enclosed
@@ -61,6 +62,11 @@ open class SQLModulesRepositoryTests {
         moduleRepository = SQLModulesRepository(
             dbProvider,
         )
+    }
+
+    @After
+    fun tearDown() {
+        dbProvider.database.close()
     }
 
     @RunWith(AndroidJUnit4::class)
@@ -156,7 +162,7 @@ open class SQLModulesRepositoryTests {
         companion object {
             @JvmStatic
             @Parameters
-            fun expirationTypeParams() = arrayOf(
+            fun parameters() = arrayOf(
                 arrayOf(ModulesRepository.ExpirationType.Session, "session"),
                 arrayOf(ModulesRepository.ExpirationType.UntilRestart, "until_restart")
             )
@@ -215,7 +221,9 @@ open class SQLModulesRepositoryTests {
         @Test
         fun deleteExpired_NotifiesOnDataExpired_WithExpiredData() {
             val moduleIds = preregisterModules(listOf(module1, module2), true)
-            val verifier = spyk<(Map<Long, DataObject>) -> Unit>({ expired ->
+            var verifierCalled = 0
+            val verifier: (Map<Long, DataObject>) -> Unit = { expired ->
+                verifierCalled++
                 assertEquals(moduleIds.count(), expired.keys.count())
                 assertTrue(expired.keys.containsAll(moduleIds))
 
@@ -223,7 +231,7 @@ open class SQLModulesRepositoryTests {
                     assertEquals(true, expired[it]!!.getBoolean("one_second"))
                     assertEquals(true, expired[it]!!.getBoolean(expectedRemoval))
                 }
-            })
+            }
 
             moduleRepository.onDataExpired.subscribe(verifier)
             moduleRepository.deleteExpired(
@@ -231,9 +239,7 @@ open class SQLModulesRepositoryTests {
                 getTimestamp() + 2L
             )
 
-            verify(exactly = 1) {
-                verifier(any())
-            }
+            assertEquals(1, verifierCalled)
         }
     }
 

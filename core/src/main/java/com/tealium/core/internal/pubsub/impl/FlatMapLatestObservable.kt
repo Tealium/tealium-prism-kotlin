@@ -21,7 +21,7 @@ class FlatMapLatestObservable<T, L>(
 
     override fun subscribe(observer: Observer<L>): Disposable {
         val container = DisposableContainer()
-        val parent = FlatMapLatestObserver(observer, transform)
+        val parent = FlatMapLatestObserver(observer, transform, container)
 
         source.subscribe(parent)
             .addTo(container)
@@ -37,10 +37,14 @@ class FlatMapLatestObservable<T, L>(
         private var subscription: Disposable? = null
 
         override fun onNext(value: T) {
-            subscription?.dispose()
+            subscription?.let { old ->
+                old.dispose()
+                container.remove(old)
+            }
 
-            subscription = transform(value).subscribe(observer)
-            subscription?.addTo(container)
+            val newSubscription = transform(value).subscribe(observer)
+            subscription = newSubscription
+            container.add(newSubscription)
         }
     }
 }

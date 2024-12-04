@@ -33,7 +33,7 @@ class SubjectAsObservableTests {
     fun publishSubject_AsObservable_CannotCastBackToSubject() {
         val observable = Observables.publishSubject<Int>()
             .asObservable()
-        val subject = observable as PublishSubject
+        observable as PublishSubject
     }
 
     @Test
@@ -56,7 +56,7 @@ class SubjectAsObservableTests {
     fun stateSubject_AsObservable_CannotCastBackToSubject() {
         val observable = Observables.stateSubject<Int>(1)
             .asObservable()
-        val subject = observable as StateSubject
+        observable as StateSubject
     }
 
     @Test
@@ -85,6 +85,6 @@ class SubjectAsObservableTests {
     fun replaySubject_AsObservable_CannotCastBackToSubject() {
         val observable = Observables.replaySubject<Int>(1)
             .asObservable()
-        val subject = observable as ReplaySubject
+        observable as ReplaySubject
     }
 }

@@ -1,7 +1,9 @@
 package com.tealium.core.internal.pubsub
 
+import com.tealium.core.api.misc.TimeFrameUtils.milliseconds
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.internal.pubsub.ObservableUtils.assertNoSubscribers
+import com.tealium.core.internal.pubsub.ObservableUtils.assertSubscriberCount
 import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.mockk
 import io.mockk.verify
@@ -15,8 +17,11 @@ class FlatMapLatestObservableTests {
 
         Observables.just(1, 2, 3)
             .flatMapLatest {
-                Observables.just(it)
-                    .observeOn(testTealiumScheduler)
+                Observables.callback { observer ->
+                    testTealiumScheduler.schedule(100.milliseconds) {
+                        observer.onNext(it)
+                    }
+                }
             }.subscribe(onNext)
 
         verify(inverse = true, timeout = 1000) {
@@ -49,6 +54,41 @@ class FlatMapLatestObservableTests {
         verify(inverse = true) {
             onNext(3)
             onNext(4)
+        }
+    }
+
+    @Test
+    fun flatMapLatest_Disposes_Previous_Subscriptions() {
+        val subject = Observables.publishSubject<Boolean>()
+        val trues = Observables.publishSubject<Boolean>()
+        val falses = Observables.publishSubject<Boolean>()
+        val onNext = mockk<(Boolean) -> Unit>(relaxed = true)
+
+        val subscription = subject.flatMapLatest { isTrue ->
+            if (isTrue) trues else falses
+        }.subscribe(onNext)
+
+        subject.onNext(true)
+        trues.assertSubscriberCount(1)
+        falses.assertSubscriberCount(0)
+
+        subject.onNext(false)
+        trues.assertSubscriberCount(0)
+        falses.assertSubscriberCount(1)
+
+        trues.onNext(true) // dropped
+        falses.onNext(false)
+
+        subscription.dispose()
+        subject.assertNoSubscribers()
+        trues.assertNoSubscribers()
+        falses.assertNoSubscribers()
+
+        verify {
+            onNext(false)
+        }
+        verify(inverse = true) {
+            onNext(true)
         }
     }
 }

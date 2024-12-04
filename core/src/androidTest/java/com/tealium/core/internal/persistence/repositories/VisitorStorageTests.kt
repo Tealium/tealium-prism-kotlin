@@ -2,11 +2,13 @@ package com.tealium.core.internal.persistence.repositories
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
-import com.tealium.core.internal.persistence.database.InMemoryDatabaseProvider
+import com.tealium.core.internal.persistence.database.DatabaseProvider
 import com.tealium.core.internal.persistence.ModuleStoreProviderImpl
+import com.tealium.core.internal.persistence.database.InMemoryDatabaseProvider
 import com.tealium.core.internal.persistence.stores.VisitorStorage
 import com.tealium.core.internal.persistence.stores.VisitorStorageImpl
 import com.tealium.tests.common.getDefaultConfig
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Before
@@ -18,15 +20,21 @@ class VisitorStorageTests {
     private val config = getDefaultConfig(context)
 
     private lateinit var visitorStorage: VisitorStorage
+    private lateinit var dbProvider: DatabaseProvider
 
     @Before
     fun setUp() {
-        val dbProvider = InMemoryDatabaseProvider(config)
+        dbProvider = InMemoryDatabaseProvider(config)
         val modulesRepository = SQLModulesRepository(dbProvider)
         val moduleStoreProvider = ModuleStoreProviderImpl(dbProvider, modulesRepository)
         val dataStore = moduleStoreProvider.getSharedDataStore()
 
         visitorStorage = VisitorStorageImpl(dataStore)
+    }
+
+    @After
+    fun tearDown() {
+        dbProvider.database.close()
     }
 
     @Test

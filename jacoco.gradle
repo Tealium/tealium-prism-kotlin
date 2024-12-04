@@ -1,0 +1,95 @@
+apply plugin: "jacoco"
+
+jacoco {
+    toolVersion = "0.8.7"
+}
+
+tasks.withType(Test) {
+    jacoco.includeNoLocationClasses = true
+    jacoco.excludes = ['jdk.internal.*']
+}
+
+// Files with such regex patterns are to be excluded
+def exclusions = ['**/R.class', '**/R$*.class', '**/BuildConfig.*',
+                  '**/Manifest*.*', '**/*Test*.*', 'android/**/*.*']
+
+def jacocoSourceDirectories = layout.projectDirectory.dir("src/main")
+def jacocoExecutionData = files(
+    fileTree(layout.buildDirectory) { include(["**/*.exec", "**/*.ec"]) }
+)
+
+android {
+    libraryVariants.all { variant ->
+        def variantName = variant.name.capitalize()
+
+        def unitTests = "test${variantName}UnitTest"
+        def androidTests = "connected${variantName}AndroidTest"
+
+        tasks.register("jacoco${variantName}TestCoverage", JacocoReport) {
+            // Depend on unit tests and Android tests tasks
+            dependsOn([
+                    unitTests,
+                    // commented out to allow CI verification to work in a step without an emulator
+//                    androidTests
+            ])
+
+            group = "Reporting"
+            description = "Run Unit Tests and compile test coverage reports."
+
+            reports {
+                xml.required.set(true)
+                html.required.set(true)
+            }
+
+            sourceDirectories.from = jacocoSourceDirectories
+            classDirectories.from = files(
+                fileTree(layout.buildDirectory.dir("intermediates/javac/${variant.name}")) {
+                    exclude(exclusions)
+                },
+                fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/${variant.name}")) {
+                    exclude(exclusions)
+                }
+            )
+            executionData.from = jacocoExecutionData
+        }
+
+        tasks.register("verify${variantName}TestCoverage", JacocoCoverageVerification) {
+            enabled = true
+            sourceDirectories.from = jacocoSourceDirectories
+            classDirectories.from = files(
+                    fileTree(layout.buildDirectory.dir("intermediates/javac/${variant.name}")) {
+                        exclude(exclusions)
+                    },
+                    fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/${variant.name}")) {
+                        exclude(exclusions)
+                    }
+            )
+            executionData.from = jacocoExecutionData
+
+            violationRules {
+                failOnViolation = true
+                // 1
+                rule {
+                    enabled = true
+                    element = 'PACKAGE'
+                    includes = ['com.tealium.*']
+                    limit {
+                        counter = 'CLASS'
+                        value = 'MISSEDCOUNT'
+                        maximum = 1
+                    }
+                }
+                // 2
+                rule {
+                    element = 'PACKAGE'
+                    includes = ['com.tealium.*']
+                    limit {
+                        value = 'COVEREDRATIO'
+                        counter = 'INSTRUCTION'
+                        minimum = 0.3
+                    }
+                }
+            }
+        }
+    }
+}

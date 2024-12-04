@@ -2,19 +2,22 @@ package com.tealium.core.internal.persistence.repositories
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
-import com.tealium.core.api.tracking.Dispatch
-import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.misc.TimeFrameUtils.days
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.internal.persistence.database.DatabaseProvider
-import com.tealium.core.internal.persistence.DatabaseTestUtils
-import com.tealium.core.internal.persistence.DatabaseTestUtils.upgrade
+import com.tealium.core.internal.persistence.database.DatabaseTestUtils
+import com.tealium.core.internal.persistence.database.DatabaseTestUtils.upgrade
 import com.tealium.core.internal.persistence.database.InMemoryDatabaseProvider
 import com.tealium.core.internal.persistence.database.getTimestampMilliseconds
 import com.tealium.tests.common.getDefaultConfig
 import io.mockk.every
 import io.mockk.mockk
-import org.junit.Assert.*
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
@@ -65,6 +68,11 @@ class SQLQueueRepositoryTests {
         defaultProcessors = setOf(processor1, processor2, processor3)
 
         prePopulateProcessors()
+    }
+
+    @After
+    fun tearDown() {
+        dbProvider.database.close()
     }
 
     @Test

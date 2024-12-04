@@ -59,7 +59,6 @@ open class DispatchManagerTestsBase {
     protected lateinit var queue: MutableMap<String, MutableSet<Dispatch>>
     protected lateinit var queueRepository: QueueRepository
     protected lateinit var inFlightEvents: StateSubject<Map<String, Set<Dispatch>>>
-    protected lateinit var onInFlightEvents: Subject<Map<String, Set<String>>>
     protected lateinit var transformerCoordinator: TransformerCoordinator
     protected lateinit var transformers: MutableSet<Transformer>
     protected lateinit var transformersFlow: StateSubject<Set<ScopedTransformation>>
@@ -96,7 +95,6 @@ open class DispatchManagerTestsBase {
         queue = ConcurrentHashMap()
         queueRepository = VolatileQueueRepository(queue)
         inFlightEvents = Observables.stateSubject(mutableMapOf())
-        onInFlightEvents = Observables.replaySubject(cacheSize = 1)
         processors = Observables.replaySubject(1)
         coreSettings = Observables.stateSubject(CoreSettingsImpl())
         queueManager = spyk(
@@ -160,4 +158,11 @@ open class DispatchManagerTestsBase {
     protected fun disableConsent() {
         every { moduleManager.getModuleOfType(ConsentManager::class.java) } returns null
     }
+
+    protected fun testDispatch(
+        event: String,
+        type: TealiumDispatchType = TealiumDispatchType.Event,
+        data: DataObject = DataObject.EMPTY_OBJECT
+    ): Dispatch =
+        Dispatch.create(event, type, data)
 }

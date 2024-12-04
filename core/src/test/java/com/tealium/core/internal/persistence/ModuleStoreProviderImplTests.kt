@@ -4,15 +4,14 @@ import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Subject
 import com.tealium.core.internal.persistence.database.DatabaseProvider
+import com.tealium.core.internal.persistence.repositories.KeyValueRepository
 import com.tealium.core.internal.persistence.repositories.ModulesRepository
-import com.tealium.core.internal.persistence.repositories.SQLKeyValueRepository
 import com.tealium.tests.common.TestModule
 import com.tealium.tests.common.TestModuleFactory
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
-import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Before
@@ -29,8 +28,7 @@ class ModuleStoreProviderImplTests {
     @RelaxedMockK
     private lateinit var modulesRepository: ModulesRepository
 
-    @RelaxedMockK
-    private lateinit var keyValueRepositoryCreator: (DatabaseProvider, Long) -> SQLKeyValueRepository
+    private val keyValueRepositoryCreator = MockRepositoryCreator(mockk())
 
     private lateinit var moduleStoreProviderImpl: ModuleStoreProviderImpl
     private lateinit var onDataExpired: Subject<Map<Long, DataObject>>
@@ -40,6 +38,7 @@ class ModuleStoreProviderImplTests {
         MockKAnnotations.init(this)
 
         onDataExpired = Observables.publishSubject()
+
         moduleStoreProviderImpl =
             ModuleStoreProviderImpl(dbProvider, modulesRepository, keyValueRepositoryCreator)
 
@@ -47,16 +46,14 @@ class ModuleStoreProviderImplTests {
         every { modulesRepository.modules } returns emptyMap()
         every { modulesRepository.registerModule(any()) } returns 1
         every { modulesRepository.onDataExpired } returns onDataExpired
-        every { keyValueRepositoryCreator.invoke(any(), any()) } returns mockk()
     }
 
     @Test
     fun getModuleStore_RegistersNewModule_WhenMissingFromModules() {
         moduleStoreProviderImpl.getModuleStore(TestModule("test"))
 
-        verify {
-            keyValueRepositoryCreator.invoke(any(), 1)
-        }
+        assertEquals(1, keyValueRepositoryCreator.count)
+        assertEquals(1, keyValueRepositoryCreator.moduleId)
     }
 
     @Test
@@ -65,9 +62,8 @@ class ModuleStoreProviderImplTests {
 
         moduleStoreProviderImpl.getModuleStore(TestModule("test"))
 
-        verify {
-            keyValueRepositoryCreator.invoke(any(), 2)
-        }
+        assertEquals(1, keyValueRepositoryCreator.count)
+        assertEquals(2, keyValueRepositoryCreator.moduleId)
     }
 
     @Test
@@ -78,9 +74,8 @@ class ModuleStoreProviderImplTests {
         val store2 = moduleStoreProviderImpl.getModuleStore(TestModuleFactory("test"))
 
         assertSame(store1, store2)
-        verify(exactly = 1) {
-            keyValueRepositoryCreator.invoke(any(), 2)
-        }
+        assertEquals(1, keyValueRepositoryCreator.count)
+        assertEquals(2, keyValueRepositoryCreator.moduleId)
     }
 
     @Test
@@ -102,5 +97,28 @@ class ModuleStoreProviderImplTests {
         }, moduleId + 1 to DataObject.create {
             put("key3", "value3")
         }))
+    }
+
+    // Spyk failing on the mock, so using a custom one.
+    private class MockRepositoryCreator(private val returns: KeyValueRepository) : Function2<DatabaseProvider, Long, KeyValueRepository> {
+        private var _dbProvider: DatabaseProvider? = null
+        private var _moduleId: Long? = null
+
+        var count: Int = 0
+            private set
+
+        val dbProvider: DatabaseProvider
+            get() = _dbProvider!!
+        val moduleId: Long
+            get() = _moduleId!!
+
+        override fun invoke(p1: DatabaseProvider, p2: Long): KeyValueRepository {
+            count++
+
+            _dbProvider = p1
+            _moduleId = p2
+
+            return returns
+        }
     }
 }

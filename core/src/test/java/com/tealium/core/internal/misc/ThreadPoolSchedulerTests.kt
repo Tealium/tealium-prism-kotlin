@@ -23,7 +23,7 @@ class ThreadPoolSchedulerTests {
     @Before
     fun setUp() {
         task = mockk(relaxed = true)
-        executorService = spyk(Executors.newScheduledThreadPool(0))
+        executorService = spyk(MockDelegatingScheduler(Executors.newScheduledThreadPool(0)))
 
         scheduler = ThreadPoolScheduler(executorService)
     }

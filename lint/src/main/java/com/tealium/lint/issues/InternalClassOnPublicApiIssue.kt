@@ -12,12 +12,12 @@ import com.android.tools.lint.detector.api.Scope
 import com.android.tools.lint.detector.api.Severity
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiType
+import org.jetbrains.uast.UCallExpression
 import org.jetbrains.uast.UClass
 import org.jetbrains.uast.UElement
 import org.jetbrains.uast.UMethod
-import org.jetbrains.uast.UParameter
+import org.jetbrains.uast.UVariable
 import org.jetbrains.uast.getContainingUClass
-import org.jetbrains.uast.getContainingUMethod
 
 /**
  * This issue looks for usage of classes from `com.tealium.core.internal` in any package that isn't
@@ -58,8 +58,12 @@ object InternalClassOnPublicApiIssue {
     )
 
     class InternalClassOnPublicApiDetector : Detector(), Detector.UastScanner {
-        override fun getApplicableUastTypes(): List<Class<out UElement>>? =
-            listOf(UMethod::class.java, UParameter::class.java)
+        override fun getApplicableUastTypes(): List<Class<out UElement>> =
+            listOf(
+                UMethod::class.java,
+                UVariable::class.java,
+                UCallExpression::class.java
+            )
 
         override fun createUastHandler(context: JavaContext): UElementHandler =
             InternalClassOnPublicApiVisitor(context)
@@ -68,76 +72,134 @@ object InternalClassOnPublicApiIssue {
 
 class InternalClassOnPublicApiVisitor(private val context: JavaContext) : UElementHandler() {
     private val internalPackageRegex = Regex("com\\.tealium[.a-zA-Z]*\\.internal\\..*")
-    private val internalPackage = "com.tealium.core.internal"
+
+    override fun visitVariable(node: UVariable) {
+        // UVariable covers a lot of ares: e.g. Fields and Parameters, as well as local variable types
+        val type = node.type
+        val source = node.typeReference?.sourcePsi ?: return
+
+        assertReferencingIssue(node, type, source, TypeDescription.Element)
+    }
 
     override fun visitMethod(node: UMethod) {
-        if (node.isInInternalClass) return
+        // Only checking the Method return type here.
+        val type = node.returnType ?: return
+        val source = node.returnTypeReference?.sourcePsi ?: return
 
-        assertReturnType(node)
+        assertReferencingIssue(node, type, source, TypeDescription.ReturnType)
     }
 
-    override fun visitParameter(node: UParameter) {
-        if (node.isInInternalClass) return
+    override fun visitCallExpression(node: UCallExpression) {
+        // This should cover most use sites of variables.
+        listOfNotNull(node.receiverType, node.returnType)
+            .forEach { type ->
+                val source = node.sourcePsi ?: return
 
-        val method = node.getContainingUMethod() ?: return
-
-        assertParameterType(method, node)
-    }
-
-    private fun assertReturnType(method: UMethod) {
-        val type = method.returnType ?: return
-
-        if (type.isInternal) {
-            val source = method.returnTypeReference?.sourcePsi ?: return
-            reportReturnTypeIssue(method, source, type.canonicalText)
-        }
-    }
-
-    private fun assertParameterType(method: UMethod, param: UParameter) {
-        if (param.type.isInternal) {
-            val psi = param.typeReference?.sourcePsi
-            if (psi != null) {
-                reportParameterIssue(psi, param.type.canonicalText)
+                // Call expressions are ok when referencing an internal class
+                // as long as it's within this module, so we're only interested in references to
+                // internal classes of other modules.
+                if (type.isInternalAndNonLocal) {
+                    reportReferenceToNonLocalInternalClass(
+                        node,
+                        type,
+                        source,
+                        TypeDescription.Element
+                    )
+                }
             }
+    }
+
+    /**
+     * Checks for the following two cases:
+     *  - The [reference] is an internal type and IS from this module, but the [scope] is exposing it on the public API
+     *  - The [reference] is an internal type, but it IS NOT from this module
+     *
+     *  This check is useful for cases where the [scope] will form a part of the public API
+     *  e.g. Method Return Types and parameters.
+     */
+    private fun assertReferencingIssue(
+        scope: UElement,
+        reference: PsiType,
+        source: PsiElement,
+        typeDescription: TypeDescription
+    ) {
+        if (isInternalAndLocal(scope, reference)) {
+            reportReferenceToLocalInternalClass(scope, reference, source, typeDescription)
+        } else if (reference.isInternalAndNonLocal) {
+            reportReferenceToNonLocalInternalClass(scope, reference, source, typeDescription)
         }
     }
+
+    private fun isInternalAndLocal(scope: UElement, type: PsiType): Boolean =
+        type.isInternal && !scope.isInInternalClass && type.isFromThisModule
+
+    private val PsiType.isInternalAndNonLocal: Boolean
+        get() = isInternal
+                && isTealiumOwned // needed to filter out references to `java.*` and `kotlin.*` etc.
+                && !isFromThisModule
+
+    private val PsiType.isTealiumOwned: Boolean
+        get() = canonicalText.startsWith("com.tealium.")
+
+    private val PsiType.isFromThisModule: Boolean
+        get() = canonicalText.startsWith(context.project.`package`)
 
     private val UClass.isInternal: Boolean
-        get() = qualifiedName?.startsWith(internalPackage) ?: false
+        get() = qualifiedName?.contains(internalPackageRegex) ?: false
 
-    private val UMethod.isInInternalClass : Boolean
-        get() = getContainingUClass()?.isInternal ?: false
-
-    private val UParameter.isInInternalClass : Boolean
+    private val UElement.isInInternalClass: Boolean
         get() = getContainingUClass()?.isInternal ?: false
 
     private val PsiType.isInternal: Boolean
         get() = canonicalText.contains(internalPackageRegex)
 
-    private fun reportReturnTypeIssue(node: UMethod, element: PsiElement, type: String) {
-        reportIssue(
-            node, element, messageTemplate.format("Return type", type)
-        )
-    }
-
-    private fun reportParameterIssue(param: PsiElement, type: String) {
-        reportIssue(
-            null, param, messageTemplate.format("Parameter", type)
-        )
-    }
-
-    private val messageTemplate = """
-            %s is referencing an class from `${internalPackage}.*` and may be obfuscated when built for release.
-            
+    private val nonLocalMessageTemplate = """
+            %s is referencing a class from an internal package in another module and may be obfuscated when built for release.
+            Class name: `%s`
+        """
+    private val localMessageTemplate = """
+            %s is on the public API, but is exposing a class that is internal to this module and may be obfuscated when built for release.
             Class name: `%s`
         """
 
-    private fun reportIssue(node: UMethod? = null, element: PsiElement, message: String) {
+    private fun reportReferenceToLocalInternalClass(
+        scope: UElement,
+        referenceType: PsiType,
+        element: PsiElement,
+        type: TypeDescription
+    ) {
+        reportIssue(
+            scope, element, localMessageTemplate, type.string, referenceType.canonicalText
+        )
+    }
+
+    private fun reportReferenceToNonLocalInternalClass(
+        scope: UElement,
+        referenceType: PsiType,
+        element: PsiElement,
+        type: TypeDescription
+    ) {
+        reportIssue(
+            scope, element, nonLocalMessageTemplate, type.string, referenceType.canonicalText
+        )
+    }
+
+    private fun reportIssue(
+        node: UElement? = null,
+        element: PsiElement,
+        messageTemplate: String,
+        vararg args: Any?
+    ) {
         context.report(
             issue = InternalClassOnPublicApiIssue.ISSUE,
-            scopeClass = node,
-            location = context.getNameLocation(element),
-            message = message
+            scope = node,
+            location = context.getLocation(element),
+            message = messageTemplate.format(*args)
         )
+    }
+
+    enum class TypeDescription(val string: String) {
+        ReturnType("Return type"),
+        Element("Element")
     }
 }

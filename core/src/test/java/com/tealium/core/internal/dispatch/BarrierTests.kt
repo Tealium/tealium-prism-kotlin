@@ -15,8 +15,11 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 
+@RunWith(RobolectricTestRunner::class)
 class BarrierTests {
 
     private lateinit var allState1: Subject<BarrierState>

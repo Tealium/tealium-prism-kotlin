@@ -1,14 +1,14 @@
-package com.tealium.core.internal.persistence
+package com.tealium.core.internal.persistence.database
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.internal.persistence.DatabaseTestUtils.assertV1TablesExist
-import com.tealium.core.internal.persistence.DatabaseTestUtils.assertV2TablesExist
-import com.tealium.core.internal.persistence.DatabaseTestUtils.assertV3TablesExist
-import com.tealium.core.internal.persistence.DatabaseTestUtils.assertV3TablesPostUpgrade
-import com.tealium.core.internal.persistence.DatabaseTestUtils.createV3Database
-import com.tealium.core.internal.persistence.DatabaseTestUtils.upgrade
+import com.tealium.core.internal.persistence.database.DatabaseTestUtils.assertV1TablesExist
+import com.tealium.core.internal.persistence.database.DatabaseTestUtils.assertV2TablesExist
+import com.tealium.core.internal.persistence.database.DatabaseTestUtils.assertV3TablesExist
+import com.tealium.core.internal.persistence.database.DatabaseTestUtils.assertV3TablesPostUpgrade
+import com.tealium.core.internal.persistence.database.DatabaseTestUtils.createV3Database
+import com.tealium.core.internal.persistence.database.DatabaseTestUtils.upgrade
 import com.tealium.tests.common.getDefaultConfig
 import org.junit.After
 import org.junit.Before

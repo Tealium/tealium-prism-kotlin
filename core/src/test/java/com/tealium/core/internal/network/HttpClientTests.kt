@@ -86,12 +86,10 @@ class HttpClientTests {
                         }
 
                         is NetworkIOException -> {
-                            val cause = error.cause?.cause
                             errorMessage = error.cause?.message
                         }
 
                         is UnexpectedException -> {
-                            val cause = error.cause?.cause
                             errorMessage = error.cause?.message
                         }
 
@@ -448,12 +446,9 @@ class HttpClientTests {
     @Test
     fun delayRequestIfInterceptorReturnsAfterEvent() {
         val subject = Observables.publishSubject<Unit>()
-        val event = subject
-            .subscribeOn(testNetworkScheduler)
-            .observeOn(testNetworkScheduler)
 
         every { mockInterceptor.shouldRetry(any(), any(), any()) } returns RetryAfterEvent(
-            event
+            subject
         )
 
         val httpRequest = HttpRequest.get(
@@ -464,12 +459,12 @@ class HttpClientTests {
         httpClient.processInterceptorsForDelay(httpRequest, mockk(), 0, completion)
 
         verify { mockInterceptor.shouldRetry(httpRequest, any(), any()) }
-        verify(timeout = 500, inverse = true) {
+        verify(inverse = true) {
             completion(true)
         }
 
         subject.onNext(Unit)
-        verify(timeout = 500) {
+        verify {
             completion(true)
         }
     }

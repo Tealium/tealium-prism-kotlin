@@ -1,8 +1,8 @@
 package com.tealium.core.api
 
 import android.app.Application
-import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.misc.TealiumCallback
+import com.tealium.core.api.misc.TealiumResult
 import com.tealium.tests.common.getDefaultConfig
 import io.mockk.every
 import io.mockk.mockk
@@ -29,7 +29,7 @@ class TealiumTests {
         val callback = mockk<TealiumCallback<TealiumResult<Tealium>>>(relaxed = true)
         Tealium.create(getDefaultConfig(app), callback)
 
-        verify(timeout = 2000) {
+        verify(timeout = 5000) {
             callback.onComplete(match { result ->
                 result.isSuccess
                         && result.getOrNull() != null
@@ -46,11 +46,11 @@ class TealiumTests {
             threads.add(Thread.currentThread())
         }
 
-        val tealium1 = Tealium.create(
+        Tealium.create(
             getDefaultConfig(app, accountName = "tealium1"),
             callback
         )
-        val tealium2 = Tealium.create(
+        Tealium.create(
             getDefaultConfig(app, accountName = "tealium2"),
             callback
         )

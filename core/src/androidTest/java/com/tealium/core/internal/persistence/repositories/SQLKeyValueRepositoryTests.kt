@@ -2,17 +2,24 @@ package com.tealium.core.internal.persistence.repositories
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
-import com.tealium.core.api.misc.Environment
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.api.persistence.Expiry
-import com.tealium.core.api.data.DataObject
-import com.tealium.core.api.data.DataList
 import com.tealium.core.api.data.DataItem
+import com.tealium.core.api.data.DataList
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.misc.Environment
+import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.internal.persistence.database.DatabaseProvider
 import com.tealium.core.internal.persistence.database.InMemoryDatabaseProvider
 import com.tealium.core.internal.persistence.database.getTimestamp
 import com.tealium.tests.common.TestModule
-import org.junit.Assert.*
+import org.junit.After
+import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import java.sql.SQLException
@@ -53,6 +60,11 @@ class SQLKeyValueRepositoryTests {
         )
         module1Id = moduleRepository.registerModule(module1.id)
         module2Id = moduleRepository.registerModule(module2.id)
+    }
+
+    @After
+    fun tearDown() {
+        dbProvider.database.close()
     }
 
     @Test
