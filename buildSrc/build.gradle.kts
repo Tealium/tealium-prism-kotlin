@@ -10,9 +10,9 @@ repositories {
 }
 
 dependencies {
-    implementation("com.android.tools.build:gradle:8.1.0")
-    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.22")
-    implementation("org.eclipse.jgit:org.eclipse.jgit:6.10.0.202406032230-r")
+    implementation(libs.android.gradle)
+    implementation(libs.kotlin.gradle.jvm)
+    implementation(libs.eclipse.jgit)
 }
 
 gradlePlugin {
