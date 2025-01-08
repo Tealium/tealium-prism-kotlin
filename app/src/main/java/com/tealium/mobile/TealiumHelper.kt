@@ -102,6 +102,16 @@ object TealiumHelper {
                 vs.resetVisitorId()
             }
 
+//            tealium.trace.killVisitorSession()
+//                .subscribe {
+//                    try {
+//                        it.getOrThrow()
+//                        Log.d(TAG, "Visitor Session Killed")
+//                    } catch (e: TealiumException) {
+//                        Log.d(TAG, "Error killing visitor session: ${e.message}")
+//                    }
+//                }
+
             // do onReady
             Log.d(TAG, "Tealium is ready")
 //            it.consent.consentStatus = ConsentStatus.Consented

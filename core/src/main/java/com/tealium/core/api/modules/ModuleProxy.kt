@@ -2,7 +2,9 @@ package com.tealium.core.api.modules
 
 import com.tealium.core.api.Tealium
 import com.tealium.core.api.misc.TealiumCallback
+import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.pubsub.Observable
+import com.tealium.core.api.pubsub.Single
 import com.tealium.core.api.pubsub.Subscribable
 
 /**
@@ -35,4 +37,23 @@ interface ModuleProxy<T: Module> {
      * @return A [Subscribable] for the inner [Observable].
      */
     fun <R> observeModule(transform: (T) -> Observable<R>): Subscribable<R>
+
+    /**
+     * Eagerly executes a [task] for the Module, with the result returned as a [TealiumResult]
+     *
+     * @param task The task to execute for the [Module]
+     *
+     * @return [Single] containing either the result of the task, or the failing exception
+     */
+    fun <R> executeModuleTask(task: (T) -> R): Single<TealiumResult<R>>
+
+    /**
+     * Eagerly executes a [task] for the Module. The [task] should use the provided
+     * callback to emit a result to the returned [Observable].
+     *
+     * @param task The task to execute for the [Module]
+     *
+     * @return [Single] containing either the result of the task, or the failing exception
+     */
+    fun <R> executeModuleTask(task: (T, TealiumCallback<TealiumResult<R>>) -> Unit): Single<TealiumResult<R>>
 }

@@ -24,6 +24,7 @@ import com.tealium.core.internal.persistence.stores.ModuleStore
 import com.tealium.core.internal.settings.SdkSettings
 import com.tealium.tests.common.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
+import com.tealium.tests.common.mockkEditor
 import io.mockk.Called
 import io.mockk.MockKAnnotations
 import io.mockk.every
@@ -66,7 +67,7 @@ class DataLayerWrapperTests {
         onDataUpdated = Observables.publishSubject()
         onDataRemoved = Observables.publishSubject()
 
-        mockkEditor()
+        mockkEditor(editor)
         every { dataStore.edit() } returns editor
         every { dataStore.onDataUpdated } returns onDataUpdated
         every { dataStore.onDataRemoved } returns onDataRemoved
@@ -666,23 +667,5 @@ class DataLayerWrapperTests {
         override fun create(context: TealiumContext, settings: DataObject): Module? {
             return module
         }
-    }
-
-    /**
-     * Mocks all [DataStore.Editor] methods to make sure it returns the same mock for recording purposes
-     */
-    private fun mockkEditor() {
-        every { editor.putAll(any(), any()) } returns editor
-        every { editor.put(any(), any<DataItem>(), any()) } returns editor
-        every { editor.put(any(), any<String>(), any()) } returns editor
-        every { editor.put(any(), any<Int>(), any()) } returns editor
-        every { editor.put(any(), any<Long>(), any()) } returns editor
-        every { editor.put(any(), any<Double>(), any()) } returns editor
-        every { editor.put(any(), any<Boolean>(), any()) } returns editor
-        every { editor.put(any(), any<DataList>(), any()) } returns editor
-        every { editor.put(any(), any<DataObject>(), any()) } returns editor
-        every { editor.remove(any<String>()) } returns editor
-        every { editor.remove(any<List<String>>()) } returns editor
-        every { editor.clear() } returns editor
     }
 }

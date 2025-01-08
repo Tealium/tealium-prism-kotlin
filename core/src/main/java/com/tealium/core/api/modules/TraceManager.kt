@@ -1,9 +1,39 @@
 package com.tealium.core.api.modules
 
+import com.tealium.core.api.misc.TealiumResult
+import com.tealium.core.api.pubsub.Single
+
+/**
+ * The [TraceManager] is responsible for handling Tealium trace registration.
+ *
+ * Joining a trace will add the trace id to each event for filtering server side. Users can leave
+ * the trace when finished.
+ */
 interface TraceManager {
-    fun killVisitorSession()
-    fun join(id: String)
-    fun leave()
+
+    /**
+     * Attempts to kill the visitor session for the current trace.
+     *
+     * The Trace will remain active until [leave] is called.
+     *
+     * @return An async result for optional error handling
+     */
+    fun killVisitorSession() : Single<TealiumResult<Unit>>
+
+    /**
+     * Joins a Trace for the given [id]. The trace id will be added to all future
+     * events that are tracked until either [leave] is called, or the current session expires.
+     *
+     * @return An async result for optional error handling
+     */
+    fun join(id: String) : Single<TealiumResult<Unit>>
+
+    /**
+     * Leaves the current trace if one is has been joined.
+     *
+     * @return An async result for optional error handling
+     */
+    fun leave() : Single<TealiumResult<Unit>>
 }
 
 

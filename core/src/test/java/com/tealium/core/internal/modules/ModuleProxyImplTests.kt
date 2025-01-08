@@ -1,9 +1,12 @@
 package com.tealium.core.internal.modules
 
+import com.tealium.core.api.Tealium
 import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.misc.TealiumCallback
+import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleManager
+import com.tealium.core.api.modules.ModuleNotEnabledException
 import com.tealium.core.api.modules.ModuleProxy
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.pubsub.Observable
@@ -207,7 +210,152 @@ class ModuleProxyImplTests {
         }
     }
 
-    private fun <T: Module> createProxy(
+    @Test
+    fun executeModuleTask_Returns_Single_Failure_When_Tealium_Shutdown() {
+        val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
+        moduleManagerSubject.onNext(null)
+
+        dispatcherProxy.executeModuleTask(TestDispatcher::id)
+            .subscribe(observer)
+        dispatcherProxy.executeModuleTask(callbackDispatcherTask)
+            .subscribe(observer)
+
+        verify(exactly = 2) {
+            observer.onNext(match {
+                it.isFailure
+                        && it.exceptionOrNull() is Tealium.TealiumShutdownException
+            })
+        }
+    }
+
+    @Test
+    fun executeModuleTask_Returns_Single_Failure_When_Module_Unavailable() {
+        val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
+        moduleManager.updateModuleSettings(context, disableModuleSettings(dispatcher.id))
+        moduleManagerSubject.onNext(moduleManager)
+
+        dispatcherProxy.executeModuleTask(TestDispatcher::id)
+            .subscribe(observer)
+        dispatcherProxy.executeModuleTask(callbackDispatcherTask)
+            .subscribe(observer)
+
+        verify(exactly = 2) {
+            observer.onNext(match {
+                it.isFailure
+                        && it.exceptionOrNull() is ModuleNotEnabledException
+            })
+        }
+    }
+
+    @Test
+    fun executeModuleTask_Returns_Single_Failure_When_Task_Throws() {
+        val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
+        val exception = IllegalStateException()
+        moduleManagerSubject.onNext(moduleManager)
+
+        dispatcherProxy.executeModuleTask<String> { _ -> throw exception }
+            .subscribe(observer)
+        dispatcherProxy.executeModuleTask<String> { _, _ -> throw exception }
+            .subscribe(observer)
+
+        verify(exactly = 2) {
+            observer.onNext(match {
+                it.isFailure
+                        && it.exceptionOrNull() == exception
+            })
+        }
+    }
+
+    @Test
+    fun executeModuleTask_Returns_Single_Success_When_Module_Enabled() {
+        val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
+        moduleManagerSubject.onNext(moduleManager)
+
+        dispatcherProxy.executeModuleTask(TestDispatcher::id)
+            .subscribe(observer)
+        dispatcherProxy.executeModuleTask(callbackDispatcherTask)
+            .subscribe(observer)
+
+        verify(exactly = 2) {
+            observer.onNext(match {
+                it.isSuccess
+                        && it.getOrThrow() == dispatcher.id
+            })
+        }
+    }
+
+    @Test
+    fun executeModuleTask_Returns_Single_That_Replays_Result() {
+        val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
+        moduleManagerSubject.onNext(moduleManager)
+
+        listOf(
+            dispatcherProxy.executeModuleTask(TestDispatcher::id),
+            dispatcherProxy.executeModuleTask(callbackDispatcherTask)
+        ).forEach {
+            it.subscribe(observer)
+            it.subscribe(observer)
+        }
+
+        verify(exactly = 4) {
+            observer.onNext(match {
+                it.isSuccess
+                        && it.getOrThrow() == dispatcher.id
+            })
+        }
+    }
+
+    @Test
+    fun executeModuleTask_Eagerly_Fetches_Value_Regardless_Of_Subscription_Order() {
+        val observer1 = mockk<Observer<TealiumResult<Int>>>(relaxed = true)
+        val observer2 = mockk<Observer<TealiumResult<Int>>>(relaxed = true)
+        moduleManagerSubject.onNext(moduleManager)
+        val proxy = createProxy(ModuleWithObservable::class.java)
+
+        val result1 = proxy.executeModuleTask { module ->
+            module.counter.incrementAndGet()
+        }
+        val result2 = proxy.executeModuleTask { module ->
+            module.counter.incrementAndGet()
+        }
+        result2.subscribe(observer2)
+        result1.subscribe(observer1)
+
+        verify {
+            observer1.onNext(match { it.getOrThrow() == 1 })
+            observer2.onNext(match { it.getOrThrow() == 2 })
+        }
+    }
+
+    @Test
+    fun executeModuleTask_With_Callback_Eagerly_Fetches_Value_Regardless_Of_Subscription_Order() {
+        val observer1 = mockk<Observer<TealiumResult<Int>>>(relaxed = true)
+        val observer2 = mockk<Observer<TealiumResult<Int>>>(relaxed = true)
+        moduleManagerSubject.onNext(moduleManager)
+        val proxy = createProxy(ModuleWithObservable::class.java)
+
+        val result1 = proxy.executeModuleTask { module, callback ->
+            callback.onComplete(TealiumResult.success(module.counter.incrementAndGet()))
+        }
+        val result2 = proxy.executeModuleTask { module, callback ->
+            callback.onComplete(TealiumResult.success(module.counter.incrementAndGet()))
+        }
+        result2.subscribe(observer2)
+        result1.subscribe(observer1)
+
+
+        verify {
+            observer1.onNext(match { it.getOrThrow() == 1 })
+            observer2.onNext(match { it.getOrThrow() == 2 })
+        }
+    }
+
+    private val callbackDispatcherTask: (TestDispatcher, TealiumCallback<TealiumResult<String>>) -> Unit =
+        { dispatcher, callback ->
+            callback.onComplete(TealiumResult.success(dispatcher.id))
+        }
+
+    private fun <T : Module> createProxy(
         clazz: Class<T>,
         modules: Observable<ModuleManager?> = moduleManagerSubject,
         scheduler: Scheduler = SynchronousScheduler(),

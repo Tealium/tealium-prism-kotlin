@@ -4,6 +4,7 @@ import com.tealium.core.api.modules.Module
 import com.tealium.core.api.pubsub.Subject
 import com.tealium.core.api.settings.ModuleSettingsBuilder
 import com.tealium.core.internal.settings.SdkSettings
+import java.util.concurrent.atomic.AtomicInteger
 
 private fun enableDisableModuleSettings(name: String, enabled: Boolean) : SdkSettings = SdkSettings(
     mapOf(
@@ -32,4 +33,6 @@ class ModuleWithObservable(
     val subject: Subject<Int>,
     override val id: String,
     override val version: String = "0.0.0"
-) : Module
+) : Module {
+    var counter = AtomicInteger(0)
+}

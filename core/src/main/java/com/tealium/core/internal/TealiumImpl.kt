@@ -41,10 +41,10 @@ import com.tealium.core.internal.modules.InternalModuleManager
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import com.tealium.core.internal.modules.TealiumCollector
 import com.tealium.core.internal.modules.TimedEventsManagerImpl
-import com.tealium.core.internal.modules.TraceManagerImpl
 import com.tealium.core.internal.modules.collect.CollectDispatcher
 import com.tealium.core.internal.modules.consent.ConsentModule
 import com.tealium.core.internal.modules.datalayer.DataLayerModule
+import com.tealium.core.internal.modules.trace.TraceManagerModule
 import com.tealium.core.internal.network.ConnectivityBarrier
 import com.tealium.core.internal.network.ConnectivityInterceptor
 import com.tealium.core.internal.network.ConnectivityRetriever
@@ -292,7 +292,7 @@ class TealiumImpl(
             return listOf(
                 TealiumCollector.Factory(modules),
                 DataLayerModule,
-                TraceManagerImpl,
+                TraceManagerModule.Factory,
                 DeeplinkManagerImpl,
                 TimedEventsManagerImpl
             )

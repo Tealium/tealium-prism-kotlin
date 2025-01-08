@@ -1,6 +1,7 @@
 package com.tealium.core.api.pubsub
 
 import com.tealium.core.api.misc.Scheduler
+import com.tealium.core.internal.pubsub.SingleImpl
 import com.tealium.core.internal.pubsub.impl.BufferedObservable
 import com.tealium.core.internal.pubsub.impl.DistinctObservable
 import com.tealium.core.internal.pubsub.impl.FilterObservable
@@ -151,7 +152,7 @@ interface Observable<T> : Subscribable<T> {
      * Returns an observable that will emit all the given [item] values before making a subscription
      * to the source observable.
      */
-    fun startWith(vararg item: T) : Observable<T> {
+    fun startWith(vararg item: T): Observable<T> {
         return StartWithObservable(this, item.asIterable())
     }
 
@@ -190,7 +191,7 @@ interface Observable<T> : Subscribable<T> {
      *
      * @param predicate The test to decide when to stop subscribing.
      */
-    fun resubscribingWhile(predicate: (T) -> Boolean) : Observable<T> {
+    fun resubscribingWhile(predicate: (T) -> Boolean): Observable<T> {
         return ResubscribingObservable(this, predicate)
     }
 
@@ -212,5 +213,15 @@ interface Observable<T> : Subscribable<T> {
      */
     fun withState(valueSupplier: () -> T): ObservableState<T> {
         return ObservableStateValue(this, valueSupplier)
+    }
+
+    /**
+     * Converts this [Observable] to a [Single] subscribing on the given [Scheduler]
+     *
+     * A [take] and [subscribeOn] are applied to the source [Observable] automatically to
+     * enforce only a single emission.
+     */
+    fun asSingle(scheduler: Scheduler): Single<T> {
+        return SingleImpl(this, scheduler)
     }
 }

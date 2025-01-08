@@ -18,12 +18,12 @@ import com.tealium.core.api.pubsub.Observer
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TrackResult
 import com.tealium.core.api.tracking.TrackResultListener
-import com.tealium.core.internal.modules.datalayer.DataLayerWrapper
 import com.tealium.core.internal.modules.DeepLinkManagerWrapper
 import com.tealium.core.internal.modules.ModuleProxyImpl
 import com.tealium.core.internal.modules.TimedEventsManagerWrapper
-import com.tealium.core.internal.modules.TraceManagerWrapper
 import com.tealium.core.internal.modules.VisitorServiceWrapper
+import com.tealium.core.internal.modules.datalayer.DataLayerWrapper
+import com.tealium.core.internal.modules.trace.TraceManagerWrapper
 import com.tealium.core.internal.pubsub.AsyncDisposableContainer
 import com.tealium.core.internal.pubsub.addTo
 

@@ -17,25 +17,25 @@ import com.tealium.core.internal.settings.SdkSettings
 class ModuleManagerImpl(
     moduleFactories: List<ModuleFactory>,
     private val scheduler: Scheduler,
-    private val modulesSubject: StateSubject<Set<Module>> = Observables.stateSubject(setOf())
+    private val _modules: StateSubject<Set<Module>> = Observables.stateSubject(setOf())
 ) : InternalModuleManager {
 
     private val moduleFactories: MutableList<ModuleFactory> = moduleFactories.toMutableList()
-    private var _modules: Map<String, Module> = emptyMap()
 
     override val modules: ObservableState<Set<Module>>
-        get() = modulesSubject.asObservableState()
+        get() = _modules.asObservableState()
 
     override fun addModuleFactory(vararg moduleFactory: ModuleFactory) {
         moduleFactories.addAll(moduleFactory)
     }
 
-    override fun <T: Module> getModulesOfType(clazz: Class<T>): List<T> {
-        return _modules.values.filterIsInstance(clazz)
+    override fun <T : Module> getModulesOfType(clazz: Class<T>): List<T> {
+        return _modules.value
+            .filterIsInstance(clazz)
     }
 
-    override fun <T: Module> getModuleOfType(clazz: Class<T>): T? {
-        for (module in _modules.values) {
+    override fun <T : Module> getModuleOfType(clazz: Class<T>): T? {
+        for (module in _modules.value) {
             if (clazz.isInstance(module)) {
                 return clazz.cast(module)
             }
@@ -44,14 +44,14 @@ class ModuleManagerImpl(
         return null
     }
 
-    override fun <T: Module> getModuleOfType(clazz: Class<T>, callback: TealiumCallback<T?>) {
+    override fun <T : Module> getModuleOfType(clazz: Class<T>, callback: TealiumCallback<T?>) {
         scheduler.execute {
             callback.onComplete(getModuleOfType(clazz))
         }
     }
 
     override fun <T : Module> observeModule(clazz: Class<T>): Observable<T?> =
-        modulesSubject.map { modules ->
+        _modules.map { modules ->
             modules.filterIsInstance(clazz).firstOrNull()
         }.distinct()
             .subscribeOn(scheduler)
@@ -68,21 +68,17 @@ class ModuleManagerImpl(
             }
         }.subscribeOn(scheduler)
 
-
     override fun shutdown() {
-        val toShutdown = _modules
-        _modules = emptyMap()
-
-        for ((_, module) in toShutdown) {
+        for (module in _modules.value) {
             module.onShutdown()
         }
         moduleFactories.clear()
-        modulesSubject.onNext(emptySet())
+        _modules.onNext(emptySet())
     }
 
     override fun updateModuleSettings(context: TealiumContext, settings: SdkSettings) {
         // iterate all factories to preserve insertion order
-        val oldModules = _modules
+        val oldModules = _modules.value.associateBy(Module::id)
         val newModules = moduleFactories.mapNotNull { factory ->
             val module = oldModules[factory.id]
             val newSettings = settings.moduleSettings.getOrDefault(factory.id)
@@ -100,12 +96,9 @@ class ModuleManagerImpl(
                     factory
                 )
             }
-        }.associateBy { module ->
-            module.id
-        }
-        _modules = newModules
+        }.toSet()
 
-        modulesSubject.onNext(_modules.values.toSet())
+        _modules.onNext(newModules)
     }
 
     private fun updateOrDisableModule(
