@@ -2,7 +2,7 @@ package com.tealium.core.api.misc
 
 import android.app.Activity
 import com.tealium.core.api.pubsub.Observable
-import com.tealium.core.internal.persistence.database.getTimestamp
+import com.tealium.core.internal.persistence.database.getTimestampMilliseconds
 
 /**
  * Shared utility class for monitoring the current lifecycle state of a running application.
@@ -18,10 +18,10 @@ interface ActivityManager {
      * before an activity is on show. After which point, the only possible states should be
      * [Foregrounded] or [Backgrounded]
      */
-    sealed class ApplicationStatus(val timestamp: Long = getTimestamp()) {
-        class Init : ApplicationStatus()
-        class Foregrounded : ApplicationStatus()
-        class Backgrounded : ApplicationStatus()
+    sealed class ApplicationStatus(val timestamp: Long) {
+        class Init(timestamp: Long = getTimestampMilliseconds()) : ApplicationStatus(timestamp)
+        class Foregrounded(timestamp: Long = getTimestampMilliseconds()) : ApplicationStatus(timestamp)
+        class Backgrounded(timestamp: Long = getTimestampMilliseconds()) : ApplicationStatus(timestamp)
     }
 
     /**
@@ -44,7 +44,7 @@ interface ActivityManager {
     data class ActivityStatus(
         val type: ActivityLifecycleType,
         val activity: Activity,
-        val timestamp: Long = getTimestamp()
+        val timestamp: Long = getTimestampMilliseconds()
     )
 
     /**

@@ -16,6 +16,8 @@ import com.tealium.core.api.modules.ModuleFactory;
 import com.tealium.core.api.modules.consent.ConsentManagementAdapter;
 import com.tealium.core.api.tracking.Dispatch;
 import com.tealium.core.api.tracking.TealiumDispatchType;
+import com.tealium.lifecycle.Lifecycle;
+import com.tealium.lifecycle.LifecycleDataTarget;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -38,6 +40,7 @@ public class TealiumJavaHelper {
             }
         });
         teal.getTrace().join("");
+//        Lifecycle.getInstance(teal);
     }
 
     public void track() {
@@ -108,6 +111,13 @@ public class TealiumJavaHelper {
                     .setBatchUrl(localhost);
             return settings;
         });
+    }
+
+    private static ModuleFactory configureLifecycle() {
+//        return Lifecycle.configure();
+        return Lifecycle.configure(lifecycleSettingsBuilder ->
+            lifecycleSettingsBuilder.setDataTarget(LifecycleDataTarget.AllEvents)
+        );
     }
 
     private static ModuleFactory configureConsent() {

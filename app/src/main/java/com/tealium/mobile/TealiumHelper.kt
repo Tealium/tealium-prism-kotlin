@@ -27,6 +27,8 @@ import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.api.tracking.TrackResult
+import com.tealium.lifecycle.LifecycleDataTarget
+import com.tealium.lifecycle.lifecycle
 
 object TealiumHelper {
 
@@ -165,7 +167,8 @@ object TealiumHelper {
             configureCollect(),
             Modules.connectivityCollector(),
             Modules.appDataCollector(),
-            Modules.deviceDataCollector()
+            Modules.deviceDataCollector(),
+            configureLifecycle()
         )
     }
 
@@ -181,6 +184,15 @@ object TealiumHelper {
         return Modules.collect()
 //        return Modules.collect { settings ->
 //            settings.setProfile("override_profile")
+//        }
+    }
+
+    private fun configureLifecycle(): ModuleFactory {
+        return Modules.lifecycle()
+//        return Modules.lifecycle { settings ->
+//            settings
+//                .setSessionTimeoutInMinutes(10)
+//                .setDataTarget(LifecycleDataTarget.AllEvents)
 //        }
     }
 }

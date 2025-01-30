@@ -66,11 +66,13 @@ class TealiumImplTests {
         activityCallbacks.onActivityResumed(activity)
         activityCallbacks.onActivityStopped(activity)
 
-        TealiumImpl(
-            getDefaultConfig(app, modules = listOf(appAwareModuleFactory)),
-            testSchedulers,
-            activityManager = activityManager
-        )
+        testSchedulers.tealium.execute {
+            TealiumImpl(
+                getDefaultConfig(app, modules = listOf(appAwareModuleFactory)),
+                testSchedulers,
+                activityManager = activityManager
+            )
+        }
 
         verify(timeout = 2500, ordering = Ordering.ORDERED) {
             appObserver.onNext(match { it is ActivityManager.ApplicationStatus.Init })
@@ -102,11 +104,13 @@ class TealiumImplTests {
         activityCallbacks.onActivityResumed(activity)
         activityCallbacks.onActivityStopped(activity)
 
-        TealiumImpl(
-            getDefaultConfig(app, modules = listOf(appAwareModuleFactory)),
-            testSchedulers,
-            activityManager = activityManager
-        )
+        testSchedulers.tealium.execute {
+            TealiumImpl(
+                getDefaultConfig(app, modules = listOf(appAwareModuleFactory)),
+                testSchedulers,
+                activityManager = activityManager
+            )
+        }
 
         verify(timeout = 2500, ordering = Ordering.ORDERED) {
             appObserver.onNext(match {

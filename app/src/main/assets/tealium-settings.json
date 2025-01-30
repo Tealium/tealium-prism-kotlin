@@ -13,5 +13,9 @@
     "single_dispatch_url":"",
     "batch_dispatch_url":"",
     "dispatch_domain":""
+  },
+  "Lifecycle":{
+    "enabled":true,
+    "autotracking_enabled":true
   }
 }

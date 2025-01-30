@@ -17,7 +17,7 @@ import com.tealium.core.internal.persistence.stores.ModuleStore
  * @param dbProvider Database provider instance to provide a valid instance of a [android.database.sqlite.SQLiteDatabase]
  * @param moduleRepository The [ModulesRepository] to use to register the module for storage
  */
-internal class ModuleStoreProviderImpl(
+class ModuleStoreProviderImpl(
     private val dbProvider: DatabaseProvider,
     private val moduleRepository: ModulesRepository,
     // TODO - perhaps reconsider switching to a single `KeyValueRepository` instance with id's required on each method

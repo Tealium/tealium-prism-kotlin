@@ -66,7 +66,7 @@ class ActivityManagerImplTests {
     }
 
     @Test
-    fun activityManagerImpl_DoesNotEmitBufferedAppStatuses_When_OutOfTime() {
+    fun activityManagerImpl_EmitsLastBufferedAppStatus_When_OutOfTime() {
         val observer = mockk<Observer<ActivityManager.ApplicationStatus>>(relaxed = true)
         val activityCallbacks = ActivityManagerImpl.ActivityCallbacks(mockApp)
         val activityManager =
@@ -85,8 +85,8 @@ class ActivityManagerImplTests {
         Thread.sleep(TimeUnit.SECONDS.toMillis(timeout) + 10L)
 
         activityManager.applicationStatus.subscribe(observer)
-        verify {
-            observer wasNot Called
+        verify(exactly = 1) {
+            observer.onNext(match { it is ActivityManager.ApplicationStatus.Backgrounded })
         }
         confirmVerified(observer)
     }

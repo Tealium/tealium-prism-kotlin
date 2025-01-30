@@ -66,7 +66,7 @@ internal class FileDatabaseProvider(
  * @param databaseHelper The Database helper instance to use for accessing the SQLiteDatabase
  * instance, and creating the schema
  */
-internal class InMemoryDatabaseProvider(
+class InMemoryDatabaseProvider(
     private val config: TealiumConfig,
 ) : DatabaseProvider {
     private var _database: SQLiteDatabase? = null

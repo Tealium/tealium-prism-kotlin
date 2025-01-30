@@ -69,18 +69,39 @@ class TealiumGradlePlugin : Plugin<Project> {
 
         logger.lifecycle("Configuring CI Tasks for ${modifiedProjects.joinToString(", ") { it.name }}")
 
-        modifiedProjects.mapNotNull { project ->
-            project.extensions.findByType(LibraryExtension::class.java)
-        }.forEach { android ->
-            android.libraryVariants
-                .map { variant -> variant.name.uppercaseFirstChar() }
-                .forEach { variant ->
-                    project.configureAssembleModifiedTasks(variant, modifiedProjects)
-                    project.configureAggregateTestTasks(variant, modifiedProjects)
-                    project.configureAggregateCoverageTasks(variant, modifiedProjects)
-                }
-        }
+        getAllModifiedVariants(modifiedProjects)
+            .mapKeys { (variant, _) -> variant.uppercaseFirstChar() }
+            .forEach { (variant, projects) ->
+                project.configureAssembleModifiedTasks(variant, projects)
+                project.configureAggregateTestTasks(variant, projects)
+                project.configureAggregateCoverageTasks(variant, projects)
+            }
     }
+
+    /**
+     * Gets all the unique Android Library Variant names, and associates them with the list of projects
+     * that have that variant. In most cases this will simply be a map similar to the following:
+     * ```json
+     * {
+     *   "debug": [Project1, Project2 ...],
+     *   "release": [Project1, Project2 ...]
+     * }
+     * ```
+     *
+     * Projects that do not have the Android [LibraryExtension] are ignored.
+     */
+    private fun getAllModifiedVariants(modifiedProjects: List<Project>): Map<String, List<Project>> =
+        modifiedProjects.mapNotNull { project ->
+            project.extensions.findByType(LibraryExtension::class.java)?.libraryVariants?.map { it.name to project }
+        }.flatten()
+            .group()
+
+    /**
+     * Groups a list of [Pair]s using their natural grouping - i.e. by taking the [Pair.first] as
+     * the key, and [Pair.second] as the value.
+     */
+    private fun <K, V> Iterable<Pair<K, V>>.group() : Map<K, List<V>> =
+        groupBy({ (k, _) -> k}, { (_, v) -> v})
 
     /**
      * Configures additional aggregate tasks to

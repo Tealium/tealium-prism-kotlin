@@ -187,7 +187,7 @@ class TealiumImpl(
                 coreSettings = coreSettings,
                 tracker = tracker,
                 schedulers = schedulers,
-                activityManager = activityManager,
+                activityManager = this.activityManager,
                 transformerRegistry = TransformerRegistryImpl(transformerCoordinator),
                 barrierRegistry = BarrierRegistryImpl(barrierCoordinator),
                 moduleManager = moduleManager
@@ -233,7 +233,7 @@ class TealiumImpl(
         activityManager: ActivityManager
     ): ActivityManager {
         val activitySubject = Observables.publishSubject<ActivityManager.ActivityStatus>()
-        val appSubject = Observables.publishSubject<ActivityManager.ApplicationStatus>()
+        val appSubject = Observables.replaySubject<ActivityManager.ApplicationStatus>(1)
         val activityManagerProxy = ActivityManagerProxy(activitySubject, appSubject)
 
         activityManager.applicationStatus.observeOn(schedulers.tealium)

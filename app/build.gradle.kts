@@ -44,4 +44,5 @@ dependencies {
     implementation(libs.app.androidx.lifecycle.viewmodel)
     implementation(libs.app.material)
     implementation(project (":core"))
+    implementation(project (":lifecycle"))
 }

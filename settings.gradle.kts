@@ -15,5 +15,6 @@ dependencyResolutionManagement {
 rootProject.name = "com.tealium.core"
 include(":app")
 include(":core")
+include(":lifecycle")
 include(":tests-common")
 include(":lint")

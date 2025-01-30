@@ -75,7 +75,7 @@ class ActivityManagerImpl(
             )
             // clear caches
             _activities.resize(0)
-            _applicationStatusBuffer.resize(0)
+            _applicationStatusBuffer.resize(1)
         }
 
         activityMonitor.register()
@@ -193,7 +193,7 @@ class ActivityManagerImpl(
  */
 class ActivityManagerProxy(
     private val activitySubject: Subject<ActivityStatus> = Observables.publishSubject(),
-    private val appSubject: Subject<ApplicationStatus> = Observables.publishSubject(),
+    private val appSubject: ReplaySubject<ApplicationStatus> = Observables.replaySubject(1),
 ) : ActivityManager {
     override val activities: Observable<ActivityStatus>
         get() = activitySubject.asObservable()
