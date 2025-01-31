@@ -8,6 +8,7 @@ import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.Expiry
+import com.tealium.core.api.tracking.DispatchContext
 
 class DataLayerModule(
     val dataStore: DataStore,
@@ -19,7 +20,7 @@ class DataLayerModule(
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
-    override fun collect(): DataObject {
+    override fun collect(dispatchContext: DispatchContext): DataObject {
         return dataStore.getAll()
     }
 

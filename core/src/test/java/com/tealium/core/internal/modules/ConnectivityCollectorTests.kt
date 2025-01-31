@@ -6,11 +6,14 @@ import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.network.Connectivity
 import com.tealium.core.api.settings.ModuleSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.DispatchContext
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.mockk
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertSame
 import org.junit.Before
 import org.junit.Test
 import org.junit.experimental.runners.Enclosed
@@ -114,8 +117,10 @@ open class ConnectivityCollectorTests {
         @Test
         fun collect_ReturnsDataObject_Containing_ConnectivityType() {
             every { connectivity.connectionType() } returns connectivityType
+            val dispatchContext =
+                DispatchContext(DispatchContext.Source.application(), DataObject.EMPTY_OBJECT)
 
-            val dataObject = connectivityCollector.collect()
+            val dataObject = connectivityCollector.collect(dispatchContext)
             assertEquals(expected, dataObject.getString(Dispatch.Keys.CONNECTION_TYPE)!!)
         }
     }

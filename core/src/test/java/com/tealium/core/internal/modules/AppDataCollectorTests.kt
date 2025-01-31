@@ -1,23 +1,16 @@
 package com.tealium.core.internal.modules
 
-import com.tealium.core.api.modules.TealiumContext
-import com.tealium.core.api.persistence.DataStore
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.DispatchContext
 import io.mockk.MockKAnnotations
 import io.mockk.every
-import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.RelaxedMockK
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
 class AppDataCollectorTests {
-
-    @MockK
-    private lateinit var tealiumContext: TealiumContext
-
-    @RelaxedMockK
-    private lateinit var dataStore: DataStore
 
     @RelaxedMockK
     private lateinit var appDataProvider: AppDataProvider
@@ -44,7 +37,9 @@ class AppDataCollectorTests {
 
     @Test
     fun collect_Returns_AppData() {
-        val bundle = appDataCollector.collect()
+        val dispatchContext =
+            DispatchContext(DispatchContext.Source.application(), DataObject.EMPTY_OBJECT)
+        val bundle = appDataCollector.collect(dispatchContext)
 
         assertEquals("123456789", bundle.getString(Dispatch.Keys.APP_UUID))
         assertEquals("com.tealium.test", bundle.getString(Dispatch.Keys.APP_RDNS))

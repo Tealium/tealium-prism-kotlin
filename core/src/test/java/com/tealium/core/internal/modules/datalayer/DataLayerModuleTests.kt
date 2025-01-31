@@ -5,6 +5,7 @@ import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.ModuleStoreProvider
+import com.tealium.core.api.tracking.DispatchContext
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
@@ -38,8 +39,10 @@ class DataLayerModuleTests {
     fun collect_Returns_All_Items_In_DataStore() {
         val data = DataObject.create { put("key", "value") }
         every { dataStore.getAll() } returns data
+        val dispatchContext =
+            DispatchContext(DispatchContext.Source.application(), DataObject.EMPTY_OBJECT)
 
-        assertEquals(data, dataLayer.collect())
+        assertEquals(data, dataLayer.collect(dispatchContext))
     }
 
     @Test

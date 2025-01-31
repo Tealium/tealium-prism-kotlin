@@ -14,6 +14,7 @@ import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.pubsub.Disposable
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.DispatchContext
 import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.api.tracking.Tracker
 import com.tealium.lifecycle.BuildConfig
@@ -150,7 +151,7 @@ class LifecycleModule(
 
                 val dispatch =
                     Dispatch.create(event.event, TealiumDispatchType.Event, eventData)
-                tracker.track(dispatch)
+                tracker.track(dispatch, DispatchContext.Source.module(this::class.java))
             }
 
             if (event == LifecycleEvent.Launch && !hasLaunched) {
@@ -269,11 +270,13 @@ class LifecycleModule(
         }
     }
 
-    // TODO: needs to filter for lifecycle events
-    override fun collect(): DataObject {
-        return if (lifecycleSettings.dataTarget == LifecycleDataTarget.AllEvents) {
-            lifecycleService.getCurrentState(System.currentTimeMillis())
-        } else DataObject.EMPTY_OBJECT
+    override fun collect(dispatchContext: DispatchContext): DataObject {
+        if (dispatchContext.source.isFromModule(this::class.java)
+            || lifecycleSettings.dataTarget != LifecycleDataTarget.AllEvents) {
+            return DataObject.EMPTY_OBJECT
+        }
+
+        return lifecycleService.getCurrentState(System.currentTimeMillis())
     }
 
     override fun updateSettings(moduleSettings: DataObject): Module? {

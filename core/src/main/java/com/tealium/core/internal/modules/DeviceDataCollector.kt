@@ -8,6 +8,7 @@ import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.DispatchContext
 
 /**
  * Collects data related to the user's device.
@@ -33,7 +34,7 @@ class DeviceDataCollector(
         put(Dispatch.Keys.DEVICE_OS_VERSION, deviceDataProvider.deviceOsVersion)
     }
 
-    override fun collect(): DataObject {
+    override fun collect(dispatchContext: DispatchContext): DataObject {
         return baseData.copy {
             put(
                 Dispatch.Keys.DEVICE_AVAILABLE_SYSTEM_STORAGE,

@@ -7,6 +7,7 @@ import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.DispatchContext
 import com.tealium.core.api.tracking.TrackResult
 import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.api.tracking.Tracker
@@ -81,7 +82,7 @@ class TraceManagerModuleTests {
         verify {
             tracker.track(match {
                 it.payload().getString(Dispatch.Keys.TEALIUM_TRACE_ID) == "12345"
-            }, any())
+            }, any(), any())
         }
     }
 
@@ -95,7 +96,7 @@ class TraceManagerModuleTests {
             tracker.track(match {
                 it.tealiumEvent == "kill_visitor_session"
                         && it.payload().getString(Dispatch.Keys.EVENT) == "kill_visitor_session"
-            }, any())
+            }, any(), any())
         }
     }
 
@@ -147,17 +148,37 @@ class TraceManagerModuleTests {
         every { dataStore.getAll() } returns DataObject.create {
             put(Dispatch.Keys.TEALIUM_TRACE_ID, "12345")
         }
+        val dispatchContext =
+            DispatchContext(DispatchContext.Source.application(), DataObject.EMPTY_OBJECT)
 
-        val data = trace.collect()
+        val data = trace.collect(dispatchContext)
 
         assertEquals("12345", data.getString(Dispatch.Keys.TEALIUM_TRACE_ID))
     }
 
     @Test
     fun collect_Returns_Empty_Object_When_Trace_Not_Joined() {
-        every { dataStore.get(Dispatch.Keys.TEALIUM_TRACE_ID) } returns null
+        every { dataStore.getAll() } returns DataObject.EMPTY_OBJECT
+        val dispatchContext =
+            DispatchContext(DispatchContext.Source.application(), DataObject.EMPTY_OBJECT)
 
-        val data = trace.collect()
+        val data = trace.collect(dispatchContext)
+
+        assertEquals(DataObject.EMPTY_OBJECT, data)
+    }
+
+    @Test
+    fun collect_Returns_Empty_Object_When_Source_Is_Trace_Module() {
+        every { dataStore.getAll() } returns DataObject.create {
+            put(Dispatch.Keys.TEALIUM_TRACE_ID, "12345")
+        }
+        val dispatchContext =
+            DispatchContext(
+                DispatchContext.Source.module(TraceManagerModule::class.java),
+                DataObject.EMPTY_OBJECT
+            )
+
+        val data = trace.collect(dispatchContext)
 
         assertEquals(DataObject.EMPTY_OBJECT, data)
     }
@@ -173,8 +194,8 @@ class TraceManagerModuleTests {
     }
 
     private fun mockTrackerResponse(result: TrackResult) {
-        every { tracker.track(any(), any()) } answers {
-            arg<TrackResultListener>(1)
+        every { tracker.track(any(), any(), any()) } answers {
+            arg<TrackResultListener>(2)
                 .onTrackResultReady(mockk(), result)
         }
     }

@@ -10,6 +10,7 @@ import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.pubsub.ObservableState
 import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.DispatchContext
 import java.security.SecureRandom
 import java.util.Locale
 import kotlin.math.abs
@@ -43,7 +44,7 @@ class TealiumCollector(
         put(Dispatch.Keys.TEALIUM_LIBRARY_VERSION, BuildConfig.TEALIUM_LIBRARY_VERSION)
     }
 
-    override fun collect(): DataObject {
+    override fun collect(dispatchContext: DispatchContext): DataObject {
         return baseData.copy {
             put(Dispatch.Keys.TEALIUM_RANDOM, random)
             put(Dispatch.Keys.TEALIUM_VISITOR_ID, visitorId.value)

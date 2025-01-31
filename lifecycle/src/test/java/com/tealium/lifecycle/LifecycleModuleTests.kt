@@ -5,6 +5,7 @@ import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.misc.ActivityManager
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Subject
+import com.tealium.core.api.tracking.DispatchContext
 import com.tealium.core.api.tracking.Tracker
 import com.tealium.lifecycle.internal.LifecycleModule
 import com.tealium.lifecycle.internal.LifecycleService
@@ -13,6 +14,7 @@ import com.tealium.lifecycle.internal.StateKey
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
+import io.mockk.mockk
 import io.mockk.verify
 import io.mockk.verifyOrder
 import org.junit.Assert.assertEquals
@@ -116,7 +118,7 @@ class LifecycleModuleTests {
                         && dispatch.payload().getString("key1") == "stringValue1"
                         && dispatch.payload().getString("key2") == "stringValue2"
 
-            })
+            }, any())
         }
     }
 
@@ -139,7 +141,7 @@ class LifecycleModuleTests {
                 dispatch.payload().getInt(StateKey.LIFECYCLE_WAKECOUNT) == 1
                         && dispatch.payload().getString("key3") == "stringValue3"
                         && dispatch.payload().getString("key4") == "stringValue4"
-            })
+            }, any())
         }
     }
 
@@ -162,7 +164,7 @@ class LifecycleModuleTests {
                 dispatch.payload().getInt(StateKey.LIFECYCLE_SLEEPCOUNT) == 1
                         && dispatch.payload().getString("key5") == "stringValue5"
                         && dispatch.payload().getString("key6") == "stringValue6"
-            })
+            }, any())
         }
     }
 
@@ -232,7 +234,7 @@ class LifecycleModuleTests {
         lifecycleModule.wake()
 
         verify(exactly = 0) {
-            tracker.track(any())
+            tracker.track(any(), any())
         }
     }
 
@@ -395,7 +397,7 @@ class LifecycleModuleTests {
         applicationStatus.onNext(ActivityManager.ApplicationStatus.Init())
 
         verify(exactly = 0) {
-            tracker.track(any())
+            tracker.track(any(), any())
         }
     }
 
@@ -410,15 +412,26 @@ class LifecycleModuleTests {
         applicationStatus.onNext(ActivityManager.ApplicationStatus.Init())
 
         verify(exactly = 0) {
-            tracker.track(any())
+            tracker.track(any(), any())
         }
     }
 
     @Test
     fun collect_ReturnsEmptyDataObject_WhenSettingsDataTarget_SetTo_LifecycleEventsOnly() {
         every { mockSettings.dataTarget } returns LifecycleDataTarget.LifecycleEventsOnly
+        val dispatchContext = DispatchContext(DispatchContext.Source.application(), mockk())
 
-        val data = lifecycleModule.collect()
+        val data = lifecycleModule.collect(dispatchContext)
+
+        assertEquals(DataObject.EMPTY_OBJECT, data)
+    }
+
+    @Test
+    fun collect_ReturnsEmptyDataObject_WhenSettingsDataTarget_SetTo_AllEvents_And_SourceIsLifecycleModule() {
+        every { mockSettings.dataTarget } returns LifecycleDataTarget.AllEvents
+        val dispatchContext = DispatchContext(DispatchContext.Source.module(LifecycleModule::class.java), mockk())
+
+        val data = lifecycleModule.collect(dispatchContext)
 
         assertEquals(DataObject.EMPTY_OBJECT, data)
     }
@@ -431,8 +444,9 @@ class LifecycleModuleTests {
             put(StateKey.LIFECYCLE_TOTALSLEEPCOUNT, 11)
             put(StateKey.LIFECYCLE_TOTALWAKECOUNT, 12)
         }
+        val dispatchContext = DispatchContext(DispatchContext.Source.application(), mockk())
 
-        val data = lifecycleModule.collect()
+        val data = lifecycleModule.collect(dispatchContext)
 
         assertEquals(10, data.getInt(StateKey.LIFECYCLE_TOTALLAUNCHCOUNT))
         assertEquals(11, data.getInt(StateKey.LIFECYCLE_TOTALSLEEPCOUNT))

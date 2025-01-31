@@ -21,6 +21,7 @@ import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.ReplaySubject
 import com.tealium.core.api.settings.CoreSettings
 import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.DispatchContext
 import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.internal.dispatch.BarrierCoordinator
 import com.tealium.core.internal.dispatch.BarrierCoordinatorImpl
@@ -160,7 +161,7 @@ class TealiumImpl(
             queueManager = queueManager,
             logger = logger
         )
-        tracker = TrackerImpl(moduleManager, dispatchManager, logger)
+        tracker = TrackerImpl(moduleManager.modules, dispatchManager, logger)
 
         visitorIdProvider = VisitorIdProviderImpl(
             config,
@@ -263,7 +264,7 @@ class TealiumImpl(
 
     private fun trackInternal(dispatch: Dispatch, onComplete: TrackResultListener?) {
         Dispatch.create(dispatch).let { copy ->
-            tracker.track(copy, onComplete)
+            tracker.track(copy, DispatchContext.Source.application(), onComplete)
         }
     }
 

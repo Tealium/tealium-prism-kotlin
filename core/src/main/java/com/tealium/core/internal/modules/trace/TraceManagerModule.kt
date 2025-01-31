@@ -12,6 +12,7 @@ import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.DispatchContext
 import com.tealium.core.api.tracking.TrackResult
 import com.tealium.core.api.tracking.Tracker
 
@@ -28,7 +29,7 @@ class TraceManagerModule(
         }
 
         val killDispatch = createKillDispatch(traceId)
-        tracker.track(killDispatch) { _, trackResult ->
+        tracker.track(killDispatch, DispatchContext.Source.module(this::class.java)) { _, trackResult ->
             if (trackResult == TrackResult.Dropped) {
                 callback.onComplete(TealiumResult.failure(TealiumException("Kill Visitor Session event was dropped.")))
             } else {
@@ -49,9 +50,12 @@ class TraceManagerModule(
             .commit()
     }
 
-    // TODO - filter out trace id when DispatchContext added
-    override fun collect(): DataObject =
-        dataStore.getAll()
+    override fun collect(dispatchContext: DispatchContext): DataObject {
+        if (dispatchContext.source.isFromModule(this::class.java))
+            return DataObject.EMPTY_OBJECT
+
+        return dataStore.getAll()
+    }
 
     override val id: String
         get() = Factory.id

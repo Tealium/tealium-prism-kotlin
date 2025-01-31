@@ -9,6 +9,7 @@ import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.Dispatch.Keys.APP_UUID
+import com.tealium.core.api.tracking.DispatchContext
 
 /**
  * Collects data related to the application package.
@@ -30,7 +31,7 @@ class AppDataCollector(
         put(Dispatch.Keys.APP_VERSION, appDataProvider.appVersion)
     }
 
-    override fun collect(): DataObject {
+    override fun collect(dispatchContext: DispatchContext): DataObject {
         return baseData.copy {
             put(Dispatch.Keys.APP_MEMORY_USAGE, appDataProvider.appMemoryUsage)
         }

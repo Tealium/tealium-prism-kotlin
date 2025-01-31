@@ -8,6 +8,7 @@ import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.network.Connectivity
+import com.tealium.core.api.tracking.DispatchContext
 
 /**
  * Collects data related to the current connectivity type of the device.
@@ -18,7 +19,7 @@ class ConnectivityCollector(
     private val connectivity: Connectivity,
 ) : Collector {
 
-    override fun collect(): DataObject {
+    override fun collect(dispatchContext: DispatchContext): DataObject {
         return DataObject.create {
             put(Dispatch.Keys.CONNECTION_TYPE, connectivity.connectionType().type)
         }
