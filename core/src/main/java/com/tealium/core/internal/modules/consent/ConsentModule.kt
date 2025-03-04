@@ -23,7 +23,7 @@ import com.tealium.core.internal.dispatch.QueueManager
 import com.tealium.core.internal.persistence.database.getTimestampMilliseconds
 
 class ConsentModule(
-    private val modules: SubscribableState<Set<Module>>,
+    private val modules: SubscribableState<List<Module>>,
     private val queueManager: QueueManager,
     private val transformerRegistry: TransformerRegistry,
     private val consentManagementAdapter: ConsentManagementAdapter,
@@ -199,7 +199,7 @@ class ConsentModule(
     data class Factory(
         private val cmp: ConsentManagementAdapter,
         private val queueManager: QueueManager? = null,
-        private val modules: ObservableState<Set<Module>>? = null,
+        private val modules: ObservableState<List<Module>>? = null,
         private var settings: DataObject? = null
     ) : ModuleFactory {
 

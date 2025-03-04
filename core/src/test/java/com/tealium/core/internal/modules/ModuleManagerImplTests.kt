@@ -22,7 +22,9 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import io.mockk.verifyOrder
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -37,25 +39,29 @@ class ModuleManagerImplTests {
     private val testDispatcher = TestDispatcher.mock("dispatcher")
     private val testCollector = TestCollector.mock("collector")
     private val testModule = TestModule.mock("module")
-    private val moduleWithObservable = ModuleWithObservable(Observables.publishSubject(), "module_with_observable")
-    private val defaultFactories = listOf(
-        TestModuleFactory(testCollector),
-        TestModuleFactory(testDispatcher),
-        TestModuleFactory(testModule),
-        TestModuleFactory(moduleWithObservable)
+    private val moduleWithObservable =
+        ModuleWithObservable(Observables.publishSubject(), "module_with_observable")
+    private val modules = listOf(
+        testCollector,
+        testDispatcher,
+        testModule,
+        moduleWithObservable
     )
+    private val defaultFactories = modules.map { TestModuleFactory(it) }
 
     private lateinit var moduleManager: InternalModuleManager
-    private lateinit var modulesSubject: StateSubject<Set<Module>>
+    private lateinit var modulesSubject: StateSubject<List<Module>>
     private lateinit var context: TealiumContext
 
     @Before
     fun setUp() {
-        modulesSubject = Observables.stateSubject(setOf())
+        modulesSubject = Observables.stateSubject(listOf())
 
         moduleManager = ModuleManagerImpl(
-            defaultFactories, SynchronousScheduler(), modulesSubject
+            SynchronousScheduler(), modulesSubject
         )
+        defaultFactories.forEach(moduleManager::addModuleFactory)
+
         context = mockk<TealiumContext>()
         every { context.logger } returns SystemLogger
         moduleManager.updateModuleSettings(context, SdkSettings())
@@ -380,12 +386,12 @@ class ModuleManagerImplTests {
 
     @Test
     fun shutdown_Emits_Empty_Modules() {
-        val observer = mockk<Observer<Set<Module>>>(relaxed = true)
+        val observer = mockk<Observer<List<Module>>>(relaxed = true)
 
         moduleManager.modules.subscribe(observer)
         moduleManager.shutdown()
 
-        verify { observer.onNext(emptySet()) }
+        verify { observer.onNext(emptyList()) }
     }
 
     @Test
@@ -397,5 +403,72 @@ class ModuleManagerImplTests {
             testCollector.onShutdown()
             testDispatcher.onShutdown()
         }
+    }
+
+    @Test
+    fun addModuleFactory_Adds_Factory_When_ModuleFactory_With_Same_Id_Not_Present() {
+        val newModule = TestModule("unseen_id")
+        val newModuleFactory = TestModuleFactory(newModule)
+
+        moduleManager.addModuleFactory(newModuleFactory)
+        moduleManager.updateModuleSettings(context, SdkSettings())
+
+        assertTrue(moduleManager.modules.value.contains(newModule))
+    }
+
+    @Test
+    fun addModuleFactory_Does_Not_Add_Factory_When_ModuleFactory_With_Same_Id_Is_Present() {
+        val newModule = TestModule(testDispatcher.id)
+        val newModuleFactory = TestModuleFactory(newModule)
+
+        moduleManager.addModuleFactory(newModuleFactory)
+        moduleManager.updateModuleSettings(context, SdkSettings())
+
+        assertFalse(moduleManager.modules.value.contains(newModule))
+    }
+
+    @Test
+    fun addModuleFactory_Returns_True_When_ModuleFactory_With_Same_Id_Not_Present() {
+        val newModuleFactory = TestModuleFactory(TestModule("unseen_id"))
+
+        assertTrue(moduleManager.addModuleFactory(newModuleFactory))
+    }
+
+    @Test
+    fun addModuleFactory_Returns_False_When_ModuleFactory_With_Same_Id_Is_Present() {
+        val newModuleFactory = TestModuleFactory(TestModule(testDispatcher.id))
+
+        assertFalse(moduleManager.addModuleFactory(newModuleFactory))
+    }
+
+    @Test
+    fun getModulesInfo_Returns_Information_For_All_Enabled_Modules() {
+        val info = moduleManager.modulesInfo
+
+        for (mod in modules) {
+            assertNotNull(info.find {
+                it.id == mod.id
+                        && it.version == mod.version
+            })
+        }
+    }
+
+    @Test
+    fun getModulesInfo_Returns_Information_For_Enabled_Modules_In_Order() {
+        val info = moduleManager.modulesInfo
+
+        modules.forEachIndexed { idx, module ->
+            assertEquals(module.id, info[idx].id)
+            assertEquals(module.version, info[idx].version)
+        }
+    }
+
+    @Test
+    fun getModulesInfo_Does_Not_Return_Information_For_Disabled_Modules() {
+        moduleManager.updateModuleSettings(context, disableModuleSettings(testDispatcher.id))
+
+        val info = moduleManager.modulesInfo
+
+        assertNull(info.find { it.id == testDispatcher.id })
     }
 }

@@ -5,6 +5,7 @@ import com.tealium.core.api.barriers.BarrierScope
 import com.tealium.core.api.barriers.ScopedBarrier
 import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.logger.logIfWarnEnabled
 import com.tealium.core.api.misc.ActivityManager
 import com.tealium.core.api.misc.Schedulers
 import com.tealium.core.api.modules.Dispatcher
@@ -37,15 +38,12 @@ import com.tealium.core.internal.logger.LoggerImpl
 import com.tealium.core.internal.misc.ActivityManagerImpl
 import com.tealium.core.internal.misc.ActivityManagerProxy
 import com.tealium.core.internal.misc.TrackerImpl
-import com.tealium.core.internal.modules.DeeplinkManagerImpl
 import com.tealium.core.internal.modules.InternalModuleManager
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import com.tealium.core.internal.modules.TealiumCollector
-import com.tealium.core.internal.modules.TimedEventsManagerImpl
 import com.tealium.core.internal.modules.collect.CollectDispatcher
 import com.tealium.core.internal.modules.consent.ConsentModule
 import com.tealium.core.internal.modules.datalayer.DataLayerModule
-import com.tealium.core.internal.modules.trace.TraceManagerModule
 import com.tealium.core.internal.network.ConnectivityBarrier
 import com.tealium.core.internal.network.ConnectivityInterceptor
 import com.tealium.core.internal.network.ConnectivityRetriever
@@ -74,7 +72,6 @@ class TealiumImpl(
     private val schedulers: Schedulers,
     private val dbProvider: DatabaseProvider = FileDatabaseProvider(config),
     val moduleManager: InternalModuleManager = ModuleManagerImpl(
-        emptyList(),
         schedulers.tealium
     ),
     activityManager: ActivityManager = ActivityManagerImpl.getInstance(config.application),
@@ -179,7 +176,6 @@ class TealiumImpl(
                 config.application,
                 config,
                 logger = logger,
-                // TODO - Visitor Storage not done yet, but EventStream requires a value for tealium_visitor_id
                 visitorId = visitorIdProvider.visitorId,
                 storageProvider = ModuleStoreProviderImpl(
                     dbProvider, modulesRepository
@@ -194,15 +190,8 @@ class TealiumImpl(
                 moduleManager = moduleManager
             )
 
-        moduleManager.addModuleFactory(*getDefaultModules(moduleManager.modules).toTypedArray())
-        val factories = config.modules.map { factory ->
-            // Consent is a special case that should be added externally, but needs internal
-            // components that should not be exposed anywhere else.
-            if (factory is ConsentModule.Factory) {
-                factory.copy(queueManager = queueManager, modules = moduleManager.modules)
-            } else factory
-        }
-        moduleManager.addModuleFactory(*factories.toTypedArray())
+        val factories = preconfigureFactories(config.modules, queueManager, moduleManager.modules)
+        loadModuleFactories(factories, moduleManager, logger)
 
         settings.subscribe { newSettings ->
             moduleManager.updateModuleSettings(tealiumContext, newSettings)
@@ -289,14 +278,97 @@ class TealiumImpl(
 
     companion object {
 
-        fun getDefaultModules(modules: ObservableState<Set<Module>>): List<ModuleFactory> {
+        private fun getDefaultModules(): List<ModuleFactory> {
             return listOf(
-                TealiumCollector.Factory(modules),
                 DataLayerModule,
-                TraceManagerModule.Factory,
-                DeeplinkManagerImpl,
-                TimedEventsManagerImpl
+                TealiumCollector.Factory,
             )
+        }
+
+        /**
+         * Pre-configures specialist factories tha may require internal dependencies that cannot
+         * be provided from external users.
+         *
+         * @param factories The list of [ModuleFactory]s as provided by the TealiumConfig
+         * @param queueManager The internal [QueueManager]
+         * @param modules An observable to subscribe to updates to all modules
+         *
+         * @return The list of configured [ModuleFactory] objects
+         */
+        fun preconfigureFactories(
+            factories: List<ModuleFactory>,
+            queueManager: QueueManager,
+            modules: ObservableState<List<Module>>
+        ): List<ModuleFactory> =
+            factories.map { factory ->
+                when (factory) {
+                    // Consent is a special case that should be added externally, but needs internal
+                    // components that should not be exposed anywhere else.
+                    is ConsentModule.Factory -> {
+                        factory.copy(queueManager = queueManager, modules = modules)
+                    }
+
+                    else -> factory
+                }
+            }
+
+        /**
+         * Loads the given [factories] into the given [moduleManager].
+         *
+         * Before adding them, it will also:
+         *  - add the required default module factory implementations if they are missing
+         *  - log warnings when duplicate factory id's are provided
+         *  - log warnings when a factory with a default id is provided, but the implementation is not ours
+         *
+         *  @param factories The [ModuleFactory]s to load into the [moduleManager]
+         *  @param moduleManager The [InternalModuleManager] to add the [factories] to
+         *  @param logger The [Logger] to log any issues to
+         */
+        fun loadModuleFactories(
+            factories: List<ModuleFactory>,
+            moduleManager: InternalModuleManager,
+            logger: Logger
+        ) {
+            val defaults = getDefaultModules()
+
+            for (validatedFactory in addAndValidateDefaultFactories(factories, defaults, logger)) {
+                if (!moduleManager.addModuleFactory(validatedFactory)) {
+                    logger.logIfWarnEnabled(LogCategory.TEALIUM) {
+                        "Duplicate Module Factory with id \"${validatedFactory.id}\" was found. It will not be used."
+                    }
+                }
+            }
+        }
+
+        /**
+         * Adds any missing required [ModuleFactory] implementations, and logs warnings for custom
+         * factory implementations for required factories
+         *
+         * @param factories The list of provided [ModuleFactory] implementations
+         * @param defaults The set of default/required [ModuleFactory]s
+         * @param logger The logger to report any warnings to
+         *
+         * @return The new list of [ModuleFactory]s that includes the required defaults
+         */
+        fun addAndValidateDefaultFactories(factories: List<ModuleFactory>, defaults: List<ModuleFactory>, logger: Logger): List<ModuleFactory> {
+            val factoriesMap = factories.associateBy(ModuleFactory::id)
+                .toMutableMap()
+
+            for (default in defaults) {
+                val configuredFactory = factoriesMap[default.id]
+                if (configuredFactory == null) {
+                    factoriesMap[default.id] = default
+                } else if (configuredFactory.javaClass != default.javaClass) {
+                    // note. could choose to throw here instead, to ensure required modules are our own
+                    // implementations. There's no good reason for users to supply their own data layer
+                    // or tealium collector implementation.
+                    logger.logIfWarnEnabled(LogCategory.TEALIUM) {
+                        "A non-standard ModuleFactory implementation has been provided for default module (${configuredFactory.id}"
+                    }
+                }
+            }
+
+            return factoriesMap.values.toList()
         }
 
         fun createNetworkUtilities(
@@ -358,7 +430,7 @@ class TealiumImpl(
         fun createQueueManager(
             queueRepository: QueueRepository,
             coreSettings: Observable<CoreSettings>,
-            allModules: ObservableState<Set<Module>>,
+            allModules: ObservableState<List<Module>>,
             logger: Logger
         ): QueueManager {
             return QueueManagerImpl(

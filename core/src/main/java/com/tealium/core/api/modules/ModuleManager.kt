@@ -1,6 +1,7 @@
 package com.tealium.core.api.modules
 
 import com.tealium.core.api.Tealium
+import com.tealium.core.api.modules.ModuleInfo
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.pubsub.Observable
 
@@ -10,6 +11,14 @@ import com.tealium.core.api.pubsub.Observable
  * // TODO - complete
  */
 interface ModuleManager {
+
+    /**
+     * Returns a [List] containing information related to the currently enabled [Module] implementations
+     *
+     * @return Information of all enabled modules
+     */
+    val modulesInfo : List<ModuleInfo>
+
     /**
      * Returns the first [Module] implementation that implements or extends the given [clazz].
      *

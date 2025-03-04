@@ -30,7 +30,7 @@ class TraceManagerWrapperTests {
     @RelaxedMockK
     private lateinit var observer: Observer<TealiumResult<Unit>>
 
-    private lateinit var modules: StateSubject<Set<Module>>
+    private lateinit var modules: StateSubject<List<Module>>
     private lateinit var moduleManager: ModuleManager
     private lateinit var onModuleManager: Subject<ModuleManager?>
     private lateinit var proxy: ModuleProxy<TraceManagerModule>
@@ -43,8 +43,8 @@ class TraceManagerWrapperTests {
         MockKAnnotations.init(this)
 
         every { traceModule.id } returns TraceManagerModule.Factory.id
-        modules = Observables.stateSubject(setOf(traceModule))
-        moduleManager = ModuleManagerImpl(listOf(), scheduler, modules)
+        modules = Observables.stateSubject(listOf(traceModule))
+        moduleManager = ModuleManagerImpl(scheduler, modules)
         onModuleManager = Observables.replaySubject(1)
         onModuleManager.onNext(moduleManager)
 
@@ -54,7 +54,7 @@ class TraceManagerWrapperTests {
 
     @Test
     fun methods_Report_Module_Not_Enabled_When_Not_Enabled() {
-        modules.onNext(emptySet())
+        modules.onNext(emptyList())
         val observer = mockk<Observer<TealiumResult<Unit>>>(relaxed = true)
 
         traceManagerWrapper.join("12345").subscribe(observer)

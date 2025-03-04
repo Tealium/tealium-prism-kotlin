@@ -16,7 +16,7 @@ import com.tealium.core.internal.logger.LogCategory
 import com.tealium.core.internal.pubsub.subscribeOnce
 
 class TrackerImpl(
-    private val modules: Observable<Set<Module>>,
+    private val modules: Observable<List<Module>>,
     private val dispatchManager: DispatchManager,
     private val logger: Logger
 ) : Tracker {

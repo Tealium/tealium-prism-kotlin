@@ -42,7 +42,8 @@ class ModuleProxyImplTests {
     fun setUp() {
         context = mockk<TealiumContext>()
         every { context.logger } returns SystemLogger
-        moduleManager = ModuleManagerImpl(moduleFactories, SynchronousScheduler())
+        moduleManager = ModuleManagerImpl(SynchronousScheduler())
+        moduleFactories.forEach(moduleManager::addModuleFactory)
         moduleManager.updateModuleSettings(context, SdkSettings()) // all enabled
         moduleManagerSubject = Observables.replaySubject(1)
 

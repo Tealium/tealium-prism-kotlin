@@ -7,6 +7,7 @@ import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
+import com.tealium.core.api.modules.ModuleInfo
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.ObservableState
@@ -15,18 +16,25 @@ import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.internal.settings.SdkSettings
 
 class ModuleManagerImpl(
-    moduleFactories: List<ModuleFactory>,
     private val scheduler: Scheduler,
-    private val _modules: StateSubject<Set<Module>> = Observables.stateSubject(setOf())
+    private val _modules: StateSubject<List<Module>> = Observables.stateSubject(listOf())
 ) : InternalModuleManager {
 
-    private val moduleFactories: MutableList<ModuleFactory> = moduleFactories.toMutableList()
+    private val moduleFactories: MutableMap<String, ModuleFactory> = linkedMapOf()
 
-    override val modules: ObservableState<Set<Module>>
+    override val modulesInfo: List<ModuleInfo>
+        get() = _modules.value.map(::getModuleInfo)
+
+    override val modules: ObservableState<List<Module>>
         get() = _modules.asObservableState()
 
-    override fun addModuleFactory(vararg moduleFactory: ModuleFactory) {
-        moduleFactories.addAll(moduleFactory)
+    override fun addModuleFactory(moduleFactory: ModuleFactory): Boolean {
+        if (moduleFactories.contains(moduleFactory.id)) {
+            return false
+        }
+
+        moduleFactories[moduleFactory.id] = moduleFactory
+        return true
     }
 
     override fun <T : Module> getModulesOfType(clazz: Class<T>): List<T> {
@@ -73,15 +81,15 @@ class ModuleManagerImpl(
             module.onShutdown()
         }
         moduleFactories.clear()
-        _modules.onNext(emptySet())
+        _modules.onNext(emptyList())
     }
 
     override fun updateModuleSettings(context: TealiumContext, settings: SdkSettings) {
         // iterate all factories to preserve insertion order
         val oldModules = _modules.value.associateBy(Module::id)
-        val newModules = moduleFactories.mapNotNull { factory ->
-            val module = oldModules[factory.id]
-            val newSettings = settings.moduleSettings.getOrDefault(factory.id)
+        val newModules = moduleFactories.mapNotNull { (id, factory) ->
+            val module = oldModules[id]
+            val newSettings = settings.moduleSettings.getOrDefault(id)
             if (module != null) {
                 updateOrDisableModule(
                     factory.canBeDisabled(),
@@ -96,7 +104,7 @@ class ModuleManagerImpl(
                     factory
                 )
             }
-        }.toSet()
+        }.toList()
 
         _modules.onNext(newModules)
     }
@@ -128,6 +136,9 @@ class ModuleManagerImpl(
     }
 
     companion object {
+        private fun getModuleInfo(module: Module) : ModuleInfo =
+            ModuleInfo(module.id, module.version)
+
         private val DataObject.enabled: Boolean
             get() = this.getBoolean("enabled") ?: true
 

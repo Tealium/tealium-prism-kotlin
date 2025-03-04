@@ -2,12 +2,23 @@ package com.tealium.core.internal
 
 import android.app.Activity
 import android.app.Application
+import com.tealium.core.api.Modules
+import com.tealium.core.api.logger.LogLevel
+import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.misc.ActivityManager
 import com.tealium.core.api.modules.Module
+import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.pubsub.Observable
+import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Observer
 import com.tealium.core.internal.misc.ActivityManagerImpl
+import com.tealium.core.internal.modules.InternalModuleManager
 import com.tealium.core.internal.modules.ModuleManagerImpl
+import com.tealium.core.internal.modules.TealiumCollector
+import com.tealium.core.internal.modules.consent.ConsentModule
+import com.tealium.core.internal.modules.datalayer.DataLayerModule
+import com.tealium.tests.common.SystemLogger
+import com.tealium.tests.common.TestModule
 import com.tealium.tests.common.TestModuleFactory
 import com.tealium.tests.common.getDefaultConfig
 import com.tealium.tests.common.testSchedulers
@@ -16,6 +27,10 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.spyk
 import io.mockk.verify
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,7 +49,7 @@ class TealiumImplTests {
 
     @Test
     fun shutdown_Shuts_Down_Module_Manager() {
-        val moduleManager = spyk(ModuleManagerImpl(listOf(), testSchedulers.tealium))
+        val moduleManager = spyk(ModuleManagerImpl(testSchedulers.tealium))
         val tealium =
             TealiumImpl(getDefaultConfig(app), testSchedulers, moduleManager = moduleManager)
 
@@ -124,6 +139,113 @@ class TealiumImplTests {
         }
     }
 
+    @Test
+    fun preconfigureFactories_Replaces_Consent_Factory_With_Configured_Instance() {
+        val consentModule = Modules.consent(mockk())
+
+        val configuredFactories =
+            TealiumImpl.preconfigureFactories(
+                listOf(consentModule),
+                mockk(),
+                Observables.stateSubject(listOf())
+            )
+
+        assertFalse(configuredFactories.contains(consentModule))
+        assertNotNull(configuredFactories.find { it is ConsentModule.Factory })
+    }
+
+    @Test
+    fun preconfigureFactories_Does_Not_Replace_Non_Required_Modules() {
+        val otherModule = getTestModule()
+        val consentModule = Modules.consent(mockk())
+
+        val configuredFactories =
+            TealiumImpl.preconfigureFactories(
+                listOf(otherModule, consentModule),
+                mockk(),
+                Observables.stateSubject(listOf())
+            )
+
+        assertTrue(configuredFactories.contains(otherModule))
+    }
+
+    @Test
+    fun preconfigureFactories_Maintains_Insertion_Order_When_Replacing_Consent() {
+        val module1 = getTestModule(1)
+        val module2 = getTestModule(2)
+        val module3 = getTestModule(3)
+        val consent = Modules.consent(mockk())
+        val modules = listOf(module1, module2, consent, module3)
+
+        val configuredFactories =
+            TealiumImpl.preconfigureFactories(modules, mockk(), Observables.stateSubject(listOf()))
+
+        assertEquals(module1, configuredFactories[0])
+        assertEquals(module2, configuredFactories[1])
+        assertTrue(configuredFactories[2] is ConsentModule.Factory)
+        assertEquals(module3, configuredFactories[3])
+    }
+
+    @Test
+    fun addAndValidateDefaultFactories_Adds_Required_Modules_When_Omitted() {
+        val defaults = getTestModules(2)
+
+        val validatedFactories =
+            TealiumImpl.addAndValidateDefaultFactories(emptyList(), defaults, SystemLogger)
+
+        assertTrue(validatedFactories.containsAll(defaults))
+    }
+
+    @Test
+    fun addAndValidateDefaultFactories_Does_Not_Add_Default_When_Already_Present() {
+        val module1 = getTestModule(1)
+        val default1 = getTestModule(1)
+
+        val validatedFactories =
+            TealiumImpl.addAndValidateDefaultFactories(
+                listOf(module1),
+                listOf(default1),
+                SystemLogger
+            )
+
+        assertTrue(validatedFactories.contains(module1))
+        assertFalse(validatedFactories.contains(default1))
+    }
+
+    @Test
+    fun addAndValidateDefaultFactories_Logs_Warning_When_Default_Id_Present_But_Incorrect_Implementation() {
+        val logger = mockk<Logger>(relaxed = true)
+        every { logger.shouldLog(LogLevel.WARN) } returns true
+        val module1 = getTestModule(1)
+        val default1 = DelegateModuleFactory(module1)
+
+        TealiumImpl.addAndValidateDefaultFactories(listOf(module1), listOf(default1), logger)
+
+        verify {
+            logger.warn(any(), any<String>())
+        }
+    }
+
+    @Test
+    fun loadModuleFactories_Adds_DataLayer_And_Tealium_Collector_When_Omitted() {
+        val moduleManager = mockk<InternalModuleManager>(relaxed = true)
+        every { moduleManager.addModuleFactory(any()) } returns true
+
+        TealiumImpl.loadModuleFactories(listOf(), moduleManager, SystemLogger)
+
+        verify {
+            moduleManager.addModuleFactory(match { it is DataLayerModule.Companion })
+            moduleManager.addModuleFactory(match { it is TealiumCollector.Factory })
+        }
+    }
+
+    private fun getTestModules(count: Int = 1): List<ModuleFactory> = (1..count).map {
+        getTestModule(it)
+    }
+
+    private fun getTestModule(id: Int = 1): ModuleFactory =
+        TestModuleFactory(TestModule("module_$id"))
+
     private class ObserverModule<T>(
         observable: Observable<T>,
         private val observer: Observer<T>,
@@ -134,4 +256,7 @@ class TealiumImplTests {
             observable.subscribe(this)
         }
     }
+
+    private class DelegateModuleFactory(private val delegate: ModuleFactory) :
+        ModuleFactory by delegate
 }

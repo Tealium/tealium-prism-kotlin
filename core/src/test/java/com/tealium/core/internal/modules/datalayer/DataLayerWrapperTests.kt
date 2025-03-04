@@ -75,8 +75,9 @@ class DataLayerWrapperTests {
 
         dataLayerModule = DataLayerModule(dataStore, defaultExpiry)
         moduleManager = ModuleManagerImpl(
-            listOf(MockDataLayerFactory(dataLayerModule)), SynchronousScheduler()
+            SynchronousScheduler()
         )
+        moduleManager.addModuleFactory(MockDataLayerFactory(dataLayerModule))
         moduleManager.updateModuleSettings(context, SdkSettings())
 
         // default to pre-enabled

@@ -30,7 +30,7 @@ class TrackerImplTest {
     private lateinit var dispatchManager: DispatchManager
 
     private lateinit var dispatch: Dispatch
-    private lateinit var modules: StateSubject<Set<Module>>
+    private lateinit var modules: StateSubject<List<Module>>
     private lateinit var source: DispatchContext.Source
     private lateinit var tracker: TrackerImpl
 
@@ -39,7 +39,7 @@ class TrackerImplTest {
         MockKAnnotations.init(this)
 
         // TODO - This needs refactoring to a List once the Modules become ordered.
-        modules = Observables.stateSubject(setOf())
+        modules = Observables.stateSubject(listOf())
         dispatch = Dispatch.create("test", dataObject = DataObject.EMPTY_OBJECT)
         source = DispatchContext.Source.application()
 
@@ -60,7 +60,7 @@ class TrackerImplTest {
     @Test
     fun track_Waits_When_Modules_Empty_For_Init_And_Shutdown() {
         val originalPayload = dispatch.payload()
-        modules.onNext(emptySet())
+        modules.onNext(emptyList())
 
         tracker.track(dispatch, source)
 
@@ -76,7 +76,7 @@ class TrackerImplTest {
 
         val collectedData = DataObject.Builder().put("key", "value").build()
         val collector = collector(collectedData)
-        modules.onNext(setOf(collector))
+        modules.onNext(listOf(collector))
 
         assertEquals("value", dispatch.payload().getString("key"))
         verify {
@@ -88,7 +88,7 @@ class TrackerImplTest {
     fun track_Enriches_Dispatch_With_Collected_Data_When_Collectors_Are_Available() {
         val collectedData = DataObject.Builder().put("key", "value").build()
         val collector = collector(collectedData)
-        modules.onNext(setOf(collector))
+        modules.onNext(listOf(collector))
 
         tracker.track(dispatch, source)
 
@@ -97,7 +97,7 @@ class TrackerImplTest {
 
     @Test
     fun track_Calls_Dispatch_Manager_Even_With_No_Collectors() {
-        modules.onNext(setOf(TestDispatcher("dispatcher")))
+        modules.onNext(listOf(TestDispatcher("dispatcher")))
 
         tracker.track(dispatch, source)
 
@@ -110,7 +110,7 @@ class TrackerImplTest {
     fun track_Enriches_Data_From_All_Collectors() {
         val collector1 = collector(DataObject.Builder().put("key_1", "value_1").build())
         val collector2 = collector(DataObject.Builder().put("key_2", "value_2").build())
-        modules.onNext(setOf(collector1, collector2))
+        modules.onNext(listOf(collector1, collector2))
 
         tracker.track(dispatch, source)
 
@@ -127,7 +127,7 @@ class TrackerImplTest {
                 .put("key_2", "value_2")
                 .build()
         )
-        modules.onNext(setOf(collector1, collector2))
+        modules.onNext(listOf(collector1, collector2))
 
         tracker.track(dispatch, source)
 
@@ -139,7 +139,7 @@ class TrackerImplTest {
     fun track_Passes_The_Source_To_Collectors() {
         val collector = mockk<Collector>()
         every { collector.collect(any()) } returns DataObject.EMPTY_OBJECT
-        modules.onNext(setOf(collector))
+        modules.onNext(listOf(collector))
 
         tracker.track(dispatch, source)
 

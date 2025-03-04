@@ -55,7 +55,10 @@ object Modules {
      * @param enforcedSettings Consent settings that should override any from any other settings source
      */
     @JvmStatic
-    fun consent(cmp: ConsentManagementAdapter, enforcedSettings: (ConsentSettingsBuilder) -> ConsentSettingsBuilder): ModuleFactory {
+    fun consent(
+        cmp: ConsentManagementAdapter,
+        enforcedSettings: (ConsentSettingsBuilder) -> ConsentSettingsBuilder
+    ): ModuleFactory {
         val enforcedSettingsBuilder = enforcedSettings(ConsentSettingsBuilder())
         return ConsentModule.Factory(cmp, enforcedSettingsBuilder)
     }
@@ -124,4 +127,36 @@ object Modules {
     @JvmStatic
     fun appDataCollector(): ModuleFactory =
         com.tealium.core.internal.modules.AppDataCollector.Factory
+
+    /**
+     * Collects data that has been persisted into the Tealium data layer
+     *
+     * **Note.** This module is automatically added. This method is provided to allow customizing ordering of
+     * modules if required.
+     *
+     * @see Tealium.dataLayer
+     */
+    @JvmStatic
+    fun dataLayer(): ModuleFactory =
+        com.tealium.core.internal.modules.datalayer.DataLayerModule
+
+    /**
+     * Collects the Trace Id to support Tealium Trace
+     *
+     * @see Dispatch.Keys.TEALIUM_TRACE_ID
+     * @see Tealium.trace
+     */
+    @JvmStatic
+    fun trace(): ModuleFactory =
+        com.tealium.core.internal.modules.trace.TraceManagerModule.Factory
+
+    /**
+     * Collects the Tealium required data (Account, profile etc)
+     *
+     * **Note.** This module is automatically added. This method is provided to allow customizing ordering of
+     * modules if required.
+     */
+    @JvmStatic
+    fun tealiumCollector(): ModuleFactory =
+        com.tealium.core.internal.modules.TealiumCollector.Factory
 }

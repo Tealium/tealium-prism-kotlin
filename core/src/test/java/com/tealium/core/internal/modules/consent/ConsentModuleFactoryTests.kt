@@ -52,7 +52,7 @@ class ConsentModuleFactoryTests {
     @Test
     fun create_Returns_Null_When_Only_Modules_Are_Set() {
         val consentFactory = ConsentModule.Factory(cmp).copy(
-            modules = Observables.stateSubject(setOf())
+            modules = Observables.stateSubject(listOf())
         )
 
         assertNull(consentFactory.create(context, DataObject.EMPTY_OBJECT))
@@ -62,7 +62,7 @@ class ConsentModuleFactoryTests {
     fun create_Returns_ConsentModule_When_QueueManager_And_Modules_Are_Set() {
         val consentFactory = ConsentModule.Factory(cmp).copy(
             queueManager = mockk(),
-            modules = Observables.stateSubject(setOf())
+            modules = Observables.stateSubject(listOf())
         )
 
         assertNotNull(consentFactory.create(context, DataObject.EMPTY_OBJECT))

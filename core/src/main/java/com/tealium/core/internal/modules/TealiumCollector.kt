@@ -7,6 +7,8 @@ import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.modules.Collector
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
+import com.tealium.core.api.modules.ModuleInfo
+import com.tealium.core.api.modules.ModuleManager
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.pubsub.ObservableState
 import com.tealium.core.api.tracking.Dispatch
@@ -18,13 +20,12 @@ import kotlin.math.abs
 class TealiumCollector(
     private val config: TealiumConfig,
     private val visitorId: ObservableState<String>,
-    private val modules: ObservableState<Set<Module>>
+    private val moduleManager: ModuleManager
 ) : Module, Collector {
 
     constructor(
         context: TealiumContext,
-        modules: ObservableState<Set<Module>>
-    ) : this(context.config, context.visitorId, modules)
+    ) : this(context.config, context.visitorId, context.moduleManager)
 
     private val secureRandom = SecureRandom()
     private val random: String
@@ -48,13 +49,20 @@ class TealiumCollector(
         return baseData.copy {
             put(Dispatch.Keys.TEALIUM_RANDOM, random)
             put(Dispatch.Keys.TEALIUM_VISITOR_ID, visitorId.value)
-            put(Dispatch.Keys.ENABLED_MODULES, modules.value.map(Module::id).asDataList())
+
+            put(
+                Dispatch.Keys.ENABLED_MODULES,
+                moduleManager.modulesInfo.map(ModuleInfo::id)
+                    .asDataList()
+            )
             put(
                 Dispatch.Keys.ENABLED_MODULES_VERSIONS,
-                modules.value.map(Module::version).asDataList()
+                moduleManager.modulesInfo.map(ModuleInfo::version)
+                    .asDataList()
             )
         }
     }
+
 
     override val id: String
         get() = moduleName
@@ -65,11 +73,11 @@ class TealiumCollector(
         private const val moduleName = "TealiumCollector"
     }
 
-    class Factory(private val modules: ObservableState<Set<Module>>): ModuleFactory {
+    object Factory : ModuleFactory {
         override val id = moduleName
 
         override fun create(context: TealiumContext, settings: DataObject): Module? {
-            return TealiumCollector(context, modules)
+            return TealiumCollector(context)
         }
     }
 }
