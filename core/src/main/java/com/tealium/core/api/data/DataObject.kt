@@ -57,7 +57,7 @@ class DataObject private constructor(
     override fun get(key: String): DataItem? {
         return map[key]
     }
-    
+
     /**
      * Returns all entries stored in the [DataObject]
      *
@@ -123,6 +123,107 @@ class DataObject private constructor(
 
     override fun asDataItem(): DataItem {
         return DataItem.convert(this)
+    }
+
+    /**
+     * Deep merges two [DataObject]s together, returning a new [DataObject] containing the merged data.
+     *
+     * This method will merge data according to the following rules
+     *  - [DataObject]s - will have all keys from `this` and [other] in the returned [DataObject]
+     *  - [DataList]s - will always prefer the value in the [other] object if present. [DataList] contents are never merged.
+     *
+     * The [depth] parameter controls how many levels of [DataObject] nesting should be merged. After
+     * the given depth, if a [DataObject] is found in both `this` and [other] objects, then the
+     * latter is chosen in its entirety.
+     *
+     * Example
+     * ```kotlin
+     * val lhs = DataObject.create {
+     *     put("key1", "string")
+     *     put("key2", true)
+     *     put("lvl-1", DataObject.create {
+     *         put("key1", "string")
+     *         put("key2", true)
+     *         put("lvl-2", DataObject.create {
+     *             put("key1", "string")
+     *             put("key2", true)
+     *             put("lvl-3", DataObject.create {
+     *                 put("key1", "string")
+     *                 put("key2", true)
+     *             })
+     *         })
+     *     })
+     * }
+     *
+     * val rhs = DataObject.create {
+     *     put("key1", "new string")
+     *     put("lvl-1", DataObject.create {
+     *         put("key1", "new string")
+     *         put("lvl-2", DataObject.create {
+     *             put("key1", "new string")
+     *             put("key3", 1)
+     *             put("lvl-3", DataObject.create {
+     *                 put("key1", "new string")
+     *             })
+     *         })
+     *     })
+     * }
+     *
+     * val merged = lhs.merge(rhs, 2)
+     *
+     * // merged will be the equivalent of this:
+     * DataObject.create {
+     *     put("key1", "new string")                    // from rhs
+     *     put("key2", true)                            // from lhs
+     *     put("lvl-1", DataObject.create {
+     *         put("key1", "new string")                // from rhs
+     *         put("key2", true)                        // from lhs
+     *         put("lvl-2", DataObject.create {
+     *             put("key1", "new string")            // from rhs
+     *             put("key2", true)                    // from lhs
+     *             put("key3", 1)                       // from rhs
+     *             put("lvl-3", DataObject.create {
+     *                 put("key1", "new string")        // from rhs only
+     *             })
+     *         })
+     *     })
+     * }
+     * ```
+     *
+     * The default value for [depth] is [Int.MAX_VALUE], and will deep merge all levels. Zero or
+     * negative values will be equivalent to the [DataObject.plus] operator.
+     *
+     * @param other The incoming object, whose key/values are to merged into the current object.
+     * @param depth Optional limit on the number of levels deep to merge.
+     */
+    @JvmOverloads
+    fun merge(
+        other: DataObject,
+        depth: Int = Int.MAX_VALUE
+    ): DataObject {
+        return recursiveMergeObjects(this, other, depth)
+    }
+
+    private fun recursiveMergeObjects(
+        left: DataObject,
+        right: DataObject,
+        depth: Int
+    ): DataObject {
+        if (depth <= 0) return left + right
+
+        return left.copy {
+            right.forEach { (key, dataItem) ->
+                val rightObj = dataItem.getDataObject()
+                val leftObj = left.getDataObject(key)
+                if (rightObj == null || leftObj == null) {
+                    put(key, dataItem)
+                    return@forEach
+                }
+
+                val merged = recursiveMergeObjects(leftObj, rightObj, depth - 1)
+                put(key, merged)
+            }
+        }
     }
 
     companion object {

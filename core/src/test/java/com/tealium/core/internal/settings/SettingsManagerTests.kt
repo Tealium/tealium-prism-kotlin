@@ -2,8 +2,9 @@ package com.tealium.core.internal.settings
 
 import android.app.Application
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.data.DataItem
+import com.tealium.core.api.data.DataItemUtils.asDataObject
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.misc.ActivityManager
 import com.tealium.core.api.misc.TimeFrame
@@ -49,7 +50,6 @@ class SettingsManagerTests {
     @RelaxedMockK
     lateinit var mockCache: ResourceCache<DataObject>
 
-
     private lateinit var logger: Logger
     private lateinit var config: TealiumConfig
     private lateinit var settingsManager: SettingsManager
@@ -81,7 +81,8 @@ class SettingsManagerTests {
 
         val settings = settingsManager.sdkSettings.value
 
-        assertTrue(settings.moduleSettings.isEmpty())
+        assertEquals(CoreSettingsImpl(), settings.core)
+        assertTrue(settings.modules.isEmpty())
     }
 
     @Test
@@ -172,7 +173,7 @@ class SettingsManagerTests {
 
         assertFalse(disposable.isDisposed)
         verify {
-            observer(match { it.coreSettings.dataSource == "data_source" })
+            observer(match { it.core.dataSource == "data_source" })
         }
     }
 
@@ -195,7 +196,7 @@ class SettingsManagerTests {
         activities.onNext(ActivityManager.ApplicationStatus.Init())
 
         verify(inverse = true) {
-            observer(match { it.coreSettings.dataSource == "data_source" })
+            observer(match { it.core.dataSource == "data_source" })
         }
     }
 
@@ -230,10 +231,10 @@ class SettingsManagerTests {
 
         verify(inverse = true) {
             observer(match {
-                it.coreSettings.dataSource == "remote"
-                        && it.coreSettings.batterySaver
-                        && it.coreSettings.wifiOnly
-                        && it.coreSettings.batchSize == 1
+                it.core.dataSource == "remote"
+                        && it.core.batterySaver
+                        && it.core.wifiOnly
+                        && it.core.batchSize == 1
             })
         }
     }
@@ -246,14 +247,12 @@ class SettingsManagerTests {
 
         val mergedSettings =
             SettingsManager.mergeSettings(localSettings, null, DataObject.EMPTY_OBJECT)
-
-        assertTrue(mergedSettings.moduleSettings.size == 1)
-        assertTrue(mergedSettings.moduleSettings.containsKey("core"))
-        assertTrue(mergedSettings.moduleSettings["core"]?.getString("data_source") == "test")
+        val sdkSettings = SdkSettings.fromDataObject(mergedSettings)
+        assertTrue(sdkSettings.core.dataSource == "test")
     }
 
     @Test
-    fun mergeSettings_Returns_DataObject_Merging_All_Settings() {
+    fun mergeSettings_Merges_All_Core_Settings() {
         val settings1 = configureCoreSettingsDataObject {
             setDataSource("testSource")
         }
@@ -265,16 +264,15 @@ class SettingsManagerTests {
         }
 
         val mergedSettings = SettingsManager.mergeSettings(settings1, settings2, settings3)
+        val sdkSettings = SdkSettings.fromDataObject(mergedSettings)
 
-        assertTrue(mergedSettings.moduleSettings.size == 1)
-        assertTrue(mergedSettings.moduleSettings.containsKey("core"))
-        assertTrue(mergedSettings.moduleSettings["core"]?.getString(CoreSettingsImpl.KEY_DATA_SOURCE) == "testSource")
-        assertTrue(mergedSettings.moduleSettings["core"]?.getBoolean(CoreSettingsImpl.KEY_BATTERY_SAVER)!!)
-        assertTrue(mergedSettings.moduleSettings["core"]?.getBoolean(CoreSettingsImpl.KEY_WIFI_ONLY)!!)
+        assertTrue(sdkSettings.core.dataSource == "testSource")
+        assertTrue(sdkSettings.core.batterySaver)
+        assertTrue(sdkSettings.core.wifiOnly)
     }
 
     @Test
-    fun mergeSettings_Returns_DataObject_Replacing_Clashes_With_Higher_Priority_Values() {
+    fun mergeSettings_Merges_Core_Settings_Replacing_Clashes_With_Higher_Priority_Values() {
         val settings1 = configureCoreSettingsDataObject {
             setDataSource("testSource")
         }
@@ -286,35 +284,226 @@ class SettingsManagerTests {
         }
 
         val mergedSettings = SettingsManager.mergeSettings(settings1, settings2, settings3)
+        val sdkSettings = SdkSettings.fromDataObject(mergedSettings)
 
-        assertTrue(mergedSettings.moduleSettings.size == 1)
-        assertTrue(mergedSettings.moduleSettings.containsKey("core"))
-        assertTrue(mergedSettings.moduleSettings["core"]?.getString(CoreSettingsImpl.KEY_DATA_SOURCE) == "programmaticSource")
+        assertTrue(sdkSettings.core.dataSource == "programmaticSource")
     }
 
     @Test
-    fun mergeSettings_Returns_DataObject_With_All_Modules_From_All_Settings() {
+    fun mergeSettings_Merges_All_Modules_From_All_Settings() {
         val settings1 = DataObject.fromString(
             """
             {
-               "module1" : { "key": "value" },
-               "module2" : { "key": "value" }
+                "modules" : {
+                   "module1" : { "enabled": true },
+                   "module2" : { "enabled": true }
+                }
             }
         """
         )
         val settings2 = DataObject.fromString(
             """
             {
-               "module3" : { "key": "value" },
-               "module4" : { "key": "value" }
+                "modules" : {
+                   "module3" : { "enabled": true },
+                   "module4" : { "enabled": true }
+                }
             }
         """
         )
         val settings3 = DataObject.fromString(
             """
             {
-               "module5" : { "key": "value" },
-               "module6" : { "key": "value" }
+                "modules" : {
+                   "module5" : { "enabled": true },
+                   "module6" : { "enabled": true }
+                }
+            }
+        """
+        )
+
+        val merged = SettingsManager.mergeSettings(settings1, settings2, settings3)
+        val sdkSettings = SdkSettings.fromDataObject(merged)
+
+        for (i in 1..6) {
+            assertTrue(sdkSettings.modules["module$i"]!!.enabled)
+        }
+    }
+
+    @Test
+    fun mergeSettings_Deep_Merges_Modules_But_Shallow_Merges_Configuration_Object() {
+        val settings1 = DataObject.fromString(
+            """
+            {
+                "modules" : {
+                    "module1" : {
+                        "configuration" : {
+                            "sub-key-1": 1,
+                            "sub-obj": {
+                                "sub-key-1": 1
+                            } 
+                        }
+                    }
+                }
+            }
+        """
+        )
+        val settings2 = DataObject.fromString(
+            """
+            {
+                "modules" : {
+                    "module1" : {
+                        "enabled": true,
+                        "configuration" : {
+                            "sub-key-2": 2,
+                            "sub-obj": {
+                                "sub-key-2": 2
+                            } 
+                        }
+                    }
+                }
+            }
+        """
+        )
+
+        val merged = SettingsManager.mergeSettings(settings1, settings2)
+        val sdkSettings = SdkSettings.fromDataObject(merged)
+
+        val module1 = sdkSettings.modules["module1"]!!
+        assertTrue(module1.enabled)
+
+        val configuration = module1.configuration
+        assertEquals(1, configuration.getInt("sub-key-1"))
+        assertEquals(2, configuration.getInt("sub-key-2"))
+
+        val subConfiguration = configuration.getDataObject("sub-obj")!!
+        assertNull(subConfiguration.get("sub-key-1"))
+        assertEquals(2, subConfiguration.getInt("sub-key-2"))
+    }
+
+    @Test
+    fun mergeSettings_Merges_All_Transformations_From_All_Settings() {
+        val settings1 = DataObject.fromString(
+            """
+            {
+                "transformations" : {
+                   "transformer1" : { "key": "value" },
+                   "transformer2" : { "key": "value" }
+                }
+            }
+        """
+        )
+        val settings2 = DataObject.fromString(
+            """
+            {
+                "transformations" : {
+                   "transformer3" : { "key": "value" },
+                   "transformer4" : { "key": "value" }
+                }
+            }
+        """
+        )
+        val settings3 = DataObject.fromString(
+            """
+            {
+                "transformations" : {
+                   "transformer5" : { "key": "value" },
+                   "transformer6" : { "key": "value" }
+                }
+            }
+        """
+        )
+
+        val merged = SettingsManager.mergeSettings(settings1, settings2, settings3)
+        val sdkSettings = SdkSettings.fromDataObject(merged)
+
+        for (i in 1..6) {
+            assertEquals("value", merged.transformations.getDataObject("transformer$i")!!.getString("key"))
+        }
+    }
+
+    @Test
+    fun mergeSettings_Deep_Merges_Transformations_But_Shallow_Merges_Configuration_Object() {
+        val settings1 = DataObject.fromString(
+            """
+            {
+                "transformations" : {
+                    "transformer1-transformation1" : {
+                        "scopes": ["all"],
+                        "configuration" : {
+                            "sub-key-1": 1,
+                            "sub-obj": {
+                                "sub-key-1": 1
+                            } 
+                        }
+                    }
+                }
+            }
+        """
+        )
+        val settings2 = DataObject.fromString(
+            """
+            {
+                "transformations" : {
+                    "transformer1-transformation1" : {
+                        "scopes": ["afterCollectors"],
+                        "configuration" : {
+                            "sub-key-2": 2,
+                            "sub-obj": {
+                                "sub-key-2": 2
+                            } 
+                        }
+                    }
+                }
+            }
+        """
+        )
+
+        val merged = SettingsManager.mergeSettings(settings1, settings2)
+
+        val transformation1 = merged.transformations.getDataObject("transformer1-transformation1")!!
+        val scopes = transformation1.getDataList("scopes")!!
+        assertEquals(1, scopes.size)
+        assertEquals("afterCollectors", scopes.getString(0))
+
+        val configuration = transformation1.getDataObject("configuration")!!
+        assertEquals(1, configuration.getInt("sub-key-1"))
+        assertEquals(2, configuration.getInt("sub-key-2"))
+
+        val subConfiguration = configuration.getDataObject("sub-obj")!!
+        assertNull(subConfiguration.get("sub-key-1"))
+        assertEquals(2, subConfiguration.getInt("sub-key-2"))
+    }
+
+    @Test
+    fun mergeSettings_Merges_All_Barriers_From_All_Settings() {
+        val settings1 = DataObject.fromString(
+            """
+            {
+                "barriers" : {
+                   "barrier1" : { "key": "value" },
+                   "barrier2" : { "key": "value" }
+                }
+            }
+        """
+        )
+        val settings2 = DataObject.fromString(
+            """
+            {
+                "barriers" : {
+                   "barrier3" : { "key": "value" },
+                   "barrier4" : { "key": "value" }
+                }
+            }
+        """
+        )
+        val settings3 = DataObject.fromString(
+            """
+            {
+                "barriers" : {
+                   "barrier5" : { "key": "value" },
+                   "barrier6" : { "key": "value" }
+                }
             }
         """
         )
@@ -322,46 +511,145 @@ class SettingsManagerTests {
         val merged = SettingsManager.mergeSettings(settings1, settings2, settings3)
 
         for (i in 1..6) {
-            assertEquals("value", merged.moduleSettings["module$i"]!!.getString("key"))
+            assertEquals("value", merged.barriers.getDataObject("barrier$i")!!.getString("key"))
         }
     }
 
     @Test
-    fun mergeSettings_Returns_DataObject_Merging_First_Level_Only() {
-        val settings1 = DataObject.fromString("""
+    fun mergeSettings_Deep_Merges_Barriers_But_Shallow_Merges_Configuration_Object() {
+        val settings1 = DataObject.fromString(
+            """
             {
-                "module1" : { 
-                    "object" : { 
-                        "sub-key-1": 1
+                "barriers" : {
+                    "barrier1" : {
+                        "scopes": ["all"],
+                        "configuration" : {
+                            "sub-key-1": 1,
+                            "sub-obj": {
+                                "sub-key-1": 1
+                            } 
+                        }
                     }
                 }
             }
-        """)
-        val settings2 = DataObject.fromString("""
+        """
+        )
+        val settings2 = DataObject.fromString(
+            """
             {
-                "module1" : { 
-                    "key": "value",
-                    "object" : { 
-                        "sub-key-2": 2
+                "barriers" : {
+                    "barrier1" : {
+                        "scopes": ["dispatcher"],
+                        "configuration" : {
+                            "sub-key-2": 2,
+                            "sub-obj": {
+                                "sub-key-2": 2
+                            } 
+                        }
                     }
                 }
             }
-        """)
+        """
+        )
 
         val merged = SettingsManager.mergeSettings(settings1, settings2)
 
-        val module1 = merged.moduleSettings["module1"]!!
-        val subDataObject = module1.getDataObject("object")!!
-        assertEquals("value", module1.getString("key"))
-        assertEquals(2, subDataObject.getInt("sub-key-2"))
-        assertNull(subDataObject.get("sub-key-1"))
+        val barrier1 = merged.barriers.getDataObject("barrier1")!!
+        val scopes = barrier1.getDataList("scopes")!!
+        assertEquals(1, scopes.size)
+        assertEquals("dispatcher", scopes.getString(0))
+
+        val configuration = barrier1.getDataObject("configuration")!!
+        assertEquals(1, configuration.getInt("sub-key-1"))
+        assertEquals(2, configuration.getInt("sub-key-2"))
+
+        val subConfiguration = configuration.getDataObject("sub-obj")!!
+        assertNull(subConfiguration.get("sub-key-1"))
+        assertEquals(2, subConfiguration.getInt("sub-key-2"))
+    }
+
+    @Test
+    fun mergeSettings_Merges_All_LoadRules_From_All_Settings() {
+        val settings1 = DataObject.fromString(
+            """
+            {
+                "load_rules" : {
+                   "load_rule1" : { "key": "value" },
+                   "load_rule2" : { "key": "value" }
+                }
+            }
+        """
+        )
+        val settings2 = DataObject.fromString(
+            """
+            {
+                "load_rules" : {
+                   "load_rule3" : { "key": "value" },
+                   "load_rule4" : { "key": "value" }
+                }
+            }
+        """
+        )
+        val settings3 = DataObject.fromString(
+            """
+            {
+                "load_rules" : {
+                   "load_rule5" : { "key": "value" },
+                   "load_rule6" : { "key": "value" }
+                }
+            }
+        """
+        )
+
+        val merged = SettingsManager.mergeSettings(settings1, settings2, settings3)
+
+        for (i in 1..6) {
+            assertEquals("value", merged.loadRules.getDataObject("load_rule$i")!!.getString("key"))
+        }
+    }
+
+    @Test
+    fun mergeSettings_Merges_All_LoadRules_Properties() {
+        val settings1 = DataObject.fromString(
+            """
+            {
+                "load_rules" : {
+                    "load_rule1" : {
+                        "conditions": ["all"],
+                        "id": "load_rule1"
+                    }
+                }
+            }
+        """
+        )
+        val settings2 = DataObject.fromString(
+            """
+            {
+                "load_rules" : {
+                    "load_rule1" : {
+                        "conditions": ["condition"],
+                        "id": "load_rule2"
+                    }
+                }
+            }
+        """
+        )
+
+        val merged = SettingsManager.mergeSettings(settings1, settings2)
+
+        val loadRule1 = merged.loadRules.getDataObject("load_rule1")!!
+        assertEquals("load_rule2", loadRule1.getString("id"))
+
+        val conditions = loadRule1.getDataList("conditions")!!
+        assertEquals(1, conditions.size)
+        assertEquals("condition", conditions.getString(0))
     }
 
     @Test
     fun mergeSettings_Does_Not_Throw_When_No_Settings() {
         val merged = SettingsManager.mergeSettings(null, null, null)
 
-        assertEquals(SdkSettings(), merged)
+        assertEquals(DataObject.EMPTY_OBJECT, merged)
     }
 
     @Test
@@ -464,11 +752,7 @@ class SettingsManagerTests {
             .subscribe(observer)
         settings.onNext(
             initialSettings.copy(
-                mapOf(
-                    "core" to CoreSettingsBuilder()
-                        .setRefreshInterval(60.seconds)
-                        .build()
-                )
+                core = CoreSettingsImpl(refreshInterval = 60.seconds)
             )
         )
 
@@ -494,7 +778,6 @@ class SettingsManagerTests {
         }
     }
 
-
     private fun createSettingsManager(
         config: TealiumConfig = this.config,
         mockNetworkHelper: NetworkHelper = this.mockNetworkHelper,
@@ -515,22 +798,9 @@ class SettingsManagerTests {
      * Configures the CoreSettings in
      */
     private fun configureCoreSettingsDataObject(block: CoreSettingsBuilder.() -> CoreSettingsBuilder): DataObject {
-        return configureSdkWithCoreSettings(block)
-            .asDataItem()
-            .getDataObject()!!
-    }
-
-    /**
-     * Configures the CoreSettings in
-     */
-    private fun configureModuleSettingsDataObject(
-        id: String,
-        block: DataObject.Builder.() -> DataObject.Builder
-    ): DataObject {
-        return configureSdkSettings {
-            configureModule(id, block)
-        }.asDataItem()
-            .getDataObject()!!
+        return configureSdkSettingsDataObject {
+            configureCore(block)
+        }
     }
 
     /**
@@ -538,7 +808,7 @@ class SettingsManagerTests {
      */
     private fun configureSdkWithCoreSettings(block: CoreSettingsBuilder.() -> CoreSettingsBuilder): SdkSettings {
         return configureSdkSettings {
-            configureModule("core", block(CoreSettingsBuilder()).build())
+            configureCore(block)
         }
     }
 
@@ -557,7 +827,14 @@ class SettingsManagerTests {
     }
 
     private class SdkSettingsBuilder {
-        private val settings = mutableMapOf<String, DataObject>()
+        private val core = CoreSettingsBuilder()
+        private val modules = mutableMapOf<String, DataObject>()
+
+        fun configureCore(
+            block: CoreSettingsBuilder.() -> CoreSettingsBuilder
+        ) = apply {
+            block.invoke(core)
+        }
 
         fun configureModule(
             id: String,
@@ -565,26 +842,27 @@ class SettingsManagerTests {
         ): SdkSettingsBuilder = apply {
             val moduleSettings = block(DataObject.Builder()).build()
 
-            settings[id] = moduleSettings
+            modules[id] = moduleSettings
         }
 
         fun configureModule(
             id: String,
             dataObject: DataObject
         ): SdkSettingsBuilder = apply {
-            settings[id] = dataObject
+            modules[id] = dataObject
         }
 
         fun buildDataObject(): DataObject {
             return DataObject.create {
-                settings.forEach {
-                    put(it.key, it.value)
-                }
+                put(CoreSettingsImpl.MODULE_NAME, core.build())
+                put(SdkSettings.KEY_MODULES, modules.asDataObject())
             }
         }
 
         fun build(): SdkSettings {
-            return SdkSettings(settings)
+            return SdkSettings.fromDataObject(
+                buildDataObject()
+            )
         }
     }
 
@@ -594,7 +872,7 @@ class SettingsManagerTests {
      * If omitted, then [dataObject] will return the [DataObject] generated by the default SdkSettings.
      */
     private fun mockAssetResponse(
-        dataObject: DataObject? = SdkSettings().asDataItem().getDataObject()!!
+        dataObject: DataObject? = DataObject.EMPTY_OBJECT
     ) {
         mockkObject(SettingsManager)
         every { SettingsManager.loadFromAsset(any()) } returns dataObject
@@ -606,10 +884,18 @@ class SettingsManagerTests {
      * If omitted, then [dataObject] will return the [DataObject] generated by the default SdkSettings.
      */
     private fun mockRemoteResponse(
-        dataObject: DataObject = SdkSettings().asDataItem().getDataObject()!!,
+        dataObject: DataObject = DataObject.EMPTY_OBJECT
     ) {
         mockNetworkHelper.mockGetDataItemConvertibleSuccess(
             dataObject, DataObject.Converter
         )
     }
+
+    // TODO - these are temporary, used only in testing until [SdkSettings] supports the actual properties
+    private val DataObject.transformations: DataObject
+        get() = getDataObject(SdkSettings.KEY_TRANSFORMATIONS) ?: DataObject.EMPTY_OBJECT
+    private val DataObject.barriers: DataObject
+        get() = getDataObject(SdkSettings.KEY_BARRIERS) ?: DataObject.EMPTY_OBJECT
+    private val DataObject.loadRules: DataObject
+        get() = getDataObject(SdkSettings.KEY_LOAD_RULES) ?: DataObject.EMPTY_OBJECT
 }

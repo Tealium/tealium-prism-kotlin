@@ -2,7 +2,6 @@ package com.tealium.core.internal.settings
 
 import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.data.DataObject
-import com.tealium.core.api.data.plus
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.misc.ActivityManager
 import com.tealium.core.api.misc.TimeFrame
@@ -15,13 +14,14 @@ import com.tealium.core.api.pubsub.Disposable
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.ObservableState
 import com.tealium.core.api.pubsub.Observables
-import com.tealium.core.api.pubsub.StateSubject
+import com.tealium.core.api.pubsub.Subject
 import com.tealium.core.internal.logger.LogCategory
 import com.tealium.core.internal.network.ResourceCacheImpl
 import com.tealium.core.internal.network.ResourceRefresherImpl
 import com.tealium.core.internal.pubsub.CompletedDisposable
 import com.tealium.core.internal.pubsub.DisposableContainer
 import com.tealium.core.internal.pubsub.addTo
+import com.tealium.core.internal.pubsub.asObservableState
 import java.io.IOException
 import java.net.MalformedURLException
 import java.net.URL
@@ -59,27 +59,26 @@ class SettingsManager(
         logger
     )
 
-    private var localSettings: DataObject?
-    private val _sdkSettings: StateSubject<SdkSettings>
+    private val _sdkSettingsData: Subject<DataObject> = Observables.publishSubject()
+    private val _sdkSettings: ObservableState<SdkSettings>
     private val resourceRefresher: ResourceRefresher<DataObject>?
 
     init {
-        localSettings = loadLocalSettings()
-
         val mergedSettings =
-            mergeSettings(localSettings, loadCachedSettings(), loadEnforcedSettings())
-        _sdkSettings = Observables.stateSubject(mergedSettings)
+            mergeSettings(loadLocalSettings(), loadCachedSettings(), loadEnforcedSettings())
+        logSettings(mergedSettings)
 
-        _sdkSettings.subscribe {
-            logger.debug(LogCategory.SETTINGS_MANAGER) {
-                "Applying settings: ${it.asDataItem()}"
-            }
-        }
+        val mergedSdkSettings = SdkSettings.fromDataObject(mergedSettings)
+        _sdkSettings = Observables.stateSubject(mergedSdkSettings)
+
+        _sdkSettingsData.forEach(::logSettings)
+            .map(SdkSettings::fromDataObject)
+            .subscribe(_sdkSettings)
 
         resourceRefresher = createResourceRefresher(
             config,
             networkHelper,
-            mergedSettings.coreSettings.refreshInterval,
+            sdkSettings.value.core.refreshInterval,
             cache,
             logger
         )
@@ -87,6 +86,12 @@ class SettingsManager(
 
     override val sdkSettings: ObservableState<SdkSettings>
         get() = _sdkSettings.asObservableState()
+
+    private fun logSettings(settings: DataObject) {
+        logger.debug(LogCategory.SETTINGS_MANAGER) {
+            "Applying settings: $settings"
+        }
+    }
 
     private fun loadLocalSettings(): DataObject? {
         val localSettings = loadFromAsset(config)
@@ -131,7 +136,7 @@ class SettingsManager(
 
         val subscriptions = DisposableContainer()
 
-        newSettingsMerged(resourceRefresher).subscribe(_sdkSettings)
+        newSettingsMerged(resourceRefresher).subscribe(_sdkSettingsData)
             .addTo(subscriptions)
 
         refreshInterval(sdkSettings).subscribe(resourceRefresher::setRefreshInterval)
@@ -145,7 +150,7 @@ class SettingsManager(
         return subscriptions
     }
 
-    internal fun newSettingsMerged(refresher: ResourceRefresher<DataObject>): Observable<SdkSettings> {
+    internal fun newSettingsMerged(refresher: ResourceRefresher<DataObject>): Observable<DataObject> {
         return refresher.resource
             .map { newRemoteSettings ->
                 logger.debug(LogCategory.SETTINGS_MANAGER, "New SDK settings downloaded")
@@ -154,7 +159,7 @@ class SettingsManager(
                     "Downloaded settings: %s",
                     newRemoteSettings
                 )
-                mergeSettings(localSettings, newRemoteSettings, config.enforcedSdkSettings)
+                mergeSettings(loadLocalSettings(), newRemoteSettings, config.enforcedSdkSettings)
             }
     }
 
@@ -167,41 +172,14 @@ class SettingsManager(
          */
         fun mergeSettings(
             vararg settings: DataObject?
-        ): SdkSettings {
+        ): DataObject {
             val nonNullSettings = settings.filterNotNull()
-            if (nonNullSettings.isEmpty()) return SdkSettings()
+            if (nonNullSettings.isEmpty()) return DataObject.EMPTY_OBJECT
 
             val merged = nonNullSettings
-                .reduce(::mergeSettingsObjects)
+                .reduce { low, high -> low.merge(high, 3) }
 
-            return SdkSettings.Converter.convert(merged.asDataItem())
-                ?: SdkSettings()
-        }
-
-        /**
-         * Merges two settings [DataObject]s together.
-         *
-         * Key clashes at the top level (i.e. module id) of the given [DataObject]s will be "merged".
-         * That is, values from both [DataObject]s will appear in the result.
-         *
-         * Key clashes in deeper levels will simply prefer the higher-priority settings according to
-         * the [DataObject.plus] operator.
-         */
-        private fun mergeSettingsObjects(
-            lowerPriority: DataObject,
-            higherPriority: DataObject
-        ): DataObject {
-            return lowerPriority.copy {
-                higherPriority.forEach { (id, settings) ->
-                    val higherPrioritySettings = settings.getDataObject()
-                        ?: return@forEach
-
-                    val lowerPrioritySettings =
-                        lowerPriority.getDataObject(id) ?: DataObject.EMPTY_OBJECT
-
-                    put(id, lowerPrioritySettings + higherPrioritySettings)
-                }
-            }
+            return merged
         }
 
         internal fun loadFromAsset(config: TealiumConfig): DataObject? {
@@ -231,7 +209,7 @@ class SettingsManager(
             sdkSettings: Observable<SdkSettings>,
         ): Observable<TimeFrame> {
             return sdkSettings
-                .map { it.coreSettings.refreshInterval }
+                .map { it.core.refreshInterval }
                 .distinct()
         }
 

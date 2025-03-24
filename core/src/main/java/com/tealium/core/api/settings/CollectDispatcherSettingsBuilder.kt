@@ -15,14 +15,14 @@ class CollectDispatcherSettingsBuilder : ModuleSettingsBuilder() {
      * Sets the url to use when sending individual events
      */
     fun setUrl(url: String) = apply {
-        builder.put(CollectDispatcherSettings.KEY_COLLECT_URL, url)
+        configuration.put(CollectDispatcherSettings.KEY_COLLECT_URL, url)
     }
 
     /**
      * Sets the url to use when sending batches of events
      */
     fun setBatchUrl(url: String) = apply {
-        builder.put(CollectDispatcherSettings.KEY_COLLECT_BATCH_URL, url)
+        configuration.put(CollectDispatcherSettings.KEY_COLLECT_BATCH_URL, url)
     }
 
     /**
@@ -30,7 +30,7 @@ class CollectDispatcherSettingsBuilder : ModuleSettingsBuilder() {
      * the one configured in the [TealiumConfig]
      */
     fun setProfile(profile: String) = apply {
-        builder.put(CollectDispatcherSettings.KEY_COLLECT_PROFILE, profile)
+        configuration.put(CollectDispatcherSettings.KEY_COLLECT_PROFILE, profile)
     }
 
     /**
@@ -39,6 +39,6 @@ class CollectDispatcherSettingsBuilder : ModuleSettingsBuilder() {
      * This setting will not override the domain of any values provided in [setUrl] and [setBatchUrl]
      */
     fun setDomain(domain: String) = apply {
-        builder.put(CollectDispatcherSettings.KEY_COLLECT_DOMAIN, domain)
+        configuration.put(CollectDispatcherSettings.KEY_COLLECT_DOMAIN, domain)
     }
 }

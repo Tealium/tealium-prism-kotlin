@@ -24,20 +24,20 @@ class VisitorServiceSettingsBuilder : ModuleSettingsBuilder() {
      * value set at [setProfile] (if configured)
      */
     fun setUrlTemplate(url: String) = apply {
-        builder.put(VisitorServiceSettings.DEFAULT_VISITOR_SERVICE_TEMPLATE, url)
+        configuration.put(VisitorServiceSettings.DEFAULT_VISITOR_SERVICE_TEMPLATE, url)
     }
 
     /**
      * Sets an override profile to use instead of the one provided by the [TealiumConfig]
      */
     fun setProfile(profile: String) = apply {
-        builder.put(VisitorServiceSettings.VISITOR_SERVICE_OVERRIDE_PROFILE, profile)
+        configuration.put(VisitorServiceSettings.VISITOR_SERVICE_OVERRIDE_PROFILE, profile)
     }
 
     /**
      * Sets the interval to use when updating the visitor profile
      */
     fun setRefreshInterval(interval: TimeFrame) = apply {
-        builder.put(VisitorServiceSettings.VISITOR_SERVICE_REFRESH_INTERVAL, interval.unit.toSeconds(interval.number))
+        configuration.put(VisitorServiceSettings.VISITOR_SERVICE_REFRESH_INTERVAL, interval.unit.toSeconds(interval.number))
     }
 }

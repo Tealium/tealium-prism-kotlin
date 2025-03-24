@@ -10,6 +10,7 @@ import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Observer
 import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.internal.modules.datalayer.DataLayerModule
+import com.tealium.core.internal.settings.ModuleSettings
 import com.tealium.core.internal.settings.SdkSettings
 import com.tealium.tests.common.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
@@ -264,7 +265,7 @@ class ModuleManagerImplTests {
 
     @Test
     fun updateSettings_Updates_ExistingModules() {
-        moduleManager.updateModuleSettings(context, SdkSettings(mapOf()))
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf()))
 
         verify {
             testCollector.updateSettings(any())
@@ -276,7 +277,7 @@ class ModuleManagerImplTests {
     @Test
     fun updateSettings_RemovesModules_ThatReturnNull() {
         every { testModule.updateSettings(any()) } returns null
-        moduleManager.updateModuleSettings(context, SdkSettings(mapOf()))
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf()))
 
         assertFalse(modulesSubject.value.contains(testModule))
 
@@ -287,7 +288,7 @@ class ModuleManagerImplTests {
     @Test
     fun updateSettings_Calls_OnShutdown_WhenReturnNull() {
         every { testModule.updateSettings(any()) } returns null
-        moduleManager.updateModuleSettings(context, SdkSettings(mapOf()))
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf()))
 
         verify { testModule.onShutdown() }
     }
@@ -302,18 +303,18 @@ class ModuleManagerImplTests {
 
     @Test
     fun updateSettings_ProvidesSettings_ToSpecificModules() {
-        val testCollectorSettings = DataObject.create {
+        val testCollectorSettings = ModuleSettings(configuration = DataObject.create {
             put("collector_setting", "10")
-        }
-        val testDispatcherSettings = DataObject.create {
+        })
+        val testDispatcherSettings = ModuleSettings(configuration = DataObject.create {
             put("dispatcher_setting", "10")
-        }
-        val testModuleSettings = DataObject.create {
+        })
+        val testModuleSettings = ModuleSettings(configuration = DataObject.create {
             put("module_setting", "10")
-        }
+        })
         moduleManager.updateModuleSettings(
             context, SdkSettings(
-                mapOf(
+                modules = mapOf(
                     testCollector.id to testCollectorSettings,
                     testDispatcher.id to testDispatcherSettings,
                     testModule.id to testModuleSettings
@@ -322,9 +323,9 @@ class ModuleManagerImplTests {
         )
 
         verify {
-            testCollector.updateSettings(testCollectorSettings)
-            testDispatcher.updateSettings(testDispatcherSettings)
-            testModule.updateSettings(testModuleSettings)
+            testCollector.updateSettings(match { it.getString("collector_setting") == "10" })
+            testDispatcher.updateSettings(match { it.getString("dispatcher_setting") == "10" })
+            testModule.updateSettings(match { it.getString("module_setting") == "10" })
         }
     }
 

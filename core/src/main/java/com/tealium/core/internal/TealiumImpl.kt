@@ -77,7 +77,7 @@ class TealiumImpl(
     activityManager: ActivityManager = ActivityManagerImpl.getInstance(config.application),
 ) {
     private val sdkSettingsSubject: ReplaySubject<SdkSettings> = Observables.replaySubject(1)
-    private val logLevel: Observable<LogLevel> = sdkSettingsSubject.map { it.coreSettings.logLevel }
+    private val logLevel: Observable<LogLevel> = sdkSettingsSubject.map { it.core.logLevel }
     val logger: Logger = LoggerImpl(
         config.logHandler,
         logLevel,
@@ -130,7 +130,7 @@ class TealiumImpl(
         settings.subscribe(sdkSettingsSubject)
 
         coreSettings =
-            settings.map(SdkSettings::coreSettings).withState(settings.value::coreSettings)
+            settings.map(SdkSettings::core).withState(settings.value::core)
 
         val transformerCoordinator =
             createTransformationsCoordinator(config, coreSettings, schedulers)
@@ -166,7 +166,7 @@ class TealiumImpl(
             logger
         )
         subscribeIdentityUpdates(
-            settings.map(SdkSettings::coreSettings),
+            settings.map(SdkSettings::core),
             storage.getModuleStore(DataLayerModule),
             visitorIdProvider,
         ).addTo(disposables)

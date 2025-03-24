@@ -2,6 +2,7 @@ package com.tealium.core.api.settings
 
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.modules.Module
+import com.tealium.core.internal.settings.ModuleSettings
 
 /**
  * Base class to extend from when creating a settings builder for a new module.
@@ -13,22 +14,26 @@ import com.tealium.core.api.modules.Module
  * Therefore it also doesn't require users to know which json key any particular setting needs to be set at.
  */
 open class ModuleSettingsBuilder {
-    protected val builder: DataObject.Builder = DataObject.Builder()
+    private val builder: DataObject.Builder = DataObject.Builder()
+    protected val configuration: DataObject.Builder = DataObject.Builder()
 
     /**
      * Sets the resulting [Module] to be permanently enabled/disabled. Local/Remote settings sources will
      * be overridden by this
      */
     fun setEnabled(enabled: Boolean) = apply {
-        builder.put(KEY_ENABLED, enabled)
+        builder.put(ModuleSettings.KEY_ENABLED, enabled)
     }
+
+    // TODO - applyRules: List<LoadRule>?
+    // TODO - excludeRules: List<LoadRule>?
+    // TODO - mappings: List<Mappings>?
 
     /**
      * Returns the complete [Module] settings as configured by this [ModuleSettingsBuilder].
      */
-    fun build(): DataObject = builder.build()
-
-    companion object {
-        const val KEY_ENABLED = "enabled"
-    }
+    fun build(): DataObject =
+        builder
+            .put(ModuleSettings.KEY_CONFIGURATION, configuration.build())
+            .build()
 }

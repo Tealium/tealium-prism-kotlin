@@ -28,7 +28,7 @@ class LifecycleWrapperTests {
     @RelaxedMockK
     private lateinit var lifecycleModule: LifecycleModule
 
-    private lateinit var modules: StateSubject<Set<Module>>
+    private lateinit var modules: StateSubject<List<Module>>
     private lateinit var moduleManager: ModuleManager
     private lateinit var onModuleManager: Subject<ModuleManager?>
     private lateinit var proxy: ModuleProxy<LifecycleModule>
@@ -40,8 +40,8 @@ class LifecycleWrapperTests {
     fun setUp() {
         MockKAnnotations.init(this)
         every { lifecycleModule.id } returns LifecycleModule.Factory().id
-        modules = Observables.stateSubject(setOf(lifecycleModule))
-        moduleManager = ModuleManagerImpl(listOf(), scheduler, modules)
+        modules = Observables.stateSubject(listOf(lifecycleModule))
+        moduleManager = ModuleManagerImpl(scheduler, modules)
         onModuleManager = Observables.replaySubject(1)
         onModuleManager.onNext(moduleManager)
 
@@ -51,7 +51,7 @@ class LifecycleWrapperTests {
 
     @Test
     fun methods_Report_ModuleNotEnabled() {
-        modules.onNext(emptySet())
+        modules.onNext(emptyList())
 
         val completion = mockk<TealiumCallback<TealiumException?>>(relaxed = true)
         lifecycleWrapper.launch(completion = completion)

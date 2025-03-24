@@ -13,6 +13,7 @@ import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.ObservableState
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
+import com.tealium.core.internal.settings.ModuleSettings
 import com.tealium.core.internal.settings.SdkSettings
 
 class ModuleManagerImpl(
@@ -89,7 +90,7 @@ class ModuleManagerImpl(
         val oldModules = _modules.value.associateBy(Module::id)
         val newModules = moduleFactories.mapNotNull { (id, factory) ->
             val module = oldModules[id]
-            val newSettings = settings.moduleSettings.getOrDefault(id)
+            val newSettings = settings.modules.getOrDefault(id)
             if (module != null) {
                 updateOrDisableModule(
                     factory.canBeDisabled(),
@@ -112,15 +113,15 @@ class ModuleManagerImpl(
     private fun updateOrDisableModule(
         canBeDisabled: Boolean,
         module: Module,
-        settings: DataObject,
+        settings: ModuleSettings,
         logger: Logger
     ): Module? {
         if (!canBeDisabled || settings.enabled) {
             // update
-            val updatedModule = module.updateSettings(settings)
+            val updatedModule = module.updateSettings(settings.configuration)
             if (updatedModule != null) {
                 logger.logIfTraceEnabled(module.id) {
-                    "Settings updated to $settings"
+                    "Settings updated to ${settings.configuration}"
                 }
                 return updatedModule
             }
@@ -139,16 +140,13 @@ class ModuleManagerImpl(
         private fun getModuleInfo(module: Module) : ModuleInfo =
             ModuleInfo(module.id, module.version)
 
-        private val DataObject.enabled: Boolean
-            get() = this.getBoolean("enabled") ?: true
-
         private fun createModule(
             context: TealiumContext,
-            settings: DataObject,
+            settings: ModuleSettings,
             factory: ModuleFactory
         ): Module? {
             return if (!factory.canBeDisabled() || settings.enabled) {
-                factory.create(context, settings)
+                factory.create(context, settings.configuration)
             } else null
         }
 
@@ -157,15 +155,15 @@ class ModuleManagerImpl(
          */
         private fun getModuleSettings(
             moduleName: String,
-            modulesSettings: Map<String, DataObject>
-        ): DataObject {
-            return modulesSettings[moduleName] ?: DataObject.EMPTY_OBJECT
+            modulesSettings: Map<String, ModuleSettings>
+        ): ModuleSettings {
+            return modulesSettings[moduleName] ?: ModuleSettings(DataObject.EMPTY_OBJECT)
         }
 
         /**
          * Extracts the module settings for the named module; otherwise returns the default settings.
          */
-        private fun Map<String, DataObject>.getOrDefault(name: String): DataObject {
+        private fun Map<String, ModuleSettings>.getOrDefault(name: String): ModuleSettings {
             return getModuleSettings(name, this)
         }
     }

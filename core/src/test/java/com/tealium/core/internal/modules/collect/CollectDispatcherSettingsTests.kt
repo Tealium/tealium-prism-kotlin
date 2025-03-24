@@ -2,6 +2,7 @@ package com.tealium.core.internal.modules.collect
 
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.settings.CollectDispatcherSettingsBuilder
+import com.tealium.core.internal.settings.ModuleSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -82,5 +83,5 @@ inline fun createSettings(
 ): DataObject {
     val builder = CollectDispatcherSettingsBuilder()
     block.invoke(builder)
-    return builder.build()
+    return builder.build().getDataObject(ModuleSettings.KEY_CONFIGURATION)!!
 }

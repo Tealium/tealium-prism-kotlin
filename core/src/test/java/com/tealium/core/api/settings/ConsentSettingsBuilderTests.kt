@@ -1,6 +1,7 @@
 package com.tealium.core.api.settings
 
 import com.tealium.core.internal.modules.consent.ConsentSettings
+import com.tealium.core.internal.settings.ModuleSettings
 import org.junit.Assert.*
 import org.junit.Before
 
@@ -20,6 +21,7 @@ class ConsentSettingsBuilderTests {
         val consentSettings = builder.setDispatcherToPurposes(
             mapOf("dispatcher" to setOf("purpose_1", "purpose_2"))
         ).build()
+            .getDataObject(ModuleSettings.KEY_CONFIGURATION)!!
 
         val purposeMap = consentSettings.getDataObject(ConsentSettings.KEY_DISPATCHER_PURPOSES)!!
         val purposes = purposeMap.getDataList("dispatcher")!!
@@ -33,6 +35,7 @@ class ConsentSettingsBuilderTests {
         val consentSettings = builder.setShouldRefireDispatchers(
             setOf("dispatcher_1", "dispatcher_2")
         ).build()
+            .getDataObject(ModuleSettings.KEY_CONFIGURATION)!!
 
         val refireList = consentSettings.getDataList(ConsentSettings.KEY_REFIRE_DISPATCHERS)!!
 
