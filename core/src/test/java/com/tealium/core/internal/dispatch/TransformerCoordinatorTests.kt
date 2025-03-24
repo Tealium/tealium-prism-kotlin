@@ -1,24 +1,21 @@
 package com.tealium.core.internal.dispatch
 
+import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.transform.DispatchScope
 import com.tealium.core.api.transform.ScopedTransformation
 import com.tealium.core.api.transform.TransformationScope
 import com.tealium.core.api.transform.Transformer
-import com.tealium.core.api.pubsub.Observables
-import com.tealium.core.api.pubsub.StateSubject
-import com.tealium.tests.common.testTealiumScheduler
+import com.tealium.tests.common.SynchronousScheduler
+import com.tealium.tests.common.TestTransformer
 import io.mockk.MockKAnnotations
 import io.mockk.Ordering
-import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
-import io.mockk.slot
 import io.mockk.verify
 import org.junit.Before
 import org.junit.Test
-import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledExecutorService
 
 class TransformerCoordinatorTests {
 
@@ -27,14 +24,14 @@ class TransformerCoordinatorTests {
 
     @RelaxedMockK
     private lateinit var onTransformed: (Dispatch?) -> Unit
+
     @RelaxedMockK
     private lateinit var onTransformedList: (List<Dispatch?>) -> Unit
 
-    private lateinit var executorService: ScheduledExecutorService
     private lateinit var mockTransformer1: Transformer
     private lateinit var mockTransformer2: Transformer
     private lateinit var mockTransformer3: Transformer
-    private lateinit var registeredTransformers: Set<Transformer>
+    private lateinit var registeredTransformers: StateSubject<List<Transformer>>
     private lateinit var scopedTransformations: StateSubject<Set<ScopedTransformation>>
     private lateinit var transformerCoordinator: TransformerCoordinatorImpl
 
@@ -67,14 +64,13 @@ class TransformerCoordinatorTests {
     @Before
     fun setUp() {
         MockKAnnotations.init(this)
-        executorService = Executors.newSingleThreadScheduledExecutor()
 
-        mockTransformer1 = mockTransformer("transformer1")
-        mockTransformer2 = mockTransformer("transformer2")
-        mockTransformer3 = mockTransformer("transformer3")
+        mockTransformer1 = TestTransformer.mock("transformer1")
+        mockTransformer2 = TestTransformer.mock("transformer2")
+        mockTransformer3 = TestTransformer.mock("transformer3")
 
-        registeredTransformers = setOf(
-            mockTransformer1, mockTransformer2, mockTransformer3
+        registeredTransformers = Observables.stateSubject(
+            listOf(mockTransformer1, mockTransformer2, mockTransformer3)
         )
 
         scopedTransformations = Observables.stateSubject(defaultScopedTransformations)
@@ -83,7 +79,7 @@ class TransformerCoordinatorTests {
             TransformerCoordinatorImpl(
                 registeredTransformers,
                 scopedTransformations,
-                testTealiumScheduler
+                SynchronousScheduler()
             )
     }
 
@@ -201,8 +197,8 @@ class TransformerCoordinatorTests {
 
     @Test
     fun transform_PrefersFirstTransformerId_WhenSameIdUsed() {
-        val mockTransformerDuplicate = mockTransformer("transformer1")
-        val scopedTransformations = Observables.stateSubject(
+        val mockTransformerDuplicate = TestTransformer.mock("transformer1")
+        scopedTransformations.onNext(
             defaultScopedTransformations + setOf(
                 ScopedTransformation(
                     "after_collectors",
@@ -211,11 +207,7 @@ class TransformerCoordinatorTests {
                 )
             )
         )
-        val transformerCoordinator = TransformerCoordinatorImpl(
-            registeredTransformers + setOf(mockTransformerDuplicate),
-            scopedTransformations,
-            testTealiumScheduler
-        )
+        registeredTransformers.onNext(registeredTransformers.value + mockTransformerDuplicate)
 
         transformerCoordinator.transform(
             mockDispatch,
@@ -243,25 +235,14 @@ class TransformerCoordinatorTests {
 
     @Test
     fun transform_ReturnsNull_WhenTransformerReturnsNull() {
-        val completionCapture = slot<(Dispatch?) -> Unit>()
-        every {
-            mockTransformer1.applyTransformation(
-                any(),
-                any(),
-                any(),
-                capture(completionCapture)
-            )
-        } answers {
-            completionCapture.captured(null)
-        }
+        mockTransformer1 = TestTransformer.mock(mockTransformer1.id) { _, _, _ -> null }
+        registeredTransformers.onNext(listOf(mockTransformer1))
 
         transformerCoordinator.transform(
             mockDispatch,
             DispatchScope.AfterCollectors,
             onTransformed
         )
-
-//        assertNull(transformed)
 
         verify(ordering = Ordering.ORDERED) {
             mockTransformer1.applyTransformation(
@@ -279,18 +260,8 @@ class TransformerCoordinatorTests {
         val mockDispatch1 = mockk<Dispatch>(relaxed = true)
         val mockDispatch2 = mockk<Dispatch>(relaxed = true)
         val mockDispatch3 = mockk<Dispatch>(relaxed = true)
-        val completionCapture = slot<(Dispatch?) -> Unit>()
-        every {
-            mockTransformer2.applyTransformation(
-                any(),
-                any(), // null for all dispatches
-                any(),
-                capture(completionCapture)
-            )
-        } answers {
-            completionCapture.captured(null)
-        }
-
+        mockTransformer2 = TestTransformer.mock(mockTransformer2.id) { _, _, _ -> null }
+        registeredTransformers.onNext(listOf(mockTransformer1, mockTransformer2, mockTransformer3))
 
         transformerCoordinator.transform(
             listOf(mockDispatch1, mockDispatch2, mockDispatch3),
@@ -308,17 +279,12 @@ class TransformerCoordinatorTests {
         val mockDispatch1 = mockk<Dispatch>(relaxed = true)
         val mockDispatch2 = mockk<Dispatch>(relaxed = true)
         val mockDispatch3 = mockk<Dispatch>(relaxed = true)
-        val completionCapture = slot<(Dispatch?) -> Unit>()
-        every {
-            mockTransformer2.applyTransformation(
-                any(),
-                mockDispatch2,
-                any(),
-                capture(completionCapture)
-            )
-        } answers {
-            completionCapture.captured(null)
+        mockTransformer2 = TestTransformer.mock(mockTransformer2.id) { _, dispatch, _ ->
+            if (dispatch == mockDispatch2) {
+                null
+            } else dispatch
         }
+        registeredTransformers.onNext(listOf(mockTransformer1, mockTransformer2, mockTransformer3))
 
 
         transformerCoordinator.transform(
@@ -338,17 +304,8 @@ class TransformerCoordinatorTests {
 
     @Test
     fun transform_StopsTransforming_AfterFirstTransformerReturnsNull() {
-        val completionCapture = slot<(Dispatch?) -> Unit>()
-        every {
-            mockTransformer2.applyTransformation(
-                any(),
-                mockDispatch,
-                any(),
-                capture(completionCapture)
-            )
-        } answers {
-            completionCapture.captured(null)
-        }
+        mockTransformer2 = TestTransformer.mock(mockTransformer2.id) { _, _, _ -> null }
+        registeredTransformers.onNext(listOf(mockTransformer1, mockTransformer2, mockTransformer3))
 
         transformerCoordinator.transform(
             listOf(mockDispatch),
@@ -380,26 +337,65 @@ class TransformerCoordinatorTests {
         }
     }
 
-    /**
-     * Returns a Mockk of a [Transformer] with the given [name]. The returned dispatcher's behaviour
-     * is to capture and return dispatch sent to it unedited.
-     */
-    private fun mockTransformer(name: String): Transformer {
-        return mockk<Transformer>(relaxed = true).also {
-            val dispatchSlot = slot<Dispatch>()
-            val completionSlot = slot<(Dispatch?) -> Unit>()
+    @Test
+    fun transform_Only_Uses_Observed_Transformers() {
+        registeredTransformers.onNext(listOf(mockTransformer3))
 
-            every { it.id } returns name
-            every {
-                it.applyTransformation(
-                    any(),
-                    capture(dispatchSlot),
-                    any(),
-                    capture(completionSlot)
-                )
-            } answers {
-                completionSlot.captured(dispatchSlot.captured)
-            }
+        transformerCoordinator.transform(
+            listOf(mockDispatch),
+            DispatchScope.Dispatcher("dispatcher_1"),
+            onTransformedList
+        )
+
+        verify {
+            mockTransformer3.applyTransformation(
+                "dispatcher_1",
+                mockDispatch,
+                DispatchScope.Dispatcher("dispatcher_1"),
+                any()
+            )
+        }
+        verify(inverse = true) {
+            mockTransformer1.applyTransformation(
+                "dispatcher_1_and_2",
+                mockDispatch,
+                DispatchScope.Dispatcher("dispatcher_1"),
+                any()
+            )
+            mockTransformer2.applyTransformation(
+                "all_dispatchers",
+                mockDispatch,
+                DispatchScope.Dispatcher("dispatcher_1"),
+                any()
+            )
+        }
+    }
+
+    @Test
+    fun transform_Still_Call_Other_Transformer_If_Previous_One_Is_Missing() {
+        registeredTransformers.onNext(listOf(mockTransformer1))
+
+        transformerCoordinator.transform(
+            listOf(mockDispatch),
+            DispatchScope.Dispatcher("dispatcher_1"),
+            onTransformedList
+        )
+
+        verify {
+            mockTransformer1.applyTransformation(
+                "dispatcher_1_and_2",
+                mockDispatch,
+                DispatchScope.Dispatcher("dispatcher_1"),
+                any()
+            )
+        }
+        verify(inverse = true) {
+            mockTransformer2.applyTransformation(
+                "all_dispatchers",
+                mockDispatch,
+                DispatchScope.Dispatcher("dispatcher_1"),
+                any()
+            )
         }
     }
 }

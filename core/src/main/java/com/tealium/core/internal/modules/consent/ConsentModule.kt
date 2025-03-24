@@ -16,8 +16,10 @@ import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.pubsub.SubscribableState
 import com.tealium.core.api.settings.ModuleSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.transform.DispatchScope
 import com.tealium.core.api.transform.ScopedTransformation
 import com.tealium.core.api.transform.TransformationScope
+import com.tealium.core.api.transform.Transformer
 import com.tealium.core.api.transform.TransformerRegistry
 import com.tealium.core.internal.dispatch.QueueManager
 import com.tealium.core.internal.persistence.database.getTimestampMilliseconds
@@ -28,8 +30,7 @@ class ConsentModule(
     private val transformerRegistry: TransformerRegistry,
     private val consentManagementAdapter: ConsentManagementAdapter,
     private val consentSettings: StateSubject<ConsentSettings>,
-    private val consentTransformer: ConsentTransformer = ConsentTransformer(consentSettings.asObservableState())
-) : ConsentManager {
+) : ConsentManager, Transformer {
 
     override val id: String
         get() = NAME
@@ -41,7 +42,7 @@ class ConsentModule(
 
     private val consentTransformation = ScopedTransformation(
         VERIFY_CONSENT_TRANSFORMATION_ID,
-        consentTransformer.id,
+        id,
         setOf(TransformationScope.AllDispatchers)
     )
     private val dispatchers: Set<String>
@@ -139,13 +140,39 @@ class ConsentModule(
     }
 
     private fun registerTransformations() {
-        transformerRegistry.registerTransformer(consentTransformer)
         transformerRegistry.registerScopedTransformation(consentTransformation)
     }
 
     private fun unregisterTransformations() {
-        transformerRegistry.unregisterTransformer(consentTransformer)
         transformerRegistry.unregisterScopedTransformation(consentTransformation)
+    }
+
+    override fun applyTransformation(
+        transformationId: String,
+        dispatch: Dispatch,
+        scope: DispatchScope,
+        completion: (Dispatch?) -> Unit
+    ) {
+        if (scope is DispatchScope.Dispatcher) {
+            val requiredPurposes =
+                consentSettings.value.dispatcherPurposes[scope.dispatcher]
+                    ?: emptyList()
+            if (requiredPurposes.isNotEmpty() && !isConsented(dispatch, requiredPurposes)) {
+                completion(null)
+                return
+            }
+        }
+
+        completion(dispatch)
+    }
+
+    private fun isConsented(dispatch: Dispatch, requiredPurposes: List<String>): Boolean {
+        val consentedPurposes =
+            dispatch.payload().getDataList(Dispatch.Keys.PURPOSES_WITH_CONSENT_ALL)?.mapNotNull {
+                it.getString()
+            } ?: return false
+
+        return consentedPurposes.containsAll(requiredPurposes)
     }
 
     companion object {

@@ -15,9 +15,10 @@ import com.tealium.core.api.transform.ScopedTransformation
 import com.tealium.core.api.transform.Transformer
 import com.tealium.core.internal.modules.InternalModuleManager
 import com.tealium.core.internal.modules.consent.ConsentManager
-import com.tealium.core.internal.persistence.repositories.VolatileQueueRepository
 import com.tealium.core.internal.persistence.repositories.QueueRepository
+import com.tealium.core.internal.persistence.repositories.VolatileQueueRepository
 import com.tealium.core.internal.settings.CoreSettingsImpl
+import com.tealium.tests.common.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestDispatcher
 import com.tealium.tests.common.testTealiumScheduler
@@ -60,7 +61,7 @@ open class DispatchManagerTestsBase {
     protected lateinit var queueRepository: QueueRepository
     protected lateinit var inFlightEvents: StateSubject<Map<String, Set<Dispatch>>>
     protected lateinit var transformerCoordinator: TransformerCoordinator
-    protected lateinit var transformers: MutableSet<Transformer>
+    protected lateinit var transformers: StateSubject<List<Transformer>>
     protected lateinit var transformersFlow: StateSubject<Set<ScopedTransformation>>
     protected lateinit var coreSettings: StateSubject<CoreSettings>
     protected lateinit var dispatchManager: DispatchManagerImpl
@@ -112,10 +113,10 @@ open class DispatchManagerTestsBase {
         every { barrierCoordinator.onBarriersState(any()) } returns barrierFlow
 
         transformersFlow = Observables.stateSubject(setOf())
-        transformers = mutableSetOf()
+        transformers = Observables.stateSubject(emptyList())
         transformerCoordinator = spyk(
             TransformerCoordinatorImpl(
-                transformers, transformersFlow, testTealiumScheduler
+                transformers, transformersFlow, SynchronousScheduler()
             )
         )
 

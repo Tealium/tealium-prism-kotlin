@@ -1,14 +1,14 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.misc.Scheduler
+import com.tealium.core.api.pubsub.ObservableState
+import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.transform.DispatchScope
 import com.tealium.core.api.transform.ScopedTransformation
 import com.tealium.core.api.transform.Transformer
-import com.tealium.core.api.pubsub.ObservableState
 
 class TransformerCoordinatorImpl(
-    private var registeredTransformers: Set<Transformer>,
+    private val registeredTransformers: ObservableState<List<Transformer>>,
     private val scopedTransformations: ObservableState<Set<ScopedTransformation>>,
     private val scheduler: Scheduler
 ) : TransformerCoordinator {
@@ -74,35 +74,24 @@ class TransformerCoordinatorImpl(
 
     private fun apply(
         transformation: ScopedTransformation,
-        dispatch: Dispatch?,
+        dispatch: Dispatch,
         scope: DispatchScope,
         completion: (Dispatch?) -> Unit
     ) {
-        if (dispatch == null) {
-            completion(null)
+        val transformer = registeredTransformers.value.firstOrNull {
+            it.id == transformation.transformerId
+        }
+        if (transformer == null) {
+            completion(dispatch)
             return
         }
 
-        registeredTransformers.firstOrNull {
-            it.id == transformation.transformerId
-        }?.applyTransformation(
+        transformer.applyTransformation(
             transformation.id,
             dispatch,
             scope,
             completion
         )
-    }
-
-    override fun registerTransformer(transformer: Transformer) {
-        registeredTransformers = registeredTransformers.toMutableSet().apply {
-            add(transformer)
-        }
-    }
-
-    override fun unregisterTransformer(transformer: Transformer) {
-        registeredTransformers = registeredTransformers.toMutableSet().apply {
-            remove(transformer)
-        }
     }
 
     override fun registerScopedTransformation(transformation: ScopedTransformation) {

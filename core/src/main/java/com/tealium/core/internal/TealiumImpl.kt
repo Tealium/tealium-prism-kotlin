@@ -24,6 +24,7 @@ import com.tealium.core.api.settings.CoreSettings
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
 import com.tealium.core.api.tracking.TrackResultListener
+import com.tealium.core.api.transform.Transformer
 import com.tealium.core.internal.dispatch.BarrierCoordinator
 import com.tealium.core.internal.dispatch.BarrierCoordinatorImpl
 import com.tealium.core.internal.dispatch.BarrierRegistryImpl
@@ -133,7 +134,7 @@ class TealiumImpl(
             settings.map(SdkSettings::core).withState(settings.value::core)
 
         val transformerCoordinator =
-            createTransformationsCoordinator(config, coreSettings, schedulers)
+            createTransformationsCoordinator(moduleManager.modules, coreSettings, schedulers)
         val barrierCoordinator =
             createBarrierCoordinator(
                 config,
@@ -154,7 +155,7 @@ class TealiumImpl(
             barrierCoordinator = barrierCoordinator,
             transformerCoordinator = transformerCoordinator,
             dispatchers = moduleManager.modules
-                .map { it.filterIsInstance(Dispatcher::class.java).toSet() },
+                .map { it.filterIsInstance<Dispatcher>().toSet() },
             queueManager = queueManager,
             logger = logger
         )
@@ -415,12 +416,13 @@ class TealiumImpl(
         }
 
         fun createTransformationsCoordinator(
-            config: TealiumConfig,
+            modules: ObservableState<List<Module>>,
             coreSettings: ObservableState<CoreSettings>,
             schedulers: Schedulers
         ): TransformerCoordinator {
             return TransformerCoordinatorImpl(
-                config.transformers,
+                modules.map { it.filterIsInstance<Transformer>() }
+                    .withState { modules.value.filterIsInstance<Transformer>() },
                 coreSettings.map(CoreSettings::transformations)
                     .withState(coreSettings.value::transformations),
                 schedulers.tealium

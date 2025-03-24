@@ -6,10 +6,10 @@ import com.tealium.core.api.transform.ScopedTransformation
 import com.tealium.core.api.transform.TransformationScope
 import com.tealium.core.api.transform.Transformer
 import io.mockk.every
-import io.mockk.verify
 import io.mockk.impl.annotations.MockK
 import io.mockk.mockk
 import io.mockk.slot
+import io.mockk.verify
 import org.junit.Test
 
 class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
@@ -31,7 +31,7 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
             completionCapture.captured(null)
         }
 
-        transformers.add(droppingTransformer)
+        transformers.onNext(transformers.value + droppingTransformer)
     }
 
     @Test

@@ -7,7 +7,6 @@ import com.tealium.core.api.logger.LogHandler
 import com.tealium.core.api.misc.Environment
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.settings.CoreSettingsBuilder
-import com.tealium.core.api.transform.Transformer
 import com.tealium.core.internal.logger.LoggerImpl
 import com.tealium.core.internal.settings.CoreSettingsImpl
 import java.io.File
@@ -44,8 +43,6 @@ class TealiumConfig @JvmOverloads constructor(
      * Overrides default LogHandler. Default will log to the Android console.
      */
     var logHandler: LogHandler = LoggerImpl.ConsoleLogHandler
-
-    var transformers: Set<Transformer> = setOf()
 
     var barriers: Set<Barrier> = setOf()
 
