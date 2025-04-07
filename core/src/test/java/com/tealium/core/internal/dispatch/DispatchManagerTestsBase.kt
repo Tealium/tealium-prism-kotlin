@@ -17,6 +17,8 @@ import com.tealium.core.internal.modules.InternalModuleManager
 import com.tealium.core.internal.modules.consent.ConsentManager
 import com.tealium.core.internal.persistence.repositories.QueueRepository
 import com.tealium.core.internal.persistence.repositories.VolatileQueueRepository
+import com.tealium.core.internal.rules.LoadRuleEngine
+import com.tealium.core.internal.rules.LoadRuleResult
 import com.tealium.core.internal.settings.CoreSettingsImpl
 import com.tealium.tests.common.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
@@ -47,6 +49,9 @@ open class DispatchManagerTestsBase {
     @MockK
     protected lateinit var moduleManager: InternalModuleManager
 
+    @MockK
+    protected lateinit var loadRuleEngine: LoadRuleEngine
+
     protected lateinit var logger: Logger
     protected lateinit var scheduler: Scheduler
     protected lateinit var dispatcher1Name: String
@@ -62,7 +67,7 @@ open class DispatchManagerTestsBase {
     protected lateinit var inFlightEvents: StateSubject<Map<String, Set<Dispatch>>>
     protected lateinit var transformerCoordinator: TransformerCoordinator
     protected lateinit var transformers: StateSubject<List<Transformer>>
-    protected lateinit var transformersFlow: StateSubject<Set<ScopedTransformation>>
+    protected lateinit var transformations: StateSubject<Set<ScopedTransformation>>
     protected lateinit var coreSettings: StateSubject<CoreSettings>
     protected lateinit var dispatchManager: DispatchManagerImpl
 
@@ -91,6 +96,10 @@ open class DispatchManagerTestsBase {
         dispatchers = Observables.stateSubject(setOf(dispatcher1, dispatcher2))
         every { moduleManager.getModulesOfType(Dispatcher::class.java) } answers { dispatchers.value.toList() }
 
+        every { loadRuleEngine.evaluateLoadRules(any(), any()) } answers {
+            LoadRuleResult(args[1] as List<Dispatch>, emptyList())
+        }
+
         // Queue defaulted to empty
         // concurrent due to test async nature.
         queue = ConcurrentHashMap()
@@ -112,11 +121,11 @@ open class DispatchManagerTestsBase {
         barrierFlow = Observables.stateSubject(BarrierState.Open)
         every { barrierCoordinator.onBarriersState(any()) } returns barrierFlow
 
-        transformersFlow = Observables.stateSubject(setOf())
+        transformations = Observables.stateSubject(setOf())
         transformers = Observables.stateSubject(emptyList())
         transformerCoordinator = spyk(
             TransformerCoordinatorImpl(
-                transformers, transformersFlow, SynchronousScheduler()
+                transformers, transformations, SynchronousScheduler()
             )
         )
 
@@ -140,6 +149,7 @@ open class DispatchManagerTestsBase {
         transformerCoordinator: TransformerCoordinator = this.transformerCoordinator,
         queueManager: QueueManager = this.queueManager,
         dispatchers: StateSubject<Set<Dispatcher>> = this.dispatchers,
+        loadRuleEngine: LoadRuleEngine = this.loadRuleEngine,
         logger: Logger = this.logger,
         maxInFlight: Int = DispatchManagerImpl.MAXIMUM_INFLIGHT_EVENTS_PER_DISPATCHER
     ): DispatchManagerImpl = DispatchManagerImpl(
@@ -148,6 +158,7 @@ open class DispatchManagerTestsBase {
         transformerCoordinator,
         queueManager,
         dispatchers,
+        loadRuleEngine,
         logger,
         maxInFlight
     )

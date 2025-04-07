@@ -1,12 +1,18 @@
 package com.tealium.core.api.settings
 
 import com.tealium.core.api.data.DataItem
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.rules.Rule
 import com.tealium.core.internal.settings.ModuleSettings
+import com.tealium.tests.common.trimJson
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class ModuleSettingsBuilderTests {
 
     @Test
@@ -28,6 +34,28 @@ class ModuleSettingsBuilderTests {
     }
 
     @Test
+    fun setRules_Sets_String_Rules_In_DataObject() {
+        val settings = TestSettingsBuilder()
+            .setRules(
+                Rule.just("rule_1")
+                    .or(Rule.just("rule_2"))
+            )
+            .build()
+
+        val rules = settings.getDataObject(ModuleSettings.KEY_RULES)!!
+        assertEquals(DataObject.fromString(
+            """
+                {
+                    "operator": "or",
+                    "children": [
+                        "rule_1",
+                        "rule_2"
+                    ]
+                }
+            """.trimJson()), rules)
+    }
+
+    @Test
     fun build_Returns_DataObject_With_Custom_Properties_In_Configuration_Key() {
         val settings = TestSettingsBuilder()
             .setProperty("my_string", "my_string")
@@ -40,7 +68,7 @@ class ModuleSettingsBuilderTests {
         assertEquals(100, configurations.getInt("my_number"))
     }
 
-    private class TestSettingsBuilder: ModuleSettingsBuilder() {
+    private class TestSettingsBuilder : ModuleSettingsBuilder() {
         fun setProperty(key: String, value: Any): TestSettingsBuilder = apply {
             configuration.put(key, DataItem.convert(value))
         }

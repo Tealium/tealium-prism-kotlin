@@ -36,7 +36,7 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_DoesNotSendDispatchesToDispatcher_WhenTransformersReturnNull() {
-        transformersFlow.onNext(
+        transformations.onNext(
             setOf(
                 ScopedTransformation("drop", "drop", setOf(TransformationScope.AllDispatchers))
             )
@@ -52,7 +52,7 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_DoesNotQueue_WhenTransformersReturnNull() {
-        transformersFlow.onNext(
+        transformations.onNext(
             setOf(
                 ScopedTransformation("drop", "drop", setOf(TransformationScope.AfterCollectors))
             )
@@ -69,7 +69,7 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_Notifies_DispatchDropped_WhenDispatchDropped_AfterCollectors() {
-        transformersFlow.onNext(
+        transformations.onNext(
             setOf(
                 ScopedTransformation("drop", "drop", setOf(TransformationScope.AfterCollectors))
             )

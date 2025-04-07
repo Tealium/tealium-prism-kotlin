@@ -6,9 +6,13 @@ import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.LogHandler
 import com.tealium.core.api.misc.Environment
 import com.tealium.core.api.modules.ModuleFactory
+import com.tealium.core.api.rules.Condition
+import com.tealium.core.api.rules.Rule
 import com.tealium.core.api.settings.CoreSettingsBuilder
 import com.tealium.core.internal.logger.LoggerImpl
+import com.tealium.core.internal.rules.LoadRule
 import com.tealium.core.internal.settings.CoreSettingsImpl
+import com.tealium.core.internal.settings.SdkSettings
 import java.io.File
 
 class TealiumConfig @JvmOverloads constructor(
@@ -18,6 +22,7 @@ class TealiumConfig @JvmOverloads constructor(
     val environment: Environment,
     val modules: List<ModuleFactory>,
     val datasource: String? = null,
+    rules: Map<String, Rule<Condition>>? = null,
     enforcingCoreSettings: ((CoreSettingsBuilder) -> CoreSettingsBuilder)? = null
 ) {
     val key: String = "${accountName}-${profileName}"
@@ -58,12 +63,22 @@ class TealiumConfig @JvmOverloads constructor(
                 .build()
             put(CoreSettingsImpl.MODULE_NAME, coreSettings)
         }
-
-        modules.forEach { factory ->
-            factory.getEnforcedSettings()?.let { enforcedSettings ->
-                put(factory.id, enforcedSettings)
+        val modulesObject = DataObject.create {
+            modules.forEach { factory ->
+                factory.getEnforcedSettings()?.let { enforcedSettings ->
+                    put(factory.id, enforcedSettings)
+                }
             }
         }
-    }
+        put(SdkSettings.KEY_MODULES, modulesObject)
 
+        if (rules != null) {
+            val rulesObject = DataObject.create {
+                rules.forEach { (id, condition) ->
+                    put(id, LoadRule(id, condition))
+                }
+            }
+            put(SdkSettings.KEY_LOAD_RULES, rulesObject)
+        }
+    }
 }

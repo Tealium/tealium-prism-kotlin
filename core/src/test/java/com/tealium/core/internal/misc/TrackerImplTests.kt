@@ -8,12 +8,14 @@ import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
 import com.tealium.core.internal.dispatch.DispatchManager
+import com.tealium.core.internal.rules.LoadRuleEngine
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestCollector
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.Called
 import io.mockk.MockKAnnotations
 import io.mockk.every
+import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
 import io.mockk.verify
@@ -28,6 +30,8 @@ class TrackerImplTest {
 
     @RelaxedMockK
     private lateinit var dispatchManager: DispatchManager
+    @MockK
+    private lateinit var loadRuleEngine: LoadRuleEngine
 
     private lateinit var dispatch: Dispatch
     private lateinit var modules: StateSubject<List<Module>>
@@ -38,12 +42,14 @@ class TrackerImplTest {
     fun setUp() {
         MockKAnnotations.init(this)
 
-        // TODO - This needs refactoring to a List once the Modules become ordered.
         modules = Observables.stateSubject(listOf())
         dispatch = Dispatch.create("test", dataObject = DataObject.EMPTY_OBJECT)
         source = DispatchContext.Source.application()
 
-        tracker = TrackerImpl(modules, dispatchManager, SystemLogger)
+        // default load rules allow all
+        every { loadRuleEngine.rulesAllow(any(), any()) } returns true
+
+        tracker = TrackerImpl(modules, dispatchManager, loadRuleEngine, SystemLogger)
     }
 
     @Test
@@ -145,6 +151,32 @@ class TrackerImplTest {
 
         verify {
             collector.collect(match { it.source == source })
+        }
+    }
+
+    @Test
+    fun track_Does_Enrich_From_Collectors_That_Pass_Load_Rules() {
+        val collector = TestCollector.mock("test")
+        every { loadRuleEngine.rulesAllow(collector, dispatch) } returns true
+        modules.onNext(listOf( collector))
+
+        tracker.track(dispatch, source)
+
+        verify {
+            collector.collect(any())
+        }
+    }
+
+    @Test
+    fun track_Does_Not_Enrich_From_Collectors_That_Fail_Load_Rules() {
+        val collector = TestCollector.mock("test")
+        every { loadRuleEngine.rulesAllow(collector, dispatch) } returns false
+        modules.onNext(listOf( collector))
+
+        tracker.track(dispatch, source)
+
+        verify(inverse = true) {
+            collector.collect(any())
         }
     }
 

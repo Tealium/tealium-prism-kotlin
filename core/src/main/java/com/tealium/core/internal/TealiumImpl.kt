@@ -62,6 +62,7 @@ import com.tealium.core.internal.persistence.repositories.SQLModulesRepository
 import com.tealium.core.internal.persistence.repositories.SQLQueueRepository
 import com.tealium.core.internal.pubsub.DisposableContainer
 import com.tealium.core.internal.pubsub.addTo
+import com.tealium.core.internal.rules.LoadRuleEngineImpl
 import com.tealium.core.internal.settings.CoreSettingsImpl
 import com.tealium.core.internal.settings.SdkSettings
 import com.tealium.core.internal.settings.SettingsManager
@@ -150,6 +151,7 @@ class TealiumImpl(
         val queueManager =
             createQueueManager(queueRepository, coreSettings, moduleManager.modules, logger)
 
+        val loadRuleEngine = LoadRuleEngineImpl(settings)
         dispatchManager = DispatchManagerImpl(
             moduleManager = moduleManager,
             barrierCoordinator = barrierCoordinator,
@@ -157,9 +159,10 @@ class TealiumImpl(
             dispatchers = moduleManager.modules
                 .map { it.filterIsInstance<Dispatcher>().toSet() },
             queueManager = queueManager,
+            loadRuleEngine = loadRuleEngine,
             logger = logger
         )
-        tracker = TrackerImpl(moduleManager.modules, dispatchManager, logger)
+        tracker = TrackerImpl(moduleManager.modules, dispatchManager, loadRuleEngine, logger)
 
         visitorIdProvider = VisitorIdProviderImpl(
             config,

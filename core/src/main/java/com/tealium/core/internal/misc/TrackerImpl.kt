@@ -14,10 +14,12 @@ import com.tealium.core.api.tracking.Tracker
 import com.tealium.core.internal.dispatch.DispatchManager
 import com.tealium.core.internal.logger.LogCategory
 import com.tealium.core.internal.pubsub.subscribeOnce
+import com.tealium.core.internal.rules.LoadRuleEngine
 
 class TrackerImpl(
     private val modules: Observable<List<Module>>,
     private val dispatchManager: DispatchManager,
+    private val loadRuleEngine: LoadRuleEngine,
     private val logger: Logger
 ) : Tracker {
 
@@ -37,8 +39,9 @@ class TrackerImpl(
             "Event data: ${dispatch.payload()}"
         }
         // collection
-        modules.filter { it.isNotEmpty() }
-            .mapNotNull { it.filterIsInstance(Collector::class.java) }
+        modules.filter { modules -> modules.isNotEmpty() }
+            .map { modules -> modules.filterIsInstance<Collector>() }
+            .map { collectors -> evaluateLoadRules(collectors, dispatch) }
             .subscribeOnce { collectors ->
                 val dispatchContext = DispatchContext(source, dispatch.payload())
                 val collectedData = collect(collectors, dispatchContext)
@@ -53,6 +56,25 @@ class TrackerImpl(
 
                 dispatchManager.track(dispatch, onComplete)
             }
+    }
+
+    private fun evaluateLoadRules(
+        collectors: List<Collector>,
+        dispatch: Dispatch
+    ): List<Collector> {
+        val (passed, failed) = collectors.partition { collector ->
+            loadRuleEngine.rulesAllow(collector, dispatch)
+        }
+
+        if (failed.isNotEmpty()) {
+            logger.logIfTraceEnabled(LogCategory.TEALIUM) {
+                "${dispatch.logDescription()}: Collection not allowed for collectors: (${
+                    failed.map(Collector::id).joinToString(",")
+                })"
+            }
+        }
+
+        return passed
     }
 
     private fun collect(

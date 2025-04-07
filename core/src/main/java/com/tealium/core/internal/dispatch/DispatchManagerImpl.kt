@@ -2,6 +2,7 @@ package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.barriers.BarrierState
 import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.logger.logIfDebugEnabled
 import com.tealium.core.api.modules.Dispatcher
 import com.tealium.core.api.modules.consent.ConsentDecision
 import com.tealium.core.api.pubsub.Disposable
@@ -13,12 +14,12 @@ import com.tealium.core.api.tracking.TrackResult
 import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.api.transform.DispatchScope
 import com.tealium.core.internal.logger.LogCategory
-import com.tealium.core.api.logger.logIfDebugEnabled
 import com.tealium.core.internal.logger.logDescriptions
 import com.tealium.core.internal.modules.InternalModuleManager
 import com.tealium.core.internal.modules.consent.ConsentManager
 import com.tealium.core.internal.pubsub.DisposableContainer
 import com.tealium.core.internal.pubsub.addTo
+import com.tealium.core.internal.rules.LoadRuleEngine
 
 class DispatchManagerImpl(
     private val moduleManager: InternalModuleManager,
@@ -26,6 +27,7 @@ class DispatchManagerImpl(
     private val transformerCoordinator: TransformerCoordinator,
     private val queueManager: QueueManager,
     private val dispatchers: Observable<Set<Dispatcher>>,
+    private val loadRuleEngine: LoadRuleEngine,
     private val logger: Logger,
     private val maxInFlightPerDispatcher: Int = MAXIMUM_INFLIGHT_EVENTS_PER_DISPATCHER
 ) : DispatchManager {
@@ -36,7 +38,7 @@ class DispatchManagerImpl(
 
     private val consentManager: ConsentManager?
         get() = moduleManager.getModuleOfType(ConsentManager::class.java)
-    
+
     private fun tealiumPurposeExplicitlyBlocked(): Boolean {
         val consentManager = consentManager ?: return false
 
@@ -103,19 +105,8 @@ class DispatchManagerImpl(
             dispatchers.flatMapLatest { dispatchers ->
                 Observables.fromIterable(dispatchers)
             }.flatMap { dispatcher ->
-                barrierCoordinator.onBarriersState(dispatcher.id)
-                    .flatMapLatest { active ->
-                        logger.debug(
-                            LogCategory.DISPATCH_MANAGER,
-                            "BarrierState changed for %s: %s", dispatcher.id, active
-                        )
-
-                        if (active == BarrierState.Open) {
-                            startDequeueLoop(dispatcher)
-                        } else {
-                            Observables.empty()
-                        }
-                    }.async { dispatches, observer: Observer<Pair<Dispatcher, List<Dispatch>>> ->
+                ensureBarriersOpen(dispatcher)
+                    .async { dispatches, observer: Observer<Pair<Dispatcher, List<Dispatch>>> ->
                         logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
                             "Sending events to dispatcher ${dispatcher.id}: ${dispatches.logDescriptions()}"
                         }
@@ -135,6 +126,21 @@ class DispatchManagerImpl(
                 }
             }
     }
+
+    private fun ensureBarriersOpen(dispatcher: Dispatcher): Observable<List<Dispatch>> =
+        barrierCoordinator.onBarriersState(dispatcher.id)
+            .flatMapLatest { active ->
+                logger.debug(
+                    LogCategory.DISPATCH_MANAGER,
+                    "BarrierState changed for %s: %s", dispatcher.id, active
+                )
+
+                if (active == BarrierState.Open) {
+                    startDequeueLoop(dispatcher)
+                } else {
+                    Observables.empty()
+                }
+            }
 
     private fun startDequeueLoop(dispatcher: Dispatcher): Observable<List<Dispatch>> {
         val onInflightLower = queueManager.inFlightCount(dispatcher.id)
@@ -178,7 +184,15 @@ class DispatchManagerImpl(
 
             deleteMissingDispatches(dispatches, transformedDispatches, onProcessedDispatches)
 
-            dispatcher.dispatch(transformedDispatches) { completed ->
+            val (passed, failed) = loadRuleEngine.evaluateLoadRules(dispatcher, transformedDispatches)
+            if (failed.isNotEmpty()) {
+                onProcessedDispatches(failed)
+                logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
+                    "Dispatching disallowed for Dispatcher(${dispatcher.id}) and Dispatches (${failed.logDescriptions()})"
+                }
+            }
+
+            dispatcher.dispatch(passed) { completed ->
                 if (container.isDisposed) return@dispatch
                 onProcessedDispatches(completed)
             }.addTo(container)

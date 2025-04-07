@@ -7,11 +7,13 @@ import com.tealium.core.internal.settings.ModuleSettings
 import com.tealium.core.internal.settings.SdkSettings
 import java.util.concurrent.atomic.AtomicInteger
 
-private fun enableDisableModuleSettings(name: String, enabled: Boolean) : SdkSettings = SdkSettings(
+private fun enableDisableModuleSettings(name: String, enabled: Boolean): SdkSettings = SdkSettings(
     modules = mapOf(
-        name to ModuleSettings(ModuleSettingsBuilder()
-            .setEnabled(enabled)
-            .build())
+        name to ModuleSettings.Converter.convert(
+            ModuleSettingsBuilder()
+                .setEnabled(enabled)
+                .build().asDataItem()
+        )!!
     )
 )
 

@@ -157,7 +157,7 @@ class ModuleManagerImpl(
             moduleName: String,
             modulesSettings: Map<String, ModuleSettings>
         ): ModuleSettings {
-            return modulesSettings[moduleName] ?: ModuleSettings(DataObject.EMPTY_OBJECT)
+            return modulesSettings[moduleName] ?: ModuleSettings()
         }
 
         /**
