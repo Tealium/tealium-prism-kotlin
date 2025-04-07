@@ -71,7 +71,7 @@ class LifecycleWrapper(
 }
 
 class LifecycleModule(
-    private var lifecycleSettings: LifecycleSettings,
+    private var lifecycleConfiguration: LifecycleConfiguration,
     private val lifecycleService: LifecycleService,
     private val applicationStatus: Observable<ActivityManager.ApplicationStatus>,
     private val tracker: Tracker,
@@ -80,10 +80,10 @@ class LifecycleModule(
 
     constructor(
         context: TealiumContext,
-        lifecycleSettings: LifecycleSettings,
+        lifecycleConfiguration: LifecycleConfiguration,
         lifecycleService: LifecycleService
     ) : this(
-        lifecycleSettings,
+        lifecycleConfiguration,
         lifecycleService,
         context.activityManager.applicationStatus,
         context.tracker,
@@ -96,14 +96,14 @@ class LifecycleModule(
     internal var shouldSkipNextForeground: Boolean = false
 
     private val isInfiniteSession: Boolean
-        get() = lifecycleSettings.sessionTimeoutInMinutes <= LifecycleDefault.INFINITE_SESSION
+        get() = lifecycleConfiguration.sessionTimeoutInMinutes <= LifecycleDefault.INFINITE_SESSION
 
     init {
         activitiesSubscription = subscribeToActivityUpdates()
     }
 
     fun launch(dataObject: DataObject? = null) {
-        if (lifecycleSettings.autoTrackingEnabled) {
+        if (lifecycleConfiguration.autoTrackingEnabled) {
             throw ManualTrackingException("Lifecycle auto-tracking is enabled, cannot manually track lifecycle event.")
         }
 
@@ -111,7 +111,7 @@ class LifecycleModule(
     }
 
     fun wake(dataObject: DataObject? = null) {
-        if (lifecycleSettings.autoTrackingEnabled) {
+        if (lifecycleConfiguration.autoTrackingEnabled) {
             throw ManualTrackingException("Lifecycle auto-tracking is enabled, cannot manually track lifecycle event.")
         }
 
@@ -119,7 +119,7 @@ class LifecycleModule(
     }
 
     fun sleep(dataObject: DataObject? = null) {
-        if (lifecycleSettings.autoTrackingEnabled) {
+        if (lifecycleConfiguration.autoTrackingEnabled) {
             throw ManualTrackingException("Lifecycle auto-tracking is enabled, cannot manually track lifecycle event.")
         }
 
@@ -168,11 +168,11 @@ class LifecycleModule(
     }
 
     private fun isTrackableEvent(event: LifecycleEvent): Boolean {
-        return lifecycleSettings.trackedLifecycleEvents.contains(event)
+        return lifecycleConfiguration.trackedLifecycleEvents.contains(event)
     }
 
     private fun subscribeToActivityUpdates(): Disposable {
-        return applicationStatus.filter { lifecycleSettings.autoTrackingEnabled }
+        return applicationStatus.filter { lifecycleConfiguration.autoTrackingEnabled }
             .subscribe { newStatus ->
                 if (!hasLaunched) {
                     handleFirstLaunch(newStatus)
@@ -272,15 +272,15 @@ class LifecycleModule(
 
     override fun collect(dispatchContext: DispatchContext): DataObject {
         if (dispatchContext.source.isFromModule(this::class.java)
-            || lifecycleSettings.dataTarget != LifecycleDataTarget.AllEvents) {
+            || lifecycleConfiguration.dataTarget != LifecycleDataTarget.AllEvents) {
             return DataObject.EMPTY_OBJECT
         }
 
         return lifecycleService.getCurrentState(System.currentTimeMillis())
     }
 
-    override fun updateSettings(moduleSettings: DataObject): Module? {
-        lifecycleSettings = LifecycleSettings.fromDataObject(moduleSettings)
+    override fun updateConfiguration(configuration: DataObject): Module? {
+        lifecycleConfiguration = LifecycleConfiguration.fromDataObject(configuration)
 
         return this
     }
@@ -291,7 +291,7 @@ class LifecycleModule(
     }
 
     private fun isExpiredSession(timeElapsed: Long): Boolean {
-        return timeElapsed > minutesToMillis(lifecycleSettings.sessionTimeoutInMinutes)
+        return timeElapsed > minutesToMillis(lifecycleConfiguration.sessionTimeoutInMinutes)
     }
 
     private fun minutesToMillis(minutes: Int): Long {
@@ -329,22 +329,22 @@ class LifecycleModule(
         constructor(moduleSettings: LifecycleSettingsBuilder) : this(moduleSettings.build())
 
         override val id: String
-            get() = LifecycleSettings.MODULE_ID
+            get() = LifecycleConfiguration.MODULE_ID
 
         override fun getEnforcedSettings(): DataObject? = settings
 
-        override fun create(context: TealiumContext, settings: DataObject): Module? {
+        override fun create(context: TealiumContext, configuration: DataObject): Module? {
             val dataStore = context.storageProvider.getModuleStore(this)
             return LifecycleModule(
                 context,
-                LifecycleSettings.fromDataObject(settings),
+                LifecycleConfiguration.fromDataObject(configuration),
                 LifecycleServiceImpl(context, LifecycleStorageImpl(dataStore))
             )
         }
     }
 
     override val id: String
-        get() = LifecycleSettings.MODULE_ID
+        get() = LifecycleConfiguration.MODULE_ID
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 }

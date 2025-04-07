@@ -79,7 +79,7 @@ class TraceManagerModule(
         override val id: String
             get() = "Trace"
 
-        override fun create(context: TealiumContext, settings: DataObject): Module? {
+        override fun create(context: TealiumContext, configuration: DataObject): Module? {
             val storage = context.storageProvider.getModuleStore(this)
             return TraceManagerModule(storage, context.tracker)
         }

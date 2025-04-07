@@ -34,7 +34,7 @@ class ConnectivityCollector(
         override val id: String
             get() = "Connectivity"
 
-        override fun create(context: TealiumContext, settings: DataObject): Module {
+        override fun create(context: TealiumContext, configuration: DataObject): Module {
             return ConnectivityCollector(context.network)
         }
     }

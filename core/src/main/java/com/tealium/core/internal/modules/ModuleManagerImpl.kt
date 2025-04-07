@@ -116,28 +116,37 @@ class ModuleManagerImpl(
         settings: ModuleSettings,
         logger: Logger
     ): Module? {
-        if (!canBeDisabled || settings.enabled) {
-            // update
-            val updatedModule = module.updateSettings(settings.configuration)
-            if (updatedModule != null) {
-                logger.logIfTraceEnabled(module.id) {
-                    "Settings updated to ${settings.configuration}"
-                }
-                return updatedModule
-            }
+        if (canBeDisabled && !settings.enabled) {
+            logger.trace(module.id, "Module has been marked as disabled. Module will be shut down.")
+            shutdownModule(module, logger)
+            return null
         }
 
-        // shutdown
+        val updatedModule = module.updateConfiguration(settings.configuration)
+        if (updatedModule == null) {
+            logger.trace(
+                module.id, "Module failed to update configuration. Module will be shut down."
+            )
+            shutdownModule(module, logger)
+            return null
+        }
+
+        logger.logIfTraceEnabled(module.id) {
+            "Configuration updated to ${settings.configuration}"
+        }
+        return updatedModule
+    }
+
+    private fun shutdownModule(module: Module, logger: Logger) {
+        module.onShutdown()
         logger.trace(
             module.id,
-            "Module failed to update settings. Module will be shut down."
+            "Module has been shut down."
         )
-        module.onShutdown()
-        return null
     }
 
     companion object {
-        private fun getModuleInfo(module: Module) : ModuleInfo =
+        private fun getModuleInfo(module: Module): ModuleInfo =
             ModuleInfo(module.id, module.version)
 
         private fun createModule(

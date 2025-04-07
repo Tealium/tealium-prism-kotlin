@@ -68,26 +68,6 @@ open class ConnectivityCollectorTests {
         fun version_Returns_LibraryVersion() {
             assertEquals(BuildConfig.TEALIUM_LIBRARY_VERSION, connectivityCollector.version)
         }
-
-        @Test
-        fun updateSettings_ReturnsModule_When_NotEnabled() {
-            assertSame(
-                connectivityCollector,
-                connectivityCollector.updateSettings(
-                    ModuleSettingsBuilder()
-                        .setEnabled(false)
-                        .build()
-                )
-            )
-        }
-
-        @Test
-        fun updateSettings_ReturnsModule_When_Enabled() {
-            assertSame(
-                connectivityCollector,
-                connectivityCollector.updateSettings(DataObject.EMPTY_OBJECT)
-            )
-        }
     }
 
     @RunWith(Parameterized::class)

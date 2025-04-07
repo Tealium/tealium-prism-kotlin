@@ -12,73 +12,73 @@ import org.robolectric.RobolectricTestRunner
 import java.net.URL
 
 @RunWith(RobolectricTestRunner::class)
-class CollectDispatcherSettingsTests {
+class CollectDispatcherConfigurationTests {
 
     private val localhost = URL("https://localhost/")
 
     @Test
     fun fromDataObject_Uses_UrlOverrides() {
-        val settings = CollectDispatcherSettings.fromDataObject(
-            createSettings {
+        val config = CollectDispatcherConfiguration.fromDataObject(
+            createConfigurationObject {
                 it.setUrl(localhost.toString())
                     .setBatchUrl(localhost.toString())
             }
         )
 
-        assertEquals(localhost, settings?.url)
-        assertEquals(localhost, settings?.batchUrl)
+        assertEquals(localhost, config?.url)
+        assertEquals(localhost, config?.batchUrl)
     }
 
     @Test
     fun fromDataObject_PrefersUrlOverrides_ToDomainOverride() {
-        val settings = CollectDispatcherSettings.fromDataObject(
-            createSettings {
+        val config = CollectDispatcherConfiguration.fromDataObject(
+            createConfigurationObject {
                 it.setUrl(localhost.toString())
                     .setBatchUrl(localhost.toString())
                     .setDomain("domain")
             }
         )!!
 
-        assertFalse(settings.url.toString().contains("domain"))
-        assertFalse(settings.batchUrl.toString().contains("domain"))
-        assertEquals(localhost, settings.url)
-        assertEquals(localhost, settings.batchUrl)
+        assertFalse(config.url.toString().contains("domain"))
+        assertFalse(config.batchUrl.toString().contains("domain"))
+        assertEquals(localhost, config.url)
+        assertEquals(localhost, config.batchUrl)
     }
 
     @Test
     fun fromDataObject_UsesDomainOverride_WhenNoUrlOverride() {
-        val settings = CollectDispatcherSettings.fromDataObject(
-            createSettings { it.setDomain("domain") }
+        val config = CollectDispatcherConfiguration.fromDataObject(
+            createConfigurationObject { it.setDomain("domain") }
         )
 
-        assertEquals(URL("https://domain/event"), settings?.url)
-        assertEquals(URL("https://domain/bulk-event"), settings?.batchUrl)
+        assertEquals(URL("https://domain/event"), config?.url)
+        assertEquals(URL("https://domain/bulk-event"), config?.batchUrl)
     }
 
     @Test
     fun fromDataObject_Returns_Null_When_Invalid_Url_Provided() {
-        val collectSettings = CollectDispatcherSettings.fromDataObject(
-            createSettings {
+        val config = CollectDispatcherConfiguration.fromDataObject(
+            createConfigurationObject {
                 it.setUrl("some_invalid_url")
             }
         )
 
-        assertNull(collectSettings)
+        assertNull(config)
     }
 
     @Test
     fun fromDataObject_Returns_Null_When_Invalid_BatchUrl_Provided() {
-        val collectSettings = CollectDispatcherSettings.fromDataObject(
-            createSettings {
+        val config = CollectDispatcherConfiguration.fromDataObject(
+            createConfigurationObject {
                 it.setBatchUrl("some_invalid_url")
             }
         )
 
-        assertNull(collectSettings)
+        assertNull(config)
     }
 }
 
-inline fun createSettings(
+inline fun createConfigurationObject(
     block: (CollectDispatcherSettingsBuilder) -> Unit
 ): DataObject {
     val builder = CollectDispatcherSettingsBuilder()

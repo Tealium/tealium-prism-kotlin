@@ -44,7 +44,7 @@ class VisitorServiceWrapper(
 }
 
 class VisitorServiceImpl(
-    private var settings: VisitorServiceSettings,
+    private var configuration: VisitorServiceConfiguration,
     private val dataStore: DataStore
 ) : Module {
 
@@ -70,9 +70,9 @@ class VisitorServiceImpl(
         // TODO()
     }
 
-    override fun updateSettings(moduleSettings: DataObject): Module? {
-        settings = VisitorServiceSettings.fromDataObject(moduleSettings)
-        return this // TODO or null if required settings are not available
+    override fun updateConfiguration(configuration: DataObject): Module? {
+        this.configuration = VisitorServiceConfiguration.fromDataObject(configuration)
+        return this // TODO or null if required configuration is not available
     }
 
     override val id: String
@@ -95,9 +95,9 @@ class VisitorServiceImpl(
         override val id: String
             get() = moduleName
 
-        override fun create(context: TealiumContext, settings: DataObject): Module {
+        override fun create(context: TealiumContext, configuration: DataObject): Module {
             return VisitorServiceImpl(
-                VisitorServiceSettings.fromDataObject(settings),
+                VisitorServiceConfiguration.fromDataObject(configuration),
                 context.storageProvider.getModuleStore(this)
             )
         }
@@ -106,7 +106,7 @@ class VisitorServiceImpl(
     }
 }
 
-class VisitorServiceSettings(
+class VisitorServiceConfiguration(
     val urlTemplate: String = DEFAULT_VISITOR_SERVICE_TEMPLATE,
     val profile: String? = null,
     val refreshIntervalSeconds: Long = DEFAULT_REFRESH_INTERVAL_SECONDS
@@ -130,13 +130,13 @@ class VisitorServiceSettings(
         const val VISITOR_SERVICE_OVERRIDE_PROFILE = "override_visitor_service_profile"
         const val VISITOR_SERVICE_REFRESH_INTERVAL = "override_visitor_refresh_interval"
 
-        fun fromDataObject(settings: DataObject): VisitorServiceSettings {
-            val url = settings.getString(VISITOR_SERVICE_OVERRIDE_URL)
+        fun fromDataObject(configuration: DataObject): VisitorServiceConfiguration {
+            val url = configuration.getString(VISITOR_SERVICE_OVERRIDE_URL)
                 ?: DEFAULT_VISITOR_SERVICE_TEMPLATE
-            val profile = settings.getString(VISITOR_SERVICE_OVERRIDE_PROFILE)
-            val refreshInterval = settings.getLong(VISITOR_SERVICE_REFRESH_INTERVAL)
+            val profile = configuration.getString(VISITOR_SERVICE_OVERRIDE_PROFILE)
+            val refreshInterval = configuration.getLong(VISITOR_SERVICE_REFRESH_INTERVAL)
                 ?: DEFAULT_REFRESH_INTERVAL_SECONDS
-            return VisitorServiceSettings(
+            return VisitorServiceConfiguration(
                 urlTemplate = url,
                 profile = profile,
                 refreshIntervalSeconds = refreshInterval,

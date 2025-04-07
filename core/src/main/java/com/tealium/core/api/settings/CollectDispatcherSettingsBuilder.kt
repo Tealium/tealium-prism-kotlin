@@ -1,7 +1,7 @@
 package com.tealium.core.api.settings
 
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.internal.modules.collect.CollectDispatcherSettings
+import com.tealium.core.internal.modules.collect.CollectDispatcherConfiguration
 
 /**
  * Enables the configuration, at runtime, of the Collect Dispatcher.
@@ -15,14 +15,14 @@ class CollectDispatcherSettingsBuilder : ModuleSettingsBuilder() {
      * Sets the url to use when sending individual events
      */
     fun setUrl(url: String) = apply {
-        configuration.put(CollectDispatcherSettings.KEY_COLLECT_URL, url)
+        configuration.put(CollectDispatcherConfiguration.KEY_COLLECT_URL, url)
     }
 
     /**
      * Sets the url to use when sending batches of events
      */
     fun setBatchUrl(url: String) = apply {
-        configuration.put(CollectDispatcherSettings.KEY_COLLECT_BATCH_URL, url)
+        configuration.put(CollectDispatcherConfiguration.KEY_COLLECT_BATCH_URL, url)
     }
 
     /**
@@ -30,15 +30,15 @@ class CollectDispatcherSettingsBuilder : ModuleSettingsBuilder() {
      * the one configured in the [TealiumConfig]
      */
     fun setProfile(profile: String) = apply {
-        configuration.put(CollectDispatcherSettings.KEY_COLLECT_PROFILE, profile)
+        configuration.put(CollectDispatcherConfiguration.KEY_COLLECT_PROFILE, profile)
     }
 
     /**
      * Sets the domain to use in place of the default single and batch URLs.
      *
-     * This setting will not override the domain of any values provided in [setUrl] and [setBatchUrl]
+     * This option will not override the domain of any values provided in [setUrl] and [setBatchUrl]
      */
     fun setDomain(domain: String) = apply {
-        configuration.put(CollectDispatcherSettings.KEY_COLLECT_DOMAIN, domain)
+        configuration.put(CollectDispatcherConfiguration.KEY_COLLECT_DOMAIN, domain)
     }
 }

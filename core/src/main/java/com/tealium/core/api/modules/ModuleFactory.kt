@@ -46,10 +46,10 @@ interface ModuleFactory {
      *
      * @param context The [TealiumContext] containing access to many shared dependencies that may
      * be required by the [Module] implementation being created.
-     * @param settings The current set of settings for this module; this could be from a local,
-     * cached or even remote source
-     * @return The new [Module] instance; or null if the Module is either disabled as configured in
-     * the settings, or missing required dependencies.
+     * @param configuration The current configuration for this module; this could be from a local,
+     * cached or even remote source.
+     * @return The new [Module] instance; or null if the Module is either disabled, missing required
+     * properties in the [configuration] object, or missing required dependencies.
      */
-    fun create(context: TealiumContext, settings: DataObject): Module?
+    fun create(context: TealiumContext, configuration: DataObject): Module?
 }

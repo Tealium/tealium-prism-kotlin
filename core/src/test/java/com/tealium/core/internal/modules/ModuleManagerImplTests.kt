@@ -264,19 +264,19 @@ class ModuleManagerImplTests {
     }
 
     @Test
-    fun updateSettings_Updates_ExistingModules() {
+    fun updateModuleSettings_Updates_Existing_Modules() {
         moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf()))
 
         verify {
-            testCollector.updateSettings(any())
-            testDispatcher.updateSettings(any())
-            testModule.updateSettings(any())
+            testCollector.updateConfiguration(any())
+            testDispatcher.updateConfiguration(any())
+            testModule.updateConfiguration(any())
         }
     }
 
     @Test
-    fun updateSettings_RemovesModules_ThatReturnNull() {
-        every { testModule.updateSettings(any()) } returns null
+    fun updateModuleSettings_Removes_Modules_That_Return_Null_From_UpdateConfiguration() {
+        every { testModule.updateConfiguration(any()) } returns null
         moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf()))
 
         assertFalse(modulesSubject.value.contains(testModule))
@@ -286,23 +286,22 @@ class ModuleManagerImplTests {
     }
 
     @Test
-    fun updateSettings_Calls_OnShutdown_WhenReturnNull() {
-        every { testModule.updateSettings(any()) } returns null
+    fun updateModuleSettings_Calls_OnShutdown_When_UpdateConfiguration_ReturnsNull() {
+        every { testModule.updateConfiguration(any()) } returns null
         moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf()))
 
         verify { testModule.onShutdown() }
     }
 
     @Test
-    fun updateSettings_Calls_OnShutdown_WhenModuleSettingsDisabled() {
-        every { testModule.updateSettings(any()) } returns null
+    fun updateModuleSettings_Calls_OnShutdown_When_Module_Settings_Disabled() {
         moduleManager.updateModuleSettings(context, disableModuleSettings(testModule.id))
 
         verify { testModule.onShutdown() }
     }
 
     @Test
-    fun updateSettings_ProvidesSettings_ToSpecificModules() {
+    fun updateModuleSettings_ProvidesConfiguration_ToSpecificModules() {
         val testCollectorSettings = ModuleSettings(configuration = DataObject.create {
             put("collector_setting", "10")
         })
@@ -323,14 +322,14 @@ class ModuleManagerImplTests {
         )
 
         verify {
-            testCollector.updateSettings(match { it.getString("collector_setting") == "10" })
-            testDispatcher.updateSettings(match { it.getString("dispatcher_setting") == "10" })
-            testModule.updateSettings(match { it.getString("module_setting") == "10" })
+            testCollector.updateConfiguration(match { it.getString("collector_setting") == "10" })
+            testDispatcher.updateConfiguration(match { it.getString("dispatcher_setting") == "10" })
+            testModule.updateConfiguration(match { it.getString("module_setting") == "10" })
         }
     }
 
     @Test
-    fun updateSettings_Does_Not_Create_Module_When_Settings_Disabled() {
+    fun updateModuleSettings_Does_Not_Create_Module_When_Settings_Disabled() {
         val creator = mockk<(TealiumContext, DataObject) -> Module>()
 
         moduleManager.addModuleFactory(TestModuleFactory("disabled_module", creator = creator))
@@ -342,7 +341,7 @@ class ModuleManagerImplTests {
     }
 
     @Test
-    fun updateSettings_Does_Create_Module_When_Settings_Disabled_But_Module_Cannot_Be_Disabled() {
+    fun updateModuleSettings_Does_Create_Module_When_Settings_Disabled_But_Module_Cannot_Be_Disabled() {
         val creator = mockk<(TealiumContext, DataObject) -> Module>()
         every { creator.invoke(any(), any()) } returns mockk(relaxed = true)
 
@@ -361,7 +360,7 @@ class ModuleManagerImplTests {
     }
 
     @Test
-    fun updateSettings_Updates_Module_Settings_When_Settings_Disabled_But_Module_Cannot_Be_Disabled() {
+    fun updateModuleSettings_Updates_Module_Configuration_When_Settings_Disabled_But_Module_Cannot_Be_Disabled() {
         val creator = mockk<(TealiumContext, DataObject) -> Module>(relaxed = true)
         val nonDisableableModule = TestModule.mock("disabled_module")
         every { creator.invoke(any(), any()) } returns nonDisableableModule
@@ -381,7 +380,7 @@ class ModuleManagerImplTests {
         moduleManager.updateModuleSettings(context, disabledSettings)
 
         verify {
-            nonDisableableModule.updateSettings(any())
+            nonDisableableModule.updateConfiguration(any())
         }
     }
 

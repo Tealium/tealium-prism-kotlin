@@ -7,9 +7,9 @@ import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Subject
 import com.tealium.core.api.tracking.DispatchContext
 import com.tealium.core.api.tracking.Tracker
+import com.tealium.lifecycle.internal.LifecycleConfiguration
 import com.tealium.lifecycle.internal.LifecycleModule
 import com.tealium.lifecycle.internal.LifecycleService
-import com.tealium.lifecycle.internal.LifecycleSettings
 import com.tealium.lifecycle.internal.StateKey
 import io.mockk.MockKAnnotations
 import io.mockk.every
@@ -28,7 +28,7 @@ import org.robolectric.RobolectricTestRunner
 class LifecycleModuleTests {
 
     @RelaxedMockK
-    lateinit var mockSettings: LifecycleSettings
+    lateinit var mockConfiguration: LifecycleConfiguration
 
     @RelaxedMockK
     private lateinit var mockLifecycleService: LifecycleService
@@ -49,7 +49,7 @@ class LifecycleModuleTests {
         applicationStatus = Observables.replaySubject()
 
         lifecycleModule = LifecycleModule(
-            mockSettings,
+            mockConfiguration,
             mockLifecycleService,
             applicationStatus,
             tracker,
@@ -59,8 +59,8 @@ class LifecycleModuleTests {
 
     @Test
     fun autoTrackingDisabled_RegistersLaunchEvent() {
-        every { mockSettings.autoTrackingEnabled } returns false
-        every { mockSettings.trackedLifecycleEvents } returns LifecycleSettings.DEFAULT_TRACKED_EVENTS
+        every { mockConfiguration.autoTrackingEnabled } returns false
+        every { mockConfiguration.trackedLifecycleEvents } returns LifecycleConfiguration.DEFAULT_TRACKED_EVENTS
         every { mockLifecycleService.lastLifecycleEvent } returns null
         lifecycleModule.hasLaunched = false
 
@@ -73,8 +73,8 @@ class LifecycleModuleTests {
 
     @Test
     fun autoTrackingDisabled_RegistersWakeEvent() {
-        every { mockSettings.autoTrackingEnabled } returns false
-        every { mockSettings.trackedLifecycleEvents } returns LifecycleSettings.DEFAULT_TRACKED_EVENTS
+        every { mockConfiguration.autoTrackingEnabled } returns false
+        every { mockConfiguration.trackedLifecycleEvents } returns LifecycleConfiguration.DEFAULT_TRACKED_EVENTS
         every { mockLifecycleService.lastLifecycleEvent } returns LifecycleEvent.Sleep
 
         lifecycleModule.wake()
@@ -86,8 +86,8 @@ class LifecycleModuleTests {
 
     @Test
     fun autoTrackingDisabled_RegistersSleepEvent() {
-        every { mockSettings.autoTrackingEnabled } returns false
-        every { mockSettings.trackedLifecycleEvents } returns LifecycleSettings.DEFAULT_TRACKED_EVENTS
+        every { mockConfiguration.autoTrackingEnabled } returns false
+        every { mockConfiguration.trackedLifecycleEvents } returns LifecycleConfiguration.DEFAULT_TRACKED_EVENTS
         every { mockLifecycleService.lastLifecycleEvent } returns LifecycleEvent.Launch
 
         lifecycleModule.sleep()
@@ -99,8 +99,8 @@ class LifecycleModuleTests {
 
     @Test
     fun autoTrackingDisabled_RegistersLaunchEvent_MergesCustomDataObject() {
-        every { mockSettings.autoTrackingEnabled } returns false
-        every { mockSettings.trackedLifecycleEvents } returns LifecycleSettings.DEFAULT_TRACKED_EVENTS
+        every { mockConfiguration.autoTrackingEnabled } returns false
+        every { mockConfiguration.trackedLifecycleEvents } returns LifecycleConfiguration.DEFAULT_TRACKED_EVENTS
         every { mockLifecycleService.lastLifecycleEvent } returns null
         every { mockLifecycleService.registerLaunch(any()) } returns DataObject.create { put(StateKey.LIFECYCLE_LAUNCHCOUNT, 1) }
         lifecycleModule.hasLaunched = false
@@ -124,8 +124,8 @@ class LifecycleModuleTests {
 
     @Test
     fun autoTrackingDisabled_RegistersWakeEvent_MergesCustomDataObject() {
-        every { mockSettings.autoTrackingEnabled } returns false
-        every { mockSettings.trackedLifecycleEvents } returns LifecycleSettings.DEFAULT_TRACKED_EVENTS
+        every { mockConfiguration.autoTrackingEnabled } returns false
+        every { mockConfiguration.trackedLifecycleEvents } returns LifecycleConfiguration.DEFAULT_TRACKED_EVENTS
         every { mockLifecycleService.lastLifecycleEvent } returns LifecycleEvent.Sleep
         every { mockLifecycleService.registerWake(any()) } returns DataObject.create { put(StateKey.LIFECYCLE_WAKECOUNT, 1) }
 
@@ -147,8 +147,8 @@ class LifecycleModuleTests {
 
     @Test
     fun autoTrackingDisabled_RegistersSleepEvent_MergesCustomDataObject() {
-        every { mockSettings.autoTrackingEnabled } returns false
-        every { mockSettings.trackedLifecycleEvents } returns LifecycleSettings.DEFAULT_TRACKED_EVENTS
+        every { mockConfiguration.autoTrackingEnabled } returns false
+        every { mockConfiguration.trackedLifecycleEvents } returns LifecycleConfiguration.DEFAULT_TRACKED_EVENTS
         every { mockLifecycleService.lastLifecycleEvent } returns LifecycleEvent.Launch
         every { mockLifecycleService.registerSleep(any()) } returns DataObject.create { put(StateKey.LIFECYCLE_SLEEPCOUNT, 1) }
 
@@ -170,8 +170,8 @@ class LifecycleModuleTests {
 
     @Test(expected = InvalidEventOrderException::class)
     fun autoTrackingDisabled_LaunchEvent_ThrowsInvalidOrder_On_LaunchAfterWake() {
-        every { mockSettings.autoTrackingEnabled } returns false
-        every { mockSettings.trackedLifecycleEvents } returns LifecycleSettings.DEFAULT_TRACKED_EVENTS
+        every { mockConfiguration.autoTrackingEnabled } returns false
+        every { mockConfiguration.trackedLifecycleEvents } returns LifecycleConfiguration.DEFAULT_TRACKED_EVENTS
         every { mockLifecycleService.lastLifecycleEvent } returns LifecycleEvent.Wake
         lifecycleModule.hasLaunched = true
 
@@ -184,8 +184,8 @@ class LifecycleModuleTests {
 
     @Test(expected = InvalidEventOrderException::class)
     fun autoTrackingDisabled_SleepEvent_ThrowsInvalidOrder_On_LaunchAfterLaunch() {
-        every { mockSettings.autoTrackingEnabled } returns false
-        every { mockSettings.trackedLifecycleEvents } returns LifecycleSettings.DEFAULT_TRACKED_EVENTS
+        every { mockConfiguration.autoTrackingEnabled } returns false
+        every { mockConfiguration.trackedLifecycleEvents } returns LifecycleConfiguration.DEFAULT_TRACKED_EVENTS
         every { mockLifecycleService.lastLifecycleEvent } returns LifecycleEvent.Launch
         lifecycleModule.hasLaunched = true
 
@@ -194,8 +194,8 @@ class LifecycleModuleTests {
 
     @Test(expected = InvalidEventOrderException::class)
     fun autoTrackingDisabled_SleepEvent_ThrowsInvalidOrder_On_WakeAfterWake() {
-        every { mockSettings.autoTrackingEnabled } returns false
-        every { mockSettings.trackedLifecycleEvents } returns LifecycleSettings.DEFAULT_TRACKED_EVENTS
+        every { mockConfiguration.autoTrackingEnabled } returns false
+        every { mockConfiguration.trackedLifecycleEvents } returns LifecycleConfiguration.DEFAULT_TRACKED_EVENTS
         every { mockLifecycleService.lastLifecycleEvent } returns LifecycleEvent.Wake
         lifecycleModule.hasLaunched = true
 
@@ -204,8 +204,8 @@ class LifecycleModuleTests {
 
     @Test(expected = InvalidEventOrderException::class)
     fun autoTrackingDisabled_SleepEvent_ThrowsInvalidOrder_On_WakeAfterLaunch() {
-        every { mockSettings.autoTrackingEnabled } returns false
-        every { mockSettings.trackedLifecycleEvents } returns LifecycleSettings.DEFAULT_TRACKED_EVENTS
+        every { mockConfiguration.autoTrackingEnabled } returns false
+        every { mockConfiguration.trackedLifecycleEvents } returns LifecycleConfiguration.DEFAULT_TRACKED_EVENTS
         every { mockLifecycleService.lastLifecycleEvent } returns LifecycleEvent.Launch
         lifecycleModule.hasLaunched = true
 
@@ -214,8 +214,8 @@ class LifecycleModuleTests {
 
     @Test(expected = InvalidEventOrderException::class)
     fun autoTrackingDisabled_SleepEvent_ThrowsInvalidOrder_On_SleepAfterSleep() {
-        every { mockSettings.autoTrackingEnabled } returns false
-        every { mockSettings.trackedLifecycleEvents } returns LifecycleSettings.DEFAULT_TRACKED_EVENTS
+        every { mockConfiguration.autoTrackingEnabled } returns false
+        every { mockConfiguration.trackedLifecycleEvents } returns LifecycleConfiguration.DEFAULT_TRACKED_EVENTS
         every { mockLifecycleService.lastLifecycleEvent } returns LifecycleEvent.Sleep
         lifecycleModule.hasLaunched = true
 
@@ -223,9 +223,9 @@ class LifecycleModuleTests {
     }
 
     @Test
-    fun autoTrackingDisabled_NoEventsTracked_WhenSettingsTrackedEvents_IsEmpty() {
-        every { mockSettings.autoTrackingEnabled } returns false
-        every { mockSettings.trackedLifecycleEvents } returns emptyList()
+    fun autoTrackingDisabled_NoEventsTracked_WhenConfigurationTrackedEvents_IsEmpty() {
+        every { mockConfiguration.autoTrackingEnabled } returns false
+        every { mockConfiguration.trackedLifecycleEvents } returns emptyList()
         every { mockLifecycleService.lastLifecycleEvent } returns null andThen LifecycleEvent.Launch andThen LifecycleEvent.Sleep
         lifecycleModule.hasLaunched = false
 
@@ -240,28 +240,28 @@ class LifecycleModuleTests {
 
     @Test(expected = ManualTrackingException::class)
     fun autoTrackingEnabled_throwsException_ForManuallyTracked_LaunchEvent() {
-        every { mockSettings.autoTrackingEnabled } returns true
+        every { mockConfiguration.autoTrackingEnabled } returns true
 
         lifecycleModule.launch()
     }
 
     @Test(expected = ManualTrackingException::class)
     fun autoTrackingEnabled_throwsException_ForManuallyTracked_WakeEvent() {
-        every { mockSettings.autoTrackingEnabled } returns true
+        every { mockConfiguration.autoTrackingEnabled } returns true
 
         lifecycleModule.wake()
     }
 
     @Test(expected = ManualTrackingException::class)
     fun autoTrackingEnabled_throwsException_ForManuallyTracked_SleepEvent() {
-        every { mockSettings.autoTrackingEnabled } returns true
+        every { mockConfiguration.autoTrackingEnabled } returns true
 
         lifecycleModule.sleep()
     }
 
     @Test
     fun autoTrackingEnabled_TracksFirstLaunch_OnInitApplicationStatusSubscription() {
-        every { mockSettings.autoTrackingEnabled } returns true
+        every { mockConfiguration.autoTrackingEnabled } returns true
         lifecycleModule.hasLaunched = false
         applicationStatus.onNext(ActivityManager.ApplicationStatus.Init())
 
@@ -270,7 +270,7 @@ class LifecycleModuleTests {
 
     @Test
     fun autoTrackingEnabled_FirstLaunchSkipSubsequentWake_OnInitApplicationStatusSubscription() {
-        every { mockSettings.autoTrackingEnabled } returns true
+        every { mockConfiguration.autoTrackingEnabled } returns true
         lifecycleModule.hasLaunched = false
 
         applicationStatus.onNext(ActivityManager.ApplicationStatus.Init())
@@ -281,7 +281,7 @@ class LifecycleModuleTests {
 
     @Test
     fun autoTrackingEnabled_FirstLaunchTracked_OnForegroundedApplicationStatusSubscription() {
-        every { mockSettings.autoTrackingEnabled } returns true
+        every { mockConfiguration.autoTrackingEnabled } returns true
         lifecycleModule.hasLaunched = false
 
         applicationStatus.onNext(ActivityManager.ApplicationStatus.Foregrounded())
@@ -291,7 +291,7 @@ class LifecycleModuleTests {
 
     @Test
     fun autoTrackingEnabled_FirstLaunchAndSleepTracked_OnBackgroundedApplicationStatusSubscription() {
-        every { mockSettings.autoTrackingEnabled } returns true
+        every { mockConfiguration.autoTrackingEnabled } returns true
         lifecycleModule.hasLaunched = false
         every { mockLifecycleService.lastLifecycleEvent } returns null andThen LifecycleEvent.Launch
 
@@ -305,7 +305,7 @@ class LifecycleModuleTests {
 
     @Test(expected = InvalidEventOrderException::class)
     fun autoTrackingEnabled_LaunchAndWakeNotTracked_AfterInitialLaunch() {
-        every { mockSettings.autoTrackingEnabled } returns true
+        every { mockConfiguration.autoTrackingEnabled } returns true
         lifecycleModule.hasLaunched = false
 
         applicationStatus.onNext(ActivityManager.ApplicationStatus.Init())
@@ -318,7 +318,7 @@ class LifecycleModuleTests {
 
     @Test
     fun autoTrackingEnabled_WakeNotTracked_AfterInitialLaunch() {
-        every { mockSettings.autoTrackingEnabled } returns true
+        every { mockConfiguration.autoTrackingEnabled } returns true
         lifecycleModule.hasLaunched = false
 
         applicationStatus.onNext(ActivityManager.ApplicationStatus.Init())
@@ -330,8 +330,8 @@ class LifecycleModuleTests {
 
     @Test(expected = InvalidEventOrderException::class)
     fun autoTrackingEnabled_WakeNotTracked_AfterWake() {
-        every { mockSettings.autoTrackingEnabled } returns true
-        every { mockSettings.sessionTimeoutInMinutes } returns -1
+        every { mockConfiguration.autoTrackingEnabled } returns true
+        every { mockConfiguration.sessionTimeoutInMinutes } returns -1
         lifecycleModule.hasLaunched = false
         every { mockLifecycleService.lastLifecycleEvent } returns null andThen LifecycleEvent.Launch andThen LifecycleEvent.Sleep andThen LifecycleEvent.Wake
 
@@ -345,8 +345,8 @@ class LifecycleModuleTests {
 
     @Test(expected = InvalidEventOrderException::class)
     fun autoTrackingEnabled_LaunchNotTracked_AfterWake() {
-        every { mockSettings.autoTrackingEnabled } returns true
-        every { mockSettings.sessionTimeoutInMinutes } returns 3
+        every { mockConfiguration.autoTrackingEnabled } returns true
+        every { mockConfiguration.sessionTimeoutInMinutes } returns 3
         lifecycleModule.hasLaunched = false
         every { mockLifecycleService.lastLifecycleEvent } returns null andThen LifecycleEvent.Launch andThen LifecycleEvent.Sleep andThen LifecycleEvent.Wake
 
@@ -364,8 +364,8 @@ class LifecycleModuleTests {
 
     @Test
     fun autoTrackingEnabled_LaunchTracked_AfterForegroundOnSessionTimeout() {
-        every { mockSettings.autoTrackingEnabled } returns true
-        every { mockSettings.sessionTimeoutInMinutes } returns 10
+        every { mockConfiguration.autoTrackingEnabled } returns true
+        every { mockConfiguration.sessionTimeoutInMinutes } returns 10
         lifecycleModule.hasLaunched = false
         every { mockLifecycleService.lastLifecycleEvent } returns null andThen LifecycleEvent.Launch andThen LifecycleEvent.Sleep
 
@@ -384,9 +384,9 @@ class LifecycleModuleTests {
     }
 
     @Test
-    fun autoTrackingEnabled_NoEventsTracked_WhenSettingsTrackedEvents_IsEmpty() {
-        every { mockSettings.autoTrackingEnabled } returns true
-        every { mockSettings.trackedLifecycleEvents } returns emptyList()
+    fun autoTrackingEnabled_NoEventsTracked_WhenConfigurationTrackedEvents_IsEmpty() {
+        every { mockConfiguration.autoTrackingEnabled } returns true
+        every { mockConfiguration.trackedLifecycleEvents } returns emptyList()
         every { mockLifecycleService.lastLifecycleEvent } returns null andThen LifecycleEvent.Launch andThen LifecycleEvent.Sleep andThen LifecycleEvent.Wake andThen LifecycleEvent.Sleep
         lifecycleModule.hasLaunched = false
 
@@ -402,8 +402,8 @@ class LifecycleModuleTests {
     }
 
     @Test
-    fun noEventsTracked_WhenSettingsAutoTracking_IsDisabled() {
-        every { mockSettings.autoTrackingEnabled } returns false
+    fun noEventsTracked_WhenConfigurationAutoTracking_IsDisabled() {
+        every { mockConfiguration.autoTrackingEnabled } returns false
 
         applicationStatus.onNext(ActivityManager.ApplicationStatus.Init())
         applicationStatus.onNext(ActivityManager.ApplicationStatus.Backgrounded())
@@ -417,8 +417,8 @@ class LifecycleModuleTests {
     }
 
     @Test
-    fun collect_ReturnsEmptyDataObject_WhenSettingsDataTarget_SetTo_LifecycleEventsOnly() {
-        every { mockSettings.dataTarget } returns LifecycleDataTarget.LifecycleEventsOnly
+    fun collect_ReturnsEmptyDataObject_WhenConfigurationDataTarget_SetTo_LifecycleEventsOnly() {
+        every { mockConfiguration.dataTarget } returns LifecycleDataTarget.LifecycleEventsOnly
         val dispatchContext = DispatchContext(DispatchContext.Source.application(), mockk())
 
         val data = lifecycleModule.collect(dispatchContext)
@@ -427,8 +427,8 @@ class LifecycleModuleTests {
     }
 
     @Test
-    fun collect_ReturnsEmptyDataObject_WhenSettingsDataTarget_SetTo_AllEvents_And_SourceIsLifecycleModule() {
-        every { mockSettings.dataTarget } returns LifecycleDataTarget.AllEvents
+    fun collect_ReturnsEmptyDataObject_WhenConfigurationDataTarget_SetTo_AllEvents_And_SourceIsLifecycleModule() {
+        every { mockConfiguration.dataTarget } returns LifecycleDataTarget.AllEvents
         val dispatchContext = DispatchContext(DispatchContext.Source.module(LifecycleModule::class.java), mockk())
 
         val data = lifecycleModule.collect(dispatchContext)
@@ -437,8 +437,8 @@ class LifecycleModuleTests {
     }
 
     @Test
-    fun collect_CallsGetCurrentState_WhenSettingsDataTarget_SetTo_AllEvents() {
-        every { mockSettings.dataTarget } returns LifecycleDataTarget.AllEvents
+    fun collect_CallsGetCurrentState_WhenConfigurationDataTarget_SetTo_AllEvents() {
+        every { mockConfiguration.dataTarget } returns LifecycleDataTarget.AllEvents
         every { mockLifecycleService.getCurrentState(any()) } returns DataObject.create {
             put(StateKey.LIFECYCLE_TOTALLAUNCHCOUNT, 10)
             put(StateKey.LIFECYCLE_TOTALSLEEPCOUNT, 11)

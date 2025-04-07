@@ -2,7 +2,7 @@ package com.tealium.lifecycle
 
 import com.tealium.core.api.data.DataList
 import com.tealium.core.api.settings.ModuleSettingsBuilder
-import com.tealium.lifecycle.internal.LifecycleSettings
+import com.tealium.lifecycle.internal.LifecycleConfiguration
 
 /**
  * Enables the configuration, at runtime, of Lifecycle Settings.
@@ -19,7 +19,7 @@ class LifecycleSettingsBuilder : ModuleSettingsBuilder() {
      * The default session timeout is 24 * 60 (1 day)
      */
     fun setSessionTimeoutInMinutes(timeout: Int) = apply {
-        configuration.put(LifecycleSettings.KEY_SESSION_TIMEOUT, timeout)
+        configuration.put(LifecycleConfiguration.KEY_SESSION_TIMEOUT, timeout)
     }
 
     /**
@@ -29,7 +29,7 @@ class LifecycleSettingsBuilder : ModuleSettingsBuilder() {
      * Lifecycles autotracking is set to true by default.
      */
     fun setAutoTrackingEnabled(enabled: Boolean) = apply {
-        configuration.put(LifecycleSettings.KEY_AUTOTRACKING_ENABLED, enabled)
+        configuration.put(LifecycleConfiguration.KEY_AUTOTRACKING_ENABLED, enabled)
     }
 
     /**
@@ -38,7 +38,7 @@ class LifecycleSettingsBuilder : ModuleSettingsBuilder() {
      * All events will be sent by default.
      */
     fun setTrackedLifecycleEvents(events: List<LifecycleEvent>) = apply {
-        configuration.put(LifecycleSettings.KEY_TRACKED_EVENTS, DataList.fromCollection(events))
+        configuration.put(LifecycleConfiguration.KEY_TRACKED_EVENTS, DataList.fromCollection(events))
     }
 
     /**
@@ -48,6 +48,6 @@ class LifecycleSettingsBuilder : ModuleSettingsBuilder() {
      * on lifecycle events.
      */
     fun setDataTarget(target: LifecycleDataTarget) = apply {
-        configuration.put(LifecycleSettings.KEY_DATA_TARGET, target)
+        configuration.put(LifecycleConfiguration.KEY_DATA_TARGET, target)
     }
 }

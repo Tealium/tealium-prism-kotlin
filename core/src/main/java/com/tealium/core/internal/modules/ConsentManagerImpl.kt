@@ -49,7 +49,7 @@ class ConsentManagerImpl(
         override val id: String
             get() = moduleName
 
-        override fun create(context: TealiumContext, settings: DataObject): Module? {
+        override fun create(context: TealiumContext, configuration: DataObject): Module? {
             return ConsentManagerImpl(context)
         }
     }

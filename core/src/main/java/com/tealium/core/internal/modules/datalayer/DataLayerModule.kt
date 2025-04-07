@@ -30,7 +30,7 @@ class DataLayerModule(
         override val id: String
             get() = "DataLayer"
 
-        override fun create(context: TealiumContext, settings: DataObject): Module? {
+        override fun create(context: TealiumContext, configuration: DataObject): Module? {
             val dataStore = context.storageProvider.getModuleStore(this)
             return DataLayerModule(dataStore)
         }

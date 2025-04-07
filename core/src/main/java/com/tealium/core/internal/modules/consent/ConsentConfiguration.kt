@@ -1,11 +1,12 @@
 package com.tealium.core.internal.modules.consent
 
+import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataObject
 
 /**
  * Holds all relevant configuration options for the Consent Management system.
  */
-class ConsentSettings(
+class ConsentConfiguration(
     val dispatcherPurposes: Map<String, List<String>>,
     val refireDispatchers: List<String>
 ) {
@@ -15,11 +16,12 @@ class ConsentSettings(
         const val KEY_REFIRE_DISPATCHERS = "should_refire_dispatchers"
 
         /**
-         * Convenience method for
+         * Convenience method for extracting [ConsentConfiguration] properties from a [DataObject]
+         * representation
          */
-        fun fromDataObject(dataObject: DataObject) : ConsentSettings {
+        fun fromDataObject(configuration: DataObject) : ConsentConfiguration {
             val purposeMap =
-                dataObject.getDataObject(KEY_DISPATCHER_PURPOSES)?.getAll()?.mapNotNull { entry ->
+                configuration.getDataObject(KEY_DISPATCHER_PURPOSES)?.mapNotNull { entry ->
                     entry.value.getDataList()?.let { value ->
                         entry.key to value.mapNotNull { entry ->
                             entry.getString()
@@ -27,9 +29,9 @@ class ConsentSettings(
                     }
                 }?.toMap() ?: emptyMap()
             val refireDispatchers =
-                dataObject.getDataList(KEY_REFIRE_DISPATCHERS)?.mapNotNull { it.getString() } ?: emptyList()
+                configuration.getDataList(KEY_REFIRE_DISPATCHERS)?.mapNotNull(DataItem::getString)?: emptyList()
 
-            return ConsentSettings(purposeMap, refireDispatchers)
+            return ConsentConfiguration(purposeMap, refireDispatchers)
         }
     }
 }

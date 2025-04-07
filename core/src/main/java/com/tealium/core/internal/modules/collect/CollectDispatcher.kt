@@ -28,17 +28,17 @@ class CollectDispatcher(
     private val config: TealiumConfig,
     private val logger: Logger,
     private val networkHelper: NetworkHelper,
-    private var collectDispatcherSettings: CollectDispatcherSettings,
+    private var collectDispatcherConfiguration: CollectDispatcherConfiguration,
 ) : Dispatcher, Module {
 
     constructor(
         tealiumContext: TealiumContext,
-        collectDispatcherSettings: CollectDispatcherSettings
+        collectDispatcherConfiguration: CollectDispatcherConfiguration
     ) : this(
         tealiumContext.config,
         tealiumContext.logger,
         tealiumContext.network.networkHelper,
-        collectDispatcherSettings
+        collectDispatcherConfiguration
     )
 
     override val id: String
@@ -47,7 +47,7 @@ class CollectDispatcher(
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
     override val dispatchLimit: Int
-        get() = CollectDispatcherSettings.MAX_BATCH_SIZE
+        get() = CollectDispatcherConfiguration.MAX_BATCH_SIZE
 
     override fun dispatch(
         dispatches: List<Dispatch>,
@@ -100,14 +100,14 @@ class CollectDispatcher(
             batch,
             visitorId,
             config.accountName,
-            collectDispatcherSettings.profile ?: config.profileName
+            collectDispatcherConfiguration.profile ?: config.profileName
         )
         if (compressed == null) {
             onProcessed.onComplete(batch)
             return CompletedDisposable
         }
 
-        return networkHelper.post(collectDispatcherSettings.batchUrl, compressed) {
+        return networkHelper.post(collectDispatcherConfiguration.batchUrl, compressed) {
             onProcessed.onComplete(batch)
         }
     }
@@ -116,21 +116,21 @@ class CollectDispatcher(
         dispatch: Dispatch,
         onProcessed: TealiumCallback<List<Dispatch>>
     ): Disposable {
-        collectDispatcherSettings.profile?.let { profile ->
+        collectDispatcherConfiguration.profile?.let { profile ->
             dispatch.addAll(DataObject.create {
                 put(Dispatch.Keys.TEALIUM_PROFILE, profile)
             })
         }
 
-        return networkHelper.post(collectDispatcherSettings.url, dispatch.payload()) {
+        return networkHelper.post(collectDispatcherConfiguration.url, dispatch.payload()) {
             onProcessed.onComplete(listOf(dispatch))
         }
     }
 
-    override fun updateSettings(moduleSettings: DataObject): Module? {
-        val newSettings = CollectDispatcherSettings.fromDataObject(moduleSettings) ?: return null
+    override fun updateConfiguration(configuration: DataObject): Module? {
+        val newConfiguration = CollectDispatcherConfiguration.fromDataObject(configuration) ?: return null
 
-        collectDispatcherSettings = newSettings
+        collectDispatcherConfiguration = newConfiguration
         return this
     }
 
@@ -214,13 +214,13 @@ class CollectDispatcher(
 
         override fun getEnforcedSettings(): DataObject? = settings
 
-        override fun create(context: TealiumContext, settings: DataObject): Module? {
-            val collectDispatcherSettings =
-                CollectDispatcherSettings.fromDataObject(settings) ?: return null
+        override fun create(context: TealiumContext, configuration: DataObject): Module? {
+            val collectDispatcherConfiguration =
+                CollectDispatcherConfiguration.fromDataObject(configuration) ?: return null
 
             return CollectDispatcher(
                 context,
-                collectDispatcherSettings
+                collectDispatcherConfiguration
             )
         }
     }

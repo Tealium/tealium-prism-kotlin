@@ -42,7 +42,7 @@ class CollectDispatcherTests {
     lateinit var collectDispatcher: CollectDispatcher
 
     private val logger: Logger = SystemLogger
-    private val defaultSettings = CollectDispatcherSettings()
+    private val defaultConfiguration = CollectDispatcherConfiguration()
     private val localhost = URL("https://localhost/")
     private val account = "tealium_account"
     private val profile = "tealium_profile"
@@ -65,7 +65,7 @@ class CollectDispatcherTests {
             completionCapture.captured.onComplete(
                 Success(
                     HttpResponse(
-                        url = defaultSettings.url,
+                        url = defaultConfiguration.url,
                         statusCode = 200, message = "", headers = mapOf()
                     )
                 )
@@ -85,7 +85,7 @@ class CollectDispatcherTests {
 
         verify(timeout = 1000) {
             networkHelper.post(
-                defaultSettings.url,
+                defaultConfiguration.url,
                 dispatch.payload(),
                 any()
             )
@@ -98,7 +98,7 @@ class CollectDispatcherTests {
     @Test
     fun dispatch_Individually_OverridesUrl_WhenUrlIsOverridden() {
         collectDispatcher = createCollectDispatcher(
-            settings = CollectDispatcherSettings(url = localhost)
+            collectConfig = CollectDispatcherConfiguration(url = localhost)
         )
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
@@ -117,7 +117,7 @@ class CollectDispatcherTests {
     @Test
     fun dispatch_Individually_OverridesProfile_WhenProfileIsOverridden() {
         collectDispatcher = createCollectDispatcher(
-            settings = CollectDispatcherSettings(
+            collectConfig = CollectDispatcherConfiguration(
                 profile = "override"
             )
         )
@@ -127,7 +127,7 @@ class CollectDispatcherTests {
         collectDispatcher.dispatch(listOf(dispatch), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultSettings.url, match {
+            networkHelper.post(defaultConfiguration.url, match {
                 it.getString(Dispatch.Keys.TEALIUM_PROFILE) == "override"
             }, any())
             observer(match {
@@ -147,7 +147,7 @@ class CollectDispatcherTests {
         collectDispatcher.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultSettings.batchUrl, any(), any())
+            networkHelper.post(defaultConfiguration.batchUrl, any(), any())
             observer(match {
                 it[0].id == dispatch1.id
                         && it[1].id == dispatch2.id
@@ -166,7 +166,7 @@ class CollectDispatcherTests {
 
         verify(timeout = 1000) {
             networkHelper.post(
-                defaultSettings.url,
+                defaultConfiguration.url,
                 dispatch.payload(),
                 any()
             )
@@ -179,7 +179,7 @@ class CollectDispatcherTests {
     @Test
     fun dispatch_Batches_OverridesUrl_WhenUrlIsOverridden() {
         collectDispatcher = createCollectDispatcher(
-            settings = CollectDispatcherSettings(batchUrl = localhost)
+            collectConfig = CollectDispatcherConfiguration(batchUrl = localhost)
         )
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
@@ -200,7 +200,7 @@ class CollectDispatcherTests {
     @Test
     fun dispatch_Batches_OverridesProfile_WhenProfileIsOverridden() {
         collectDispatcher = createCollectDispatcher(
-            settings = CollectDispatcherSettings(
+            collectConfig = CollectDispatcherConfiguration(
                 profile = "override"
             )
         )
@@ -211,7 +211,7 @@ class CollectDispatcherTests {
         collectDispatcher.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultSettings.batchUrl, match {
+            networkHelper.post(defaultConfiguration.batchUrl, match {
                 it.getDataObject(CollectDispatcher.KEY_SHARED)!!
                     .getString(Dispatch.Keys.TEALIUM_PROFILE) == "override"
             }, any())
@@ -239,7 +239,7 @@ class CollectDispatcherTests {
         collectDispatcher.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultSettings.batchUrl, match {
+            networkHelper.post(defaultConfiguration.batchUrl, match {
                 val shared = it.getDataObject(CollectDispatcher.KEY_SHARED)!!
                 val events = it.getDataList(CollectDispatcher.KEY_EVENTS)!!
                 val event1 = events.getDataObject(0)!!
@@ -262,7 +262,7 @@ class CollectDispatcherTests {
     @Test
     fun dispatch_Batches_OverridesProfile_InSharedDataOnly() {
         collectDispatcher = createCollectDispatcher(
-            settings = CollectDispatcherSettings(
+            collectConfig = CollectDispatcherConfiguration(
                 profile = "override"
             )
         )
@@ -279,7 +279,7 @@ class CollectDispatcherTests {
         collectDispatcher.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultSettings.batchUrl, match {
+            networkHelper.post(defaultConfiguration.batchUrl, match {
                 val shared = it.getDataObject(CollectDispatcher.KEY_SHARED)!!
                 val events = it.getDataList(CollectDispatcher.KEY_EVENTS)!!
                 val event1 = events.getDataObject(0)!!
@@ -304,10 +304,10 @@ class CollectDispatcherTests {
         collectDispatcher.dispatch(listOf(dispatch1, dispatch2, dispatch3), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultSettings.url, match {
+            networkHelper.post(defaultConfiguration.url, match {
                 it.getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_1"
             }, any())
-            networkHelper.post(defaultSettings.batchUrl, match {
+            networkHelper.post(defaultConfiguration.batchUrl, match {
                 it.getDataObject(CollectDispatcher.KEY_SHARED)!!
                     .getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_2"
             }, any())
@@ -325,7 +325,7 @@ class CollectDispatcherTests {
     }
 
     @Test
-    fun updateSettings_UpdatesIndividualUrl() {
+    fun updateConfiguration_UpdatesIndividualUrl() {
         collectDispatcher = createCollectDispatcher()
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
@@ -334,11 +334,11 @@ class CollectDispatcherTests {
         collectDispatcher.dispatch(listOf(dispatch1), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultSettings.url, any(), any())
+            networkHelper.post(defaultConfiguration.url, any(), any())
         }
 
-        collectDispatcher.updateSettings(
-            createSettings { it.setUrl(localhost.toString()) }
+        collectDispatcher.updateConfiguration(
+            createConfigurationObject { it.setUrl(localhost.toString()) }
         )
         collectDispatcher.dispatch(listOf(dispatch1), observer)
 
@@ -348,7 +348,7 @@ class CollectDispatcherTests {
     }
 
     @Test
-    fun updateSettings_UpdatesBatchUrl() {
+    fun updateConfiguration_UpdatesBatchUrl() {
         collectDispatcher = createCollectDispatcher()
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
@@ -357,11 +357,11 @@ class CollectDispatcherTests {
         collectDispatcher.dispatch(listOf(dispatch1, dispatch1), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultSettings.batchUrl, any(), any())
+            networkHelper.post(defaultConfiguration.batchUrl, any(), any())
         }
 
-        collectDispatcher.updateSettings(
-            createSettings { it.setBatchUrl(localhost.toString()) }
+        collectDispatcher.updateConfiguration(
+            createConfigurationObject { it.setBatchUrl(localhost.toString()) }
         )
         collectDispatcher.dispatch(listOf(dispatch1, dispatch1), observer)
 
@@ -371,9 +371,9 @@ class CollectDispatcherTests {
     }
 
     @Test
-    fun updateSettings_UpdatesProfileOverride_ForIndividualEvents() {
+    fun updateConfiguration_UpdatesProfileOverride_ForIndividualEvents() {
         collectDispatcher = createCollectDispatcher(
-            settings = CollectDispatcherSettings(
+            collectConfig = CollectDispatcherConfiguration(
                 profile = "default"
             )
         )
@@ -384,14 +384,14 @@ class CollectDispatcherTests {
         collectDispatcher.dispatch(listOf(dispatch1), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultSettings.url, match {
+            networkHelper.post(defaultConfiguration.url, match {
                 it.getString(Dispatch.Keys.TEALIUM_PROFILE) == "default"
             }, any())
         }
 
         val overrideProfile = "override"
-        collectDispatcher.updateSettings(
-            createSettings { it.setProfile(overrideProfile) }
+        collectDispatcher.updateConfiguration(
+            createConfigurationObject { it.setProfile(overrideProfile) }
         )
         collectDispatcher.dispatch(listOf(dispatch1), observer)
 
@@ -403,29 +403,29 @@ class CollectDispatcherTests {
     }
 
     @Test
-    fun updateSettings_ReturnsSelf_When_ModuleSettings_Enabled() {
+    fun updateConfiguration_ReturnsSelf_When_Default_Configuration_Provided() {
         collectDispatcher = createCollectDispatcher()
 
         assertSame(
             collectDispatcher,
-            collectDispatcher.updateSettings(DataObject.EMPTY_OBJECT)
+            collectDispatcher.updateConfiguration(DataObject.EMPTY_OBJECT)
         )
     }
 
     @Test
-    fun updateSettings_ReturnsNull_When_Invalid_Url() {
+    fun updateConfiguration_ReturnsNull_When_Invalid_Url() {
         collectDispatcher = createCollectDispatcher()
 
-        assertNull(collectDispatcher.updateSettings(createSettings {
+        assertNull(collectDispatcher.updateConfiguration(createConfigurationObject {
             it.setUrl("some_invalid_url")
         }))
     }
 
     @Test
-    fun updateSettings_ReturnsNull_When_Invalid_BatchUrl() {
+    fun updateConfiguration_ReturnsNull_When_Invalid_BatchUrl() {
         collectDispatcher = createCollectDispatcher()
 
-        assertNull(collectDispatcher.updateSettings(createSettings {
+        assertNull(collectDispatcher.updateConfiguration(createConfigurationObject {
             it.setBatchUrl("some_invalid_url")
         }))
     }
@@ -438,18 +438,16 @@ class CollectDispatcherTests {
     }
 
     /**
-     * Creates a new [CollectDispatcher] with the ioScope set to the [TestScope.backgroundScope]
-     *
-     * Reasonable defaults are used in case of parameter omission.
+     * Creates a new [CollectDispatcher] with reasonable defaults in case of parameter omission.
      */
     private fun createCollectDispatcher(
-        settings: CollectDispatcherSettings = CollectDispatcherSettings(),
+        collectConfig: CollectDispatcherConfiguration = CollectDispatcherConfiguration(),
     ): CollectDispatcher {
         return CollectDispatcher(
             config,
             logger,
             networkHelper,
-            settings,
+            collectConfig,
         )
     }
 

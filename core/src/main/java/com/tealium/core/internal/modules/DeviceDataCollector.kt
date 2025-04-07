@@ -60,7 +60,7 @@ class DeviceDataCollector(
         override val id: String
             get() = "DeviceCollector"
 
-        override fun create(context: TealiumContext, settings: DataObject): Module? {
+        override fun create(context: TealiumContext, configuration: DataObject): Module? {
             return DeviceDataCollector(context.context)
         }
     }

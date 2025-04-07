@@ -29,7 +29,7 @@ class ConsentModule(
     private val queueManager: QueueManager,
     private val transformerRegistry: TransformerRegistry,
     private val consentManagementAdapter: ConsentManagementAdapter,
-    private val consentSettings: StateSubject<ConsentSettings>,
+    private val consentConfiguration: StateSubject<ConsentConfiguration>,
 ) : ConsentManager, Transformer {
 
     override val id: String
@@ -51,7 +51,7 @@ class ConsentModule(
             .toSet()
 
     private val refireDispatchers: Set<String>
-        get() = dispatchers.filter(consentSettings.value.refireDispatchers::contains)
+        get() = dispatchers.filter(consentConfiguration.value.refireDispatchers::contains)
             .toSet()
 
     init {
@@ -102,8 +102,8 @@ class ConsentModule(
         queueManager.storeDispatches(listOf(consentedDispatch), processors)
     }
 
-    override fun updateSettings(moduleSettings: DataObject): Module? {
-        consentSettings.onNext(ConsentSettings.fromDataObject(moduleSettings))
+    override fun updateConfiguration(configuration: DataObject): Module? {
+        consentConfiguration.onNext(ConsentConfiguration.fromDataObject(configuration))
         return this
     }
 
@@ -155,7 +155,7 @@ class ConsentModule(
     ) {
         if (scope is DispatchScope.Dispatcher) {
             val requiredPurposes =
-                consentSettings.value.dispatcherPurposes[scope.dispatcher]
+                consentConfiguration.value.dispatcherPurposes[scope.dispatcher]
                     ?: emptyList()
             if (requiredPurposes.isNotEmpty() && !isConsented(dispatch, requiredPurposes)) {
                 completion(null)
@@ -240,17 +240,17 @@ class ConsentModule(
         override val id: String
             get() = NAME
 
-        override fun create(context: TealiumContext, settings: DataObject): Module? {
+        override fun create(context: TealiumContext, configuration: DataObject): Module? {
             if (queueManager == null || modules == null) return null
 
-            val consentSettings = ConsentSettings.fromDataObject(settings)
+            val consentConfiguration = ConsentConfiguration.fromDataObject(configuration)
 
             return ConsentModule(
                 modules,
                 queueManager,
                 context.transformerRegistry,
                 cmp,
-                Observables.stateSubject(consentSettings)
+                Observables.stateSubject(consentConfiguration)
             )
         }
 

@@ -2,7 +2,7 @@ package com.tealium.core.api.settings
 
 import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.misc.TimeFrame
-import com.tealium.core.internal.modules.VisitorServiceSettings
+import com.tealium.core.internal.modules.VisitorServiceConfiguration
 
 /**
  * Enables the configuration, at runtime, of the VisitorService.
@@ -24,20 +24,20 @@ class VisitorServiceSettingsBuilder : ModuleSettingsBuilder() {
      * value set at [setProfile] (if configured)
      */
     fun setUrlTemplate(url: String) = apply {
-        configuration.put(VisitorServiceSettings.DEFAULT_VISITOR_SERVICE_TEMPLATE, url)
+        configuration.put(VisitorServiceConfiguration.DEFAULT_VISITOR_SERVICE_TEMPLATE, url)
     }
 
     /**
      * Sets an override profile to use instead of the one provided by the [TealiumConfig]
      */
     fun setProfile(profile: String) = apply {
-        configuration.put(VisitorServiceSettings.VISITOR_SERVICE_OVERRIDE_PROFILE, profile)
+        configuration.put(VisitorServiceConfiguration.VISITOR_SERVICE_OVERRIDE_PROFILE, profile)
     }
 
     /**
      * Sets the interval to use when updating the visitor profile
      */
     fun setRefreshInterval(interval: TimeFrame) = apply {
-        configuration.put(VisitorServiceSettings.VISITOR_SERVICE_REFRESH_INTERVAL, interval.unit.toSeconds(interval.number))
+        configuration.put(VisitorServiceConfiguration.VISITOR_SERVICE_REFRESH_INTERVAL, interval.unit.toSeconds(interval.number))
     }
 }

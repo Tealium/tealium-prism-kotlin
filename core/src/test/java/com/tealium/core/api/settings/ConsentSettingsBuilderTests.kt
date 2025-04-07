@@ -1,6 +1,6 @@
 package com.tealium.core.api.settings
 
-import com.tealium.core.internal.modules.consent.ConsentSettings
+import com.tealium.core.internal.modules.consent.ConsentConfiguration
 import com.tealium.core.internal.settings.ModuleSettings
 import org.junit.Assert.*
 import org.junit.Before
@@ -18,12 +18,12 @@ class ConsentSettingsBuilderTests {
 
     @Test
     fun setDispatcherToPurposes_Sets_DispatcherPurposes_In_DataObject() {
-        val consentSettings = builder.setDispatcherToPurposes(
+        val consentConfig = builder.setDispatcherToPurposes(
             mapOf("dispatcher" to setOf("purpose_1", "purpose_2"))
         ).build()
             .getDataObject(ModuleSettings.KEY_CONFIGURATION)!!
 
-        val purposeMap = consentSettings.getDataObject(ConsentSettings.KEY_DISPATCHER_PURPOSES)!!
+        val purposeMap = consentConfig.getDataObject(ConsentConfiguration.KEY_DISPATCHER_PURPOSES)!!
         val purposes = purposeMap.getDataList("dispatcher")!!
 
         assertEquals("purpose_1", purposes.getString(0))
@@ -32,12 +32,12 @@ class ConsentSettingsBuilderTests {
 
     @Test
     fun setShouldRefireDispatchers_Sets_DispatcherPurposes_In_DataObject() {
-        val consentSettings = builder.setShouldRefireDispatchers(
+        val consentConfig = builder.setShouldRefireDispatchers(
             setOf("dispatcher_1", "dispatcher_2")
         ).build()
             .getDataObject(ModuleSettings.KEY_CONFIGURATION)!!
 
-        val refireList = consentSettings.getDataList(ConsentSettings.KEY_REFIRE_DISPATCHERS)!!
+        val refireList = consentConfig.getDataList(ConsentConfiguration.KEY_REFIRE_DISPATCHERS)!!
 
         assertEquals("dispatcher_1", refireList.getString(0))
         assertEquals("dispatcher_2", refireList.getString(1))

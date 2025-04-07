@@ -6,13 +6,13 @@ import java.net.MalformedURLException
 import java.net.URL
 
 /**
- * Carries all available settings for the Collect Dispatcher
+ * Carries all available configuration for the Collect Dispatcher
  *
  * @param url The endpoint to dispatch single events to
  * @param batchUrl The endpoint to dispatch batched events to
  * @param profile Optional - Tealium profile name to override on the payload
  */
-data class CollectDispatcherSettings(
+data class CollectDispatcherConfiguration(
     val url: URL = URL(DEFAULT_COLLECT_URL),
     val batchUrl: URL = URL(DEFAULT_COLLECT_BATCH_URL),
     val profile: String? = null
@@ -23,15 +23,17 @@ data class CollectDispatcherSettings(
         const val DEFAULT_COLLECT_BATCH_URL = "https://collect.tealiumiq.com/bulk-event"
 
         /**
-         * Current module settings from Mobile Data Source front-end.
+         * Current module configuration from Mobile Data Source front-end.
          * TODO - Validate that these are final
          *
          * "collect": {
          *   "enabled": true,
-         *   "dispatch_profile": "...",
-         *   "single_dispatch_url": "https://collect.tealiumiq.com/event/",
-         *   "batch_dispatch_url": "https://collect.tealiumiq.com/bulk-event/",
-         *   "dispatch_domain": "collect.tealiumiq.com"
+         *   "configuration": {
+         *      "dispatch_profile": "...",
+         *      "single_dispatch_url": "https://collect.tealiumiq.com/event/",
+         *      "batch_dispatch_url": "https://collect.tealiumiq.com/bulk-event/",
+         *      "dispatch_domain": "collect.tealiumiq.com"
+         *   }
          * }
          */
         const val KEY_COLLECT_DOMAIN = "dispatch_domain"
@@ -39,14 +41,14 @@ data class CollectDispatcherSettings(
         const val KEY_COLLECT_BATCH_URL = "batch_dispatch_url"
         const val KEY_COLLECT_PROFILE = "dispatch_profile"
 
-        fun fromDataObject(settings: DataObject): CollectDispatcherSettings? {
-            val profile = settings.getString(KEY_COLLECT_PROFILE)
-            val url = settings.parseUrl(KEY_COLLECT_URL, DEFAULT_COLLECT_URL)
-            val batchUrl = settings.parseUrl(KEY_COLLECT_BATCH_URL, DEFAULT_COLLECT_BATCH_URL)
+        fun fromDataObject(configuration: DataObject): CollectDispatcherConfiguration? {
+            val profile = configuration.getString(KEY_COLLECT_PROFILE)
+            val url = configuration.parseUrl(KEY_COLLECT_URL, DEFAULT_COLLECT_URL)
+            val batchUrl = configuration.parseUrl(KEY_COLLECT_BATCH_URL, DEFAULT_COLLECT_BATCH_URL)
 
             if (url == null || batchUrl == null) return null
 
-            return CollectDispatcherSettings(
+            return CollectDispatcherConfiguration(
                 url = url, batchUrl = batchUrl, profile = profile
             )
         }

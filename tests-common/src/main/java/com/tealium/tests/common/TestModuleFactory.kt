@@ -23,8 +23,8 @@ class TestModuleFactory(
         module
     })
 
-    override fun create(context: TealiumContext, settings: DataObject): Module? =
-        creator.invoke(context, settings)
+    override fun create(context: TealiumContext, configuration: DataObject): Module? =
+        creator.invoke(context, configuration)
 
     override fun getEnforcedSettings(): DataObject? = config
 

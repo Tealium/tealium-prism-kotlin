@@ -7,10 +7,10 @@ import org.junit.Test
 class ModuleTests {
 
     @Test
-    fun updateSettings_Returns_Self() {
+    fun updateConfiguration_Returns_Self() {
         val module = createModule()
 
-        assertSame(module, module.updateSettings(DataObject.EMPTY_OBJECT))
+        assertSame(module, module.updateConfiguration(DataObject.EMPTY_OBJECT))
     }
 
     private fun createModule(): Module {

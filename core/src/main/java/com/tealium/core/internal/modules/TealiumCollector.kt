@@ -76,7 +76,7 @@ class TealiumCollector(
     object Factory : ModuleFactory {
         override val id = moduleName
 
-        override fun create(context: TealiumContext, settings: DataObject): Module? {
+        override fun create(context: TealiumContext, configuration: DataObject): Module? {
             return TealiumCollector(context)
         }
     }
