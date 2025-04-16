@@ -8,7 +8,6 @@ import com.tealium.core.api.misc.TimeFrameUtils.days
 import com.tealium.core.api.misc.TimeFrameUtils.minutes
 import com.tealium.core.api.misc.TimeFrameUtils.seconds
 import com.tealium.core.api.settings.CoreSettings
-import com.tealium.core.api.transform.ScopedTransformation
 import com.tealium.core.internal.misc.Converters
 
 class CoreSettingsImpl(
@@ -24,7 +23,6 @@ class CoreSettingsImpl(
     override val disableLibrary: Boolean = DEFAULT_DISABLE_LIBRARY,
     override val visitorIdentityKey: String? = null,
     override val barriers: Set<ScopedBarrier> = setOf(),
-    override val transformations: Set<ScopedTransformation> = setOf(),
 ) : CoreSettings {
 
     companion object {
@@ -41,7 +39,6 @@ class CoreSettingsImpl(
         const val KEY_DISABLE_LIBRARY = "disable_library"
         const val KEY_VISITOR_IDENTITY_KEY = "visitor_identity_key"
         const val KEY_BARRIERS = "barriers"
-        const val KEY_TRANSFORMATIONS = "transformations"
 
         val DEFAULT_LOG_LEVEL = LogLevel.ERROR
         const val DEFAULT_BATCH_SIZE = 1
@@ -77,10 +74,6 @@ class CoreSettingsImpl(
                 ?.mapNotNull(Converters.ScopedBarrierConverter::convert)
                 ?.toSet() ?: emptySet()
 
-            val transformations = settings.getDataList(KEY_TRANSFORMATIONS)
-                ?.mapNotNull(Converters.ScopedTransformationConverter::convert)
-                ?.toSet() ?: emptySet()
-
             return CoreSettingsImpl(
                 logLevel = logs,
                 dataSource = dataSource,
@@ -94,7 +87,6 @@ class CoreSettingsImpl(
                 disableLibrary = disableLibrary,
                 visitorIdentityKey = visitorIdentityKey,
                 barriers = barriers,
-                transformations = transformations
             )
         }
     }
@@ -117,7 +109,6 @@ class CoreSettingsImpl(
         if (disableLibrary != other.disableLibrary) return false
         if (visitorIdentityKey != other.visitorIdentityKey) return false
         if (barriers != other.barriers) return false
-        if (transformations != other.transformations) return false
 
         return true
     }
@@ -135,7 +126,6 @@ class CoreSettingsImpl(
         result = 31 * result + disableLibrary.hashCode()
         result = 31 * result + (visitorIdentityKey?.hashCode() ?: 0)
         result = 31 * result + barriers.hashCode()
-        result = 31 * result + transformations.hashCode()
         return result
     }
 }

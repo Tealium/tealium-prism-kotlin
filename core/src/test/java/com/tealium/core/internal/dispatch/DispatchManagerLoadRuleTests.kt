@@ -2,7 +2,7 @@ package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.tracking.Dispatch
-import com.tealium.core.api.transform.ScopedTransformation
+import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.TransformationScope
 import com.tealium.core.internal.rules.LoadRuleResult
 import com.tealium.tests.common.TestTransformer
@@ -44,7 +44,7 @@ class DispatchManagerLoadRuleTests : DispatchManagerTestsBase() {
                 addAll(DataObject.create { put("transformed", "value") })
             }
         }
-        val transformation = ScopedTransformation(
+        val transformation = TransformationSettings(
             "tr-1",
             "transformer",
             setOf(TransformationScope.Dispatcher(dispatcher1Name))

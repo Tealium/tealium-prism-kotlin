@@ -1,25 +1,26 @@
 package com.tealium.core.api.transform
 
-import com.tealium.core.api.data.DataObject
-import com.tealium.core.api.data.DataList
 import com.tealium.core.api.data.DataItem
+import com.tealium.core.api.data.DataList
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.internal.misc.Converters
-import com.tealium.core.internal.misc.Converters.ScopedTransformationConverter.KEY_SCOPES
-import com.tealium.core.internal.misc.Converters.ScopedTransformationConverter.KEY_TRANSFORMATION_ID
-import com.tealium.core.internal.misc.Converters.ScopedTransformationConverter.KEY_TRANSFORMER_ID
+import com.tealium.core.internal.misc.Converters.TransformationSettingsConverter.KEY_CONFIGURATION
+import com.tealium.core.internal.misc.Converters.TransformationSettingsConverter.KEY_SCOPES
+import com.tealium.core.internal.misc.Converters.TransformationSettingsConverter.KEY_TRANSFORMATION_ID
+import com.tealium.core.internal.misc.Converters.TransformationSettingsConverter.KEY_TRANSFORMER_ID
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-class ScopedTransformationTests {
+class TransformationSettingsTests {
 
-    val scopedTransformationConverter = Converters.ScopedTransformationConverter
+    val transformationConverter = Converters.TransformationSettingsConverter
 
     @Test
     fun convert_Returns_Null_When_Not_DataObject() {
-        assertNull(scopedTransformationConverter.convert(DataItem.NULL))
+        assertNull(transformationConverter.convert(DataItem.NULL))
         assertNull(
-            scopedTransformationConverter.convert(
+            transformationConverter.convert(
                 DataItem.string(
                     """{
                 "transformer_id": "test",
@@ -31,7 +32,7 @@ class ScopedTransformationTests {
                 )
             )
         )
-        assertNull(scopedTransformationConverter.convert(DataList.EMPTY_LIST.asDataItem()))
+        assertNull(transformationConverter.convert(DataList.EMPTY_LIST.asDataItem()))
     }
 
     @Test
@@ -41,7 +42,7 @@ class ScopedTransformationTests {
             transformationId = "transformation",
             scopes = listOf(TransformationScope.AllDispatchers.value, "some_dispatcher")
         )
-        assertNull(scopedTransformationConverter.convert(dataObject.asDataItem()))
+        assertNull(transformationConverter.convert(dataObject.asDataItem()))
     }
 
     @Test
@@ -51,7 +52,7 @@ class ScopedTransformationTests {
             transformationId = null,
             scopes = listOf(TransformationScope.AllDispatchers.value, "some_dispatcher")
         )
-        assertNull(scopedTransformationConverter.convert(dataObject.asDataItem()))
+        assertNull(transformationConverter.convert(dataObject.asDataItem()))
     }
 
     @Test
@@ -61,7 +62,20 @@ class ScopedTransformationTests {
             transformationId = "transformation",
             scopes = null
         )
-        assertNull(scopedTransformationConverter.convert(dataObject.asDataItem()))
+        assertNull(transformationConverter.convert(dataObject.asDataItem()))
+    }
+
+    @Test
+    fun convert_Sets_Default_Configuration_To_Empty_Object_When_Omitted() {
+        val dataObject = createTransformationDataObject(
+            transformerId = "transformer",
+            transformationId = "transformation",
+            scopes = listOf("some_dispatcher")
+        )
+        assertEquals(
+            DataObject.EMPTY_OBJECT,
+            transformationConverter.convert(dataObject.asDataItem())!!.configuration
+        )
     }
 
     @Test
@@ -73,17 +87,17 @@ class ScopedTransformationTests {
                 scopes = listOf(TransformationScope.AllDispatchers.value, 1, "some_dispatcher")
             )
 
-        val scopedTransformation = scopedTransformationConverter.convert(dataObject.asDataItem())!!
-        assertEquals(2, scopedTransformation.scope.size)
-        assertEquals(TransformationScope.AllDispatchers, scopedTransformation.scope.elementAt(0))
+        val transformationSettings = transformationConverter.convert(dataObject.asDataItem())!!
+        assertEquals(2, transformationSettings.scope.size)
+        assertEquals(TransformationScope.AllDispatchers, transformationSettings.scope.elementAt(0))
         assertEquals(
             TransformationScope.Dispatcher("some_dispatcher"),
-            scopedTransformation.scope.elementAt(1)
+            transformationSettings.scope.elementAt(1)
         )
     }
 
     @Test
-    fun convert_Creates_New_Scoped_Barrier() {
+    fun convert_Creates_New_TransformationSettings() {
         val dataObject = createTransformationDataObject(
             transformerId = "transformer",
             transformationId = "transformation",
@@ -91,35 +105,38 @@ class ScopedTransformationTests {
                 TransformationScope.AllDispatchers,
                 TransformationScope.AfterCollectors,
                 "some_dispatcher"
-            )
+            ),
+            configuration = DataObject.create { put("key", "value") }
         )
 
-        val scopedTransformation = scopedTransformationConverter.convert(dataObject.asDataItem())!!
-        assertEquals("transformation", scopedTransformation.id)
-        assertEquals("transformer", scopedTransformation.transformerId)
-        assertEquals(3, scopedTransformation.scope.size)
-        assertEquals(TransformationScope.AllDispatchers, scopedTransformation.scope.elementAt(0))
-        assertEquals(TransformationScope.AfterCollectors, scopedTransformation.scope.elementAt(1))
+        val transformationSettings = transformationConverter.convert(dataObject.asDataItem())!!
+        assertEquals("transformation", transformationSettings.id)
+        assertEquals("transformer", transformationSettings.transformerId)
+        assertEquals(3, transformationSettings.scope.size)
+        assertEquals(TransformationScope.AllDispatchers, transformationSettings.scope.elementAt(0))
+        assertEquals(TransformationScope.AfterCollectors, transformationSettings.scope.elementAt(1))
         assertEquals(
             TransformationScope.Dispatcher("some_dispatcher"),
-            scopedTransformation.scope.elementAt(2)
+            transformationSettings.scope.elementAt(2)
         )
+        assertEquals("value", transformationSettings.configuration.getString("key"))
     }
 
     @Test
     fun asDataItem_Returns_All_Fields_As_DataObject() {
-        val scopedTransformation =
-            ScopedTransformation(
+        val transformationSettings =
+            TransformationSettings(
                 "transformation",
                 "transformer",
                 setOf(
                     TransformationScope.AllDispatchers,
                     TransformationScope.AfterCollectors,
                     TransformationScope.Dispatcher("dispatcher1")
-                )
+                ),
+                DataObject.create { put("key", "value") }
             )
 
-        val dataItem = scopedTransformation.asDataItem()
+        val dataItem = transformationSettings.asDataItem()
         val dataObject = dataItem.getDataObject()!!
 
         assertEquals("transformation", dataObject.getString(KEY_TRANSFORMATION_ID))
@@ -136,31 +153,37 @@ class ScopedTransformationTests {
             TransformationScope.Dispatcher("dispatcher1").value,
             dataObject.getDataList(KEY_SCOPES)!!.getString(2)
         )
+        assertEquals(
+            "value",
+            dataObject.getDataObject(KEY_CONFIGURATION)!!.getString("key")
+        )
     }
 
     @Test
     fun dataItemConvertible_Converted_Returns_Equal_Object() {
-        val scopedTransformation =
-            ScopedTransformation(
+        val transformationSettings =
+            TransformationSettings(
                 "transformation",
                 "transformer",
                 setOf(
                     TransformationScope.AllDispatchers,
                     TransformationScope.AfterCollectors,
                     TransformationScope.Dispatcher("dispatcher1")
-                )
+                ),
+                DataObject.create { put("key", "value") }
             )
 
-        val converted = scopedTransformationConverter.convert(scopedTransformation.asDataItem())
+        val converted = transformationConverter.convert(transformationSettings.asDataItem())
 
-        assertEquals(scopedTransformation, converted)
+        assertEquals(transformationSettings, converted)
     }
 
 
     private fun createTransformationDataObject(
         transformerId: String?,
         transformationId: String?,
-        scopes: List<Any>?
+        scopes: List<Any>?,
+        configuration: DataObject? = null
     ): DataObject {
         return DataObject.create {
             transformerId?.let {
@@ -171,6 +194,9 @@ class ScopedTransformationTests {
             }
             scopes?.let {
                 put(KEY_SCOPES, DataItem.convert(scopes))
+            }
+            configuration?.let {
+                put(KEY_CONFIGURATION, it)
             }
         }
     }

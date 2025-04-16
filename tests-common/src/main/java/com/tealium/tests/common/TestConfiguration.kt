@@ -4,8 +4,6 @@ import android.app.Application
 import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.misc.Environment
 import com.tealium.core.api.modules.ModuleFactory
-import com.tealium.core.api.rules.Condition
-import com.tealium.core.api.rules.Rule
 import com.tealium.core.api.settings.CoreSettingsBuilder
 
 fun getDefaultConfig(
@@ -14,7 +12,6 @@ fun getDefaultConfig(
     profileName: String = "test",
     environment: Environment = Environment.DEV,
     modules: List<ModuleFactory> = listOf(),
-    rules: Map<String, Rule<Condition>>? = null,
     coreSettings: ((CoreSettingsBuilder) -> CoreSettingsBuilder)? = null
 ): TealiumConfig {
     return TealiumConfig(
@@ -23,7 +20,6 @@ fun getDefaultConfig(
         profileName = profileName,
         environment = environment,
         modules = modules,
-        rules = rules,
         enforcingCoreSettings = coreSettings
     )
 }

@@ -15,8 +15,14 @@ import com.tealium.core.api.network.ResourceCache
 import com.tealium.core.api.network.ResourceRefresher
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
+import com.tealium.core.api.rules.Condition.Companion.isDefined
+import com.tealium.core.api.rules.Rule
+import com.tealium.core.api.rules.matches
 import com.tealium.core.api.settings.CoreSettingsBuilder
+import com.tealium.core.api.transform.TransformationScope
+import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.internal.network.mockGetDataItemConvertibleSuccess
+import com.tealium.core.internal.rules.LoadRule
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.getDefaultConfig
 import io.mockk.Called
@@ -383,12 +389,14 @@ class SettingsManagerTests {
 
     @Test
     fun mergeSettings_Merges_All_Transformations_From_All_Settings() {
+        val baseSettings =
+            TransformationSettings("0", "0", setOf(TransformationScope.AllDispatchers))
         val settings1 = DataObject.fromString(
             """
             {
                 "transformations" : {
-                   "transformer1" : { "key": "value" },
-                   "transformer2" : { "key": "value" }
+                   "transformation1" : ${baseSettings.copy("1", "1").asDataItem()},
+                   "transformation2" : ${baseSettings.copy("2", "2").asDataItem()}
                 }
             }
         """
@@ -397,8 +405,8 @@ class SettingsManagerTests {
             """
             {
                 "transformations" : {
-                   "transformer3" : { "key": "value" },
-                   "transformer4" : { "key": "value" }
+                   "transformation3" : ${baseSettings.copy("3", "3").asDataItem()},
+                   "transformation4" : ${baseSettings.copy("4", "4").asDataItem()}
                 }
             }
         """
@@ -407,8 +415,8 @@ class SettingsManagerTests {
             """
             {
                 "transformations" : {
-                   "transformer5" : { "key": "value" },
-                   "transformer6" : { "key": "value" }
+                   "transformation5" : ${baseSettings.copy("5", "5").asDataItem()},
+                   "transformation6" : ${baseSettings.copy("6", "6").asDataItem()}
                 }
             }
         """
@@ -418,7 +426,10 @@ class SettingsManagerTests {
         val sdkSettings = SdkSettings.fromDataObject(merged)
 
         for (i in 1..6) {
-            assertEquals("value", merged.transformations.getDataObject("transformer$i")!!.getString("key"))
+            assertEquals(
+                baseSettings.copy("$i", "$i"),
+                sdkSettings.transformations["transformation$i"]
+            )
         }
     }
 
@@ -429,6 +440,8 @@ class SettingsManagerTests {
             {
                 "transformations" : {
                     "transformer1-transformation1" : {
+                        "transformation_id": "transformation1",
+                        "transformer_id": "transformer1",
                         "scopes": ["all"],
                         "configuration" : {
                             "sub-key-1": 1,
@@ -446,7 +459,9 @@ class SettingsManagerTests {
             {
                 "transformations" : {
                     "transformer1-transformation1" : {
-                        "scopes": ["afterCollectors"],
+                        "transformation_id": "transformation1",
+                        "transformer_id": "transformer1",
+                        "scopes": ["aftercollectors"],
                         "configuration" : {
                             "sub-key-2": 2,
                             "sub-obj": {
@@ -460,13 +475,14 @@ class SettingsManagerTests {
         )
 
         val merged = SettingsManager.mergeSettings(settings1, settings2)
+        val settings = SdkSettings.fromDataObject(merged)
 
-        val transformation1 = merged.transformations.getDataObject("transformer1-transformation1")!!
-        val scopes = transformation1.getDataList("scopes")!!
-        assertEquals(1, scopes.size)
-        assertEquals("afterCollectors", scopes.getString(0))
+        val transformation1 = settings.transformations["transformer1-transformation1"]!!
+        val scopes = transformation1.scope
+        assertEquals(1, transformation1.scope.size)
+        assertEquals(TransformationScope.AfterCollectors, transformation1.scope.elementAt(0))
 
-        val configuration = transformation1.getDataObject("configuration")!!
+        val configuration = transformation1.configuration
         assertEquals(1, configuration.getInt("sub-key-1"))
         assertEquals(2, configuration.getInt("sub-key-2"))
 
@@ -570,12 +586,13 @@ class SettingsManagerTests {
 
     @Test
     fun mergeSettings_Merges_All_LoadRules_From_All_Settings() {
+        val baseRule = LoadRule("0", Rule.just(isDefined(null, "var")))
         val settings1 = DataObject.fromString(
             """
             {
                 "load_rules" : {
-                   "load_rule1" : { "key": "value" },
-                   "load_rule2" : { "key": "value" }
+                   "load_rule1" : ${baseRule.copy("1").asDataItem()},
+                   "load_rule2" : ${baseRule.copy("2").asDataItem()}
                 }
             }
         """
@@ -584,8 +601,8 @@ class SettingsManagerTests {
             """
             {
                 "load_rules" : {
-                   "load_rule3" : { "key": "value" },
-                   "load_rule4" : { "key": "value" }
+                   "load_rule3" : ${baseRule.copy("3").asDataItem()},
+                   "load_rule4" : ${baseRule.copy("4").asDataItem()}
                 }
             }
         """
@@ -594,17 +611,21 @@ class SettingsManagerTests {
             """
             {
                 "load_rules" : {
-                   "load_rule5" : { "key": "value" },
-                   "load_rule6" : { "key": "value" }
+                   "load_rule5" : ${baseRule.copy("5").asDataItem()},
+                   "load_rule6" : ${baseRule.copy("6").asDataItem()}
                 }
             }
         """
         )
 
         val merged = SettingsManager.mergeSettings(settings1, settings2, settings3)
+        val settings = SdkSettings.fromDataObject(merged)
 
         for (i in 1..6) {
-            assertEquals("value", merged.loadRules.getDataObject("load_rule$i")!!.getString("key"))
+            assertEquals(
+                baseRule.copy("$i"),
+                settings.loadRules["load_rule$i"]
+            )
         }
     }
 
@@ -615,7 +636,10 @@ class SettingsManagerTests {
             {
                 "load_rules" : {
                     "load_rule1" : {
-                        "conditions": ["all"],
+                        "conditions": {
+                            "variable": "var-1",
+                            "operator": "defined"
+                        },
                         "id": "load_rule1"
                     }
                 }
@@ -627,7 +651,10 @@ class SettingsManagerTests {
             {
                 "load_rules" : {
                     "load_rule1" : {
-                        "conditions": ["condition"],
+                        "conditions": {
+                            "variable": "var-2",
+                            "operator": "populated"
+                        },
                         "id": "load_rule2"
                     }
                 }
@@ -636,13 +663,14 @@ class SettingsManagerTests {
         )
 
         val merged = SettingsManager.mergeSettings(settings1, settings2)
+        val settings = SdkSettings.fromDataObject(merged)
 
-        val loadRule1 = merged.loadRules.getDataObject("load_rule1")!!
-        assertEquals("load_rule2", loadRule1.getString("id"))
+        val loadRule1 = settings.loadRules["load_rule1"]!!
+        assertEquals("load_rule2", loadRule1.id)
 
-        val conditions = loadRule1.getDataList("conditions")!!
-        assertEquals(1, conditions.size)
-        assertEquals("condition", conditions.getString(0))
+        val conditions = loadRule1.conditions
+        assertTrue(conditions.matches(DataObject.create { put("var-2", "populated") }))
+        assertFalse(conditions.matches(DataObject.create { put("var-1", "defined") }))
     }
 
     @Test
@@ -891,11 +919,6 @@ class SettingsManagerTests {
         )
     }
 
-    // TODO - these are temporary, used only in testing until [SdkSettings] supports the actual properties
-    private val DataObject.transformations: DataObject
-        get() = getDataObject(SdkSettings.KEY_TRANSFORMATIONS) ?: DataObject.EMPTY_OBJECT
     private val DataObject.barriers: DataObject
         get() = getDataObject(SdkSettings.KEY_BARRIERS) ?: DataObject.EMPTY_OBJECT
-    private val DataObject.loadRules: DataObject
-        get() = getDataObject(SdkSettings.KEY_LOAD_RULES) ?: DataObject.EMPTY_OBJECT
 }

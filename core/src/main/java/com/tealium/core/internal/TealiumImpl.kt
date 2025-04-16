@@ -135,7 +135,7 @@ class TealiumImpl(
             settings.map(SdkSettings::core).withState(settings.value::core)
 
         val transformerCoordinator =
-            createTransformationsCoordinator(moduleManager.modules, coreSettings, schedulers)
+            createTransformationsCoordinator(moduleManager.modules, settingsManager.sdkSettings, schedulers)
         val barrierCoordinator =
             createBarrierCoordinator(
                 config,
@@ -420,14 +420,14 @@ class TealiumImpl(
 
         fun createTransformationsCoordinator(
             modules: ObservableState<List<Module>>,
-            coreSettings: ObservableState<CoreSettings>,
+            sdkSettings: ObservableState<SdkSettings>,
             schedulers: Schedulers
         ): TransformerCoordinator {
             return TransformerCoordinatorImpl(
                 modules.map { it.filterIsInstance<Transformer>() }
                     .withState { modules.value.filterIsInstance<Transformer>() },
-                coreSettings.map(CoreSettings::transformations)
-                    .withState(coreSettings.value::transformations),
+                sdkSettings.map { it.transformations.values.toSet() }
+                    .withState { sdkSettings.value.transformations.values.toSet() },
                 schedulers.tealium
             )
         }

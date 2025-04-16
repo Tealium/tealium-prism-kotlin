@@ -1,9 +1,10 @@
 package com.tealium.core.internal.misc
 
-import com.tealium.core.api.data.DataItemConverter
-import com.tealium.core.api.data.DataItem
-import com.tealium.core.api.transform.ScopedTransformation
 import com.tealium.core.api.barriers.ScopedBarrier
+import com.tealium.core.api.data.DataItem
+import com.tealium.core.api.data.DataItemConverter
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.internal.dispatch.barrierScopeFromString
 import com.tealium.core.internal.dispatch.transformationScopeFromString
 
@@ -13,28 +14,32 @@ import com.tealium.core.internal.dispatch.transformationScopeFromString
  * used by an end user, so implementing them somewhere they can be obfuscated is fine.
  */
 object Converters {
-    object ScopedTransformationConverter: DataItemConverter<ScopedTransformation> {
-            const val KEY_TRANSFORMATION_ID = "transformation_id"
-            const val KEY_TRANSFORMER_ID = "transformer_id"
-            const val KEY_SCOPES = "scopes"
+    object TransformationSettingsConverter : DataItemConverter<TransformationSettings> {
+        const val KEY_TRANSFORMATION_ID = "transformation_id"
+        const val KEY_TRANSFORMER_ID = "transformer_id"
+        const val KEY_SCOPES = "scopes"
+        const val KEY_CONFIGURATION = "configuration"
 
-            override fun convert(dataItem: DataItem): ScopedTransformation? {
-                val dataObject = dataItem.getDataObject() ?: return null
+        override fun convert(dataItem: DataItem): TransformationSettings? {
+            val dataObject = dataItem.getDataObject() ?: return null
 
-                val id = dataObject.getString(KEY_TRANSFORMATION_ID)
-                val transformerId = dataObject.getString(KEY_TRANSFORMER_ID)
-                val scopes = dataObject.getDataList(KEY_SCOPES)
-                    ?.mapNotNull(DataItem::getString)
-                    ?.map(::transformationScopeFromString)
+            val id = dataObject.getString(KEY_TRANSFORMATION_ID)
+            val transformerId = dataObject.getString(KEY_TRANSFORMER_ID)
+            val scopes = dataObject.getDataList(KEY_SCOPES)
+                ?.mapNotNull(DataItem::getString)
+                ?.map(::transformationScopeFromString)
 
-                if (id == null || transformerId == null || scopes == null) return null
+            if (id == null || transformerId == null || scopes == null) return null
 
-                return ScopedTransformation(id, transformerId, scopes.toSet())
-            }
+            val configuration =
+                dataObject.getDataObject(KEY_CONFIGURATION) ?: DataObject.EMPTY_OBJECT
+
+            return TransformationSettings(id, transformerId, scopes.toSet(), configuration)
         }
+    }
 
 
-    object ScopedBarrierConverter: DataItemConverter<ScopedBarrier> {
+    object ScopedBarrierConverter : DataItemConverter<ScopedBarrier> {
         const val KEY_BARRIER_ID = "barrier_id"
         const val KEY_SCOPES = "scopes"
 

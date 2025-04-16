@@ -1,10 +1,11 @@
 package com.tealium.core.internal.dispatch
 
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.transform.DispatchScope
-import com.tealium.core.api.transform.ScopedTransformation
+import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.TransformationScope
 import com.tealium.core.api.transform.Transformer
 import com.tealium.tests.common.SynchronousScheduler
@@ -14,6 +15,8 @@ import io.mockk.Ordering
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
 import io.mockk.verify
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -32,33 +35,37 @@ class TransformerCoordinatorTests {
     private lateinit var mockTransformer2: Transformer
     private lateinit var mockTransformer3: Transformer
     private lateinit var registeredTransformers: StateSubject<List<Transformer>>
-    private lateinit var scopedTransformations: StateSubject<Set<ScopedTransformation>>
+    private lateinit var transformationsSettings: StateSubject<Set<TransformationSettings>>
     private lateinit var transformerCoordinator: TransformerCoordinatorImpl
 
-    private val defaultScopedTransformations: Set<ScopedTransformation> = setOf(
-        ScopedTransformation(
-            "after_collectors",
-            "transformer1",
-            setOf(TransformationScope.AfterCollectors)
-        ),
-        ScopedTransformation(
-            "all_dispatchers",
-            "transformer2",
-            setOf(TransformationScope.AllDispatchers)
-        ),
-        ScopedTransformation(
-            "dispatcher_1",
-            "transformer3",
-            setOf(TransformationScope.Dispatcher("dispatcher_1"))
-        ),
-        ScopedTransformation(
-            "dispatcher_1_and_2",
-            "transformer1",
-            setOf(
-                TransformationScope.Dispatcher("dispatcher_1"),
-                TransformationScope.Dispatcher("dispatcher_2")
-            )
-        ),
+    private val afterCollectors = TransformationSettings(
+        "after_collectors",
+        "transformer1",
+        setOf(TransformationScope.AfterCollectors)
+    )
+    private val allDispatchers = TransformationSettings(
+        "all_dispatchers",
+        "transformer2",
+        setOf(TransformationScope.AllDispatchers)
+    )
+    private val dispatcher1 = TransformationSettings(
+        "dispatcher_1",
+        "transformer3",
+        setOf(TransformationScope.Dispatcher("dispatcher_1"))
+    )
+    private val dispatcher1And2 = TransformationSettings(
+        "dispatcher_1_and_2",
+        "transformer1",
+        setOf(
+            TransformationScope.Dispatcher("dispatcher_1"),
+            TransformationScope.Dispatcher("dispatcher_2")
+        )
+    )
+    private val defaultTransformationSettings: Set<TransformationSettings> = setOf(
+        afterCollectors,
+        allDispatchers,
+        dispatcher1,
+        dispatcher1And2,
     )
 
     @Before
@@ -73,12 +80,12 @@ class TransformerCoordinatorTests {
             listOf(mockTransformer1, mockTransformer2, mockTransformer3)
         )
 
-        scopedTransformations = Observables.stateSubject(defaultScopedTransformations)
+        transformationsSettings = Observables.stateSubject(defaultTransformationSettings)
 
         transformerCoordinator =
             TransformerCoordinatorImpl(
                 registeredTransformers,
-                scopedTransformations,
+                transformationsSettings,
                 SynchronousScheduler()
             )
     }
@@ -89,7 +96,7 @@ class TransformerCoordinatorTests {
 
         verify(ordering = Ordering.ORDERED) {
             mockTransformer1.applyTransformation(
-                "after_collectors",
+                afterCollectors,
                 mockDispatch,
                 DispatchScope.AfterCollectors,
                 any()
@@ -119,27 +126,26 @@ class TransformerCoordinatorTests {
 
     @Test
     fun transform_AppliesTransformations_FromTransformers_ScopedToAfterCollectors_IncludingNewlyAdded() {
-        scopedTransformations.onNext(
-            defaultScopedTransformations + setOf(
-                ScopedTransformation(
-                    "transformation5",
-                    "transformer2",
-                    setOf(TransformationScope.AfterCollectors)
-                )
-            )
+        val transformation5 = TransformationSettings(
+            "transformation5",
+            "transformer2",
+            setOf(TransformationScope.AfterCollectors)
+        )
+        transformationsSettings.onNext(
+            defaultTransformationSettings + setOf(transformation5)
         )
 
         transformerCoordinator.transform(mockDispatch, DispatchScope.AfterCollectors, onTransformed)
 
         verify(ordering = Ordering.ORDERED) {
             mockTransformer1.applyTransformation(
-                "after_collectors",
+                afterCollectors,
                 mockDispatch,
                 DispatchScope.AfterCollectors,
                 any()
             )
             mockTransformer2.applyTransformation(
-                "transformation5",
+                transformation5,
                 mockDispatch,
                 DispatchScope.AfterCollectors,
                 any()
@@ -157,19 +163,19 @@ class TransformerCoordinatorTests {
 
         verify(ordering = Ordering.ORDERED) {
             mockTransformer2.applyTransformation(
-                "all_dispatchers",
+                allDispatchers,
                 mockDispatch,
                 DispatchScope.Dispatcher("dispatcher_1"),
                 any()
             )
             mockTransformer3.applyTransformation(
-                "dispatcher_1",
+                dispatcher1,
                 mockDispatch,
                 DispatchScope.Dispatcher("dispatcher_1"),
                 any()
             )
             mockTransformer1.applyTransformation(
-                "dispatcher_1_and_2",
+                dispatcher1And2,
                 mockDispatch,
                 DispatchScope.Dispatcher("dispatcher_1"),
                 any()
@@ -187,7 +193,7 @@ class TransformerCoordinatorTests {
 
         verify(inverse = true) {
             mockTransformer1.applyTransformation(
-                "after_collectors",
+                afterCollectors,
                 mockDispatch,
                 any(),
                 any()
@@ -198,9 +204,9 @@ class TransformerCoordinatorTests {
     @Test
     fun transform_PrefersFirstTransformerId_WhenSameIdUsed() {
         val mockTransformerDuplicate = TestTransformer.mock("transformer1")
-        scopedTransformations.onNext(
-            defaultScopedTransformations + setOf(
-                ScopedTransformation(
+        transformationsSettings.onNext(
+            defaultTransformationSettings + setOf(
+                TransformationSettings(
                     "after_collectors",
                     "transformer1",
                     setOf(TransformationScope.AfterCollectors)
@@ -217,7 +223,7 @@ class TransformerCoordinatorTests {
 
         verify(ordering = Ordering.ORDERED) {
             mockTransformer1.applyTransformation(
-                "after_collectors",
+                afterCollectors,
                 mockDispatch,
                 DispatchScope.AfterCollectors,
                 any()
@@ -225,7 +231,7 @@ class TransformerCoordinatorTests {
         }
         verify(inverse = true) {
             mockTransformerDuplicate.applyTransformation(
-                "after_collectors",
+                afterCollectors,
                 mockDispatch,
                 any(),
                 any()
@@ -246,7 +252,7 @@ class TransformerCoordinatorTests {
 
         verify(ordering = Ordering.ORDERED) {
             mockTransformer1.applyTransformation(
-                "after_collectors",
+                afterCollectors,
                 mockDispatch,
                 DispatchScope.AfterCollectors,
                 any()
@@ -315,7 +321,7 @@ class TransformerCoordinatorTests {
 
         verify {
             mockTransformer2.applyTransformation(
-                "all_dispatchers",
+                allDispatchers,
                 mockDispatch,
                 DispatchScope.Dispatcher("dispatcher_1"),
                 any()
@@ -323,13 +329,13 @@ class TransformerCoordinatorTests {
         }
         verify(inverse = true) {
             mockTransformer3.applyTransformation(
-                "dispatcher_1",
+                dispatcher1,
                 mockDispatch,
                 DispatchScope.Dispatcher("dispatcher_1"),
                 any()
             )
             mockTransformer1.applyTransformation(
-                "dispatcher_1_and_2",
+                dispatcher1And2,
                 mockDispatch,
                 DispatchScope.Dispatcher("dispatcher_1"),
                 any()
@@ -349,7 +355,7 @@ class TransformerCoordinatorTests {
 
         verify {
             mockTransformer3.applyTransformation(
-                "dispatcher_1",
+                dispatcher1,
                 mockDispatch,
                 DispatchScope.Dispatcher("dispatcher_1"),
                 any()
@@ -357,13 +363,13 @@ class TransformerCoordinatorTests {
         }
         verify(inverse = true) {
             mockTransformer1.applyTransformation(
-                "dispatcher_1_and_2",
+                dispatcher1And2,
                 mockDispatch,
                 DispatchScope.Dispatcher("dispatcher_1"),
                 any()
             )
             mockTransformer2.applyTransformation(
-                "all_dispatchers",
+                allDispatchers,
                 mockDispatch,
                 DispatchScope.Dispatcher("dispatcher_1"),
                 any()
@@ -383,7 +389,7 @@ class TransformerCoordinatorTests {
 
         verify {
             mockTransformer1.applyTransformation(
-                "dispatcher_1_and_2",
+                dispatcher1And2,
                 mockDispatch,
                 DispatchScope.Dispatcher("dispatcher_1"),
                 any()
@@ -391,11 +397,55 @@ class TransformerCoordinatorTests {
         }
         verify(inverse = true) {
             mockTransformer2.applyTransformation(
-                "all_dispatchers",
+                allDispatchers,
                 mockDispatch,
                 DispatchScope.Dispatcher("dispatcher_1"),
                 any()
             )
         }
+    }
+
+    @Test
+    fun registerTransformation_Adds_Transformation_When_Not_Already_Registered() {
+        val newTransformation =
+            TransformationSettings("new", "transformer", setOf(TransformationScope.AllDispatchers))
+        transformerCoordinator.registerTransformation(newTransformation)
+
+        assertTrue(transformerCoordinator.allTransformations.contains(newTransformation))
+    }
+
+    @Test
+    fun registerTransformation_Does_Not_Add_Transformation_When_Another_Already_Registered_With_Same_Ids() {
+        val newTransformation =
+            TransformationSettings("new", "transformer", setOf(TransformationScope.AllDispatchers))
+        val duplicated =
+            newTransformation.copy(configuration = DataObject.create { put("different", "config") })
+        transformerCoordinator.registerTransformation(newTransformation)
+        transformerCoordinator.registerTransformation(duplicated)
+
+        assertTrue(transformerCoordinator.allTransformations.contains(newTransformation))
+        assertFalse(transformerCoordinator.allTransformations.contains(duplicated))
+    }
+
+    @Test
+    fun unregisterTransformation_Removes_Transformation_When_Already_Registered() {
+        val newTransformation =
+            TransformationSettings("new", "transformer", setOf(TransformationScope.AllDispatchers))
+        transformerCoordinator.registerTransformation(newTransformation)
+        transformerCoordinator.unregisterTransformation(newTransformation)
+
+        assertFalse(transformerCoordinator.allTransformations.contains(newTransformation))
+    }
+
+    @Test
+    fun unregisterTransformation_Removes_Transformation_When_Another_Already_Registered_With_Same_Ids() {
+        val newTransformation =
+            TransformationSettings("new", "transformer", setOf(TransformationScope.AllDispatchers))
+        val duplicated =
+            newTransformation.copy(configuration = DataObject.create { put("different", "config") })
+        transformerCoordinator.registerTransformation(newTransformation)
+        transformerCoordinator.unregisterTransformation(duplicated)
+
+        assertFalse(transformerCoordinator.allTransformations.contains(newTransformation))
     }
 }

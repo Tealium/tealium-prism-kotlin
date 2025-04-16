@@ -11,7 +11,7 @@ import com.tealium.core.api.pubsub.Subject
 import com.tealium.core.api.settings.CoreSettings
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TealiumDispatchType
-import com.tealium.core.api.transform.ScopedTransformation
+import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.Transformer
 import com.tealium.core.internal.modules.InternalModuleManager
 import com.tealium.core.internal.modules.consent.ConsentManager
@@ -67,7 +67,7 @@ open class DispatchManagerTestsBase {
     protected lateinit var inFlightEvents: StateSubject<Map<String, Set<Dispatch>>>
     protected lateinit var transformerCoordinator: TransformerCoordinator
     protected lateinit var transformers: StateSubject<List<Transformer>>
-    protected lateinit var transformations: StateSubject<Set<ScopedTransformation>>
+    protected lateinit var transformations: StateSubject<Set<TransformationSettings>>
     protected lateinit var coreSettings: StateSubject<CoreSettings>
     protected lateinit var dispatchManager: DispatchManagerImpl
 

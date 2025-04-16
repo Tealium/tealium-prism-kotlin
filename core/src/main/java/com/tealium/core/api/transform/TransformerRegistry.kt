@@ -2,21 +2,21 @@ package com.tealium.core.api.transform
 
 /**
  * The [TransformerRegistry] is responsible for registering and unregistering additional
- * [ScopedTransformation]s outside of those provided by the main SDK settings.
+ * [TransformationSettings]s outside of those provided by the main SDK settings.
  */
 interface TransformerRegistry {
 
     /**
-     * Registers an additional [ScopedTransformation]
+     * Registers an additional [TransformationSettings]
      *
-     * @param transformation The [ScopedTransformation] to add to the current set of transformations
+     * @param transformation The [TransformationSettings] to add to the current set of transformations
      */
-    fun registerScopedTransformation(transformation: ScopedTransformation)
+    fun registerTransformation(transformation: TransformationSettings)
 
     /**
      * Unregisters the given [transformation] if it is currently registered
      *
-     * @param transformation The [ScopedTransformation] to remove from the current set of transformations
+     * @param transformation The [TransformationSettings] to remove from the current set of transformations
      */
-    fun unregisterScopedTransformation(transformation: ScopedTransformation)
+    fun unregisterTransformation(transformation: TransformationSettings)
 }

@@ -2,7 +2,7 @@ package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TrackResult
-import com.tealium.core.api.transform.ScopedTransformation
+import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.TransformationScope
 import com.tealium.core.api.transform.Transformer
 import io.mockk.every
@@ -38,7 +38,7 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
     fun dispatchManager_DoesNotSendDispatchesToDispatcher_WhenTransformersReturnNull() {
         transformations.onNext(
             setOf(
-                ScopedTransformation("drop", "drop", setOf(TransformationScope.AllDispatchers))
+                TransformationSettings("drop", "drop", setOf(TransformationScope.AllDispatchers))
             )
         )
 
@@ -54,7 +54,7 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
     fun dispatchManager_DoesNotQueue_WhenTransformersReturnNull() {
         transformations.onNext(
             setOf(
-                ScopedTransformation("drop", "drop", setOf(TransformationScope.AfterCollectors))
+                TransformationSettings("drop", "drop", setOf(TransformationScope.AfterCollectors))
             )
         )
 
@@ -71,7 +71,7 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
     fun dispatchManager_Notifies_DispatchDropped_WhenDispatchDropped_AfterCollectors() {
         transformations.onNext(
             setOf(
-                ScopedTransformation("drop", "drop", setOf(TransformationScope.AfterCollectors))
+                TransformationSettings("drop", "drop", setOf(TransformationScope.AfterCollectors))
             )
         )
         val onComplete: (Dispatch, TrackResult) -> Unit = mockk(relaxed = true)

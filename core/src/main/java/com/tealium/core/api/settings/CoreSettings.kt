@@ -4,7 +4,6 @@ import com.tealium.core.api.barriers.ScopedBarrier
 import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.misc.TimeFrame
 import com.tealium.core.api.modules.Dispatcher
-import com.tealium.core.api.transform.ScopedTransformation
 
 /**
  * Describes all the available configurable settings that control behavior of core SDK functionality.
@@ -83,11 +82,4 @@ interface CoreSettings {
      * @see ScopedBarrier
      */
     val barriers: Set<ScopedBarrier>
-
-    /**
-     * Scopes the given transformations to the given extension points.
-     *
-     * @see ScopedTransformation
-     */
-    val transformations: Set<ScopedTransformation>
 }

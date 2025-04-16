@@ -5,10 +5,13 @@ import com.tealium.core.api.barriers.Barrier
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.LogHandler
 import com.tealium.core.api.misc.Environment
+import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.rules.Condition
 import com.tealium.core.api.rules.Rule
 import com.tealium.core.api.settings.CoreSettingsBuilder
+import com.tealium.core.api.transform.TransformationSettings
+import com.tealium.core.api.transform.Transformer
 import com.tealium.core.internal.logger.LoggerImpl
 import com.tealium.core.internal.rules.LoadRule
 import com.tealium.core.internal.settings.CoreSettingsImpl
@@ -22,10 +25,14 @@ class TealiumConfig @JvmOverloads constructor(
     val environment: Environment,
     val modules: List<ModuleFactory>,
     val datasource: String? = null,
-    rules: Map<String, Rule<Condition>>? = null,
     enforcingCoreSettings: ((CoreSettingsBuilder) -> CoreSettingsBuilder)? = null
 ) {
     val key: String = "${accountName}-${profileName}"
+    private val coreSettings = enforcingCoreSettings?.invoke(CoreSettingsBuilder())?.build()
+
+    // TODO - These are mutable, as are other properties - need to add defensive copy functionality
+    private val rules = DataObject.Builder()
+    private val transformations = DataObject.Builder()
 
     private val pathName
         get() = "${application.filesDir}${File.separatorChar}tealium${File.separatorChar}${accountName}${File.separatorChar}${profileName}${File.separatorChar}${environment.environment}"
@@ -56,29 +63,51 @@ class TealiumConfig @JvmOverloads constructor(
      */
     var existingVisitorId: String? = null
 
-
-    val enforcedSdkSettings: DataObject = DataObject.create {
-        enforcingCoreSettings?.let { builderBlock ->
-            val coreSettings = builderBlock.invoke(CoreSettingsBuilder())
-                .build()
-            put(CoreSettingsImpl.MODULE_NAME, coreSettings)
-        }
-        val modulesObject = DataObject.create {
-            modules.forEach { factory ->
-                factory.getEnforcedSettings()?.let { enforcedSettings ->
-                    put(factory.id, enforcedSettings)
-                }
-            }
-        }
-        put(SdkSettings.KEY_MODULES, modulesObject)
-
-        if (rules != null) {
-            val rulesObject = DataObject.create {
-                rules.forEach { (id, condition) ->
-                    put(id, LoadRule(id, condition))
-                }
-            }
-            put(SdkSettings.KEY_LOAD_RULES, rulesObject)
-        }
+    /**
+     * Sets a load rule to be used by any of the modules by the rule's id.
+     *
+     * @param id The id used to look up this specific rule when defining it in the [Module]'s Settings
+     * @param rule The [Rule<Condition>] that defines when that rule should match a payload.
+     */
+    fun addLoadRule(id: String, rule: Rule<Condition>) {
+        rules.put(id, LoadRule(id, rule))
     }
+
+    /**
+     * Sets a transformation to be used by a specific transformer.
+     *
+     * The transformation Id and transformer Id will be combined and need to be unique or the newer
+     * transformation will replace older ones.
+     *
+     * @param transformation The [TransformationSettings] that defines which [Transformer] should
+     * handle this transformation and how.
+     */
+    fun addTransformation(transformation: TransformationSettings) {
+        transformations.put("${transformation.transformerId}-${transformation.id}", transformation)
+    }
+
+    val enforcedSdkSettings: DataObject
+        get() = DataObject.create {
+            if (coreSettings != null) {
+                put(CoreSettingsImpl.MODULE_NAME, coreSettings)
+            }
+            val modulesObject = DataObject.create {
+                modules.forEach { factory ->
+                    factory.getEnforcedSettings()?.let { enforcedSettings ->
+                        put(factory.id, enforcedSettings)
+                    }
+                }
+            }
+            put(SdkSettings.KEY_MODULES, modulesObject)
+
+            val rules = rules.build()
+            if (rules != DataObject.EMPTY_OBJECT) {
+                put(SdkSettings.KEY_LOAD_RULES, rules)
+            }
+
+            val transformations = transformations.build()
+            if (transformations != DataObject.EMPTY_OBJECT) {
+                put(SdkSettings.KEY_TRANSFORMATIONS, transformations)
+            }
+        }
 }

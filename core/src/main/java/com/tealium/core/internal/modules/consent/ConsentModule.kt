@@ -17,7 +17,7 @@ import com.tealium.core.api.pubsub.SubscribableState
 import com.tealium.core.api.settings.ModuleSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.transform.DispatchScope
-import com.tealium.core.api.transform.ScopedTransformation
+import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.TransformationScope
 import com.tealium.core.api.transform.Transformer
 import com.tealium.core.api.transform.TransformerRegistry
@@ -40,7 +40,7 @@ class ConsentModule(
 
     private val subscription: Disposable?
 
-    private val consentTransformation = ScopedTransformation(
+    private val consentTransformation = TransformationSettings(
         VERIFY_CONSENT_TRANSFORMATION_ID,
         id,
         setOf(TransformationScope.AllDispatchers)
@@ -140,15 +140,15 @@ class ConsentModule(
     }
 
     private fun registerTransformations() {
-        transformerRegistry.registerScopedTransformation(consentTransformation)
+        transformerRegistry.registerTransformation(consentTransformation)
     }
 
     private fun unregisterTransformations() {
-        transformerRegistry.unregisterScopedTransformation(consentTransformation)
+        transformerRegistry.unregisterTransformation(consentTransformation)
     }
 
     override fun applyTransformation(
-        transformationId: String,
+        transformation: TransformationSettings,
         dispatch: Dispatch,
         scope: DispatchScope,
         completion: (Dispatch?) -> Unit

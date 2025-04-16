@@ -4,7 +4,7 @@ import com.tealium.core.api.barriers.Barrier
 import com.tealium.core.api.barriers.BarrierScope
 import com.tealium.core.api.barriers.ScopedBarrier
 import com.tealium.core.api.transform.DispatchScope
-import com.tealium.core.api.transform.ScopedTransformation
+import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.TransformationScope
 
 /**
@@ -23,11 +23,11 @@ fun TransformationScope.matches(dispatchScope: DispatchScope): Boolean {
 }
 
 /**
- * A [ScopedTransformation] may match multiple [TransformationScope]s. If the given [dispatchScope]
+ * A [TransformationSettings] may match multiple [TransformationScope]s. If the given [dispatchScope]
  * matches the scope of any of the [TransformationScope]s listed in [scope] then it will
  * return true, else false.
  */
-fun ScopedTransformation.matchesScope(dispatchScope: DispatchScope): Boolean {
+fun TransformationSettings.matchesScope(dispatchScope: DispatchScope): Boolean {
     return scope.firstOrNull { transformationScope ->
         transformationScope.matches(dispatchScope)
     } != null

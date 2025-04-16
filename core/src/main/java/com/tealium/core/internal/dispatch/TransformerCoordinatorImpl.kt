@@ -4,19 +4,19 @@ import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.pubsub.ObservableState
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.transform.DispatchScope
-import com.tealium.core.api.transform.ScopedTransformation
+import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.Transformer
 
 class TransformerCoordinatorImpl(
     private val registeredTransformers: ObservableState<List<Transformer>>,
-    private val scopedTransformations: ObservableState<Set<ScopedTransformation>>,
+    private val transformations: ObservableState<Set<TransformationSettings>>,
     private val scheduler: Scheduler
 ) : TransformerCoordinator {
 
-    private var additionalTransformations: Set<ScopedTransformation> = setOf()
+    private var additionalTransformations: Set<TransformationSettings> = setOf()
 
-    private val allTransformations: Set<ScopedTransformation>
-        get() = scopedTransformations.value + additionalTransformations
+    val allTransformations: Set<TransformationSettings>
+        get() = transformations.value + additionalTransformations
 
     override fun transform(
         dispatch: Dispatch,
@@ -47,12 +47,12 @@ class TransformerCoordinatorImpl(
         }
     }
 
-    private fun getTransformations(scope: DispatchScope): Set<ScopedTransformation> {
+    private fun getTransformations(scope: DispatchScope): Set<TransformationSettings> {
         return allTransformations.filter { it.matchesScope(scope) }.toSet()
     }
 
     private fun recursiveSerialApply(
-        transformations: Set<ScopedTransformation>,
+        transformations: Set<TransformationSettings>,
         dispatch: Dispatch?,
         scope: DispatchScope,
         completion: (Dispatch?) -> Unit
@@ -73,7 +73,7 @@ class TransformerCoordinatorImpl(
     }
 
     private fun apply(
-        transformation: ScopedTransformation,
+        transformation: TransformationSettings,
         dispatch: Dispatch,
         scope: DispatchScope,
         completion: (Dispatch?) -> Unit
@@ -87,22 +87,32 @@ class TransformerCoordinatorImpl(
         }
 
         transformer.applyTransformation(
-            transformation.id,
+            transformation,
             dispatch,
             scope,
             completion
         )
     }
 
-    override fun registerScopedTransformation(transformation: ScopedTransformation) {
+    override fun registerTransformation(transformation: TransformationSettings) {
+        if (additionalTransformations.find {
+                transformationIdsMatch(it, transformation)
+            } != null) return
+
         additionalTransformations = additionalTransformations.toMutableSet().apply {
             add(transformation)
         }
     }
 
-    override fun unregisterScopedTransformation(transformation: ScopedTransformation) {
+    override fun unregisterTransformation(transformation: TransformationSettings) {
         additionalTransformations = additionalTransformations.toMutableSet().apply {
-            remove(transformation)
+            removeAll { transformationIdsMatch(it, transformation) }
         }
     }
+
+    private fun transformationIdsMatch(
+        t1: TransformationSettings,
+        t2: TransformationSettings
+    ): Boolean =
+        t1.id == t2.id && t1.transformerId == t2.transformerId
 }

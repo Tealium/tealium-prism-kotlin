@@ -2,15 +2,15 @@ package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.transform.DispatchScope
-import com.tealium.core.api.transform.ScopedTransformation
+import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.TransformerRegistry
 import com.tealium.core.api.transform.Transformer
 
 /**
  * The [TransformerCoordinator] is responsible for:
  *  - maintaining a list of enabled [Transformer] implementations
- *  - maintaining a list of [ScopedTransformation]s
- *  - delegating the application of any [ScopedTransformation]s to the appropriate [Transformer]
+ *  - maintaining a list of [TransformationSettings]s
+ *  - delegating the application of any [TransformationSettings]s to the appropriate [Transformer]
  */
 interface TransformerCoordinator : TransformerRegistry {
 
