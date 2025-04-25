@@ -4,7 +4,7 @@ import com.tealium.core.api.data.DataItemConvertible
 import com.tealium.core.api.data.DataItem
 
 /**
- * The [BarrierScope] defines the available scopes that can be assigned to a [Barrier] via a [ScopedBarrier]
+ * The [BarrierScope] defines the available scopes that can be assigned to a [Barrier] via a [BarrierSettings]
  *
  * There are only two available scopes that a [Barrier] can impact:
  *  - [All]

@@ -5,12 +5,19 @@ import android.util.Log
 import com.tealium.core.api.Modules
 import com.tealium.core.api.Tealium
 import com.tealium.core.api.TealiumConfig
+import com.tealium.core.api.barriers.BarrierScope
+import com.tealium.core.api.barriers.Barriers
 import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.LogLevel
+import com.tealium.core.api.logger.logIfInfoEnabled
 import com.tealium.core.api.misc.Environment
+import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.misc.TealiumResult
+import com.tealium.core.api.modules.Dispatcher
+import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
+import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.network.HttpRequest
 import com.tealium.core.api.network.Interceptor
 import com.tealium.core.api.network.NetworkException.CancelledException
@@ -24,9 +31,13 @@ import com.tealium.core.api.network.RetryPolicy
 import com.tealium.core.api.network.RetryPolicy.DoNotRetry
 import com.tealium.core.api.network.RetryPolicy.RetryAfterDelay
 import com.tealium.core.api.persistence.Expiry
+import com.tealium.core.api.pubsub.Disposable
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.api.tracking.TrackResult
+import com.tealium.core.internal.logger.logDescriptions
+import com.tealium.core.internal.modules.collect.CollectDispatcher
+import com.tealium.core.internal.pubsub.CompletedDisposable
 import com.tealium.lifecycle.LifecycleDataTarget
 import com.tealium.lifecycle.lifecycle
 
@@ -72,7 +83,14 @@ object TealiumHelper {
         }
         config.apply {
             useRemoteSettings = false
-//            localSdkSettingsFileName = "tealium-settings.json"
+            localSdkSettingsFileName = "tealium-settings.json"
+
+//            addBarrier(Barriers.connectivity(),
+//                setOf(
+//                    BarrierScope.Dispatcher(CollectDispatcher.moduleName),
+//                    BarrierScope.Dispatcher("logger")
+//                )
+//            )
         }
 
         shared = Tealium.create(config) { result ->
@@ -168,7 +186,8 @@ object TealiumHelper {
             Modules.connectivityCollector(),
             Modules.appDataCollector(),
             Modules.deviceDataCollector(),
-            configureLifecycle()
+            configureLifecycle(),
+            configureLoggingDispatcher("logger")
         )
     }
 
@@ -194,6 +213,32 @@ object TealiumHelper {
 //                .setSessionTimeoutInMinutes(10)
 //                .setDataTarget(LifecycleDataTarget.AllEvents)
 //        }
+    }
+
+    private fun configureLoggingDispatcher(id: String): ModuleFactory {
+        return object : ModuleFactory {
+            override val id: String
+                get() = id
+
+            override fun create(context: TealiumContext, configuration: DataObject): Module? {
+                return object : Dispatcher {
+                    override fun dispatch(
+                        dispatches: List<Dispatch>,
+                        callback: TealiumCallback<List<Dispatch>>
+                    ): Disposable {
+                        context.logger.logIfInfoEnabled(id) {
+                            "Audit: Dispatched ${dispatches.logDescriptions()}"
+                        }
+                        return CompletedDisposable
+                    }
+
+                    override val id: String
+                        get() = id
+                    override val version: String
+                        get() = "1.0.0"
+                }
+            }
+        }
     }
 }
 

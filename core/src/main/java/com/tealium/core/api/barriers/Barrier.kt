@@ -10,14 +10,9 @@ import com.tealium.core.api.modules.Dispatcher
  * A typical example could be for [Dispatcher]s that may require connectivity, which might use a
  * Connectivity Barrier to control whether or not it should continue processing events.
  *
- * Updates to the barrier state should be emitted via the [onState] Flow.
+ * Updates to the barrier state should be emitted via the [onState] observable.
  */
 interface Barrier {
-    /**
-     * The unique identifier of this barrier.
-     * This String will be used to match up barriers scoped in the configuration JSON.
-     */
-    val id: String
 
     /**
      * The flow of this barrier's current state.
@@ -27,4 +22,3 @@ interface Barrier {
      */
     val onState: Observable<BarrierState>
 }
-

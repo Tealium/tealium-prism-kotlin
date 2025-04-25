@@ -2,9 +2,12 @@ package com.tealium.core.api
 
 import android.app.Application
 import com.tealium.core.api.barriers.Barrier
+import com.tealium.core.api.barriers.BarrierFactory
+import com.tealium.core.api.barriers.BarrierScope
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.LogHandler
 import com.tealium.core.api.misc.Environment
+import com.tealium.core.api.modules.Dispatcher
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.rules.Condition
@@ -14,6 +17,7 @@ import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.Transformer
 import com.tealium.core.internal.logger.LoggerImpl
 import com.tealium.core.internal.rules.LoadRule
+import com.tealium.core.internal.settings.BarrierSettings
 import com.tealium.core.internal.settings.CoreSettingsImpl
 import com.tealium.core.internal.settings.SdkSettings
 import java.io.File
@@ -33,6 +37,7 @@ class TealiumConfig @JvmOverloads constructor(
     // TODO - These are mutable, as are other properties - need to add defensive copy functionality
     private val rules = DataObject.Builder()
     private val transformations = DataObject.Builder()
+    private val barrierSettings = DataObject.Builder()
 
     private val pathName
         get() = "${application.filesDir}${File.separatorChar}tealium${File.separatorChar}${accountName}${File.separatorChar}${profileName}${File.separatorChar}${environment.environment}"
@@ -55,8 +60,6 @@ class TealiumConfig @JvmOverloads constructor(
      * Overrides default LogHandler. Default will log to the Android console.
      */
     var logHandler: LogHandler = LoggerImpl.ConsoleLogHandler
-
-    var barriers: Set<Barrier> = setOf()
 
     /**
      * Sets a known existing visitor id for use only on first launch.
@@ -86,6 +89,26 @@ class TealiumConfig @JvmOverloads constructor(
         transformations.put("${transformation.transformerId}-${transformation.id}", transformation)
     }
 
+    var barriers: List<BarrierFactory> = emptyList()
+        private set
+
+    /**
+     * Registers a `barrier` that is able to control the flow of events to [Dispatcher] instances
+     * via setting of [scopes].
+     *
+     * Setting the [scopes] will override any settings from remote/local sources. Leaving it as `null`
+     * will use any settings from remote or local sources, or a default if the [barrier] supports this.
+     *
+     * @param barrier the [BarrierFactory] used to create the [Barrier] instance
+     * @param scopes optionally fix the set of [Dispatcher]s that this barrier applies to.
+     */
+    @JvmOverloads
+    fun addBarrier(barrier: BarrierFactory, scopes: Set<BarrierScope>? = null) {
+        barriers = barriers + barrier
+        if (scopes != null)
+            barrierSettings.put(barrier.id, BarrierSettings(barrier.id, scopes))
+    }
+
     val enforcedSdkSettings: DataObject
         get() = DataObject.create {
             if (coreSettings != null) {
@@ -108,6 +131,11 @@ class TealiumConfig @JvmOverloads constructor(
             val transformations = transformations.build()
             if (transformations != DataObject.EMPTY_OBJECT) {
                 put(SdkSettings.KEY_TRANSFORMATIONS, transformations)
+            }
+
+            val barriers = barrierSettings.build()
+            if (barriers != DataObject.EMPTY_OBJECT) {
+                put(SdkSettings.KEY_BARRIERS, barriers)
             }
         }
 }

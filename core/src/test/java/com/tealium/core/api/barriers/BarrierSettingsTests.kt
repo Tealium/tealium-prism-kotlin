@@ -1,24 +1,24 @@
 package com.tealium.core.api.barriers
 
-import com.tealium.core.api.data.DataObject
-import com.tealium.core.api.data.DataList
 import com.tealium.core.api.data.DataItem
-import com.tealium.core.internal.misc.Converters.ScopedBarrierConverter.KEY_BARRIER_ID
-import com.tealium.core.internal.misc.Converters.ScopedBarrierConverter.KEY_SCOPES
-import com.tealium.core.internal.misc.Converters
+import com.tealium.core.api.data.DataList
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.internal.settings.BarrierSettings
+import com.tealium.core.internal.settings.BarrierSettings.Converter.KEY_BARRIER_ID
+import com.tealium.core.internal.settings.BarrierSettings.Converter.KEY_SCOPES
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-class ScopedBarrierTests {
+class BarrierSettingsTests {
 
-    val scopedBarrierConverter = Converters.ScopedBarrierConverter
+    val barrierSettingsConverter = BarrierSettings.Converter
 
     @Test
     fun convert_Returns_Null_When_Not_DataObject() {
-        assertNull(scopedBarrierConverter.convert(DataItem.NULL))
+        assertNull(barrierSettingsConverter.convert(DataItem.NULL))
         assertNull(
-            scopedBarrierConverter.convert(
+            barrierSettingsConverter.convert(
                 DataItem.string(
                     """{
                 "barrier_id": "test",
@@ -29,7 +29,7 @@ class ScopedBarrierTests {
                 )
             )
         )
-        assertNull(scopedBarrierConverter.convert(DataList.EMPTY_LIST.asDataItem()))
+        assertNull(barrierSettingsConverter.convert(DataList.EMPTY_LIST.asDataItem()))
     }
 
     @Test
@@ -38,13 +38,13 @@ class ScopedBarrierTests {
             barrierId = null,
             scopes = listOf(BarrierScope.All.value, "some_dispatcher")
         )
-        assertNull(scopedBarrierConverter.convert(dataObject.asDataItem()))
+        assertNull(barrierSettingsConverter.convert(dataObject.asDataItem()))
     }
 
     @Test
     fun convert_Returns_Null_When_Missing_Scopes() {
         val dataObject = createBarrierDataObject(barrierId = "test", scopes = null)
-        assertNull(scopedBarrierConverter.convert(dataObject.asDataItem()))
+        assertNull(barrierSettingsConverter.convert(dataObject.asDataItem()))
     }
 
     @Test
@@ -54,10 +54,10 @@ class ScopedBarrierTests {
             scopes = listOf(BarrierScope.All.value, 1, "some_dispatcher")
         )
 
-        val scopedBarrier = scopedBarrierConverter.convert(dataObject.asDataItem())!!
-        assertEquals(2, scopedBarrier.scope.size)
-        assertEquals(BarrierScope.All, scopedBarrier.scope.elementAt(0))
-        assertEquals(BarrierScope.Dispatcher("some_dispatcher"), scopedBarrier.scope.elementAt(1))
+        val barrierSettings = barrierSettingsConverter.convert(dataObject.asDataItem())!!
+        assertEquals(2, barrierSettings.scope.size)
+        assertEquals(BarrierScope.All, barrierSettings.scope.elementAt(0))
+        assertEquals(BarrierScope.Dispatcher("some_dispatcher"), barrierSettings.scope.elementAt(1))
     }
 
     @Test
@@ -67,20 +67,20 @@ class ScopedBarrierTests {
             scopes = listOf(BarrierScope.All.value, "some_dispatcher", "other_dispatcher")
         )
 
-        val scopedBarrier = scopedBarrierConverter.convert(dataObject.asDataItem())!!
-        assertEquals("test", scopedBarrier.barrierId)
-        assertEquals(3, scopedBarrier.scope.size)
-        assertEquals(BarrierScope.All, scopedBarrier.scope.elementAt(0))
-        assertEquals(BarrierScope.Dispatcher("some_dispatcher"), scopedBarrier.scope.elementAt(1))
-        assertEquals(BarrierScope.Dispatcher("other_dispatcher"), scopedBarrier.scope.elementAt(2))
+        val barrierSettings = barrierSettingsConverter.convert(dataObject.asDataItem())!!
+        assertEquals("test", barrierSettings.barrierId)
+        assertEquals(3, barrierSettings.scope.size)
+        assertEquals(BarrierScope.All, barrierSettings.scope.elementAt(0))
+        assertEquals(BarrierScope.Dispatcher("some_dispatcher"), barrierSettings.scope.elementAt(1))
+        assertEquals(BarrierScope.Dispatcher("other_dispatcher"), barrierSettings.scope.elementAt(2))
     }
 
     @Test
     fun asDataItem_Returns_All_Fields_As_DataObject() {
-        val scopedBarrier =
-            ScopedBarrier("testId", setOf(BarrierScope.All, BarrierScope.Dispatcher("dispatcher1")))
+        val barrierSettings =
+            BarrierSettings("testId", setOf(BarrierScope.All, BarrierScope.Dispatcher("dispatcher1")))
 
-        val dataItem = scopedBarrier.asDataItem()
+        val dataItem = barrierSettings.asDataItem()
         val dataObject = dataItem.getDataObject()!!
 
         assertEquals("testId", dataObject.getString(KEY_BARRIER_ID))
@@ -96,12 +96,12 @@ class ScopedBarrierTests {
 
     @Test
     fun dataItemConvertible_Converted_Returns_Equal_Object() {
-        val scopedBarrier =
-            ScopedBarrier("testId", setOf(BarrierScope.All, BarrierScope.Dispatcher("dispatcher1")))
+        val barrierSettings =
+            BarrierSettings("testId", setOf(BarrierScope.All, BarrierScope.Dispatcher("dispatcher1")))
 
-        val converted = scopedBarrierConverter.convert(scopedBarrier.asDataItem())
+        val converted = barrierSettingsConverter.convert(barrierSettings.asDataItem())
 
-        assertEquals(scopedBarrier, converted)
+        assertEquals(barrierSettings, converted)
     }
 
 

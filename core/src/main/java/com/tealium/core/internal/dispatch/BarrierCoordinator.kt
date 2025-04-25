@@ -1,16 +1,16 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.barriers.BarrierState
 import com.tealium.core.api.barriers.Barrier
-import com.tealium.core.api.barriers.BarrierRegistry
+import com.tealium.core.api.barriers.BarrierScope
+import com.tealium.core.api.barriers.BarrierState
 import com.tealium.core.api.modules.Dispatcher
 import com.tealium.core.api.pubsub.Observable
 
 /**
- * The [BarrierCoordinator] is responsible for maintaining available [com.tealium.core.api.Barrier]
- * implementations.
+ * The [BarrierCoordinator] is responsible for computing the state of all [Barrier] implementations
+ * scoped to any given [Dispatcher]
  */
-interface BarrierCoordinator: BarrierRegistry {
+interface BarrierCoordinator {
 
     /**
      * Returns a [Observable] of [BarrierState]s that are specific to the [Dispatcher] identified by the

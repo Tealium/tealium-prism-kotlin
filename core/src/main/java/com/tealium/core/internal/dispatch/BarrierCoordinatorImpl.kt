@@ -3,51 +3,40 @@ package com.tealium.core.internal.dispatch
 import com.tealium.core.api.barriers.Barrier
 import com.tealium.core.api.barriers.BarrierScope
 import com.tealium.core.api.barriers.BarrierState
-import com.tealium.core.api.barriers.ScopedBarrier
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.Observables
-import com.tealium.core.api.pubsub.StateSubject
+
+/**
+ * Utility alias to link a [Barrier] implementation with its known scope.
+ */
+typealias ScopedBarrier = Pair<Barrier, Set<BarrierScope>>
+inline val ScopedBarrier.barrier: Barrier
+    get() = this.first
+inline val ScopedBarrier.scopes: Set<BarrierScope>
+    get() = this.second
 
 class BarrierCoordinatorImpl(
-    private var registeredBarriers: Set<Barrier>,
-    scopedBarriers: Observable<Set<ScopedBarrier>> =
-        Observables.stateSubject(setOf()),
-    private val additionalScopedBarriers: StateSubject<Set<ScopedBarrier>> =
-        Observables.stateSubject(setOf())
+    private val barriers: Observable<List<ScopedBarrier>>,
 ) : BarrierCoordinator {
 
-    private val allScopedBarriers =
-        scopedBarriers.combine(additionalScopedBarriers) { scoped, additional ->
-            scoped + additional
-        }
-
     override fun onBarriersState(dispatcherId: String): Observable<BarrierState> {
-        return allScopedBarriers
-            .flatMapLatest {
-                areBarriersOpen(getAllBarriers(it, dispatcherId))
-            }.distinct()
+        return barriers.flatMapLatest { barriers ->
+            areBarriersOpen(getBarriersForDispatcher(barriers, dispatcherId))
+        }.distinct()
     }
 
-    internal fun getAllBarriers(
-        scopedBarriers: Set<ScopedBarrier>,
+    private fun getBarriersForDispatcher(
+        barriers: List<ScopedBarrier>,
         dispatcherId: String
-    ): Set<Barrier> {
-        return (getBarriers(scopedBarriers, BarrierScope.All) +
-                getBarriers(scopedBarriers, BarrierScope.Dispatcher(dispatcherId)))
-    }
-
-    internal fun getBarriers(
-        scopedBarriers: Set<ScopedBarrier>,
-        scope: BarrierScope
-    ): Set<Barrier> {
-        return scopedBarriers.filter { it.matchesScope(scope) }
-            .mapNotNull { barrierScope ->
-                registeredBarriers.firstOrNull { it.id == barrierScope.barrierId }
-            }.toSet()
+    ): List<Barrier> {
+        return barriers.filter { scopedBarrier ->
+            scopedBarrier.scopes.contains(BarrierScope.All)
+                    || scopedBarrier.scopes.contains(BarrierScope.Dispatcher(dispatcherId))
+        }.map { scopedBarrier -> scopedBarrier.barrier }
     }
 
     private fun areBarriersOpen(
-        barriers: Set<Barrier>
+        barriers: List<Barrier>
     ): Observable<BarrierState> {
         if (barriers.isEmpty()) return Observables.just(BarrierState.Open)
 
@@ -56,30 +45,5 @@ class BarrierCoordinatorImpl(
         ) { barrierStates ->
             barrierStates.firstOrNull { it == BarrierState.Closed } ?: BarrierState.Open
         }
-    }
-
-    override fun registerBarrier(barrier: Barrier) {
-        registeredBarriers = registeredBarriers.toMutableSet().apply {
-            add(barrier)
-        }
-    }
-
-    override fun unregisterBarrier(barrier: Barrier) {
-        registeredBarriers = registeredBarriers.toMutableSet().apply {
-            remove(barrier)
-        }
-    }
-
-    override fun registerScopedBarrier(scopedBarrier: ScopedBarrier) {
-        val barriers = additionalScopedBarriers.value
-
-        additionalScopedBarriers.onNext(barriers + scopedBarrier)
-    }
-
-    override fun unregisterScopedBarrier(scopedBarrier: ScopedBarrier) {
-        val barriers = additionalScopedBarriers.value.toMutableSet()
-        barriers.remove(scopedBarrier)
-
-        additionalScopedBarriers.onNext(barriers)
     }
 }

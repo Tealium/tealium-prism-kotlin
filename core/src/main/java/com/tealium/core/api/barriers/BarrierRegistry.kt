@@ -1,36 +1,25 @@
 package com.tealium.core.api.barriers
 
 /**
- * The [BarrierRegistry] is responsible for registering and unregistering additional [Barrier]s and
- * [ScopedBarrier]s outside of those provided by the main SDK settings.
+ * The [BarrierRegistry] is responsible for registering and unregistering additional [Barrier]s
+ * outside of those provided by the main SDK settings.
+ *
+ * Note. Barriers registered using the [BarrierRegistry] will not receive updated settings.
  */
 interface BarrierRegistry {
 
     /**
-     * Registers an additional [Barrier]
+     * Registers or updates an additional [Barrier] with the applied [scopes]
      *
      * @param barrier The [Barrier] to add to the list of barriers.
+     * @param scopes The set of [BarrierScope]s that this [barrier] applies to.
      */
-    fun registerBarrier(barrier: Barrier)
+    fun registerScopedBarrier(barrier: Barrier, scopes: Set<BarrierScope>)
 
     /**
-     * Unregisters the given [barrier] if it's currently in registered.
+     * Unregisters the given [barrier] if it's currently registered.
      *
      * @param barrier The [Barrier] to remove from the list of barriers.
      */
-    fun unregisterBarrier(barrier: Barrier)
-
-    /**
-     * Registers an additional [ScopedBarrier]
-     *
-     * @param scopedBarrier The [ScopedBarrier] to add to the list of scoped barriers.
-     */
-    fun registerScopedBarrier(scopedBarrier: ScopedBarrier)
-
-    /**
-     * Unregisters the given [scopedBarrier] if it's currently in registered.
-     *
-     * @param scopedBarrier The [ScopedBarrier] to remove from the list of scoped barriers.
-     */
-    fun unregisterScopedBarrier(scopedBarrier: ScopedBarrier)
+    fun unregisterScopedBarrier(barrier: Barrier)
 }

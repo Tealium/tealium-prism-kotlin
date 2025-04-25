@@ -1,8 +1,6 @@
 package com.tealium.core.internal
 
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.api.barriers.BarrierScope
-import com.tealium.core.api.barriers.ScopedBarrier
 import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.logger.logIfWarnEnabled
@@ -25,8 +23,8 @@ import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
 import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.api.transform.Transformer
-import com.tealium.core.internal.dispatch.BarrierCoordinator
 import com.tealium.core.internal.dispatch.BarrierCoordinatorImpl
+import com.tealium.core.internal.dispatch.BarrierManager
 import com.tealium.core.internal.dispatch.BarrierRegistryImpl
 import com.tealium.core.internal.dispatch.DispatchManagerImpl
 import com.tealium.core.internal.dispatch.QueueManager
@@ -42,10 +40,8 @@ import com.tealium.core.internal.misc.TrackerImpl
 import com.tealium.core.internal.modules.InternalModuleManager
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import com.tealium.core.internal.modules.TealiumCollector
-import com.tealium.core.internal.modules.collect.CollectDispatcher
 import com.tealium.core.internal.modules.consent.ConsentModule
 import com.tealium.core.internal.modules.datalayer.DataLayerModule
-import com.tealium.core.internal.network.ConnectivityBarrier
 import com.tealium.core.internal.network.ConnectivityInterceptor
 import com.tealium.core.internal.network.ConnectivityRetriever
 import com.tealium.core.internal.network.HttpClient
@@ -136,12 +132,7 @@ class TealiumImpl(
 
         val transformerCoordinator =
             createTransformationsCoordinator(moduleManager.modules, settingsManager.sdkSettings, schedulers)
-        val barrierCoordinator =
-            createBarrierCoordinator(
-                config,
-                connectivityRetriever.onConnectionStatusUpdated,
-                coreSettings
-            )
+        val barrierManager = BarrierManager(settings)
 
         val queueRepository = SQLQueueRepository(
             dbProvider,
@@ -154,7 +145,7 @@ class TealiumImpl(
         val loadRuleEngine = LoadRuleEngineImpl(settings)
         dispatchManager = DispatchManagerImpl(
             moduleManager = moduleManager,
-            barrierCoordinator = barrierCoordinator,
+            barrierCoordinator = BarrierCoordinatorImpl(barrierManager.barriers),
             transformerCoordinator = transformerCoordinator,
             dispatchers = moduleManager.modules
                 .map { it.filterIsInstance<Dispatcher>().toSet() },
@@ -190,13 +181,14 @@ class TealiumImpl(
                 schedulers = schedulers,
                 activityManager = this.activityManager,
                 transformerRegistry = TransformerRegistryImpl(transformerCoordinator),
-                barrierRegistry = BarrierRegistryImpl(barrierCoordinator),
+                barrierRegistry = BarrierRegistryImpl(barrierManager),
                 moduleManager = moduleManager
             )
 
         val factories = preconfigureFactories(config.modules, queueManager, moduleManager.modules)
         loadModuleFactories(factories, moduleManager, logger)
 
+        barrierManager.initializeBarriers(config.barriers, tealiumContext)
         settings.subscribe { newSettings ->
             moduleManager.updateModuleSettings(tealiumContext, newSettings)
         }.addTo(disposables)
@@ -354,7 +346,11 @@ class TealiumImpl(
          *
          * @return The new list of [ModuleFactory]s that includes the required defaults
          */
-        fun addAndValidateDefaultFactories(factories: List<ModuleFactory>, defaults: List<ModuleFactory>, logger: Logger): List<ModuleFactory> {
+        fun addAndValidateDefaultFactories(
+            factories: List<ModuleFactory>,
+            defaults: List<ModuleFactory>,
+            logger: Logger
+        ): List<ModuleFactory> {
             val factoriesMap = factories.associateBy(ModuleFactory::id)
                 .toMutableMap()
 
@@ -391,30 +387,6 @@ class TealiumImpl(
                 networkClient = networkClient,
                 networkHelper = NetworkHelperImpl(networkClient, logger),
                 logger = logger
-            )
-        }
-
-        private fun getDefaultBarriers(): Observable<Set<ScopedBarrier>> {
-            return Observables.just(
-                setOf(
-                    ScopedBarrier(
-                        ConnectivityBarrier.BARRIER_ID,
-                        setOf(BarrierScope.Dispatcher(CollectDispatcher.moduleName))
-                    )
-                )
-            )
-        }
-
-        fun createBarrierCoordinator(
-            config: TealiumConfig,
-            connectionStatus: Observable<Connectivity.Status>,
-            coreSettings: Observable<CoreSettings>
-        ): BarrierCoordinator {
-            return BarrierCoordinatorImpl(
-                config.barriers + ConnectivityBarrier(connectionStatus),
-                coreSettings.combine(getDefaultBarriers()) { settings, scopedBarriers ->
-                    (settings.barriers + scopedBarriers).toSet()
-                }
             )
         }
 

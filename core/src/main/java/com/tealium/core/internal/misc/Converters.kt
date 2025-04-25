@@ -1,11 +1,9 @@
 package com.tealium.core.internal.misc
 
-import com.tealium.core.api.barriers.ScopedBarrier
 import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataItemConverter
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.transform.TransformationSettings
-import com.tealium.core.internal.dispatch.barrierScopeFromString
 import com.tealium.core.internal.dispatch.transformationScopeFromString
 
 
@@ -35,25 +33,6 @@ object Converters {
                 dataObject.getDataObject(KEY_CONFIGURATION) ?: DataObject.EMPTY_OBJECT
 
             return TransformationSettings(id, transformerId, scopes.toSet(), configuration)
-        }
-    }
-
-
-    object ScopedBarrierConverter : DataItemConverter<ScopedBarrier> {
-        const val KEY_BARRIER_ID = "barrier_id"
-        const val KEY_SCOPES = "scopes"
-
-        override fun convert(dataItem: DataItem): ScopedBarrier? {
-            val dataObject = dataItem.getDataObject() ?: return null
-
-            val id = dataObject.getString(KEY_BARRIER_ID)
-            val scopes = dataObject.getDataList(KEY_SCOPES)
-                ?.mapNotNull(DataItem::getString)
-                ?.map(::barrierScopeFromString)
-
-            if (id == null || scopes == null) return null
-
-            return ScopedBarrier(id, scopes.toSet())
         }
     }
 }

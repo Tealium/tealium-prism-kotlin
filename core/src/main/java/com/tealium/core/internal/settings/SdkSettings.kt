@@ -11,8 +11,8 @@ data class SdkSettings(
     val core: CoreSettings = CoreSettingsImpl(),
     val modules: Map<String, ModuleSettings> = emptyMap(),
     val loadRules: Map<String, LoadRule> = emptyMap(),
-    val transformations: Map<String, TransformationSettings> = emptyMap()
-    // TODO - barriers
+    val transformations: Map<String, TransformationSettings> = emptyMap(),
+    val barriers: Map<String, BarrierSettings> = emptyMap()
 ) {
 
     companion object {
@@ -26,15 +26,16 @@ data class SdkSettings(
             val modulesObject = dataObject.requireObject(KEY_MODULES)
             val loadRulesObject = dataObject.requireObject(KEY_LOAD_RULES)
             val transformationsObject = dataObject.requireObject(KEY_TRANSFORMATIONS)
-            // TODO - barriers
+            val barriersObject = dataObject.requireObject(KEY_BARRIERS)
 
             val core = CoreSettingsImpl.fromDataObject(coreObject)
             val modules = modulesObject.mapValuesNotNull(ModuleSettings.Converter::convert)
             val loadRules = loadRulesObject.mapValuesNotNull(LoadRule.Converter::convert)
             val transformations =
                 transformationsObject.mapValuesNotNull(Converters.TransformationSettingsConverter::convert)
+            val barriers = barriersObject.mapValuesNotNull(BarrierSettings.Converter::convert)
 
-            return SdkSettings(core, modules, loadRules, transformations)
+            return SdkSettings(core, modules, loadRules, transformations, barriers)
         }
 
         private fun DataObject.requireObject(

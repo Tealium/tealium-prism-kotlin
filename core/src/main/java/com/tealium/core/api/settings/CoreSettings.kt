@@ -1,6 +1,5 @@
 package com.tealium.core.api.settings
 
-import com.tealium.core.api.barriers.ScopedBarrier
 import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.misc.TimeFrame
 import com.tealium.core.api.modules.Dispatcher
@@ -75,11 +74,4 @@ interface CoreSettings {
      * This setting is used to automatically control when the Tealium Visitor Id is updated.
      */
     val visitorIdentityKey: String?
-
-    /**
-     * Scopes the given barriers to the given extension points.
-     *
-     * @see ScopedBarrier
-     */
-    val barriers: Set<ScopedBarrier>
 }

@@ -3,19 +3,26 @@
     "batch_size":6,
     "deep_link_tracking_enabled":false,
     "log_level":"info",
-    "battery_saver":false,
-    "wifi_only":false,
     "settings_update_interval":15
   },
-  "CollectDispatcher":{
-    "enabled":true,
-    "dispatch_profile":"testtest",
-    "single_dispatch_url":"",
-    "batch_dispatch_url":"",
-    "dispatch_domain":""
+  "modules": {
+    "CollectDispatcher": {
+      "enabled":true
+    },
+    "Lifecycle":{
+      "enabled":true,
+      "configuration": {
+        "autotracking_enabled":true
+      }
+    }
   },
-  "Lifecycle":{
-    "enabled":true,
-    "autotracking_enabled":true
+  "barriers" : {
+//    "ConnectivityBarrier": {
+//      "barrier_id": "ConnectivityBarrier",
+//      "scopes": [],
+//      "configuration" : {
+//        "wifi_only": true
+//      }
+//    }
   }
 }

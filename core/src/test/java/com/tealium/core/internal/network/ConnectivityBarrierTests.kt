@@ -27,7 +27,7 @@ class ConnectivityBarrierTests {
         connectivityStatus = Observables.stateSubject(Connectivity.Status.NotConnected)
         every { connectivity.onConnectionStatusUpdated } returns connectivityStatus
 
-        connectivityBarrier = ConnectivityBarrier(connectivity.onConnectionStatusUpdated)
+        connectivityBarrier = ConnectivityBarrier(connectivity)
     }
 
     @Test

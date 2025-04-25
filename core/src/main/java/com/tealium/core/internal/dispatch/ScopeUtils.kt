@@ -2,10 +2,10 @@ package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.barriers.Barrier
 import com.tealium.core.api.barriers.BarrierScope
-import com.tealium.core.api.barriers.ScopedBarrier
 import com.tealium.core.api.transform.DispatchScope
-import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.TransformationScope
+import com.tealium.core.api.transform.TransformationSettings
+import com.tealium.core.internal.settings.BarrierSettings
 
 /**
  * Describes whether or not this [TransformationScope] matches the [DispatchScope].
@@ -32,13 +32,6 @@ fun TransformationSettings.matchesScope(dispatchScope: DispatchScope): Boolean {
         transformationScope.matches(dispatchScope)
     } != null
 }
-
-/**
- * Utility method to determine whether or not this [ScopedBarrier] is applicable to the
- * give [scope]. Used to determine whether a specific [Barrier] should be checked for its
- * state.
- */
-fun ScopedBarrier.matchesScope(scope: BarrierScope): Boolean = this.scope.contains(scope)
 
 /**
  * Convenience method for converting a string value to a [TransformationScope]

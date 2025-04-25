@@ -1,6 +1,5 @@
 package com.tealium.core.internal.settings
 
-import com.tealium.core.api.barriers.ScopedBarrier
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.misc.TimeFrame
@@ -8,7 +7,6 @@ import com.tealium.core.api.misc.TimeFrameUtils.days
 import com.tealium.core.api.misc.TimeFrameUtils.minutes
 import com.tealium.core.api.misc.TimeFrameUtils.seconds
 import com.tealium.core.api.settings.CoreSettings
-import com.tealium.core.internal.misc.Converters
 
 class CoreSettingsImpl(
     override val logLevel: LogLevel = DEFAULT_LOG_LEVEL,
@@ -22,7 +20,6 @@ class CoreSettingsImpl(
     override val deepLinkTrackingEnabled: Boolean = DEFAULT_DEEPLINK_TRACKING_ENABLED,
     override val disableLibrary: Boolean = DEFAULT_DISABLE_LIBRARY,
     override val visitorIdentityKey: String? = null,
-    override val barriers: Set<ScopedBarrier> = setOf(),
 ) : CoreSettings {
 
     companion object {
@@ -38,7 +35,6 @@ class CoreSettingsImpl(
         const val KEY_DEEPLINK_TRACKING_ENABLED = "deeplink_tracking_enabled"
         const val KEY_DISABLE_LIBRARY = "disable_library"
         const val KEY_VISITOR_IDENTITY_KEY = "visitor_identity_key"
-        const val KEY_BARRIERS = "barriers"
 
         val DEFAULT_LOG_LEVEL = LogLevel.ERROR
         const val DEFAULT_BATCH_SIZE = 1
@@ -70,10 +66,6 @@ class CoreSettingsImpl(
                 ?: DEFAULT_DEEPLINK_TRACKING_ENABLED
             val disableLibrary = settings.getBoolean(KEY_DISABLE_LIBRARY) ?: DEFAULT_DISABLE_LIBRARY
 
-            val barriers = settings.getDataList(KEY_BARRIERS)
-                ?.mapNotNull(Converters.ScopedBarrierConverter::convert)
-                ?.toSet() ?: emptySet()
-
             return CoreSettingsImpl(
                 logLevel = logs,
                 dataSource = dataSource,
@@ -86,7 +78,6 @@ class CoreSettingsImpl(
                 deepLinkTrackingEnabled = deepLinkTrackingEnabled,
                 disableLibrary = disableLibrary,
                 visitorIdentityKey = visitorIdentityKey,
-                barriers = barriers,
             )
         }
     }
@@ -108,7 +99,6 @@ class CoreSettingsImpl(
         if (deepLinkTrackingEnabled != other.deepLinkTrackingEnabled) return false
         if (disableLibrary != other.disableLibrary) return false
         if (visitorIdentityKey != other.visitorIdentityKey) return false
-        if (barriers != other.barriers) return false
 
         return true
     }
@@ -125,7 +115,6 @@ class CoreSettingsImpl(
         result = 31 * result + deepLinkTrackingEnabled.hashCode()
         result = 31 * result + disableLibrary.hashCode()
         result = 31 * result + (visitorIdentityKey?.hashCode() ?: 0)
-        result = 31 * result + barriers.hashCode()
         return result
     }
 }

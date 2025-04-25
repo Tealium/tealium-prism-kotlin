@@ -4,7 +4,7 @@ import com.tealium.core.api.barriers.BarrierRegistry
 
 /**
  * Wrapper implementation of the [BarrierRegistry] that will delegate all required methods to the
- * provided [BarrierCoordinator]
+ * provided [BarrierManager]
  */
-class BarrierRegistryImpl(private val barrierCoordinator: BarrierCoordinator) :
-    BarrierRegistry by barrierCoordinator
+class BarrierRegistryImpl(private val barrierManager: BarrierManager) :
+    BarrierRegistry by barrierManager

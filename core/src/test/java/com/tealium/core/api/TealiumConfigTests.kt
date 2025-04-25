@@ -1,13 +1,19 @@
 package com.tealium.core.api
 
+import com.tealium.core.api.barriers.BarrierScope
+import com.tealium.core.api.barriers.BarrierState
 import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.rules.Condition.Companion.isDefined
 import com.tealium.core.api.rules.Condition.Companion.isEqual
 import com.tealium.core.api.rules.Rule
 import com.tealium.core.api.transform.TransformationScope
 import com.tealium.core.api.transform.TransformationSettings
+import com.tealium.core.internal.dispatch.barrier
+import com.tealium.core.internal.dispatch.barrierFactory
 import com.tealium.core.internal.misc.Converters
 import com.tealium.core.internal.rules.LoadRule
+import com.tealium.core.internal.settings.BarrierSettings
 import com.tealium.core.internal.settings.SdkSettings
 import com.tealium.tests.common.getDefaultConfig
 import io.mockk.mockk
@@ -61,6 +67,35 @@ class TealiumConfigTests {
     }
 
     @Test
+    fun init_Adds_Barriers_To_Enforced_Settings_Under_Barriers_Key() {
+        val barrier = barrier("test-barrier", Observables.just(BarrierState.Open))
+        val barrierFactory = barrierFactory(barrier)
+        val scopes = setOf(BarrierScope.All, BarrierScope.Dispatcher("dispatcher"))
+
+        val config = getDefaultConfig(app = mockk())
+        config.addBarrier(barrierFactory, scopes)
+
+        val barriers = config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_BARRIERS)!!
+        val barrierSettings = barriers.get(barrier.id, BarrierSettings.Converter)!!
+        assertEquals(barrier.id, barrierSettings.barrierId)
+        assertEquals(scopes, barrierSettings.scope)
+        assertEquals(DataObject.EMPTY_OBJECT, barrierSettings.configuration)
+    }
+
+    @Test
+    fun init_Does_Not_Add_BarrierSettings_To_Enforced_Settings_When_Scopes_Omitted() {
+        val barrier = barrier("test-barrier", Observables.just(BarrierState.Open))
+        val barrierFactory = barrierFactory(barrier)
+
+        val config = getDefaultConfig(app = mockk())
+        config.addBarrier(barrierFactory)
+
+        val barrierSettings = config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_BARRIERS)
+            ?.get(barrier.id, BarrierSettings.Converter)
+        assertNull(barrierSettings)
+    }
+
+    @Test
     fun init_Omits_LoadRules_Key_When_No_Rules_Provided() {
         val config = getDefaultConfig(app = mockk())
 
@@ -74,5 +109,13 @@ class TealiumConfigTests {
 
         val transformations = config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_TRANSFORMATIONS)
         assertNull(transformations)
+    }
+
+    @Test
+    fun init_Omits_Barriers_Key_When_No_Barriers_Provided() {
+        val config = getDefaultConfig(app = mockk())
+
+        val barriers = config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_BARRIERS)
+        assertNull(barriers)
     }
 }
