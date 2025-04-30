@@ -4,7 +4,7 @@ import com.tealium.core.api.pubsub.ObservableState
 
 /**
  * Provides access to the current connectivity status of the device either synchronously through
- * calling [isConnected] or by observing through [onConnectionStatusUpdated].
+ * calling [isConnected] or by observing through [connectionStatus].
  */
 interface Connectivity {
 
@@ -17,10 +17,9 @@ interface Connectivity {
 
     /**
      * Utility to return the capability of the current active network.
+     *
      * Where a network may have more than one of the [ConnectivityType]'s listed, then they will be
      * returned in the order given in the [ConnectivityType] enum.
-     * i.e if the network has both [ConnectivityType.ETHERNET] and [ConnectivityType.VPN] then the
-     * former will be returned.
      *
      * @return the current type of connectivity.
      */
@@ -29,13 +28,15 @@ interface Connectivity {
     /**
      * Observable flow of connectivity statuses, enabling reactivity to network status changes
      */
-    val onConnectionStatusUpdated: ObservableState<Status>
+    val connectionStatus: ObservableState<Status>
 
     /**
      * This class defines the possible statuses of device connectivity.
      */
-    enum class Status {
-        Connected, NotConnected, Unknown
+    sealed class Status {
+        object NotConnected : Status()
+        object Unknown : Status()
+        data class Connected(val connectivityType: ConnectivityType) : Status()
     }
 
     /**
@@ -45,8 +46,6 @@ interface Connectivity {
         WIFI("wifi"),
         CELLULAR("cellular"),
         ETHERNET("ethernet"),
-        VPN("vpn"),
-        BLUETOOTH("bluetooth"),
         UNKNOWN("unknown")
     }
 }

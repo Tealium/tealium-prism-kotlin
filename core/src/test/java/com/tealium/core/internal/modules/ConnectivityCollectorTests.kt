@@ -3,8 +3,11 @@ package com.tealium.core.internal.modules
 import com.tealium.core.BuildConfig
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.modules.TealiumContext
-import com.tealium.core.api.network.Connectivity
-import com.tealium.core.api.settings.ModuleSettingsBuilder
+import com.tealium.core.api.network.Connectivity.ConnectivityType
+import com.tealium.core.api.network.Connectivity.Status
+import com.tealium.core.api.network.NetworkUtilities
+import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
 import io.mockk.MockKAnnotations
@@ -13,7 +16,6 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertSame
 import org.junit.Before
 import org.junit.Test
 import org.junit.experimental.runners.Enclosed
@@ -25,7 +27,7 @@ import org.junit.runners.Parameterized
 open class ConnectivityCollectorTests {
 
     @MockK
-    protected lateinit var connectivity: Connectivity
+    protected lateinit var connectivity: StateSubject<Status>
 
     protected lateinit var connectivityCollector: ConnectivityCollector
 
@@ -33,8 +35,7 @@ open class ConnectivityCollectorTests {
     fun setUp() {
         MockKAnnotations.init(this)
 
-        every { connectivity.isConnected() } returns true
-        every { connectivity.connectionType() } returns Connectivity.ConnectivityType.WIFI
+        connectivity = Observables.stateSubject(Status.Connected(ConnectivityType.WIFI))
 
         connectivityCollector = ConnectivityCollector(connectivity)
     }
@@ -45,7 +46,9 @@ open class ConnectivityCollectorTests {
         @Test
         fun factory_ReturnsModule_When_Enabled() {
             val context = mockk<TealiumContext>(relaxed = true)
-            every { context.network } returns mockk()
+            val network = mockk<NetworkUtilities>(relaxed = true)
+            every { context.network } returns network
+            every { network.connectionStatus } returns Observables.stateSubject(Status.Unknown)
 
             assertNotNull(
                 ConnectivityCollector.Factory.create(
@@ -72,7 +75,7 @@ open class ConnectivityCollectorTests {
 
     @RunWith(Parameterized::class)
     class ConnectivityTypeTests(
-        private val connectivityType: Connectivity.ConnectivityType,
+        private val connectivityStatus: Status,
         private val expected: String
     ) : ConnectivityCollectorTests() {
 
@@ -80,23 +83,18 @@ open class ConnectivityCollectorTests {
             @JvmStatic
             @Parameterized.Parameters
             fun connectivityTypeParams() = arrayOf(
-                arrayOf(Connectivity.ConnectivityType.WIFI, "wifi"),
-                arrayOf(Connectivity.ConnectivityType.CELLULAR, "cellular"),
-                arrayOf(Connectivity.ConnectivityType.ETHERNET, "ethernet"),
-                arrayOf(
-                    Connectivity.ConnectivityType.VPN,
-                    "vpn"
-                ), // TODO - consider whether these are necessary
-                arrayOf(
-                    Connectivity.ConnectivityType.BLUETOOTH,
-                    "bluetooth"
-                ), // TODO - consider whether these are necessary
+                arrayOf(Status.Connected(ConnectivityType.WIFI), "wifi"),
+                arrayOf(Status.Connected(ConnectivityType.CELLULAR), "cellular"),
+                arrayOf(Status.Connected(ConnectivityType.ETHERNET), "ethernet"),
+                arrayOf(Status.Connected(ConnectivityType.UNKNOWN), "unknown"),
+                arrayOf(Status.NotConnected, "none"),
+                arrayOf(Status.Unknown, "unknown")
             )
         }
 
         @Test
         fun collect_ReturnsDataObject_Containing_ConnectivityType() {
-            every { connectivity.connectionType() } returns connectivityType
+            connectivity.onNext(connectivityStatus)
             val dispatchContext =
                 DispatchContext(DispatchContext.Source.application(), DataObject.EMPTY_OBJECT)
 

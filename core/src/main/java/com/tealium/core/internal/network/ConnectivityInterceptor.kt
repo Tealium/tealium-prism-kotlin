@@ -22,14 +22,12 @@ class ConnectivityInterceptor(
 ) : Interceptor {
 
     override fun shouldRetry(
-        request: HttpRequest,
-        result: NetworkResult,
-        retryCount: Int
+        request: HttpRequest, result: NetworkResult, retryCount: Int
     ): RetryPolicy {
         return when (result) {
             is Failure -> {
                 if (!connectivity.isConnected() && result.networkException.isRetryable()) {
-                    RetryAfterEvent(connectivity.onConnectionStatusUpdated.filter { status -> status == Connectivity.Status.Connected })
+                    RetryAfterEvent(connectivity.connectionStatus.filter { status -> status is Connectivity.Status.Connected })
                 } else {
                     DoNotRetry
                 }

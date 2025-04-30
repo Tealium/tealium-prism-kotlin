@@ -27,48 +27,52 @@ class ConnectivityRetriever(
     private val request: NetworkRequest = NetworkRequest.Builder()
         .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
         .addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-        .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED).build(),
+        .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+        .build(),
     private val statusSubject: StateSubject<Connectivity.Status> =
-        Observables.stateSubject(Connectivity.Status.NotConnected),
+        Observables.stateSubject(Connectivity.Status.Unknown),
     private val logger: Logger
 ) : Connectivity, ConnectivityManager.NetworkCallback() {
 
     private val connectivityManager =
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
-    override val onConnectionStatusUpdated: ObservableState<Connectivity.Status>
+    override val connectionStatus: ObservableState<Connectivity.Status>
         get() = statusSubject.asObservableState()
 
-    internal val activeNetworkCapabilities: NetworkCapabilities?
-        get() = try {
-            connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
-        } catch (ex: Exception) {
-            logger.warn(BuildConfig.TAG, "Error retrieving active network capabilities, %s", ex.nonNullMessage())
-            null
-        }
-
     override fun isConnected(): Boolean =
-        statusSubject.value == Connectivity.Status.Connected
+        statusSubject.value is Connectivity.Status.Connected
 
-    /**
-     * Retrieves the type of the active network connection.
-     */
-    override fun connectionType(): ConnectivityType {
-        val capabilities = activeNetworkCapabilities ?: return ConnectivityType.UNKNOWN
+    override fun connectionType(): ConnectivityType =
+        getConnectionType(connectivityManager.activeNetwork)
+
+    private fun getNetworkCapabilities(network: Network?): NetworkCapabilities? = try {
+        connectivityManager.getNetworkCapabilities(network)
+    } catch (ex: Exception) {
+        logger.warn(
+            BuildConfig.TAG,
+            "Error retrieving network capabilities, %s",
+            ex.nonNullMessage()
+        )
+        null
+    }
+
+    private fun getConnectionType(network: Network?): ConnectivityType {
+        val capabilities = getNetworkCapabilities(network) ?: return ConnectivityType.UNKNOWN
 
         return when {
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> ConnectivityType.WIFI
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> ConnectivityType.CELLULAR
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> ConnectivityType.ETHERNET
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> ConnectivityType.VPN
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH) -> ConnectivityType.BLUETOOTH
             else -> ConnectivityType.UNKNOWN
         }
     }
 
     override fun onAvailable(network: Network) {
         super.onAvailable(network)
-        notifyConnectionUpdated(Connectivity.Status.Connected)
+
+        val connectionType = getConnectionType(network)
+        notifyConnectionUpdated(Connectivity.Status.Connected(connectionType))
     }
 
     override fun onLosing(network: Network, maxMsToLive: Int) {

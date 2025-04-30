@@ -30,8 +30,9 @@ class ConnectivityInterceptorTests {
     fun setUp() {
         MockKAnnotations.init(this)
 
-        connectivityStatus = Observables.stateSubject(Connectivity.Status.Connected)
-        every { connectivity.onConnectionStatusUpdated } returns connectivityStatus
+        connectivityStatus =
+            Observables.stateSubject(Connectivity.Status.Connected(Connectivity.ConnectivityType.WIFI))
+        every { connectivity.connectionStatus } returns connectivityStatus
 
         connectivityInterceptor = ConnectivityInterceptor(connectivity)
     }
