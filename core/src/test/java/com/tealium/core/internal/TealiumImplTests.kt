@@ -11,12 +11,18 @@ import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Observer
+import com.tealium.core.api.settings.json.JsonTransformationConfiguration
+import com.tealium.core.api.settings.json.MappingParameters
+import com.tealium.core.api.settings.json.Transformers
 import com.tealium.core.internal.misc.ActivityManagerImpl
 import com.tealium.core.internal.modules.InternalModuleManager
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import com.tealium.core.internal.modules.TealiumCollector
 import com.tealium.core.internal.modules.consent.ConsentModule
 import com.tealium.core.internal.modules.datalayer.DataLayerModule
+import com.tealium.core.internal.settings.MappingsImpl
+import com.tealium.core.internal.settings.ModuleSettings
+import com.tealium.core.internal.settings.SdkSettings
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestModule
 import com.tealium.tests.common.TestModuleFactory
@@ -30,6 +36,7 @@ import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -237,6 +244,57 @@ class TealiumImplTests {
             moduleManager.addModuleFactory(match { it is DataLayerModule.Companion })
             moduleManager.addModuleFactory(match { it is TealiumCollector.Factory })
         }
+    }
+
+    @Test
+    fun extractMappings_Returns_Empty_List_When_SdkSetting_Has_No_ModuleSettings() {
+        val result = TealiumImpl.extractMappings(SdkSettings())
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun extractMappings_Returns_Empty_List_When_SdkSetting_Has_No_Modules_With_Mappings() {
+        val result =
+            TealiumImpl.extractMappings(SdkSettings(modules = mapOf("dispatcher" to ModuleSettings())))
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun extractMappings_Returns_Mappings_When_Given_Valid_DataObject() {
+        val mappings = MappingsImpl().apply {
+            from("source1", "destination1")
+            from("source2", "destination2").ifValueEquals("expected").mapTo("value")
+        }.build()
+
+        val transformations = TealiumImpl.extractMappings(
+            SdkSettings(
+                modules = mapOf(
+                    "dispatcher" to ModuleSettings(mappings = mappings)
+                )
+            )
+        )
+
+        assertEquals(1, transformations.size)
+
+        val dispatcherTransformations = transformations["dispatcher"]!!
+        assertEquals("dispatcher-mappings", dispatcherTransformations.id)
+        assertEquals(Transformers.JSON_TRANSFORMER, dispatcherTransformations.transformerId)
+
+        val transformationConfiguration =
+            JsonTransformationConfiguration.Converter(MappingParameters.Converter)
+                .convert(dispatcherTransformations.configuration.asDataItem())!!
+
+        val mapping1 = transformationConfiguration.operations[0]
+        assertEquals("destination1", mapping1.destination.variable)
+        assertEquals("source1", mapping1.parameters.key.variable)
+        assertNull(mapping1.parameters.filter)
+        assertNull(mapping1.parameters.mapTo)
+
+        val mapping2 = transformationConfiguration.operations[1]
+        assertEquals("destination2", mapping2.destination.variable)
+        assertEquals("source2", mapping2.parameters.key.variable)
+        assertEquals("expected", mapping2.parameters.filter?.value)
+        assertEquals("value", mapping2.parameters.mapTo?.value)
     }
 
     private fun getTestModules(count: Int = 1): List<ModuleFactory> = (1..count).map {

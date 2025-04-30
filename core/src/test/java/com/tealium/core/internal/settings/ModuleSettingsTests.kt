@@ -2,13 +2,22 @@ package com.tealium.core.internal.settings
 
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.rules.Rule
+import com.tealium.core.api.settings.CollectorSettingsBuilder
+import com.tealium.core.api.settings.DispatcherSettingsBuilder
 import com.tealium.core.api.settings.ModuleSettingsBuilder
+import com.tealium.core.api.settings.ValueContainer
+import com.tealium.core.api.settings.VariableAccessor
+import com.tealium.core.api.settings.json.MappingParameters
+import com.tealium.core.api.settings.json.TransformationOperation
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class ModuleSettingsTests {
 
     private fun ModuleSettings.Converter.convert(dataObject: DataObject): ModuleSettings? =
@@ -75,11 +84,38 @@ class ModuleSettingsTests {
     @Test
     fun convert_Sets_Rules_To_Given_Rules() {
         val rule = Rule.all(Rule.just("rule1"), Rule.just("rule2"))
-        val settingsObject = ModuleSettingsBuilder()
+        val settingsObject = CollectorSettingsBuilder()
             .setRules(rule)
             .build()
 
         val settings = ModuleSettings.Converter.convert(settingsObject)!!
         assertEquals(rule, settings.rules)
+    }
+
+    @Test
+    fun convert_Sets_Mappings_To_Null_When_Omitted() {
+        val settingsObject = DispatcherSettingsBuilder()
+            .build()
+
+        val settings = ModuleSettings.Converter.convert(settingsObject)!!
+        assertNull(settings.mappings)
+    }
+
+    @Test
+    fun convert_Sets_Mappings_To_Given_Mappings() {
+        val settingsObject = DispatcherSettingsBuilder()
+            .setMappings {
+                from("source", "destination")
+                    .ifValueEquals("target")
+                    .mapTo("other")
+            }
+            .build()
+
+        val settings = ModuleSettings.Converter.convert(settingsObject)!!
+        val expected = TransformationOperation(
+            VariableAccessor("destination"),
+            MappingParameters(VariableAccessor("source"), ValueContainer("target"), ValueContainer("other"))
+        )
+        assertEquals(expected, settings.mappings!![0])
     }
 }

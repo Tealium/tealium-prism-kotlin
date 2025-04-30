@@ -3,8 +3,11 @@ package com.tealium.core.internal.misc
 import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataItemConverter
 import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.rules.Condition
+import com.tealium.core.api.rules.Rule
 import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.internal.dispatch.transformationScopeFromString
+import com.tealium.core.internal.rules.conditionConverter
 
 
 /**
@@ -17,6 +20,7 @@ object Converters {
         const val KEY_TRANSFORMER_ID = "transformer_id"
         const val KEY_SCOPES = "scopes"
         const val KEY_CONFIGURATION = "configuration"
+        const val KEY_CONDITIONS = "conditions"
 
         override fun convert(dataItem: DataItem): TransformationSettings? {
             val dataObject = dataItem.getDataObject() ?: return null
@@ -31,8 +35,10 @@ object Converters {
 
             val configuration =
                 dataObject.getDataObject(KEY_CONFIGURATION) ?: DataObject.EMPTY_OBJECT
+            val conditions =
+                dataObject.get(KEY_CONDITIONS, conditionConverter)
 
-            return TransformationSettings(id, transformerId, scopes.toSet(), configuration)
+            return TransformationSettings(id, transformerId, scopes.toSet(), configuration, conditions)
         }
     }
 }

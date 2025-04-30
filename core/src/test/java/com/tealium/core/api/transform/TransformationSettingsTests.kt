@@ -3,11 +3,15 @@ package com.tealium.core.api.transform
 import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataList
 import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.rules.Condition
+import com.tealium.core.api.rules.Rule
 import com.tealium.core.internal.misc.Converters
+import com.tealium.core.internal.misc.Converters.TransformationSettingsConverter.KEY_CONDITIONS
 import com.tealium.core.internal.misc.Converters.TransformationSettingsConverter.KEY_CONFIGURATION
 import com.tealium.core.internal.misc.Converters.TransformationSettingsConverter.KEY_SCOPES
 import com.tealium.core.internal.misc.Converters.TransformationSettingsConverter.KEY_TRANSFORMATION_ID
 import com.tealium.core.internal.misc.Converters.TransformationSettingsConverter.KEY_TRANSFORMER_ID
+import com.tealium.core.internal.rules.conditionConverter
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -79,6 +83,16 @@ class TransformationSettingsTests {
     }
 
     @Test
+    fun convert_Sets_Conditions_To_Null_When_Omitted() {
+        val dataObject = createTransformationDataObject(
+            transformerId = "transformer",
+            transformationId = "transformation",
+            scopes = listOf("some_dispatcher")
+        )
+        assertNull(transformationConverter.convert(dataObject.asDataItem())!!.conditions)
+    }
+
+    @Test
     fun convert_Ignores_Scopes_That_Arent_Strings() {
         val dataObject =
             createTransformationDataObject(
@@ -98,6 +112,7 @@ class TransformationSettingsTests {
 
     @Test
     fun convert_Creates_New_TransformationSettings() {
+        val conditions = Rule.just(Condition.isDefined(null, "key"))
         val dataObject = createTransformationDataObject(
             transformerId = "transformer",
             transformationId = "transformation",
@@ -106,7 +121,8 @@ class TransformationSettingsTests {
                 TransformationScope.AfterCollectors,
                 "some_dispatcher"
             ),
-            configuration = DataObject.create { put("key", "value") }
+            configuration = DataObject.create { put("key", "value") },
+            conditions = conditions
         )
 
         val transformationSettings = transformationConverter.convert(dataObject.asDataItem())!!
@@ -120,10 +136,12 @@ class TransformationSettingsTests {
             transformationSettings.scope.elementAt(2)
         )
         assertEquals("value", transformationSettings.configuration.getString("key"))
+        assertEquals(conditions, transformationSettings.conditions)
     }
 
     @Test
     fun asDataItem_Returns_All_Fields_As_DataObject() {
+        val conditions = Rule.just(Condition.isDefined(null, "key"))
         val transformationSettings =
             TransformationSettings(
                 "transformation",
@@ -133,7 +151,8 @@ class TransformationSettingsTests {
                     TransformationScope.AfterCollectors,
                     TransformationScope.Dispatcher("dispatcher1")
                 ),
-                DataObject.create { put("key", "value") }
+                DataObject.create { put("key", "value") },
+                conditions
             )
 
         val dataItem = transformationSettings.asDataItem()
@@ -156,6 +175,10 @@ class TransformationSettingsTests {
         assertEquals(
             "value",
             dataObject.getDataObject(KEY_CONFIGURATION)!!.getString("key")
+        )
+        assertEquals(
+            conditions,
+            dataObject.get(KEY_CONDITIONS, conditionConverter)
         )
     }
 
@@ -183,7 +206,8 @@ class TransformationSettingsTests {
         transformerId: String?,
         transformationId: String?,
         scopes: List<Any>?,
-        configuration: DataObject? = null
+        configuration: DataObject? = null,
+        conditions: Rule<Condition>? = null
     ): DataObject {
         return DataObject.create {
             transformerId?.let {
@@ -197,6 +221,9 @@ class TransformationSettingsTests {
             }
             configuration?.let {
                 put(KEY_CONFIGURATION, it)
+            }
+            conditions?.let {
+                put(KEY_CONDITIONS, it)
             }
         }
     }

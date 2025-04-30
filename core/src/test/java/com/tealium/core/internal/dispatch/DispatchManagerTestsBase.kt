@@ -68,6 +68,7 @@ open class DispatchManagerTestsBase {
     protected lateinit var transformerCoordinator: TransformerCoordinator
     protected lateinit var transformers: StateSubject<List<Transformer>>
     protected lateinit var transformations: StateSubject<Set<TransformationSettings>>
+    protected lateinit var mappings: StateSubject<Map<String, TransformationSettings>>
     protected lateinit var coreSettings: StateSubject<CoreSettings>
     protected lateinit var dispatchManager: DispatchManagerImpl
 
@@ -123,9 +124,10 @@ open class DispatchManagerTestsBase {
 
         transformations = Observables.stateSubject(setOf())
         transformers = Observables.stateSubject(emptyList())
+        mappings = Observables.stateSubject(emptyMap())
         transformerCoordinator = spyk(
             TransformerCoordinatorImpl(
-                transformers, transformations, SynchronousScheduler()
+                transformers, transformations, mappings, SynchronousScheduler()
             )
         )
 

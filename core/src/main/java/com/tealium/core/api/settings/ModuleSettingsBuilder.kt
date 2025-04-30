@@ -2,7 +2,6 @@ package com.tealium.core.api.settings
 
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.modules.Module
-import com.tealium.core.api.rules.Rule
 import com.tealium.core.internal.settings.ModuleSettings
 
 /**
@@ -15,7 +14,7 @@ import com.tealium.core.internal.settings.ModuleSettings
  * Therefore it also doesn't require users to know which json key any particular setting needs to be set at.
  */
 open class ModuleSettingsBuilder {
-    private val builder: DataObject.Builder = DataObject.Builder()
+    protected val builder: DataObject.Builder = DataObject.Builder()
     protected val configuration: DataObject.Builder = DataObject.Builder()
 
     /**
@@ -25,18 +24,6 @@ open class ModuleSettingsBuilder {
     fun setEnabled(enabled: Boolean) = apply {
         builder.put(ModuleSettings.KEY_ENABLED, enabled)
     }
-
-    /**
-     * Sets the [rules] that this modules needs to match to collect or dispatch an event
-     *
-     * The [String] values should be the rule id's that are required, or not, depending the required
-     * logic.
-     */
-    fun setRules(rules: Rule<String>) = apply {
-        builder.put(ModuleSettings.KEY_RULES, rules)
-    }
-
-    // TODO - mappings: List<Mappings>?
 
     /**
      * Returns the complete [Module] settings as configured by this [ModuleSettingsBuilder].

@@ -2,6 +2,7 @@ package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.pubsub.ObservableState
+import com.tealium.core.api.rules.matches
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.transform.DispatchScope
 import com.tealium.core.api.transform.TransformationSettings
@@ -10,6 +11,7 @@ import com.tealium.core.api.transform.Transformer
 class TransformerCoordinatorImpl(
     private val registeredTransformers: ObservableState<List<Transformer>>,
     private val transformations: ObservableState<Set<TransformationSettings>>,
+    private val mappings: ObservableState<Map<String, TransformationSettings>>,
     private val scheduler: Scheduler
 ) : TransformerCoordinator {
 
@@ -24,7 +26,7 @@ class TransformerCoordinatorImpl(
         completion: (Dispatch?) -> Unit
     ) {
         recursiveSerialApply(
-            getTransformations(dispatchScope),
+            getTransformations(dispatch, dispatchScope),
             dispatch,
             dispatchScope,
             completion
@@ -47,8 +49,19 @@ class TransformerCoordinatorImpl(
         }
     }
 
-    private fun getTransformations(scope: DispatchScope): Set<TransformationSettings> {
-        return allTransformations.filter { it.matchesScope(scope) }.toSet()
+    private fun getTransformations(dispatch: Dispatch, scope: DispatchScope): Set<TransformationSettings> {
+        var transformations = allTransformations.filter {
+            it.matchesScope(scope) && (it.conditions?.matches(dispatch.payload()) ?: true)
+        }
+
+        if (scope is DispatchScope.Dispatcher) {
+            val mappingTransformation = mappings.value[scope.dispatcher]
+            if (mappingTransformation != null) {
+                transformations = transformations + mappingTransformation
+            }
+        }
+
+        return transformations.toSet()
     }
 
     private fun recursiveSerialApply(

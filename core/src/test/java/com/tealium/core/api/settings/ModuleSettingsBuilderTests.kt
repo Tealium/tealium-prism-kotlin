@@ -34,28 +34,6 @@ class ModuleSettingsBuilderTests {
     }
 
     @Test
-    fun setRules_Sets_String_Rules_In_DataObject() {
-        val settings = TestSettingsBuilder()
-            .setRules(
-                Rule.just("rule_1")
-                    .or(Rule.just("rule_2"))
-            )
-            .build()
-
-        val rules = settings.getDataObject(ModuleSettings.KEY_RULES)!!
-        assertEquals(DataObject.fromString(
-            """
-                {
-                    "operator": "or",
-                    "children": [
-                        "rule_1",
-                        "rule_2"
-                    ]
-                }
-            """.trimJson()), rules)
-    }
-
-    @Test
     fun build_Returns_DataObject_With_Custom_Properties_In_Configuration_Key() {
         val settings = TestSettingsBuilder()
             .setProperty("my_string", "my_string")

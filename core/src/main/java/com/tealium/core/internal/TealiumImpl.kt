@@ -19,9 +19,14 @@ import com.tealium.core.api.pubsub.ObservableState
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.ReplaySubject
 import com.tealium.core.api.settings.CoreSettings
+import com.tealium.core.api.settings.json.JsonOperationType
+import com.tealium.core.api.settings.json.JsonTransformationConfiguration
+import com.tealium.core.api.settings.json.Transformers
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
 import com.tealium.core.api.tracking.TrackResultListener
+import com.tealium.core.api.transform.TransformationScope
+import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.Transformer
 import com.tealium.core.internal.dispatch.BarrierCoordinatorImpl
 import com.tealium.core.internal.dispatch.BarrierManager
@@ -131,7 +136,11 @@ class TealiumImpl(
             settings.map(SdkSettings::core).withState(settings.value::core)
 
         val transformerCoordinator =
-            createTransformationsCoordinator(moduleManager.modules, settingsManager.sdkSettings, schedulers)
+            createTransformationsCoordinator(
+                moduleManager.modules,
+                settingsManager.sdkSettings,
+                schedulers
+            )
         val barrierManager = BarrierManager(settings)
 
         val queueRepository = SQLQueueRepository(
@@ -400,8 +409,24 @@ class TealiumImpl(
                     .withState { modules.value.filterIsInstance<Transformer>() },
                 sdkSettings.map { it.transformations.values.toSet() }
                     .withState { sdkSettings.value.transformations.values.toSet() },
+                sdkSettings.map(::extractMappings)
+                    .withState { extractMappings(sdkSettings.value) },
                 schedulers.tealium
             )
+        }
+
+        fun extractMappings(sdkSettings: SdkSettings): Map<String, TransformationSettings> {
+            return sdkSettings.modules.mapNotNull { (dispatcherId, settings) ->
+                val mappings = settings.mappings ?: return@mapNotNull null
+
+                val configuration = JsonTransformationConfiguration(JsonOperationType.Map, mappings)
+                dispatcherId to TransformationSettings(
+                    "$dispatcherId-mappings",
+                    Transformers.JSON_TRANSFORMER,
+                    setOf(TransformationScope.Dispatcher(dispatcherId)),
+                    configuration.asDataObject()
+                )
+            }.toMap()
         }
 
         fun createQueueManager(

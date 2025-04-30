@@ -4,14 +4,15 @@ import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataItemConverter
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.rules.Rule
+import com.tealium.core.api.settings.json.MappingParameters
+import com.tealium.core.api.settings.json.TransformationOperation
 
 class ModuleSettings(
     val enabled: Boolean = true,
     val configuration: DataObject = DataObject.EMPTY_OBJECT,
-    val rules: Rule<String>? = null
+    val rules: Rule<String>? = null,
+    val mappings: List<TransformationOperation<MappingParameters>>? = null
 ) {
-    // TODO - mappings: List<Mappings>?
-
     companion object {
         const val KEY_ENABLED = "enabled"
         const val KEY_CONFIGURATION = "configuration"
@@ -26,11 +27,16 @@ class ModuleSettings(
             val enabled = dataObject.getBoolean(KEY_ENABLED)
             val configuration = dataObject.getDataObject(KEY_CONFIGURATION)
             val rules = dataObject.get(KEY_RULES, Rule.Converter { item -> item.getString() })
+            val mappingsConverter = TransformationOperation.Converter(MappingParameters.Converter)
+            val mappings = dataObject.getDataList(KEY_MAPPINGS)?.mapNotNull {
+                mappingsConverter.convert(it)
+            }
 
             return ModuleSettings(
                 enabled ?: true,
                 configuration ?: DataObject.EMPTY_OBJECT,
-                rules
+                rules,
+                mappings
             )
         }
     }

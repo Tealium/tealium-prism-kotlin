@@ -3,10 +3,12 @@ package com.tealium.core.internal.dispatch
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
+import com.tealium.core.api.rules.Condition
+import com.tealium.core.api.rules.Rule
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.transform.DispatchScope
-import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.TransformationScope
+import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.Transformer
 import com.tealium.tests.common.SynchronousScheduler
 import com.tealium.tests.common.TestTransformer
@@ -15,6 +17,7 @@ import io.mockk.Ordering
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
 import io.mockk.verify
+import io.mockk.verifyOrder
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -36,6 +39,7 @@ class TransformerCoordinatorTests {
     private lateinit var mockTransformer3: Transformer
     private lateinit var registeredTransformers: StateSubject<List<Transformer>>
     private lateinit var transformationsSettings: StateSubject<Set<TransformationSettings>>
+    private lateinit var mappings: StateSubject<Map<String, TransformationSettings>>
     private lateinit var transformerCoordinator: TransformerCoordinatorImpl
 
     private val afterCollectors = TransformationSettings(
@@ -81,11 +85,13 @@ class TransformerCoordinatorTests {
         )
 
         transformationsSettings = Observables.stateSubject(defaultTransformationSettings)
+        mappings = Observables.stateSubject(emptyMap())
 
         transformerCoordinator =
             TransformerCoordinatorImpl(
                 registeredTransformers,
                 transformationsSettings,
+                mappings,
                 SynchronousScheduler()
             )
     }
@@ -197,6 +203,162 @@ class TransformerCoordinatorTests {
                 mockDispatch,
                 any(),
                 any()
+            )
+        }
+    }
+
+    @Test
+    fun transform_Applies_Mapping_Transformation_When_DispatchScope_Is_Dispatcher_Specific() {
+        val mappingTransformation = TransformationSettings(
+            "mappings",
+            mockTransformer3.id,
+            setOf(TransformationScope.Dispatcher("dispatcher_3"))
+        )
+        val scope = DispatchScope.Dispatcher("dispatcher_3")
+        mappings.onNext(mapOf("dispatcher_3" to mappingTransformation))
+
+        transformerCoordinator.transform(listOf(mockDispatch), scope, mockk(relaxed = true))
+
+        verify {
+            mockTransformer3.applyTransformation(
+                mappingTransformation, mockDispatch, scope, any()
+            )
+        }
+    }
+
+    @Test
+    fun transform_Does_Not_Apply_Mapping_Transformation_When_DispatchScope_Is_After_Collectors() {
+        val mappingTransformation = TransformationSettings(
+            "mappings",
+            mockTransformer3.id,
+            setOf(TransformationScope.Dispatcher("dispatcher_3"))
+        )
+        val scope = DispatchScope.AfterCollectors
+        mappings.onNext(mapOf("dispatcher_3" to mappingTransformation))
+
+        transformerCoordinator.transform(listOf(mockDispatch), scope, mockk(relaxed = true))
+
+        verify(inverse = true) {
+            mockTransformer3.applyTransformation(
+                mappingTransformation, mockDispatch, scope, any()
+            )
+        }
+    }
+
+    @Test
+    fun transform_Applies_Mapping_Transformation_After_All_Other_Transformations() {
+        val mappingTransformation = TransformationSettings(
+            "mappings",
+            mockTransformer3.id,
+            setOf(TransformationScope.Dispatcher("dispatcher_1"))
+        )
+        val scope = DispatchScope.Dispatcher("dispatcher_1")
+        mappings.onNext(mapOf("dispatcher_1" to mappingTransformation))
+
+        transformerCoordinator.transform(listOf(mockDispatch), scope, mockk(relaxed = true))
+
+        verifyOrder {
+            mockTransformer3.applyTransformation(
+                dispatcher1, mockDispatch, scope, any()
+            )
+            mockTransformer3.applyTransformation(
+                mappingTransformation, mockDispatch, scope, any()
+            )
+        }
+    }
+
+    @Test
+    fun transform_Applies_Transformation_After_Collectors_When_Conditions_Match_Dispatch() {
+        val settings = TransformationSettings(
+            "conditioned",
+            mockTransformer3.id,
+            setOf(TransformationScope.AfterCollectors),
+            conditions = Rule.just(Condition.isDefined(null, "is_defined"))
+        )
+        transformationsSettings.onNext(transformationsSettings.value + settings)
+
+        val dispatch = Dispatch.create("event", dataObject = DataObject.create {
+            put("is_defined", true)
+        })
+        transformerCoordinator.transform(dispatch, DispatchScope.AfterCollectors, onTransformed)
+
+        verify {
+            mockTransformer3.applyTransformation(
+                settings, dispatch, DispatchScope.AfterCollectors, any()
+            )
+        }
+    }
+
+    @Test
+    fun transform_Applies_Transformation_For_Dispatchers_When_Conditions_Match_Dispatch() {
+        val settings = TransformationSettings(
+            "conditioned",
+            mockTransformer3.id,
+            setOf(TransformationScope.AllDispatchers),
+            conditions = Rule.just(Condition.isDefined(null, "is_defined"))
+        )
+        transformationsSettings.onNext(transformationsSettings.value + settings)
+
+        val dispatch = Dispatch.create("event", dataObject = DataObject.create {
+            put("is_defined", true)
+        })
+        transformerCoordinator.transform(
+            listOf(dispatch),
+            DispatchScope.Dispatcher("any"),
+            mockk(relaxed = true)
+        )
+
+        verify {
+            mockTransformer3.applyTransformation(
+                settings, dispatch, DispatchScope.Dispatcher("any"), any()
+            )
+        }
+    }
+
+    @Test
+    fun transform_Does_Not_Apply_Transformation_After_Collectors_When_Conditions_Do_Not_Match_Dispatch() {
+        val settings = TransformationSettings(
+            "conditioned",
+            mockTransformer3.id,
+            setOf(TransformationScope.AllDispatchers),
+            conditions = Rule.just(Condition.isDefined(null, "is_defined"))
+        )
+        transformationsSettings.onNext(transformationsSettings.value + settings)
+
+        val dispatch = Dispatch.create("nothing_defined")
+        transformerCoordinator.transform(
+            dispatch,
+            DispatchScope.AfterCollectors,
+            onTransformed
+        )
+
+        verify(inverse = true)  {
+            mockTransformer3.applyTransformation(
+                settings, dispatch, DispatchScope.AfterCollectors, any()
+            )
+        }
+    }
+
+    @Test
+    fun transform_Does_Not_Apply_Transformation_For_Dispatchers_When_Conditions_Do_Not_Match_Dispatch() {
+        val settings = TransformationSettings(
+            "conditioned",
+            mockTransformer3.id,
+            setOf(TransformationScope.AllDispatchers),
+            conditions = Rule.just(Condition.isDefined(null, "is_defined"))
+        )
+        transformationsSettings.onNext(transformationsSettings.value + settings)
+
+        val dispatch = Dispatch.create("nothing_defined")
+        transformerCoordinator.transform(
+            listOf(dispatch),
+            DispatchScope.Dispatcher("any"),
+            mockk(relaxed = true)
+        )
+
+        verify(inverse = true) {
+            mockTransformer3.applyTransformation(
+                settings, dispatch, DispatchScope.Dispatcher("any"), any()
             )
         }
     }
