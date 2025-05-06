@@ -2,9 +2,9 @@ package com.tealium.lifecycle
 
 import com.tealium.core.api.Tealium
 import com.tealium.core.api.data.DataObject
-import com.tealium.core.api.misc.TealiumCallback
-import com.tealium.core.api.misc.TealiumException
+import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.modules.ModuleFactory
+import com.tealium.core.api.pubsub.Single
 import com.tealium.lifecycle.internal.LifecycleModule
 import com.tealium.lifecycle.internal.LifecycleWrapper
 
@@ -19,32 +19,14 @@ interface Lifecycle {
      * Only use if lifecycle auto-tracking is disabled.
      *
      * @param dataObject Optional data to be sent with launch event.
-     * @param completion Optional callback to be notified of success or failure.
      */
-    fun launch(dataObject: DataObject? = null, completion: TealiumCallback<TealiumException?>?)
-
-    /**
-     * Sends a launch event and gathers all lifecycle data at the time the event is triggered.
-     * Only use if lifecycle auto-tracking is disabled.
-     *
-     * @param dataObject Optional data to be sent with launch event.
-     */
-    fun launch(dataObject: DataObject) = launch(dataObject, null)
+    fun launch(dataObject: DataObject): Single<TealiumResult<Unit>>
 
     /**
      * Sends a launch event and gathers all lifecycle data at the time the event is triggered.
      * Only use if lifecycle auto-tracking is disabled.
      */
-    fun launch() = launch(null, null)
-
-    /**
-     * Sends a wake event and gathers all lifecycle data at the time the event is triggered.
-     * Only use if lifecycle auto-tracking is disabled.
-     *
-     * @param dataObject Optional data to be sent with wake event.
-     * @param completion Optional callback to be notified of success or failure.
-     */
-    fun wake(dataObject: DataObject? = null, completion: TealiumCallback<TealiumException?>?)
+    fun launch(): Single<TealiumResult<Unit>>
 
     /**
      * Sends a wake event and gathers all lifecycle data at the time the event is triggered.
@@ -52,22 +34,13 @@ interface Lifecycle {
      *
      * @param dataObject Optional data to be sent with wake event.
      */
-    fun wake(dataObject: DataObject) = wake(dataObject, null)
+    fun wake(dataObject: DataObject): Single<TealiumResult<Unit>>
 
     /**
      * Sends a wake event and gathers all lifecycle data at the time the event is triggered.
      * Only use if lifecycle auto-tracking is disabled.
      */
-    fun wake() = wake(null, null)
-
-    /**
-     * Sends a sleep event and gathers all lifecycle data at the time the event is triggered.
-     * Only use if lifecycle auto-tracking is disabled.
-     *
-     * @param dataObject Optional data to be sent with sleep event.
-     * @param completion Optional callback to be notified of success or failure.
-     */
-    fun sleep(dataObject: DataObject? = null, completion: TealiumCallback<TealiumException?>?)
+    fun wake(): Single<TealiumResult<Unit>>
 
     /**
      * Sends a sleep event and gathers all lifecycle data at the time the event is triggered.
@@ -75,13 +48,13 @@ interface Lifecycle {
      *
      * @param dataObject Optional data to be sent with sleep event.
      */
-    fun sleep(dataObject: DataObject) = sleep(dataObject, null)
+    fun sleep(dataObject: DataObject): Single<TealiumResult<Unit>>
 
     /**
      * Sends a sleep event and gathers all lifecycle data at the time the event is triggered.
      * Only use if lifecycle auto-tracking is disabled.
      */
-    fun sleep() = sleep(null, null)
+    fun sleep(): Single<TealiumResult<Unit>>
 
     companion object {
 

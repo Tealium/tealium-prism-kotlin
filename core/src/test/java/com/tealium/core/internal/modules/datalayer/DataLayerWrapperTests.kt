@@ -2,6 +2,7 @@ package com.tealium.core.internal.modules.datalayer
 
 import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataItemConverter
+import com.tealium.core.api.data.DataItemUtils.asDataItem
 import com.tealium.core.api.data.DataList
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.data.TestDataObjectConvertible
@@ -10,6 +11,7 @@ import com.tealium.core.api.misc.TealiumException
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.ModuleManager
+import com.tealium.core.api.modules.ModuleNotEnabledException
 import com.tealium.core.api.modules.ModuleProxy
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.persistence.DataStore
@@ -381,129 +383,129 @@ class DataLayerWrapperTests {
 
     @Test
     fun getString_Returns_String_Value_When_In_DataLayer() {
-        every { dataStore.get("key") } returns DataItem.string("value")
+        every { dataStore.getString("key") } returns "value"
 
-        dataLayerWrapper.getString("key") {
-            assertEquals("value", it)
+        dataLayerWrapper.getString("key").subscribe {
+            assertEquals("value", it.getOrThrow())
         }
     }
 
-    @Test
-    fun getString_Returns_Null_When_ModuleManager_Shutdown() {
+    @Test(expected = ModuleNotEnabledException::class)
+    fun getString_Throws_When_ModuleManager_Shutdown() {
         moduleManager.shutdown()
 
-        dataLayerWrapper.getString("key") {
-            assertNull(it)
+        dataLayerWrapper.getString("key").subscribe {
+            it.getOrThrow()
         }
     }
 
     @Test
-    fun getInt_Returns_String_Value_When_In_DataLayer() {
-        every { dataStore.get("key") } returns DataItem.int(10)
+    fun getInt_Returns_Int_Value_When_In_DataLayer() {
+        every { dataStore.getInt("key") } returns 10
 
-        dataLayerWrapper.getInt("key") {
-            assertEquals(10, it)
+        dataLayerWrapper.getInt("key").subscribe {
+            assertEquals(10, it.getOrThrow())
         }
     }
 
-    @Test
-    fun getInt_Returns_Null_When_ModuleManager_Shutdown() {
+    @Test(expected = ModuleNotEnabledException::class)
+    fun getInt_Throws_When_ModuleManager_Shutdown() {
         moduleManager.shutdown()
 
-        dataLayerWrapper.getInt("key") {
-            assertNull(it)
+        dataLayerWrapper.getInt("key").subscribe {
+            it.getOrThrow()
         }
     }
 
     @Test
-    fun getLong_Returns_String_Value_When_In_DataLayer() {
-        every { dataStore.get("key") } returns DataItem.long(100L)
+    fun getLong_Returns_Long_Value_When_In_DataLayer() {
+        every { dataStore.getLong("key") } returns 100L
 
-        dataLayerWrapper.getLong("key") {
-            assertEquals(100L, it)
+        dataLayerWrapper.getLong("key").subscribe {
+            assertEquals(100L, it.getOrThrow())
         }
     }
 
-    @Test
-    fun getLong_Returns_Null_When_ModuleManager_Shutdown() {
+    @Test(expected = ModuleNotEnabledException::class)
+    fun getLong_Throws_When_ModuleManager_Shutdown() {
         moduleManager.shutdown()
 
-        dataLayerWrapper.getLong("key") {
-            assertNull(it)
+        dataLayerWrapper.getLong("key").subscribe {
+            it.getOrThrow()
         }
     }
 
     @Test
-    fun getDouble_Returns_String_Value_When_In_DataLayer() {
-        every { dataStore.get("key") } returns DataItem.double(1.1)
+    fun getDouble_Returns_Double_Value_When_In_DataLayer() {
+        every { dataStore.getDouble("key") } returns 1.1
 
-        dataLayerWrapper.getDouble("key") {
-            assertEquals(1.1, it)
+        dataLayerWrapper.getDouble("key").subscribe {
+            assertEquals(1.1, it.getOrThrow())
         }
     }
 
-    @Test
-    fun getDouble_Returns_Null_When_ModuleManager_Shutdown() {
+    @Test(expected = ModuleNotEnabledException::class)
+    fun getDouble_Throws_When_ModuleManager_Shutdown() {
         moduleManager.shutdown()
 
-        dataLayerWrapper.getDouble("key") {
-            assertNull(it)
+        dataLayerWrapper.getDouble("key").subscribe {
+            it.getOrThrow()
         }
     }
 
     @Test
-    fun getBoolean_Returns_String_Value_When_In_DataLayer() {
-        every { dataStore.get("key") } returns DataItem.boolean(false)
+    fun getBoolean_Returns_Boolean_Value_When_In_DataLayer() {
+        every { dataStore.getBoolean("key") } returns false
 
-        dataLayerWrapper.getBoolean("key") {
-            assertEquals(false, it)
+        dataLayerWrapper.getBoolean("key").subscribe {
+            assertEquals(false, it.getOrThrow())
         }
     }
 
-    @Test
-    fun getBoolean_Returns_Null_When_ModuleManager_Shutdown() {
+    @Test(expected = ModuleNotEnabledException::class)
+    fun getBoolean_Throws_When_ModuleManager_Shutdown() {
         moduleManager.shutdown()
 
-        dataLayerWrapper.getBoolean("key") {
-            assertNull(it)
+        dataLayerWrapper.getBoolean("key").subscribe {
+            it.getOrThrow()
         }
     }
 
     @Test
-    fun getDataList_Returns_String_Value_When_In_DataLayer() {
+    fun getDataList_Returns_DataList_Value_When_In_DataLayer() {
         val dataList = DataList.create { add("string") }
-        every { dataStore.get("key") } returns dataList.asDataItem()
+        every { dataStore.getDataList("key") } returns dataList
 
-        dataLayerWrapper.getDataList("key") {
-            assertEquals(dataList, it)
+        dataLayerWrapper.getDataList("key").subscribe {
+            assertEquals(dataList, it.getOrThrow())
         }
     }
 
-    @Test
-    fun getDataList_Returns_Null_When_ModuleManager_Shutdown() {
+    @Test(expected = ModuleNotEnabledException::class)
+    fun getDataList_Throws_When_ModuleManager_Shutdown() {
         moduleManager.shutdown()
 
-        dataLayerWrapper.getDataList("key") {
-            assertNull(it)
+        dataLayerWrapper.getDataList("key").subscribe {
+            it.getOrThrow()
         }
     }
 
     @Test
-    fun getDataObject_Returns_String_Value_When_In_DataLayer() {
+    fun getDataObject_Returns_DataObject_Value_When_In_DataLayer() {
         val dataObject = DataObject.create { put("sub_key", "value") }
-        every { dataStore.get("key") } returns dataObject.asDataItem()
+        every { dataStore.getDataObject("key") } returns dataObject
 
-        dataLayerWrapper.getDataObject("key") {
-            assertEquals(dataObject, it)
+        dataLayerWrapper.getDataObject("key").subscribe {
+            assertEquals(dataObject, it.getOrThrow())
         }
     }
 
-    @Test
-    fun getDataObject_Returns_Null_When_ModuleManager_Shutdown() {
+    @Test(expected = ModuleNotEnabledException::class)
+    fun getDataObject_Throws_When_ModuleManager_Shutdown() {
         moduleManager.shutdown()
 
-        dataLayerWrapper.getDataObject("key") {
-            assertNull(it)
+        dataLayerWrapper.getDataObject("key").subscribe {
+            it.getOrThrow()
         }
     }
 
@@ -512,31 +514,31 @@ class DataLayerWrapperTests {
         val converter = DataItemConverter {
             it.value.toString()
         }
-        every { dataStore.get("key") } returns DataItem.int(100)
+        every { dataStore.get("key", converter) } answers { converter.convert(100.asDataItem()) }
 
-        dataLayerWrapper.get("key", converter) {
-            assertEquals("100", it)
+        dataLayerWrapper.get("key", converter).subscribe {
+            assertEquals("100", it.getOrThrow())
         }
     }
 
     @Test
     fun getConvertible_Returns_Null_When_Not_Present_In_DataLayer() {
         val converter = mockk<DataItemConverter<String>>()
-        every { dataStore.get("key") } returns null
+        every { dataStore.get("key", converter) } answers { null }
 
-        dataLayerWrapper.get("key", converter) {
-            assertNull(it)
+        dataLayerWrapper.get("key", converter).subscribe {
+            assertNull(it.getOrThrow())
         }
         verify { converter wasNot Called }
     }
 
-    @Test
-    fun getConvertible_Returns_Null_When_ModuleManager_Shutdown() {
+    @Test(expected = ModuleNotEnabledException::class)
+    fun getConvertible_Throws_When_ModuleManager_Shutdown() {
         val converter = mockk<DataItemConverter<String>>()
         moduleManager.shutdown()
 
-        dataLayerWrapper.get("key", converter) {
-            assertNull(it)
+        dataLayerWrapper.get("key", converter).subscribe {
+            it.getOrThrow()
         }
         verify { converter wasNot Called }
     }
@@ -546,17 +548,17 @@ class DataLayerWrapperTests {
         val dataObject = DataObject.create { put("sub_key", "value") }
         every { dataStore.getAll() } returns dataObject
 
-        dataLayerWrapper.getAll() {
-            assertEquals(dataObject, it)
+        dataLayerWrapper.getAll().subscribe {
+            assertEquals(dataObject, it.getOrThrow())
         }
     }
 
-    @Test
-    fun getAll_Returns_Null_When_ModuleManager_Shutdown() {
+    @Test(expected = ModuleNotEnabledException::class)
+    fun getAll_Throws_When_ModuleManager_Shutdown() {
         moduleManager.shutdown()
 
-        dataLayerWrapper.getAll() {
-            assertNull(it)
+        dataLayerWrapper.getAll().subscribe {
+            it.getOrThrow()
         }
     }
 
@@ -580,11 +582,26 @@ class DataLayerWrapperTests {
         }
     }
 
-    @Test
-    fun remove_Does_Nothing_When_ModuleManager_Shutdown() {
+    @Test(expected = ModuleNotEnabledException::class)
+    fun remove_Throws_When_ModuleManager_Shutdown() {
         moduleManager.shutdown()
-        dataLayerWrapper.remove("key")
-        dataLayerWrapper.remove(listOf("key", "key2"))
+
+        dataLayerWrapper.remove("key").subscribe {
+            it.getOrThrow()
+        }
+
+        verify {
+            editor wasNot Called
+        }
+    }
+
+    @Test(expected = ModuleNotEnabledException::class)
+    fun remove_Many_Throws_When_ModuleManager_Shutdown() {
+        moduleManager.shutdown()
+
+        dataLayerWrapper.remove(listOf("key", "key2")).subscribe {
+            it.getOrThrow()
+        }
 
         verify {
             editor wasNot Called
@@ -601,11 +618,13 @@ class DataLayerWrapperTests {
         }
     }
 
-    @Test
-    fun clear_Does_Nothing_When_ModuleManager_Shutdown() {
+    @Test(expected = ModuleNotEnabledException::class)
+    fun clear_Throws_When_ModuleManager_Shutdown() {
         moduleManager.shutdown()
 
-        dataLayerWrapper.clear()
+        dataLayerWrapper.clear().subscribe {
+            it.getOrThrow()
+        }
 
         verify {
             editor wasNot Called

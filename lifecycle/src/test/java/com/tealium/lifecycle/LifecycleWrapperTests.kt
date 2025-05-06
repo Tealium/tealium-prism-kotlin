@@ -10,6 +10,8 @@ import com.tealium.core.api.modules.ModuleProxy
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.pubsub.Subject
+import com.tealium.core.api.pubsub.onFailure
+import com.tealium.core.api.pubsub.onSuccess
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import com.tealium.core.internal.modules.ModuleProxyImpl
 import com.tealium.lifecycle.internal.LifecycleModule
@@ -22,6 +24,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import org.junit.Before
 import org.junit.Test
+import java.util.function.Consumer
 
 class LifecycleWrapperTests {
 
@@ -53,70 +56,67 @@ class LifecycleWrapperTests {
     fun methods_Report_ModuleNotEnabled() {
         modules.onNext(emptyList())
 
-        val completion = mockk<TealiumCallback<TealiumException?>>(relaxed = true)
-        lifecycleWrapper.launch(completion = completion)
-        lifecycleWrapper.wake(completion = completion)
-        lifecycleWrapper.sleep(completion = completion)
+        val completion = mockk<Consumer<Exception>>(relaxed = true)
+        lifecycleWrapper.launch().onFailure(completion)
+        lifecycleWrapper.wake().onFailure(completion)
+        lifecycleWrapper.sleep().onFailure(completion)
 
-        verify(exactly = 3) { completion.onComplete(match { it is ModuleNotEnabledException }) }
+        verify(exactly = 3) { completion.accept(match { it is ModuleNotEnabledException }) }
     }
 
     @Test
     fun methods_Report_TealiumShutdown_WhenNoModuleManager() {
         onModuleManager.onNext(null)
 
-        val completion = mockk<TealiumCallback<TealiumException?>>(relaxed = true)
-        lifecycleWrapper.launch(completion = completion)
-        lifecycleWrapper.wake(completion = completion)
-        lifecycleWrapper.sleep(completion = completion)
+        val completion = mockk<Consumer<Exception>>(relaxed = true)
+        lifecycleWrapper.launch().onFailure(completion)
+        lifecycleWrapper.wake().onFailure(completion)
+        lifecycleWrapper.sleep().onFailure(completion)
 
-        verify(exactly = 3) { completion.onComplete(match { it is Tealium.TealiumShutdownException }) }
+        verify(exactly = 3) { completion.accept(match { it is Tealium.TealiumShutdownException }) }
     }
 
     @Test
     fun launch_ReturnsSuccess_WhenModuleEnabled() {
-        val completion = mockk<TealiumCallback<TealiumException?>>(relaxed = true)
-        lifecycleWrapper.launch(completion = completion)
+        val completion = mockk<Consumer<Unit>>(relaxed = true)
+        lifecycleWrapper.launch().onSuccess(completion)
 
-        verify(exactly = 1) { completion.onComplete(null) }
+        verify(exactly = 1) { completion.accept(Unit) }
     }
 
     @Test
     fun wake_ReturnsSuccess_WhenModuleEnabled() {
-        val completion = mockk<TealiumCallback<TealiumException?>>(relaxed = true)
-        lifecycleWrapper.wake(completion = completion)
+        val completion = mockk<Consumer<Unit>>(relaxed = true)
+        lifecycleWrapper.wake().onSuccess(completion)
 
-        verify(exactly = 1) { completion.onComplete(null) }
+        verify(exactly = 1) { completion.accept(Unit) }
     }
 
     @Test
     fun sleep_Returns_Success_When_Module_Enabled() {
-        val completion = mockk<TealiumCallback<TealiumException?>>(relaxed = true)
-        lifecycleWrapper.sleep(completion = completion)
+        val completion = mockk<Consumer<Unit>>(relaxed = true)
+        lifecycleWrapper.sleep().onSuccess(completion)
 
-        verify(exactly = 1) { completion.onComplete(null) }
+        verify(exactly = 1) { completion.accept(Unit) }
     }
 
     @Test
     fun launch_CallModuleImplementation_WhenModuleEnabled() {
-        val completion = mockk<TealiumCallback<TealiumException?>>(relaxed = true)
-        lifecycleWrapper.launch(completion = completion)
+        lifecycleWrapper.launch()
 
         verify { lifecycleModule.launch(any()) }
     }
 
     @Test
     fun wake_CallModuleImplementation_WhenModuleEnabled() {
-        val completion = mockk<TealiumCallback<TealiumException?>>(relaxed = true)
-        lifecycleWrapper.wake(completion = completion)
+        lifecycleWrapper.wake()
 
         verify { lifecycleModule.wake(any()) }
     }
 
     @Test
     fun sleep_CallModuleImplementation_WhenModuleEnabled() {
-        val completion = mockk<TealiumCallback<TealiumException?>>(relaxed = true)
-        lifecycleWrapper.sleep(completion = completion)
+        lifecycleWrapper.sleep()
 
         verify { lifecycleModule.sleep(any()) }
     }

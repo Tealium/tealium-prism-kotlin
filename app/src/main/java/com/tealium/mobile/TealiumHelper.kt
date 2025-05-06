@@ -8,6 +8,7 @@ import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.barriers.BarrierScope
 import com.tealium.core.api.barriers.Barriers
 import com.tealium.core.api.data.DataItem
+import com.tealium.core.api.data.DataItemUtils.asDataItem
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.logger.logIfInfoEnabled
@@ -32,6 +33,8 @@ import com.tealium.core.api.network.RetryPolicy.DoNotRetry
 import com.tealium.core.api.network.RetryPolicy.RetryAfterDelay
 import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.pubsub.Disposable
+import com.tealium.core.api.pubsub.onFailure
+import com.tealium.core.api.pubsub.onSuccess
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.api.tracking.TrackResult
@@ -109,11 +112,14 @@ object TealiumHelper {
             }
 
             tealium.dataLayer.transactionally { editor ->
-                editor.put("key", DataItem.string("value"), Expiry.SESSION)
-                    .put("key2", DataItem.string("value2"), Expiry.SESSION)
+                editor.put("key", "value".asDataItem(), Expiry.SESSION)
+                    .put("key2", "value2".asDataItem(), Expiry.SESSION)
                     .remove("key2")
+                    .commit()
+            }.onFailure {
+                Log.d("DataLayer", "Transactional update failed: ${it.message}")
             }
-            tealium.dataLayer.get("key") {
+            tealium.dataLayer.get("key").onSuccess {
                 Log.d("DataLayer", "Retrieved key with value: $it")
             }
 

@@ -4,8 +4,7 @@ import com.tealium.core.api.Tealium
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.misc.ActivityManager
-import com.tealium.core.api.misc.TealiumCallback
-import com.tealium.core.api.misc.TealiumException
+import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.modules.Collector
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
@@ -13,6 +12,7 @@ import com.tealium.core.api.modules.ModuleProxy
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.pubsub.Disposable
 import com.tealium.core.api.pubsub.Observable
+import com.tealium.core.api.pubsub.Single
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
 import com.tealium.core.api.tracking.TealiumDispatchType
@@ -32,42 +32,29 @@ class LifecycleWrapper(
         tealium.createModuleProxy(LifecycleModule::class.java)
     )
 
-    override fun launch(dataObject: DataObject?, completion: TealiumCallback<TealiumException?>?) {
-        handleEvent(completion) { lifecycleModule ->
+    override fun launch(dataObject: DataObject): Single<TealiumResult<Unit>> =
+        moduleProxy.executeModuleTask { lifecycleModule ->
             lifecycleModule.launch(dataObject)
         }
-    }
 
-    override fun wake(dataObject: DataObject?, completion: TealiumCallback<TealiumException?>?) {
-        handleEvent(completion) { lifecycleModule ->
+    override fun launch(): Single<TealiumResult<Unit>> =
+        launch(DataObject.EMPTY_OBJECT)
+
+    override fun wake(dataObject: DataObject): Single<TealiumResult<Unit>> =
+        moduleProxy.executeModuleTask { lifecycleModule ->
             lifecycleModule.wake(dataObject)
         }
-    }
 
-    override fun sleep(dataObject: DataObject?, completion: TealiumCallback<TealiumException?>?) {
-        handleEvent(completion) { lifecycleModule ->
+    override fun wake(): Single<TealiumResult<Unit>> =
+        wake(DataObject.EMPTY_OBJECT)
+
+    override fun sleep(dataObject: DataObject): Single<TealiumResult<Unit>> =
+        moduleProxy.executeModuleTask { lifecycleModule ->
             lifecycleModule.sleep(dataObject)
         }
-    }
 
-    private fun handleEvent(
-        completion: TealiumCallback<TealiumException?>?,
-        task: (LifecycleModule) -> Unit
-    ) {
-        val result = moduleProxy.executeModuleTask(task)
-        if (completion != null) {
-            result.subscribe {
-                val ex = it.exceptionOrNull()
-                if (ex == null) {
-                    completion.onComplete(null)
-                    return@subscribe
-                }
-
-                val tealiumException = (ex as? TealiumException) ?: TealiumException(cause = ex)
-                completion.onComplete(tealiumException)
-            }
-        }
-    }
+    override fun sleep(): Single<TealiumResult<Unit>> =
+        sleep(DataObject.EMPTY_OBJECT)
 }
 
 class LifecycleModule(
