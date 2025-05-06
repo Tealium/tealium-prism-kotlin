@@ -100,7 +100,7 @@ class TealiumProxyTests {
         tealiumProxy.track(dispatch, listener)
 
         verify(inverse = true) {
-            listener.onTrackResultReady(dispatch, TrackResult.Accepted)
+            listener.onTrackResultReady(TrackResult.Accepted(dispatch))
         }
     }
 

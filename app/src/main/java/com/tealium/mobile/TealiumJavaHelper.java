@@ -88,8 +88,8 @@ public class TealiumJavaHelper {
 
             tealium.track(Dispatch.create("",
                     TealiumDispatchType.Event,
-                    DataObject.EMPTY_OBJECT), (dispatch, status) -> {
-                Log.d("TealiumJavaHelper", "Processing status: " + dispatch.getTealiumEvent() + " - " + status);
+                    DataObject.EMPTY_OBJECT), (status) -> {
+                Log.d("TealiumJavaHelper", "Processing status: " + status.getDispatch().getTealiumEvent() + " - " + status);
             });
         });
     }

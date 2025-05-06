@@ -2,9 +2,7 @@ package com.tealium.core.internal.modules.trace
 
 import com.tealium.core.BuildConfig
 import com.tealium.core.api.data.DataObject
-import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.misc.TealiumException
-import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.modules.Collector
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
@@ -13,7 +11,7 @@ import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
-import com.tealium.core.api.tracking.TrackResult
+import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.api.tracking.Tracker
 
 class TraceManagerModule(
@@ -21,21 +19,12 @@ class TraceManagerModule(
     private val tracker: Tracker
 ) : Collector {
 
-    fun killVisitorSession(callback: TealiumCallback<TealiumResult<Unit>>) {
+    fun killVisitorSession(callback: TrackResultListener) {
         val traceId = dataStore.getString(Dispatch.Keys.TEALIUM_TRACE_ID)
-        if (traceId == null) {
-            callback.onComplete(TealiumResult.failure(TealiumException("Not in an active Trace")))
-            return
-        }
+            ?: throw TealiumException("Not in an active Trace")
 
         val killDispatch = createKillDispatch(traceId)
-        tracker.track(killDispatch, DispatchContext.Source.module(this::class.java)) { _, trackResult ->
-            if (trackResult == TrackResult.Dropped) {
-                callback.onComplete(TealiumResult.failure(TealiumException("Kill Visitor Session event was dropped.")))
-            } else {
-                callback.onComplete(TealiumResult.success(Unit))
-            }
-        }
+        tracker.track(killDispatch, DispatchContext.Source.module(this::class.java), callback)
     }
 
     fun join(id: String) {

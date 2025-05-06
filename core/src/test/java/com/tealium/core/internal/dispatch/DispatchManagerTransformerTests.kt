@@ -74,13 +74,13 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
                 TransformationSettings("drop", "drop", setOf(TransformationScope.AfterCollectors))
             )
         )
-        val onComplete: (Dispatch, TrackResult) -> Unit = mockk(relaxed = true)
+        val onComplete: (TrackResult) -> Unit = mockk(relaxed = true)
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1, onComplete)
 
         verify(timeout = 1000) {
-            onComplete(dispatch1, TrackResult.Dropped)
+            onComplete(TrackResult.Dropped(dispatch1))
         }
     }
 }

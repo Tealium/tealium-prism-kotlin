@@ -2,8 +2,7 @@ package com.tealium.core.internal.modules.trace
 
 import com.tealium.core.BuildConfig
 import com.tealium.core.api.data.DataObject
-import com.tealium.core.api.misc.TealiumCallback
-import com.tealium.core.api.misc.TealiumResult
+import com.tealium.core.api.misc.TealiumException
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.Expiry
 import com.tealium.core.api.tracking.Dispatch
@@ -41,41 +40,39 @@ class TraceManagerModuleTests {
 
         every { dataStore.edit() } returns editor
         mockkEditor(editor)
-        mockTrackerResponse(TrackResult.Accepted)
+        mockTrackerResponse(TrackResult.Accepted(mockk()))
 
         trace = TraceManagerModule(
             dataStore, tracker
         )
     }
 
-    @Test
-    fun killVisitorSession_Returns_Failure_When_Not_In_Trace() {
+    @Test(expected = TealiumException::class)
+    fun killVisitorSession_Throws_When_Not_In_Trace() {
         every { dataStore.getString(Dispatch.Keys.TEALIUM_TRACE_ID) } returns null
-        val callback = mockk<TealiumCallback<TealiumResult<Unit>>>(relaxed = true)
+        val callback = mockk<TrackResultListener>(relaxed = true)
 
         trace.killVisitorSession(callback)
-
-        verify {
-            callback.onComplete(match { it.isFailure })
-        }
     }
 
     @Test
     fun killVisitorSession_Does_Not_Track_Event_When_Not_In_Trace() {
         every { dataStore.getString(Dispatch.Keys.TEALIUM_TRACE_ID) } returns null
-        val callback = mockk<TealiumCallback<TealiumResult<Unit>>>(relaxed = true)
+        val callback = mockk<TrackResultListener>(relaxed = true)
 
-        trace.killVisitorSession(callback)
+        runCatching {
+            trace.killVisitorSession(callback)
+        }
 
         verify(inverse = true) {
-            tracker.track(any(), any())
+            tracker.track(any(), any(), any())
         }
     }
 
     @Test
     fun killVisitorSession_Tracks_Dispatch_With_TraceId_In_The_Payload() {
         every { dataStore.getString(Dispatch.Keys.TEALIUM_TRACE_ID) } returns "12345"
-        val callback = mockk<TealiumCallback<TealiumResult<Unit>>>(relaxed = true)
+        val callback = mockk<TrackResultListener>(relaxed = true)
 
         trace.killVisitorSession(callback)
 
@@ -88,7 +85,7 @@ class TraceManagerModuleTests {
 
     @Test
     fun killVisitorSession_Tracks_Dispatch_With_Correct_Event_Name() {
-        val callback = mockk<TealiumCallback<TealiumResult<Unit>>>(relaxed = true)
+        val callback = mockk<TrackResultListener>(relaxed = true)
 
         trace.killVisitorSession(callback)
 
@@ -101,25 +98,26 @@ class TraceManagerModuleTests {
     }
 
     @Test
-    fun killVisitorSession_Returns_Success_When_Dispatch_Accepted() {
-        val callback = mockk<TealiumCallback<TealiumResult<Unit>>>(relaxed = true)
+    fun killVisitorSession_Returns_Accepted_When_Dispatch_Accepted() {
+        val callback = mockk<TrackResultListener>(relaxed = true)
+        mockTrackerResponse(TrackResult.Accepted(mockk()))
 
         trace.killVisitorSession(callback)
 
         verify {
-            callback.onComplete(match { it.isSuccess })
+            callback.onTrackResultReady(match { it is TrackResult.Accepted })
         }
     }
 
     @Test
-    fun killVisitorSession_Returns_Failure_When_Dispatch_Dropped() {
-        val callback = mockk<TealiumCallback<TealiumResult<Unit>>>(relaxed = true)
-        mockTrackerResponse(TrackResult.Dropped)
+    fun killVisitorSession_Returns_Dropped_When_Dispatch_Dropped() {
+        val callback = mockk<TrackResultListener>(relaxed = true)
+        mockTrackerResponse(TrackResult.Dropped(mockk()))
 
         trace.killVisitorSession(callback)
 
         verify {
-            callback.onComplete(match { it.isFailure })
+            callback.onTrackResultReady(match { it is TrackResult.Dropped })
         }
     }
 
@@ -196,7 +194,7 @@ class TraceManagerModuleTests {
     private fun mockTrackerResponse(result: TrackResult) {
         every { tracker.track(any(), any(), any()) } answers {
             arg<TrackResultListener>(2)
-                .onTrackResultReady(mockk(), result)
+                .onTrackResultReady(result)
         }
     }
 }

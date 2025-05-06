@@ -2,6 +2,7 @@ package com.tealium.core.api.modules
 
 import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.pubsub.Single
+import com.tealium.core.api.tracking.TrackResult
 
 /**
  * The [TraceManager] is responsible for handling Tealium trace registration.
@@ -18,7 +19,7 @@ interface TraceManager {
      *
      * @return An async result for optional error handling
      */
-    fun killVisitorSession() : Single<TealiumResult<Unit>>
+    fun killVisitorSession() : Single<TealiumResult<TrackResult>>
 
     /**
      * Joins a Trace for the given [id]. The trace id will be added to all future

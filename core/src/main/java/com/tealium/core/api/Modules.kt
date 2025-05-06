@@ -1,14 +1,17 @@
 package com.tealium.core.api
 
+import com.tealium.core.api.modules.DeepLinkHandler
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.consent.ConsentManagementAdapter
 import com.tealium.core.api.settings.CollectDispatcherSettingsBuilder
 import com.tealium.core.api.settings.ConsentSettingsBuilder
+import com.tealium.core.api.settings.DeepLinkSettingsBuilder
 import com.tealium.core.api.settings.VisitorServiceSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.internal.modules.VisitorServiceImpl
 import com.tealium.core.internal.modules.collect.CollectDispatcher
 import com.tealium.core.internal.modules.consent.ConsentModule
+import com.tealium.core.internal.modules.deeplink.DeepLinkHandlerModule
 
 /**
  * An object used for configuring available modules and retrieving them as a [ModuleFactory] to be
@@ -159,4 +162,25 @@ object Modules {
     @JvmStatic
     fun tealiumCollector(): ModuleFactory =
         com.tealium.core.internal.modules.TealiumCollector.Factory
+
+    /**
+     * Returns a configured [ModuleFactory] for enabling the DeepLink Handler Module.
+     */
+    @JvmStatic
+    fun deepLink(): ModuleFactory =
+        DeepLinkHandlerModule.Factory()
+
+    /**
+     * Returns a configured [ModuleFactory] for enabling the DeepLink Handler Module.
+     *
+     * The [enforcedSettings] will be set for the lifetime of the [Tealium] instance that this [ModuleFactory]
+     * is loaded in, and these settings will override any that come from other local/remote sources.
+     *
+     * @param enforcedSettings DeepLink Handler settings that should override any from any other settings source
+     */
+    @JvmStatic
+    fun deepLink(enforcedSettings: (DeepLinkSettingsBuilder) -> DeepLinkSettingsBuilder): ModuleFactory {
+        val enforcedSettingsBuilder = enforcedSettings(DeepLinkSettingsBuilder())
+        return DeepLinkHandlerModule.Factory(enforcedSettingsBuilder)
+    }
 }

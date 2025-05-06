@@ -48,13 +48,6 @@ interface InternalModuleManager : ModuleManager {
     fun <T : Module> getModulesOfType(clazz: Class<T>): List<T>
 
     /**
-     * Returns the first [Module] implementation that implements or extends the given [Class].
-     *
-     * @param clazz The Class or Interface to match against
-     */
-    fun <T : Module> getModuleOfType(clazz: Class<T>): T?
-
-    /**
      * Initiates the shutdown of all [Module] implementations and removes any references to them.
      *
      * Also removes all [ModuleFactory] references too.

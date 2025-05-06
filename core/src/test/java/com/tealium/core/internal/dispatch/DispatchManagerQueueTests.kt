@@ -178,12 +178,12 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
 
     @Test
     fun track_Notifies_DispatchAccepted_WhenDispatch_IsQueued() {
-        val onComplete: (Dispatch, TrackResult) -> Unit = mockk(relaxed = true)
+        val onComplete: (TrackResult) -> Unit = mockk(relaxed = true)
 
         dispatchManager.track(dispatch1, onComplete)
 
         verify {
-            onComplete(dispatch1, TrackResult.Accepted)
+            onComplete(TrackResult.Accepted(dispatch1))
         }
     }
 }

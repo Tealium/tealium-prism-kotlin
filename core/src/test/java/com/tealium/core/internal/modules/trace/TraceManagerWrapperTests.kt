@@ -11,6 +11,8 @@ import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Observer
 import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.pubsub.Subject
+import com.tealium.core.api.tracking.TrackResult
+import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import com.tealium.core.internal.modules.ModuleProxyImpl
 import com.tealium.tests.common.SynchronousScheduler
@@ -29,6 +31,9 @@ class TraceManagerWrapperTests {
 
     @RelaxedMockK
     private lateinit var observer: Observer<TealiumResult<Unit>>
+
+    @RelaxedMockK
+    private lateinit var killVisitorObserver: Observer<TealiumResult<TrackResult>>
 
     private lateinit var modules: StateSubject<List<Module>>
     private lateinit var moduleManager: ModuleManager
@@ -55,14 +60,15 @@ class TraceManagerWrapperTests {
     @Test
     fun methods_Report_Module_Not_Enabled_When_Not_Enabled() {
         modules.onNext(emptyList())
-        val observer = mockk<Observer<TealiumResult<Unit>>>(relaxed = true)
 
         traceManagerWrapper.join("12345").subscribe(observer)
         traceManagerWrapper.leave().subscribe(observer)
-        traceManagerWrapper.killVisitorSession().subscribe(observer)
+        traceManagerWrapper.killVisitorSession().subscribe(killVisitorObserver)
 
-        verify(exactly = 3) {
+        verify {
             observer.onNext(match { it.exceptionOrNull() is ModuleNotEnabledException })
+            observer.onNext(match { it.exceptionOrNull() is ModuleNotEnabledException })
+            killVisitorObserver.onNext(match { it.exceptionOrNull() is ModuleNotEnabledException })
         }
     }
 
@@ -72,10 +78,12 @@ class TraceManagerWrapperTests {
 
         traceManagerWrapper.join("12345").subscribe(observer)
         traceManagerWrapper.leave().subscribe(observer)
-        traceManagerWrapper.killVisitorSession().subscribe(observer)
+        traceManagerWrapper.killVisitorSession().subscribe(killVisitorObserver)
 
-        verify(exactly = 3) {
+        verify {
             observer.onNext(match { it.exceptionOrNull() is Tealium.TealiumShutdownException })
+            observer.onNext(match { it.exceptionOrNull() is Tealium.TealiumShutdownException })
+            killVisitorObserver.onNext(match { it.exceptionOrNull() is Tealium.TealiumShutdownException })
         }
     }
 
@@ -127,26 +135,26 @@ class TraceManagerWrapperTests {
     }
 
     @Test
-    fun killVisitorSession_Returns_Success_When_Module_Returns_Success() {
-        mockModuleCallback(TealiumResult.success(Unit))
+    fun killVisitorSession_Returns_Success_When_Dispatch_Accepted() {
+        mockModuleCallback(TrackResult.Accepted(mockk()))
 
         traceManagerWrapper.killVisitorSession()
-            .subscribe(observer)
+            .subscribe(killVisitorObserver)
 
         verify {
-            observer.onNext(match { it.isSuccess })
+            killVisitorObserver.onNext(match { it.isSuccess })
         }
     }
 
     @Test
-    fun killVisitorSession_Returns_Failure_When_Module_Returns_Failure() {
-        mockModuleCallback(TealiumResult.success(Unit))
+    fun killVisitorSession_Returns_Success_Even_When_Dispatch_Dropped() {
+        mockModuleCallback(TrackResult.Dropped(mockk()))
 
         traceManagerWrapper.killVisitorSession()
-            .subscribe(observer)
+            .subscribe(killVisitorObserver)
 
         verify {
-            observer.onNext(match { it.isSuccess })
+            killVisitorObserver.onNext(match { it.isSuccess })
         }
     }
 
@@ -163,10 +171,10 @@ class TraceManagerWrapperTests {
         }
     }
 
-    private fun mockModuleCallback(result: TealiumResult<Unit>) {
+    private fun mockModuleCallback(result: TrackResult) {
         every { traceModule.killVisitorSession(any()) } answers {
-            arg<TealiumCallback<TealiumResult<Unit>>>(0)
-                .onComplete(result)
+            arg<TrackResultListener>(0)
+                .onTrackResultReady(result)
         }
     }
 }

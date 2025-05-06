@@ -23,6 +23,14 @@ interface ModuleManager {
      * Returns the first [Module] implementation that implements or extends the given [clazz].
      *
      * @param clazz The Class or Interface to match against
+     * @return The first [Module] that matches the given [clazz]
+     */
+    fun <T: Module> getModuleOfType(clazz: Class<T>): T?
+
+    /**
+     * Returns the first [Module] implementation that implements or extends the given [clazz].
+     *
+     * @param clazz The Class or Interface to match against
      * @param callback The block of code to receive the [Module]
      */
     fun <T: Module> getModuleOfType(clazz: Class<T>, callback: TealiumCallback<T?>)

@@ -178,10 +178,10 @@ object TealiumHelper {
 
     }
 
-    private fun onTracked(dispatch: Dispatch, status: TrackResult) {
+    private fun onTracked(status: TrackResult) {
         Log.d(
             TAG,
-            "ProcessingStatus: ${dispatch.tealiumEvent} - ${status::class.simpleName}"
+            "ProcessingStatus: ${status.dispatch.tealiumEvent} - ${status::class.simpleName}"
         )
     }
 
@@ -192,6 +192,8 @@ object TealiumHelper {
             Modules.connectivityCollector(),
             Modules.appDataCollector(),
             Modules.deviceDataCollector(),
+            Modules.deepLink(),
+            Modules.trace(),
             configureLifecycle(),
             configureLoggingDispatcher("logger")
         )

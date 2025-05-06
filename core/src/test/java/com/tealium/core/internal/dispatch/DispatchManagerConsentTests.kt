@@ -111,12 +111,12 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
         enableConsent()
         every { consentManager.getConsentDecision() } returns null
         every { consentManager.applyConsent(any()) } just Runs
-        val onComplete: (Dispatch, TrackResult) -> Unit = mockk(relaxed = true)
+        val onComplete: (TrackResult) -> Unit = mockk(relaxed = true)
 
         dispatchManager.track(dispatch1, onComplete)
 
         verify {
-            onComplete(dispatch1, TrackResult.Accepted)
+            onComplete(TrackResult.Accepted(dispatch1))
         }
     }
 
@@ -125,12 +125,12 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
         enableConsent()
         every { consentManager.getConsentDecision() } returns ConsentDecision(ConsentDecision.DecisionType.Explicit, setOf())
         every { consentManager.tealiumConsented(any()) } returns false
-        val onComplete: (Dispatch, TrackResult) -> Unit = mockk(relaxed = true)
+        val onComplete: (TrackResult) -> Unit = mockk(relaxed = true)
 
         dispatchManager.track(dispatch1, onComplete)
 
         verify {
-            onComplete(dispatch1, TrackResult.Dropped)
+            onComplete(TrackResult.Dropped(dispatch1))
         }
     }
 }

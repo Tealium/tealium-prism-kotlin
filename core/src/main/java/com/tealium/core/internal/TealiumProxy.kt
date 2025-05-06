@@ -5,7 +5,7 @@ import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.modules.DataLayer
-import com.tealium.core.api.modules.DeeplinkManager
+import com.tealium.core.api.modules.DeepLinkHandler
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleManager
 import com.tealium.core.api.modules.ModuleProxy
@@ -18,11 +18,11 @@ import com.tealium.core.api.pubsub.Observer
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TrackResult
 import com.tealium.core.api.tracking.TrackResultListener
-import com.tealium.core.internal.modules.DeepLinkManagerWrapper
 import com.tealium.core.internal.modules.ModuleProxyImpl
 import com.tealium.core.internal.modules.TimedEventsManagerWrapper
 import com.tealium.core.internal.modules.VisitorServiceWrapper
 import com.tealium.core.internal.modules.datalayer.DataLayerWrapper
+import com.tealium.core.internal.modules.deeplink.DeepLinkHandlerWrapper
 import com.tealium.core.internal.modules.trace.TraceManagerWrapper
 import com.tealium.core.internal.pubsub.AsyncDisposableContainer
 import com.tealium.core.internal.pubsub.addTo
@@ -53,7 +53,7 @@ class TealiumProxy(
         }
 
     override val trace: TraceManager = TraceManagerWrapper(this)
-    override val deeplink: DeeplinkManager = DeepLinkManagerWrapper(this)
+    override val deeplink: DeepLinkHandler = DeepLinkHandlerWrapper(this)
     override val timedEvents: TimedEventsManager = TimedEventsManagerWrapper(this)
     override val dataLayer: DataLayer = DataLayerWrapper(this)
     override val consent: ConsentManager
@@ -102,7 +102,7 @@ class TealiumProxy(
                 val tealiumImpl = tealium.getOrThrow()
                 tealiumImpl.track(dispatch, onComplete)
             } catch (e: Exception) {
-                onComplete.onTrackResultReady(dispatch, TrackResult.Dropped)
+                onComplete.onTrackResultReady(TrackResult.Dropped(dispatch))
             }
             // TODO - arrange better error handling
         }

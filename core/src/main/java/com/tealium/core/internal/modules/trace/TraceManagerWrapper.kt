@@ -1,7 +1,6 @@
 package com.tealium.core.internal.modules.trace
 
 import com.tealium.core.api.Tealium
-import com.tealium.core.api.misc.TealiumException
 import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.modules.ModuleProxy
 import com.tealium.core.api.modules.TraceManager
@@ -16,9 +15,11 @@ class TraceManagerWrapper(
         tealium: Tealium
     ) : this(tealium.createModuleProxy(TraceManagerModule::class.java))
 
-    override fun killVisitorSession(): Single<TealiumResult<Unit>> =
+    override fun killVisitorSession(): Single<TealiumResult<TrackResult>> =
         moduleProxy.executeModuleTask { trace, callback ->
-            trace.killVisitorSession(callback)
+            trace.killVisitorSession { trackResult ->
+                callback.onComplete(TealiumResult.success(trackResult))
+            }
         }
 
     override fun join(id: String): Single<TealiumResult<Unit>> =

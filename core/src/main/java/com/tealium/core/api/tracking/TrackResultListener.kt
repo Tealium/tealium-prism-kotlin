@@ -8,8 +8,7 @@ fun interface TrackResultListener {
     /**
      * This method will be called with the processing status of the [Dispatch]
      *
-     * @param dispatch The [Dispatch] that this update relates to.
-     * @param status The processing status of the given [dispatch]
+     * @param status The processing status of the relevant dispatch
      * */
-    fun onTrackResultReady(dispatch: Dispatch, status: TrackResult)
+    fun onTrackResultReady(status: TrackResult)
 }

@@ -59,7 +59,7 @@ class DispatchManagerImpl(
                 "Tealium consent purpose is explicitly blocked. Event ${dispatch.logDescription()} will be dropped."
             }
 
-            onComplete?.onTrackResultReady(dispatch, TrackResult.Dropped)
+            onComplete?.onTrackResultReady(TrackResult.Dropped(dispatch))
             return
         }
 
@@ -69,7 +69,7 @@ class DispatchManagerImpl(
                     "Event ${dispatch.logDescription()} dropped due to transformer"
                 }
 
-                onComplete?.onTrackResultReady(dispatch, TrackResult.Dropped)
+                onComplete?.onTrackResultReady(TrackResult.Dropped(dispatch))
                 return@transform
             }
 
@@ -81,7 +81,7 @@ class DispatchManagerImpl(
 
                 consentManager.applyConsent(transformed)
                 // TODO - This call may need to be moved into the Consent Manager implementation once it's done.
-                onComplete?.onTrackResultReady(transformed, TrackResult.Accepted)
+                onComplete?.onTrackResultReady(TrackResult.Accepted(transformed))
             } else {
                 logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
                     "Event ${transformed.logDescription()} accepted for processing"
@@ -91,7 +91,7 @@ class DispatchManagerImpl(
                     listOf(transformed),
                     _dispatchers.map(Dispatcher::id).toSet()
                 )
-                onComplete?.onTrackResultReady(transformed, TrackResult.Accepted)
+                onComplete?.onTrackResultReady(TrackResult.Accepted(transformed))
             }
         }
     }

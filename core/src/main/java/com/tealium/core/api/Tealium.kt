@@ -4,7 +4,7 @@ import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.misc.TealiumException
 import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.modules.DataLayer
-import com.tealium.core.api.modules.DeeplinkManager
+import com.tealium.core.api.modules.DeepLinkHandler
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleProxy
 import com.tealium.core.api.modules.TimedEventsManager
@@ -19,7 +19,7 @@ interface Tealium {
 
     val key: String
     val trace: TraceManager
-    val deeplink: DeeplinkManager
+    val deeplink: DeepLinkHandler
     val timedEvents: TimedEventsManager
     val dataLayer: DataLayer
     val consent: ConsentManager

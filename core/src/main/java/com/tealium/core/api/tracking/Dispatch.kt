@@ -116,6 +116,7 @@ class Dispatch private constructor(
         const val EVENT = "event"
         const val DEEP_LINK_URL = "deep_link_url"
         const val DEEP_LINK_QUERY_PREFIX = "deep_link_param"
+        const val DEEP_LINK_REFERRER_URL = "deep_link_referrer_url"
         const val REQUEST_UUID = "request_uuid"
         const val WAS_QUEUED = "was_queued"
 
