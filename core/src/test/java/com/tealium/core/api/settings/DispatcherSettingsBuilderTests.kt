@@ -2,8 +2,8 @@ package com.tealium.core.api.settings
 
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.rules.Rule
-import com.tealium.core.api.settings.json.MappingParameters
 import com.tealium.core.api.settings.json.TransformationOperation
+import com.tealium.core.internal.settings.MappingParameters
 import com.tealium.core.internal.settings.ModuleSettings
 import com.tealium.tests.common.trimJson
 import org.junit.Assert.assertEquals
@@ -62,7 +62,7 @@ class DispatcherSettingsBuilderTests {
 
         val transformation = transformations[0]
         assertEquals("destination", transformation.destination.variable)
-        assertEquals("source", transformation.parameters.key.variable)
+        assertEquals("source", transformation.parameters.key?.variable)
     }
 
     @Test
@@ -81,16 +81,16 @@ class DispatcherSettingsBuilderTests {
 
         val transformation1 = transformations[0]
         assertEquals("destination1", transformation1.destination.variable)
-        assertEquals("source1", transformation1.parameters.key.variable)
+        assertEquals("source1", transformation1.parameters.key?.variable)
 
         val transformation2 = transformations[1]
         assertEquals("destination2", transformation2.destination.variable)
-        assertEquals("source2", transformation2.parameters.key.variable)
-        assertEquals(listOf("path", "to"), transformation2.parameters.key.path)
+        assertEquals("source2", transformation2.parameters.key?.variable)
+        assertEquals(listOf("path", "to"), transformation2.parameters.key?.path)
 
         val transformation3 = transformations[2]
         assertEquals("destination3", transformation3.destination.variable)
-        assertEquals("source3", transformation3.parameters.key.variable)
+        assertEquals("source3", transformation3.parameters.key?.variable)
         assertEquals("expected_value", transformation3.parameters.filter!!.value)
     }
 

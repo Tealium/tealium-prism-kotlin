@@ -4,14 +4,14 @@ import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataItemConverter
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.rules.Rule
-import com.tealium.core.api.settings.json.MappingParameters
 import com.tealium.core.api.settings.json.TransformationOperation
+import com.tealium.core.internal.dispatch.MappingOperation
 
 class ModuleSettings(
     val enabled: Boolean = true,
     val configuration: DataObject = DataObject.EMPTY_OBJECT,
     val rules: Rule<String>? = null,
-    val mappings: List<TransformationOperation<MappingParameters>>? = null
+    val mappings: List<MappingOperation>? = null
 ) {
     companion object {
         const val KEY_ENABLED = "enabled"

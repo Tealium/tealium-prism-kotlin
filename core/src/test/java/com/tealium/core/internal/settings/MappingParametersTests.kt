@@ -1,4 +1,4 @@
-package com.tealium.core.api.settings.json
+package com.tealium.core.internal.settings
 
 import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataObject
@@ -81,8 +81,8 @@ class MappingParametersTests {
 
         val parameters = MappingParameters.Converter.convert(dataObject.asDataItem())!!
 
-        assertEquals(variable, parameters.key.variable)
-        assertEquals(path, parameters.key.path)
+        assertEquals(variable, parameters.key?.variable)
+        assertEquals(path, parameters.key?.path)
         assertEquals(filter, parameters.filter?.value)
         assertEquals(mapTo, parameters.mapTo?.value)
     }
@@ -97,8 +97,8 @@ class MappingParametersTests {
 
         val parameters = MappingParameters.Converter.convert(dataObject.asDataItem())!!
 
-        assertEquals(variable, parameters.key.variable)
-        assertNull(parameters.key.path)
+        assertEquals(variable, parameters.key?.variable)
+        assertNull(parameters.key?.path)
         assertNull(parameters.filter)
         assertNull(parameters.mapTo)
     }
@@ -111,10 +111,9 @@ class MappingParametersTests {
     }
 
     @Test
-    fun converter_Returns_Null_When_Key_Is_Missing() {
+    fun converter_Returns_Null_When_Both_Key_And_MapTo_Are_Missing() {
         val dataObject = DataObject.create {
             put(MappingParameters.Converter.KEY_FILTER, ValueContainer("filter"))
-            put(MappingParameters.Converter.KEY_MAP_TO, ValueContainer("map_to"))
         }
 
         val parameters = MappingParameters.Converter.convert(dataObject.asDataItem())

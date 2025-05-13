@@ -11,9 +11,6 @@ import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Observer
-import com.tealium.core.api.settings.json.JsonTransformationConfiguration
-import com.tealium.core.api.settings.json.MappingParameters
-import com.tealium.core.api.settings.json.Transformers
 import com.tealium.core.internal.misc.ActivityManagerImpl
 import com.tealium.core.internal.modules.InternalModuleManager
 import com.tealium.core.internal.modules.ModuleManagerImpl
@@ -263,10 +260,11 @@ class TealiumImplTests {
     fun extractMappings_Returns_Mappings_When_Given_Valid_DataObject() {
         val mappings = MappingsImpl().apply {
             from("source1", "destination1")
-            from("source2", "destination2").ifValueEquals("expected").mapTo("value")
+            constant("value", "destination2")
+                .ifValueEquals("source2", "expected")
         }.build()
 
-        val transformations = TealiumImpl.extractMappings(
+        val allMappings = TealiumImpl.extractMappings(
             SdkSettings(
                 modules = mapOf(
                     "dispatcher" to ModuleSettings(mappings = mappings)
@@ -274,25 +272,20 @@ class TealiumImplTests {
             )
         )
 
-        assertEquals(1, transformations.size)
+        assertEquals(1, allMappings.size)
 
-        val dispatcherTransformations = transformations["dispatcher"]!!
-        assertEquals("dispatcher-mappings", dispatcherTransformations.id)
-        assertEquals(Transformers.JSON_TRANSFORMER, dispatcherTransformations.transformerId)
+        val dispatcherMappings = allMappings["dispatcher"]!!
+        assertEquals(2, dispatcherMappings.size)
 
-        val transformationConfiguration =
-            JsonTransformationConfiguration.Converter(MappingParameters.Converter)
-                .convert(dispatcherTransformations.configuration.asDataItem())!!
-
-        val mapping1 = transformationConfiguration.operations[0]
+        val mapping1 = dispatcherMappings[0]
         assertEquals("destination1", mapping1.destination.variable)
-        assertEquals("source1", mapping1.parameters.key.variable)
+        assertEquals("source1", mapping1.parameters.key?.variable)
         assertNull(mapping1.parameters.filter)
         assertNull(mapping1.parameters.mapTo)
 
-        val mapping2 = transformationConfiguration.operations[1]
+        val mapping2 = dispatcherMappings[1]
         assertEquals("destination2", mapping2.destination.variable)
-        assertEquals("source2", mapping2.parameters.key.variable)
+        assertEquals("source2", mapping2.parameters.key?.variable)
         assertEquals("expected", mapping2.parameters.filter?.value)
         assertEquals("value", mapping2.parameters.mapTo?.value)
     }

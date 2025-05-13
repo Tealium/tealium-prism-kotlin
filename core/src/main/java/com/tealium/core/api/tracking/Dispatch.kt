@@ -5,12 +5,16 @@ import com.tealium.core.internal.persistence.database.getTimestampMilliseconds
 import java.util.*
 
 class Dispatch private constructor(
-    val tealiumEvent: String,
-    val type: TealiumDispatchType,
     private var dataObject: DataObject,
     val id: String,
     val timestamp: Long,
 ) {
+
+    val tealiumEvent: String?
+        get() = dataObject.getString(Keys.TEALIUM_EVENT)
+
+    val type: TealiumDispatchType?
+        get() = dataObject.get(Keys.TEALIUM_EVENT_TYPE, TealiumDispatchType.Converter)
 
     fun payload(): DataObject {
         return dataObject
@@ -20,6 +24,10 @@ class Dispatch private constructor(
         dataObject = dataObject.copy {
             putAll(data)
         }
+    }
+
+    fun replace(data: DataObject) {
+        dataObject = data
     }
 
     fun logDescription(): String {
@@ -56,8 +64,6 @@ class Dispatch private constructor(
                 .build()
 
             return Dispatch(
-                tealiumEvent = eventName,
-                type = type,
                 dataObject = updatedDataObject,
                 id = uuid,
                 timestamp = timestamp
@@ -70,8 +76,6 @@ class Dispatch private constructor(
          */
         internal fun create(dispatch: Dispatch): Dispatch {
             return Dispatch(
-                dispatch.tealiumEvent,
-                dispatch.type,
                 dispatch.payload(),
                 dispatch.id,
                 dispatch.timestamp
@@ -88,17 +92,7 @@ class Dispatch private constructor(
          * should use [create]
          */
         internal fun create(id: String, dataObject: DataObject, timestamp: Long): Dispatch? {
-
-            val tealiumEvent = dataObject.getString(Keys.TEALIUM_EVENT) ?: return null
-            val type: TealiumDispatchType =
-                dataObject.getString(Keys.TEALIUM_EVENT_TYPE)?.let { typeString ->
-                    TealiumDispatchType.values()
-                        .find { it.friendlyName.lowercase() == typeString.lowercase() }
-                } ?: TealiumDispatchType.Event
-
             return Dispatch(
-                tealiumEvent = tealiumEvent,
-                type = type,
                 dataObject = dataObject,
                 id = id,
                 timestamp = timestamp
@@ -189,6 +183,7 @@ class Dispatch private constructor(
         const val CONSENT_CATEGORIES = "consent_categories"
         const val CONSENT_DO_NOT_SELL = "do_not_sell"
         const val CONSENT_LAST_UPDATED = "consent_last_updated"
+
         // new consent manager
         const val CONSENT_TYPE = "consent_type"
         const val PURPOSES_WITH_CONSENT_ALL = "purposes_with_consent_all"

@@ -28,6 +28,7 @@ class DispatchManagerImpl(
     private val queueManager: QueueManager,
     private val dispatchers: Observable<Set<Dispatcher>>,
     private val loadRuleEngine: LoadRuleEngine,
+    private val mappingsEngine: MappingsEngine,
     private val logger: Logger,
     private val maxInFlightPerDispatcher: Int = MAXIMUM_INFLIGHT_EVENTS_PER_DISPATCHER
 ) : DispatchManager {
@@ -192,7 +193,9 @@ class DispatchManagerImpl(
                 }
             }
 
-            dispatcher.dispatch(passed) { completed ->
+            val mapped = passed.map { dispatch -> mappingsEngine.map(dispatcher.id, dispatch) }
+
+            dispatcher.dispatch(mapped) { completed ->
                 if (container.isDisposed) return@dispatch
                 onProcessedDispatches(completed)
             }.addTo(container)

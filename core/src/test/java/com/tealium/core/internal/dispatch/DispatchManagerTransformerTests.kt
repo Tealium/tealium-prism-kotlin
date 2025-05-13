@@ -1,46 +1,16 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TrackResult
-import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.TransformationScope
-import com.tealium.core.api.transform.Transformer
-import io.mockk.every
-import io.mockk.impl.annotations.MockK
 import io.mockk.mockk
-import io.mockk.slot
 import io.mockk.verify
 import org.junit.Test
 
 class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
 
-    @MockK
-    private lateinit var droppingTransformer: Transformer
-
-    override fun onAfterSetup() {
-        val completionCapture = slot<(Dispatch?) -> Unit>()
-        every { droppingTransformer.id } returns "drop"
-        every {
-            droppingTransformer.applyTransformation(
-                any(),
-                any(),
-                any(),
-                capture(completionCapture)
-            )
-        } answers {
-            completionCapture.captured(null)
-        }
-
-        transformers.onNext(transformers.value + droppingTransformer)
-    }
-
     @Test
     fun dispatchManager_DoesNotSendDispatchesToDispatcher_WhenTransformersReturnNull() {
-        transformations.onNext(
-            setOf(
-                TransformationSettings("drop", "drop", setOf(TransformationScope.AllDispatchers))
-            )
-        )
+        registerTransformation(scope = setOf(TransformationScope.AllDispatchers)) { _, _, _ -> null }
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1)
@@ -52,11 +22,7 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_DoesNotQueue_WhenTransformersReturnNull() {
-        transformations.onNext(
-            setOf(
-                TransformationSettings("drop", "drop", setOf(TransformationScope.AfterCollectors))
-            )
-        )
+        registerTransformation(scope = setOf(TransformationScope.AfterCollectors)) { _, _, _ -> null }
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1)
@@ -69,11 +35,7 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_Notifies_DispatchDropped_WhenDispatchDropped_AfterCollectors() {
-        transformations.onNext(
-            setOf(
-                TransformationSettings("drop", "drop", setOf(TransformationScope.AfterCollectors))
-            )
-        )
+        registerTransformation(scope = setOf(TransformationScope.AfterCollectors)) { _, _, _ -> null }
         val onComplete: (TrackResult) -> Unit = mockk(relaxed = true)
 
         dispatchManager.startDispatchLoop()

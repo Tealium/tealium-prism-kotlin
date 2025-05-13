@@ -31,7 +31,7 @@ open class DispatcherSettingsBuilder : ModuleSettingsBuilder() {
      * }
      * ```
      *
-     * For more complex use cases you can leverage the optional methods on [Mappings.Builder]
+     * For more complex use cases you can leverage the optional methods on [Mappings.FromOptions]
      * ```kotlin
      * setMappings {
      *  from(VariableAccessor("input1", listOf("container")),

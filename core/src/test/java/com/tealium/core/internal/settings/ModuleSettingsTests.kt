@@ -7,8 +7,6 @@ import com.tealium.core.api.settings.DispatcherSettingsBuilder
 import com.tealium.core.api.settings.ModuleSettingsBuilder
 import com.tealium.core.api.settings.ValueContainer
 import com.tealium.core.api.settings.VariableAccessor
-import com.tealium.core.api.settings.json.MappingParameters
-import com.tealium.core.api.settings.json.TransformationOperation
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -107,15 +105,16 @@ class ModuleSettingsTests {
             .setMappings {
                 from("source", "destination")
                     .ifValueEquals("target")
-                    .mapTo("other")
+                constant("other", "destination")
+                    .ifValueEquals("source", "target")
             }
             .build()
 
         val settings = ModuleSettings.Converter.convert(settingsObject)!!
-        val expected = TransformationOperation(
-            VariableAccessor("destination"),
-            MappingParameters(VariableAccessor("source"), ValueContainer("target"), ValueContainer("other"))
-        )
-        assertEquals(expected, settings.mappings!![0])
+        val expected1 =
+            MappingParameters(VariableAccessor("source"), ValueContainer("target"), null)
+        val expected2 = expected1.copy(mapTo = ValueContainer("other"))
+        assertEquals(expected1, settings.mappings!![0].parameters)
+        assertEquals(expected2, settings.mappings!![1].parameters)
     }
 }

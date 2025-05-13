@@ -1,6 +1,7 @@
 package com.tealium.core.api.data
 
 import com.tealium.core.api.data.DataObject.Builder
+import com.tealium.core.api.settings.VariableAccessor
 import com.tealium.core.internal.misc.stringify
 import org.json.*
 
@@ -123,6 +124,28 @@ class DataObject private constructor(
 
     override fun asDataItem(): DataItem {
         return DataItem.convert(this)
+    }
+
+    /**
+     * Extracts a nested [DataItem] according to the given [accessor].
+     *
+     * If the [VariableAccessor.variable] is not found at the [VariableAccessor.path], or any path
+     * component is not also a [DataObject] then `null` will be returned.
+     *
+     * @param accessor The [VariableAccessor] describing how to access the variable.
+     * @return The required [DataItem] if available; else null
+     */
+    fun extract(accessor: VariableAccessor): DataItem? {
+        val (variable, path) = accessor
+        var dataObject = this
+
+        if (path != null) {
+            for (pathComponent in path) {
+                dataObject = dataObject.getDataObject(pathComponent)
+                    ?: return null
+            }
+        }
+        return dataObject.get(variable)
     }
 
     /**

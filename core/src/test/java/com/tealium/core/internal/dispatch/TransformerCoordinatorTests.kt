@@ -85,13 +85,11 @@ class TransformerCoordinatorTests {
         )
 
         transformationsSettings = Observables.stateSubject(defaultTransformationSettings)
-        mappings = Observables.stateSubject(emptyMap())
 
         transformerCoordinator =
             TransformerCoordinatorImpl(
                 registeredTransformers,
                 transformationsSettings,
-                mappings,
                 SynchronousScheduler()
             )
     }
@@ -203,66 +201,6 @@ class TransformerCoordinatorTests {
                 mockDispatch,
                 any(),
                 any()
-            )
-        }
-    }
-
-    @Test
-    fun transform_Applies_Mapping_Transformation_When_DispatchScope_Is_Dispatcher_Specific() {
-        val mappingTransformation = TransformationSettings(
-            "mappings",
-            mockTransformer3.id,
-            setOf(TransformationScope.Dispatcher("dispatcher_3"))
-        )
-        val scope = DispatchScope.Dispatcher("dispatcher_3")
-        mappings.onNext(mapOf("dispatcher_3" to mappingTransformation))
-
-        transformerCoordinator.transform(listOf(mockDispatch), scope, mockk(relaxed = true))
-
-        verify {
-            mockTransformer3.applyTransformation(
-                mappingTransformation, mockDispatch, scope, any()
-            )
-        }
-    }
-
-    @Test
-    fun transform_Does_Not_Apply_Mapping_Transformation_When_DispatchScope_Is_After_Collectors() {
-        val mappingTransformation = TransformationSettings(
-            "mappings",
-            mockTransformer3.id,
-            setOf(TransformationScope.Dispatcher("dispatcher_3"))
-        )
-        val scope = DispatchScope.AfterCollectors
-        mappings.onNext(mapOf("dispatcher_3" to mappingTransformation))
-
-        transformerCoordinator.transform(listOf(mockDispatch), scope, mockk(relaxed = true))
-
-        verify(inverse = true) {
-            mockTransformer3.applyTransformation(
-                mappingTransformation, mockDispatch, scope, any()
-            )
-        }
-    }
-
-    @Test
-    fun transform_Applies_Mapping_Transformation_After_All_Other_Transformations() {
-        val mappingTransformation = TransformationSettings(
-            "mappings",
-            mockTransformer3.id,
-            setOf(TransformationScope.Dispatcher("dispatcher_1"))
-        )
-        val scope = DispatchScope.Dispatcher("dispatcher_1")
-        mappings.onNext(mapOf("dispatcher_1" to mappingTransformation))
-
-        transformerCoordinator.transform(listOf(mockDispatch), scope, mockk(relaxed = true))
-
-        verifyOrder {
-            mockTransformer3.applyTransformation(
-                dispatcher1, mockDispatch, scope, any()
-            )
-            mockTransformer3.applyTransformation(
-                mappingTransformation, mockDispatch, scope, any()
             )
         }
     }

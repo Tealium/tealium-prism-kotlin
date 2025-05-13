@@ -1,4 +1,4 @@
-package com.tealium.core.api.settings.json
+package com.tealium.core.internal.settings
 
 import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataItemConverter
@@ -8,14 +8,16 @@ import com.tealium.core.api.settings.ValueContainer
 import com.tealium.core.api.settings.VariableAccessor
 
 data class MappingParameters(
-    val key: VariableAccessor,
+    val key: VariableAccessor?,
     val filter: ValueContainer?,
     val mapTo: ValueContainer?
 ) : DataObjectConvertible {
 
     override fun asDataObject(): DataObject =
         DataObject.create {
-            put(Converter.KEY_KEY, key)
+            if (key != null) {
+                put(Converter.KEY_KEY, key)
+            }
             if (filter != null) {
                 put(Converter.KEY_FILTER, filter)
             }
@@ -34,10 +36,10 @@ data class MappingParameters(
                 ?: return null
 
             val key = dataObject.get(KEY_KEY, VariableAccessor.Converter)
-                ?: return null
-
             val filter = dataObject.get(KEY_FILTER, ValueContainer.Converter)
             val mapTo = dataObject.get(KEY_MAP_TO, ValueContainer.Converter)
+
+            if (key == null && mapTo == null) return null
 
             return MappingParameters(key, filter, mapTo)
         }

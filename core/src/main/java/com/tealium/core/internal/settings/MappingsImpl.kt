@@ -3,35 +3,46 @@ package com.tealium.core.internal.settings
 import com.tealium.core.api.settings.Mappings
 import com.tealium.core.api.settings.ValueContainer
 import com.tealium.core.api.settings.VariableAccessor
-import com.tealium.core.api.settings.json.MappingParameters
 import com.tealium.core.api.settings.json.TransformationOperation
+import com.tealium.core.internal.dispatch.MappingOperation
 
 class MappingsImpl : Mappings {
     private val mappings = mutableListOf<BuilderImpl>()
 
     private class BuilderImpl(
-        val from: VariableAccessor,
-        val to: VariableAccessor
-    ) : Mappings.Builder {
-        private var filter: ValueContainer? = null
+        val destination: VariableAccessor,
+        private var key: VariableAccessor? = null,
         private var mapTo: ValueContainer? = null
+    ) : Mappings.FromOptions, Mappings.ConstantOptions {
+        private var filter: ValueContainer? = null
 
-        override fun ifValueEquals(value: String): Mappings.Builder = apply { filter = ValueContainer(value) }
+        override fun ifValueEquals(value: String): Mappings.FromOptions =
+            apply { filter = ValueContainer(value) }
 
-        override fun mapTo(value: String): Mappings.Builder = apply { mapTo = ValueContainer(value) }
+        override fun ifValueEquals(key: VariableAccessor, value: String) =
+            apply {
+                this.key = key
+                this.filter = ValueContainer(value)
+            }
 
-        fun build(): TransformationOperation<MappingParameters> {
-            return TransformationOperation(to, MappingParameters(from, filter, mapTo))
+        fun build(): MappingOperation {
+            return TransformationOperation(destination, MappingParameters(key, filter, mapTo))
         }
     }
 
-    override fun from(key: VariableAccessor, destination: VariableAccessor): Mappings.Builder {
-        val builder = BuilderImpl(key, destination)
+    override fun from(key: VariableAccessor, destination: VariableAccessor): Mappings.FromOptions {
+        val builder = BuilderImpl(destination, key = key)
         mappings.add(builder)
         return builder
     }
 
-    fun build(): List<TransformationOperation<MappingParameters>> {
+    override fun constant(value: String, destination: VariableAccessor): Mappings.ConstantOptions {
+        val builder = BuilderImpl(destination, mapTo = ValueContainer(value))
+        mappings.add(builder)
+        return builder
+    }
+
+    fun build(): List<MappingOperation> {
         return mappings.map { it.build() }
     }
 }

@@ -19,19 +19,16 @@ import com.tealium.core.api.pubsub.ObservableState
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.ReplaySubject
 import com.tealium.core.api.settings.CoreSettings
-import com.tealium.core.api.settings.json.JsonOperationType
-import com.tealium.core.api.settings.json.JsonTransformationConfiguration
-import com.tealium.core.api.settings.json.Transformers
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
 import com.tealium.core.api.tracking.TrackResultListener
-import com.tealium.core.api.transform.TransformationScope
-import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.Transformer
 import com.tealium.core.internal.dispatch.BarrierCoordinatorImpl
 import com.tealium.core.internal.dispatch.BarrierManager
 import com.tealium.core.internal.dispatch.BarrierRegistryImpl
 import com.tealium.core.internal.dispatch.DispatchManagerImpl
+import com.tealium.core.internal.dispatch.MappingOperation
+import com.tealium.core.internal.dispatch.MappingsEngine
 import com.tealium.core.internal.dispatch.QueueManager
 import com.tealium.core.internal.dispatch.QueueManagerImpl
 import com.tealium.core.internal.dispatch.TransformerCoordinator
@@ -152,6 +149,8 @@ class TealiumImpl(
             createQueueManager(queueRepository, coreSettings, moduleManager.modules, logger)
 
         val loadRuleEngine = LoadRuleEngineImpl(settings)
+        val mappingsEngine = MappingsEngine(settings.map(::extractMappings)
+            .withState { extractMappings(settings.value) })
         dispatchManager = DispatchManagerImpl(
             moduleManager = moduleManager,
             barrierCoordinator = BarrierCoordinatorImpl(barrierManager.barriers),
@@ -160,6 +159,7 @@ class TealiumImpl(
                 .map { it.filterIsInstance<Dispatcher>().toSet() },
             queueManager = queueManager,
             loadRuleEngine = loadRuleEngine,
+            mappingsEngine = mappingsEngine,
             logger = logger
         )
         tracker = TrackerImpl(moduleManager.modules, dispatchManager, loadRuleEngine, logger)
@@ -409,24 +409,8 @@ class TealiumImpl(
                     .withState { modules.value.filterIsInstance<Transformer>() },
                 sdkSettings.map { it.transformations.values.toSet() }
                     .withState { sdkSettings.value.transformations.values.toSet() },
-                sdkSettings.map(::extractMappings)
-                    .withState { extractMappings(sdkSettings.value) },
                 schedulers.tealium
             )
-        }
-
-        fun extractMappings(sdkSettings: SdkSettings): Map<String, TransformationSettings> {
-            return sdkSettings.modules.mapNotNull { (dispatcherId, settings) ->
-                val mappings = settings.mappings ?: return@mapNotNull null
-
-                val configuration = JsonTransformationConfiguration(JsonOperationType.Map, mappings)
-                dispatcherId to TransformationSettings(
-                    "$dispatcherId-mappings",
-                    Transformers.JSON_TRANSFORMER,
-                    setOf(TransformationScope.Dispatcher(dispatcherId)),
-                    configuration.asDataObject()
-                )
-            }.toMap()
         }
 
         fun createQueueManager(
@@ -444,6 +428,13 @@ class TealiumImpl(
                 logger = logger
             )
         }
+
+        fun extractMappings(settings: SdkSettings): Map<String, List<MappingOperation>> =
+            settings.modules.mapNotNull { (key, moduleSettings) ->
+                if (moduleSettings.mappings != null) {
+                    key to moduleSettings.mappings
+                } else null
+            }.toMap()
 
         fun makeTealiumDirectory(config: TealiumConfig) {
             val pathName =

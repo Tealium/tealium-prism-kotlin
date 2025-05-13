@@ -11,6 +11,8 @@ import com.tealium.core.api.pubsub.Subject
 import com.tealium.core.api.settings.CoreSettings
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TealiumDispatchType
+import com.tealium.core.api.transform.DispatchScope
+import com.tealium.core.api.transform.TransformationScope
 import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.Transformer
 import com.tealium.core.internal.modules.InternalModuleManager
@@ -23,6 +25,7 @@ import com.tealium.core.internal.settings.CoreSettingsImpl
 import com.tealium.tests.common.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestDispatcher
+import com.tealium.tests.common.TestTransformer
 import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.MockKAnnotations
 import io.mockk.Runs
@@ -68,9 +71,10 @@ open class DispatchManagerTestsBase {
     protected lateinit var transformerCoordinator: TransformerCoordinator
     protected lateinit var transformers: StateSubject<List<Transformer>>
     protected lateinit var transformations: StateSubject<Set<TransformationSettings>>
-    protected lateinit var mappings: StateSubject<Map<String, TransformationSettings>>
     protected lateinit var coreSettings: StateSubject<CoreSettings>
     protected lateinit var dispatchManager: DispatchManagerImpl
+    protected lateinit var mappings: StateSubject<Map<String, List<MappingOperation>>>
+    protected lateinit var mappingsEngine: MappingsEngine
 
     protected val dispatch1: Dispatch =
         Dispatch.create("test1", TealiumDispatchType.Event, DataObject.EMPTY_OBJECT)
@@ -124,12 +128,14 @@ open class DispatchManagerTestsBase {
 
         transformations = Observables.stateSubject(setOf())
         transformers = Observables.stateSubject(emptyList())
-        mappings = Observables.stateSubject(emptyMap())
         transformerCoordinator = spyk(
             TransformerCoordinatorImpl(
-                transformers, transformations, mappings, SynchronousScheduler()
+                transformers, transformations, SynchronousScheduler()
             )
         )
+
+        mappings = Observables.stateSubject(emptyMap())
+        mappingsEngine = MappingsEngine(mappings)
 
         dispatchManager = createDispatchManager()
 
@@ -152,6 +158,7 @@ open class DispatchManagerTestsBase {
         queueManager: QueueManager = this.queueManager,
         dispatchers: StateSubject<Set<Dispatcher>> = this.dispatchers,
         loadRuleEngine: LoadRuleEngine = this.loadRuleEngine,
+        mappingsEngine: MappingsEngine = this.mappingsEngine,
         logger: Logger = this.logger,
         maxInFlight: Int = DispatchManagerImpl.MAXIMUM_INFLIGHT_EVENTS_PER_DISPATCHER
     ): DispatchManagerImpl = DispatchManagerImpl(
@@ -161,6 +168,7 @@ open class DispatchManagerTestsBase {
         queueManager,
         dispatchers,
         loadRuleEngine,
+        mappingsEngine,
         logger,
         maxInFlight
     )
@@ -179,4 +187,21 @@ open class DispatchManagerTestsBase {
         data: DataObject = DataObject.EMPTY_OBJECT
     ): Dispatch =
         Dispatch.create(event, type, data)
+
+    /**
+     * utility that appends a new Transformer and a new transformation scoped to the given [scope]
+     */
+    protected fun registerTransformation(
+        id: String = "test",
+        transformerId: String = "test",
+        scope: Set<TransformationScope> = setOf(TransformationScope.AllDispatchers),
+        onTransform: (
+            transformation: TransformationSettings,
+            dispatch: Dispatch,
+            scope: DispatchScope
+        ) -> Dispatch?
+    ) {
+        transformers.onNext(transformers.value + TestTransformer(transformerId, transformHandler = onTransform))
+        transformations.onNext(transformations.value + TransformationSettings(id, transformerId, scope))
+    }
 }

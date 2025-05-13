@@ -29,8 +29,8 @@ class MappingsImplTests {
         assertNull(transformation.destination.path)
 
         val params = transformation.parameters
-        assertEquals("source", params.key.variable)
-        assertNull(params.key.path)
+        assertEquals("source", params.key?.variable)
+        assertNull(params.key?.path)
         assertNull(params.filter)
         assertNull(params.mapTo)
     }
@@ -48,8 +48,8 @@ class MappingsImplTests {
         assertNull(transformation.destination.path)
 
         val params = transformation.parameters
-        assertEquals("source", params.key.variable)
-        assertEquals(listOf("path", "to"), params.key.path)
+        assertEquals("source", params.key?.variable)
+        assertEquals(listOf("path", "to"), params.key?.path)
         assertNull(params.filter)
         assertNull(params.mapTo)
     }
@@ -67,8 +67,8 @@ class MappingsImplTests {
         assertEquals(listOf("path", "to"), transformation.destination.path)
 
         val params = transformation.parameters
-        assertEquals("source", params.key.variable)
-        assertNull(params.key.path)
+        assertEquals("source", params.key?.variable)
+        assertNull(params.key?.path)
         assertNull(params.filter)
         assertNull(params.mapTo)
     }
@@ -87,8 +87,8 @@ class MappingsImplTests {
         assertEquals(listOf("dest", "path"), transformation.destination.path)
 
         val params = transformation.parameters
-        assertEquals("source", params.key.variable)
-        assertEquals(listOf("path", "to"), params.key.path)
+        assertEquals("source", params.key?.variable)
+        assertEquals(listOf("path", "to"), params.key?.path)
         assertNull(params.filter)
         assertNull(params.mapTo)
     }
@@ -109,8 +109,8 @@ class MappingsImplTests {
         assertEquals(listOf("dest", "path"), transformation.destination.path)
 
         val params = transformation.parameters
-        assertEquals("source", params.key.variable)
-        assertEquals(listOf("path", "to"), params.key.path)
+        assertEquals("source", params.key?.variable)
+        assertEquals(listOf("path", "to"), params.key?.path)
         assertNull(params.filter)
         assertNull(params.mapTo)
     }
@@ -151,58 +151,163 @@ class MappingsImplTests {
     }
 
     @Test
-    fun mapTo_Sets_Mapped_Value_When_Called_On_Builder() {
-        val builder = mappings.from("source", "destination")
-        builder.mapTo("mapped_value")
-
-        val transformations = mappings.build()
-        assertEquals(1, transformations.size)
-
-        val transformation = transformations[0]
-        val params = transformation.parameters
-        assertNull(params.filter)
-        assertEquals("mapped_value", params.mapTo?.value)
-    }
-
-    @Test
-    fun builder_Methods_Can_Be_Chained_When_Setting_Multiple_Properties() {
-        val builder = mappings.from("source", "destination")
-        builder.ifValueEquals("expected_value").mapTo("mapped_value")
-
-        val transformations = mappings.build()
-        assertEquals(1, transformations.size)
-
-        val transformation = transformations[0]
-        val params = transformation.parameters
-        assertEquals("expected_value", params.filter?.value)
-        assertEquals("mapped_value", params.mapTo?.value)
-    }
-
-    @Test
-    fun build_Returns_All_Transformations_When_Multiple_Mappings_Are_Defined() {
+    fun build_Returns_All_MappingParameters_When_Multiple_Mappings_Are_Defined() {
         mappings.from("source1", "destination1")
         mappings.from("source2", "destination2").ifValueEquals("value2")
-        mappings.from("source3", "destination3").mapTo("mapped3")
+        mappings.constant("mapped3", "destination3").ifValueEquals("source3", "value3")
 
         val transformations = mappings.build()
         assertEquals(3, transformations.size)
 
         val transformation1 = transformations[0]
         assertEquals("destination1", transformation1.destination.variable)
-        assertEquals("source1", transformation1.parameters.key.variable)
+        assertEquals("source1", transformation1.parameters.key?.variable)
         assertNull(transformation1.parameters.filter)
         assertNull(transformation1.parameters.mapTo)
 
         val transformation2 = transformations[1]
         assertEquals("destination2", transformation2.destination.variable)
-        assertEquals("source2", transformation2.parameters.key.variable)
+        assertEquals("source2", transformation2.parameters.key?.variable)
         assertEquals("value2", transformation2.parameters.filter?.value)
         assertNull(transformation2.parameters.mapTo)
 
         val transformation3 = transformations[2]
         assertEquals("destination3", transformation3.destination.variable)
-        assertEquals("source3", transformation3.parameters.key.variable)
-        assertNull(transformation3.parameters.filter)
+        assertEquals("source3", transformation3.parameters.key?.variable)
+        assertEquals("value3", transformation3.parameters.filter?.value)
         assertEquals("mapped3", transformation3.parameters.mapTo?.value)
+    }
+
+    @Test
+    fun constant_Builds_Transformation_Operation_With_Constant_Value() {
+        val builder = mappings.constant("constant_value", "destination")
+        assertNotNull(builder)
+
+        val mappingsList = mappings.build()
+        assertEquals(1, mappingsList.size)
+
+        val mapping = mappingsList[0]
+        assertEquals("destination", mapping.destination.variable)
+        assertNull(mapping.destination.path)
+        assertNull(mapping.parameters.key)
+        assertNull(mapping.parameters.filter)
+        assertEquals("constant_value", mapping.parameters.mapTo?.value)
+    }
+
+    @Test
+    fun constant_Builds_Transformation_Operation_With_Destination_Path() {
+        val builder = mappings.constant("constant_value", "destination", listOf("path", "to"))
+        assertNotNull(builder)
+
+        val mappingsList = mappings.build()
+        assertEquals(1, mappingsList.size)
+
+        val mapping = mappingsList[0]
+        assertEquals("destination", mapping.destination.variable)
+        assertEquals(listOf("path", "to"), mapping.destination.path)
+        assertNull(mapping.parameters.key)
+        assertNull(mapping.parameters.filter)
+        assertEquals("constant_value", mapping.parameters.mapTo?.value)
+    }
+
+    @Test
+    fun constant_Builds_Transformation_Operation_With_VariableAccessor() {
+        val destination = VariableAccessor("destination", listOf("dest", "path"))
+        val builder = mappings.constant("constant_value", destination)
+        assertNotNull(builder)
+
+        val mappingsList = mappings.build()
+        assertEquals(1, mappingsList.size)
+
+        val mapping = mappingsList[0]
+        assertEquals("destination", mapping.destination.variable)
+        assertEquals(listOf("dest", "path"), mapping.destination.path)
+        assertNull(mapping.parameters.key)
+        assertNull(mapping.parameters.filter)
+        assertEquals("constant_value", mapping.parameters.mapTo?.value)
+    }
+
+    @Test
+    fun constant_Builds_Transformation_Operation_With_Options() {
+        val destination = VariableAccessor("destination", listOf("dest", "path"))
+        val builder = mappings.constant("constant_value", destination)
+            .ifValueEquals("key", "expected")
+        assertNotNull(builder)
+
+        val mappingsList = mappings.build()
+        assertEquals(1, mappingsList.size)
+
+        val mapping = mappingsList[0]
+        assertEquals(destination, mapping.destination)
+        assertEquals("key", mapping.parameters.key?.variable)
+        assertEquals("expected", mapping.parameters.filter?.value)
+        assertEquals("constant_value", mapping.parameters.mapTo?.value)
+    }
+
+    @Test
+    fun keep_Builds_Transformation_Operation_With_Same_Source_And_Destination() {
+        val builder = mappings.keep("key_to_keep")
+        assertNotNull(builder)
+
+        val mappingsList = mappings.build()
+        assertEquals(1, mappingsList.size)
+
+        val mapping = mappingsList[0]
+        assertEquals("key_to_keep", mapping.destination.variable)
+        assertNull(mapping.destination.path)
+        assertEquals("key_to_keep", mapping.parameters.key?.variable)
+        assertNull(mapping.parameters.key?.path)
+        assertNull(mapping.parameters.filter)
+        assertNull(mapping.parameters.mapTo)
+    }
+
+    @Test
+    fun keep_Builds_Transformation_Operation_With_Path() {
+        val builder = mappings.keep("key_to_keep", listOf("path", "to"))
+        assertNotNull(builder)
+
+        val mappingsList = mappings.build()
+        assertEquals(1, mappingsList.size)
+
+        val mapping = mappingsList[0]
+        assertEquals("key_to_keep", mapping.destination.variable)
+        assertEquals(listOf("path", "to"), mapping.destination.path)
+        assertEquals("key_to_keep", mapping.parameters.key?.variable)
+        assertEquals(listOf("path", "to"), mapping.parameters.key?.path)
+        assertNull(mapping.parameters.filter)
+        assertNull(mapping.parameters.mapTo)
+    }
+
+    @Test
+    fun keep_Builds_Transformation_Operation_With_VariableAccessor() {
+        val keyToKeep = VariableAccessor("key_to_keep", listOf("path", "to"))
+        val builder = mappings.keep(keyToKeep)
+        assertNotNull(builder)
+
+        val mappingsList = mappings.build()
+        assertEquals(1, mappingsList.size)
+
+        val mapping = mappingsList[0]
+        assertEquals(keyToKeep, mapping.destination)
+        assertEquals(keyToKeep, mapping.parameters.key)
+        assertNull(mapping.parameters.filter)
+        assertNull(mapping.parameters.mapTo)
+    }
+
+    @Test
+    fun keep_Builds_Transformation_Operation_With_Options() {
+        val keyToKeep = VariableAccessor("key_to_keep", listOf("path", "to"))
+        val builder = mappings.keep(keyToKeep)
+            .ifValueEquals("expected")
+        assertNotNull(builder)
+
+        val mappingsList = mappings.build()
+        assertEquals(1, mappingsList.size)
+
+        val mapping = mappingsList[0]
+        assertEquals(keyToKeep, mapping.destination)
+        assertEquals(keyToKeep, mapping.parameters.key)
+        assertEquals("expected", mapping.parameters.filter?.value)
+        assertNull(mapping.parameters.mapTo?.value)
     }
 }
