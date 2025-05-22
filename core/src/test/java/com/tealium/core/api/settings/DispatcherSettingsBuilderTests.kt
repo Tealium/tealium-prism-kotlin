@@ -16,7 +16,7 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class DispatcherSettingsBuilderTests {
 
-    private lateinit var builder: DispatcherSettingsBuilder
+    private lateinit var builder: DispatcherSettingsBuilder<*>
 
     @Before
     fun setup() {

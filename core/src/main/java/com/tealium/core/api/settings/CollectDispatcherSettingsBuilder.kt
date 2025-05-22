@@ -9,7 +9,7 @@ import com.tealium.core.internal.modules.collect.CollectDispatcherConfiguration
  * Note. Any configuration set here will override any configuration provided by the local or remote
  * settings files and will no longer be overridable remotely.
  */
-class CollectDispatcherSettingsBuilder : DispatcherSettingsBuilder() {
+class CollectDispatcherSettingsBuilder : DispatcherSettingsBuilder<CollectDispatcherSettingsBuilder>() {
 
     /**
      * Sets the url to use when sending individual events

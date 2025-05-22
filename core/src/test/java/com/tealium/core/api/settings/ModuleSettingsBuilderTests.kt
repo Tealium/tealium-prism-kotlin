@@ -46,7 +46,7 @@ class ModuleSettingsBuilderTests {
         assertEquals(100, configurations.getInt("my_number"))
     }
 
-    private class TestSettingsBuilder : ModuleSettingsBuilder() {
+    private class TestSettingsBuilder : ModuleSettingsBuilder<TestSettingsBuilder>() {
         fun setProperty(key: String, value: Any): TestSettingsBuilder = apply {
             configuration.put(key, DataItem.convert(value))
         }

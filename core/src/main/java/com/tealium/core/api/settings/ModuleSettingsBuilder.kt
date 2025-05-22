@@ -13,7 +13,7 @@ import com.tealium.core.internal.settings.ModuleSettings
  *
  * Therefore it also doesn't require users to know which json key any particular setting needs to be set at.
  */
-open class ModuleSettingsBuilder {
+open class ModuleSettingsBuilder<T: ModuleSettingsBuilder<T>> {
     protected val builder: DataObject.Builder = DataObject.Builder()
     protected val configuration: DataObject.Builder = DataObject.Builder()
 
@@ -21,9 +21,10 @@ open class ModuleSettingsBuilder {
      * Sets the resulting [Module] to be permanently enabled/disabled. Local/Remote settings sources will
      * be overridden by this
      */
-    fun setEnabled(enabled: Boolean) = apply {
+    @Suppress("UNCHECKED_CAST")
+    fun setEnabled(enabled: Boolean): T = apply {
         builder.put(ModuleSettings.KEY_ENABLED, enabled)
-    }
+    } as T
 
     /**
      * Returns the complete [Module] settings as configured by this [ModuleSettingsBuilder].

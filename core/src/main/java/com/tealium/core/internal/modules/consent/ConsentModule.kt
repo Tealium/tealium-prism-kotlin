@@ -14,7 +14,7 @@ import com.tealium.core.api.pubsub.ObservableState
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.pubsub.SubscribableState
-import com.tealium.core.api.settings.ModuleSettingsBuilder
+import com.tealium.core.api.settings.ConsentSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.transform.DispatchScope
 import com.tealium.core.api.transform.TransformationSettings
@@ -230,7 +230,7 @@ class ConsentModule(
         private var settings: DataObject? = null
     ) : ModuleFactory {
 
-        constructor(cmp: ConsentManagementAdapter, settings: ModuleSettingsBuilder) : this(
+        constructor(cmp: ConsentManagementAdapter, settings: ConsentSettingsBuilder) : this(
             cmp,
             null,
             null,

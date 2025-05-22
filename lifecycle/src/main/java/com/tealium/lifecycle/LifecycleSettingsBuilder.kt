@@ -10,7 +10,7 @@ import com.tealium.lifecycle.internal.LifecycleConfiguration
  * Note. Any configuration set here will override any configuration provided by the local or remote
  * settings files and will no longer be overridable remotely.
  */
-class LifecycleSettingsBuilder : CollectorSettingsBuilder() {
+class LifecycleSettingsBuilder : CollectorSettingsBuilder<LifecycleSettingsBuilder>() {
 
     /**
      * Sets Lifecycle session timeout in minutes. Set to -1 for an infinite session duration.

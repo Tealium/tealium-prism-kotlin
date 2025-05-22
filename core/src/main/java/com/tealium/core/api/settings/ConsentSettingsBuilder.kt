@@ -8,7 +8,7 @@ import com.tealium.core.internal.modules.consent.ConsentConfiguration
 /**
  * A builder that allows setting the configurable properties of the Consent module.
  */
-class ConsentSettingsBuilder : ModuleSettingsBuilder() {
+class ConsentSettingsBuilder : ModuleSettingsBuilder<ConsentSettingsBuilder>() {
 
     /**
      * Sets the required purposes for each [Dispatcher]

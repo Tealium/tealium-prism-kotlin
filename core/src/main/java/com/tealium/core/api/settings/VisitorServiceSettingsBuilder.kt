@@ -10,7 +10,7 @@ import com.tealium.core.internal.modules.VisitorServiceConfiguration
  * Note. Any configuration set here will override any configuration provided by the local or remote
  * settings files and will no longer be overridable remotely.
  */
-class VisitorServiceSettingsBuilder : ModuleSettingsBuilder() {
+class VisitorServiceSettingsBuilder : ModuleSettingsBuilder<VisitorServiceSettingsBuilder>() {
 
     /**
      * Sets the URL template to use when fetching the latest visitor profile. Available template
