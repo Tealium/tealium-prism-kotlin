@@ -1,7 +1,7 @@
 package com.tealium.core.api.settings
 
 import com.tealium.core.api.settings.Mappings.ConstantOptions
-import com.tealium.core.api.settings.Mappings.FromOptions
+import com.tealium.core.api.settings.Mappings.VariableOptions
 
 /**
  * The [Mappings] interface is used to build up key/destination mappings used when optionally
@@ -38,18 +38,18 @@ import com.tealium.core.api.settings.Mappings.FromOptions
  * from(variable("path", "to", "source"), variable("path", "to", "destination"))
  * ```
  *
- * The [from] method returns a [FromOptions] that allows for setting optional properties relevant to a mapping.
+ * The [from] method returns a [VariableOptions] that allows for setting optional properties relevant to a mapping.
  *
- * @see FromOptions
+ * @see VariableOptions
  * @see ConstantOptions
  */
 interface Mappings {
 
     /**
-     * The [FromOptions] allows for configuring optional properties relevant only when mapping values
+     * The [VariableOptions] allows for configuring optional properties relevant only when mapping values
      * from the source payload.
      */
-    interface FromOptions {
+    interface VariableOptions {
 
         /**
          * Sets an optional basic condition that the value at the given mapping key needs to match
@@ -57,7 +57,7 @@ interface Mappings {
          *
          * @param value The target value that the source key should contain.
          */
-        fun ifValueEquals(value: String): FromOptions
+        fun ifValueEquals(value: String): VariableOptions
     }
 
     /**
@@ -102,12 +102,12 @@ interface Mappings {
     /**
      * Adds a mapping where the [key] and [destination] are in the top level of the payload.
      *
-     * Returns a [FromOptions] with which to configure some options if required.
+     * Returns a [VariableOptions] with which to configure some options if required.
      *
      * @param key The [key] to take the value from and place it in the mapped payload at the [destination] key
      * @param destination The [destination] key to store the mapped value
      */
-    fun from(key: String, destination: String): FromOptions =
+    fun from(key: String, destination: String): VariableOptions =
         from(VariableAccessor(key), VariableAccessor(destination))
 
     /**
@@ -117,13 +117,13 @@ interface Mappings {
      * The [keyPath] can be used to specify that the destination value will be taken from an object
      * that is nested, where the [keyPath] specifies the path to get to the [key]
      *
-     * Returns a [FromOptions] with which to configure some options if required.
+     * Returns a [VariableOptions] with which to configure some options if required.
      *
      * @param key The [key] to take the value from and place it in the mapped payload at the [destination] key
      * @param keyPath The ordered set of keys required to access the [key] in a nested object
      * @param destination The [destination] key to store the mapped value
      */
-    fun from(key: String, keyPath: List<String>, destination: String): FromOptions =
+    fun from(key: String, keyPath: List<String>, destination: String): VariableOptions =
         from(VariableAccessor(key, keyPath), VariableAccessor(destination))
 
     /**
@@ -133,13 +133,13 @@ interface Mappings {
      * The [destinationPath] can be used to specify that the destination value will be stored in an object
      * that is nested, where the [destinationPath] specifies the ordered path of keys
      *
-     * Returns a [FromOptions] with which to configure some options if required.
+     * Returns a [VariableOptions] with which to configure some options if required.
      *
      * @param key The [key] to take the value from and place it in the mapped payload at the [destination] key
      * @param destination The [destination] key to store the mapped value
      * @param destinationPath The ordered set of keys required to place the [destination] value in a nested object
      */
-    fun from(key: String, destination: String, destinationPath: List<String>): FromOptions =
+    fun from(key: String, destination: String, destinationPath: List<String>): VariableOptions =
         from(VariableAccessor(key), VariableAccessor(destination, destinationPath))
 
     /**
@@ -152,7 +152,7 @@ interface Mappings {
      * The [destinationPath] can be used to specify that the destination value will be stored in an object
      * that is nested, where the [destinationPath] specifies the ordered path of keys
      *
-     * Returns a [FromOptions] with which to configure some options if required.
+     * Returns a [VariableOptions] with which to configure some options if required.
      *
      * @param key The [key] to take the value from and place it in the mapped payload at the [destination] key
      * @param keyPath The ordered set of keys required to access the [key] in a nested object
@@ -164,47 +164,47 @@ interface Mappings {
         keyPath: List<String>,
         destination: String,
         destinationPath: List<String>
-    ): FromOptions = from(VariableAccessor(key, keyPath), VariableAccessor(destination, destinationPath))
+    ): VariableOptions = from(VariableAccessor(key, keyPath), VariableAccessor(destination, destinationPath))
 
     /**
      * Adds a mapping where both the [key] and [destination] can be located/stored at some
      * configured level of nesting as defined by [VariableAccessor.path] for each input.
      *
-     * Returns a [FromOptions] with which to configure some options if required.
+     * Returns a [VariableOptions] with which to configure some options if required.
      *
      * @param key The [key] to take the value from and place it in the mapped payload at the [destination] key
      * @param destination The [destination] key to store the mapped value
      */
-    fun from(key: VariableAccessor, destination: VariableAccessor): FromOptions
+    fun from(key: VariableAccessor, destination: VariableAccessor): VariableOptions
 
     /**
      * Adds a mapping where the [key] is both the source and destination of the mapping.
      *
-     * Returns a [FromOptions] with which to configure some options if required.
+     * Returns a [VariableOptions] with which to configure some options if required.
      *
      * @param key The [key] to take the value from and also the destination to place it in the mapped payload
      */
-    fun keep(key: String): FromOptions =
+    fun keep(key: String): VariableOptions =
         from(key, key)
 
     /**
      * Adds a mapping where the [key]/[keyPath] is both the source and destination of the mapping.
-     * Returns a [FromOptions] with which to configure some options if required.
+     * Returns a [VariableOptions] with which to configure some options if required.
      *
      * @param key The [key] to take the value from and also the destination to place it in the mapped payload
      * @param keyPath The ordered set of keys required to access the [key] in a nested object
      */
-    fun keep(key: String, keyPath: List<String>): FromOptions =
+    fun keep(key: String, keyPath: List<String>): VariableOptions =
         keep(VariableAccessor(key, keyPath))
 
     /**
      * Adds a mapping where the possibly nested [key] is both the source and destination of the mapping.
      *
-     * Returns a [FromOptions] with which to configure some options if required.
+     * Returns a [VariableOptions] with which to configure some options if required.
      *
      * @param key The [key] to take the value from and also the destination to place it in the mapped payload
      */
-    fun keep(key: VariableAccessor): FromOptions =
+    fun keep(key: VariableAccessor): VariableOptions =
         from(key, key)
 
     /**

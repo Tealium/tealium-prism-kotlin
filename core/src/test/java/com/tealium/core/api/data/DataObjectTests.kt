@@ -1,6 +1,7 @@
 package com.tealium.core.api.data
 
 import com.tealium.core.api.data.DataItemUtils.asDataObject
+import com.tealium.core.api.settings.VariableAccessor
 import com.tealium.tests.common.trimJson
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -625,5 +626,71 @@ class DataObjectTests {
             assertEquals(DataItem.NULL, list2.get(1))
             assertNull(list2.getBoolean(1))
         }
+    }
+
+    @Test
+    fun extract_Returns_Value_From_Top_Level_When_Path_Is_Null() {
+        val dataObject = DataObject.create {
+            put("key", "string")
+        }
+
+        val value = dataObject.extract(VariableAccessor("key"))!!.getString()
+        assertEquals("string", value)
+    }
+
+    @Test
+    fun extract_Returns_Value_From_Top_Level_When_Path_Is_Not_Null_But_Is_Empty() {
+        val dataObject = DataObject.create {
+            put("key", "string")
+            put("obj", DataObject.create {
+                put("key", "nested-string")
+            })
+        }
+
+        val value = dataObject.extract(VariableAccessor("key", emptyList()))!!.getString()
+        assertEquals("string", value)
+    }
+
+    @Test
+    fun extract_Returns_Value_From_Nested_Level_When_Path_Is_Not_Null_And_Not_Empty() {
+        val dataObject = DataObject.create {
+            put("obj", DataObject.create {
+                put("key", "string")
+            })
+        }
+
+        val value = dataObject.extract(VariableAccessor("key", listOf("obj")))!!.getString()
+        assertEquals("string", value)
+    }
+
+    @Test
+    fun extract_Returns_Null_When_Key_Not_Found() {
+        val dataObject = DataObject.create {
+            put("key", "string")
+        }
+
+        assertNull(dataObject.extract(VariableAccessor("missing")))
+    }
+
+    @Test
+    fun extract_Returns_Null_When_Nested_Key_Not_Found() {
+        val dataObject = DataObject.create {
+            put("obj", DataObject.create {
+                put("key", "string")
+            })
+        }
+
+        assertNull(dataObject.extract(VariableAccessor("missing", listOf("obj"))))
+    }
+
+    @Test
+    fun extract_Returns_Null_When_Invalid_Path_Found() {
+        val dataObject = DataObject.create {
+            put("obj", DataObject.create {
+                put("key", "string")
+            })
+        }
+
+        assertNull(dataObject.extract(VariableAccessor("key", listOf("wrong_path"))))
     }
 }

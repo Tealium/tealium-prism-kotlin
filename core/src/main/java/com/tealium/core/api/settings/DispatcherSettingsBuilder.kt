@@ -32,13 +32,12 @@ open class DispatcherSettingsBuilder<T: DispatcherSettingsBuilder<T>> : ModuleSe
      * }
      * ```
      *
-     * For more complex use cases you can leverage the optional methods on [Mappings.FromOptions]
+     * For more complex use cases you can leverage the optional methods on [Mappings.VariableOptions]
      * ```kotlin
      * setMappings {
      *  from(VariableAccessor("input1", listOf("container")),
      *        VariableAccessor("destination", listOf("otherContainer")))
-     *      .ifInputEquals("value")
-     *      .mapTo("otherValue")
+     *      .ifValueEquals("value")
      * }
      * ```
      *

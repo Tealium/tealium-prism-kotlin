@@ -101,11 +101,7 @@ class MappingsEngine(
                 ?: return into
 
             val (variable, path) = mapping.destination
-            return if (path == null) {
-                into.copy {
-                    put(variable, combine(into.get(variable), input, shouldCombine))
-                }
-            } else buildPathAndPut(into, path, variable, input, shouldCombine)
+            return buildPathAndPut(into, path ?: emptyList(), variable, input, shouldCombine)
         }
 
         /**

@@ -13,10 +13,10 @@ class MappingsImpl : Mappings {
         val destination: VariableAccessor,
         private var key: VariableAccessor? = null,
         private var mapTo: ValueContainer? = null
-    ) : Mappings.FromOptions, Mappings.ConstantOptions {
+    ) : Mappings.VariableOptions, Mappings.ConstantOptions {
         private var filter: ValueContainer? = null
 
-        override fun ifValueEquals(value: String): Mappings.FromOptions =
+        override fun ifValueEquals(value: String): Mappings.VariableOptions =
             apply { filter = ValueContainer(value) }
 
         override fun ifValueEquals(key: VariableAccessor, value: String) =
@@ -30,7 +30,7 @@ class MappingsImpl : Mappings {
         }
     }
 
-    override fun from(key: VariableAccessor, destination: VariableAccessor): Mappings.FromOptions {
+    override fun from(key: VariableAccessor, destination: VariableAccessor): Mappings.VariableOptions {
         val builder = BuilderImpl(destination, key = key)
         mappings.add(builder)
         return builder
