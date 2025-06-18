@@ -9,6 +9,7 @@ import com.tealium.core.internal.pubsub.impl.FlatMapLatestObservable
 import com.tealium.core.internal.pubsub.impl.FlatMapObservable
 import com.tealium.core.internal.pubsub.impl.MapNotNullObservable
 import com.tealium.core.internal.pubsub.impl.MapObservable
+import com.tealium.core.internal.pubsub.impl.MulticastObservable
 import com.tealium.core.internal.pubsub.impl.ObservableStateValue
 import com.tealium.core.internal.pubsub.impl.ObserveOnObservable
 import com.tealium.core.internal.pubsub.impl.ResubscribingObservable
@@ -223,5 +224,27 @@ interface Observable<T> : Subscribable<T> {
      */
     fun asSingle(scheduler: Scheduler): Single<T> {
         return SingleImpl(this, scheduler)
+    }
+
+    /**
+     * Returns an [Observable] that will share a single connection to the source [Observable] (this).
+     *
+     * This [Observable] will not subscribe to the source until the first observer subscribes, and
+     * no emissions are replayed to late-subscribing observers.
+     */
+    fun share() : Observable<T> {
+        return MulticastObservable(this, Observables.publishSubject())
+    }
+
+    /**
+     * Returns an [Observable] that will share a single connection to the source [Observable] (this).
+     *
+     * This [Observable] will not subscribe to the source until the first observer subscribes.
+     * Emissions are replayed to late-subscribing observers according to the given [replay]
+     *
+     * @param replay The number of emissions to cache and replay to late-subscribing observers
+     */
+    fun share(replay: Int) : Observable<T> {
+        return MulticastObservable(this, Observables.replaySubject(replay))
     }
 }
