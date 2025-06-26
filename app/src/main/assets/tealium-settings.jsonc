@@ -24,5 +24,11 @@
 //        "wifi_only": true
 //      }
 //    }
+    "BatchingBarrier": {
+      "barrier_id": "BatchingBarrier",
+      "configuration" : {
+        "batch_size": 3
+      }
+    }
   }
 }

@@ -115,6 +115,14 @@ object TimeFrameUtils {
     }
 
     /**
+     * Converts the current [TimeFrame] to milliseconds
+     */
+    @JvmStatic
+    fun TimeFrame.inMilliseconds() : Long {
+        return asUnit(TimeUnit.MILLISECONDS)
+    }
+
+    /**
      * Converts the current [TimeFrame] to seconds
      */
     @JvmStatic

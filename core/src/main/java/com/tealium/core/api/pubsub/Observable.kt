@@ -39,6 +39,13 @@ interface Observable<T> : Subscribable<T> {
     }
 
     /**
+     * Returns an observable that emits downstream up until the [predicate] returns false.
+     */
+    fun takeWhile(inclusive: Boolean, predicate: (T) -> Boolean): Observable<T> {
+        return TakeWhileObservable(this, predicate, inclusive)
+    }
+
+    /**
      * Returns an observable that emits only the specified number of events given by the provided [count]
      */
     fun take(count: Int): Observable<T> {
@@ -148,6 +155,15 @@ interface Observable<T> : Subscribable<T> {
         return Observables.combine(this, other, combiner)
     }
 
+    /**
+     * Returns an observable that combines the emissions of this observable the given others. The
+     * downstream emission is the result of applying the [combiner] function to the latest emissions
+     * of both observables - and are only possible once all others have emitted at least one value.
+     */
+    fun <T2, T3, R> combine(other1: Observable<T2>, other2: Observable<T3>, combiner: (T, T2, T3) -> R): Observable<R> {
+        return Observables.combine(this, other1) { a, b -> a to b}
+            .combine(other2) { (a, b), c -> combiner(a, b, c) }
+    }
 
     /**
      * Returns an observable that will emit all the given [item] values before making a subscription

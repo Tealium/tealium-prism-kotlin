@@ -5,6 +5,7 @@ import com.tealium.core.api.barriers.BarrierScope
 import com.tealium.core.api.barriers.BarrierState
 import com.tealium.core.api.modules.Dispatcher
 import com.tealium.core.api.pubsub.Observable
+import com.tealium.core.api.tracking.Dispatch
 
 /**
  * The [BarrierCoordinator] is responsible for computing the state of all [Barrier] implementations
@@ -28,4 +29,13 @@ interface BarrierCoordinator {
      * @return A [Observable] of [BarrierState]s for the [Dispatcher]
      */
     fun onBarriersState(dispatcherId: String): Observable<BarrierState>
+
+    /**
+     * Places the [BarrierCoordinator] into a "flushing" state for each dispatcher until any queued
+     * [Dispatch]es have been processed and the queue size is reduced to zero.
+     *
+     * The status of any barrier whose [Barrier.isFlushable] property returns `true` will be ignored
+     * until the flush is completed.
+     */
+    fun flush()
 }

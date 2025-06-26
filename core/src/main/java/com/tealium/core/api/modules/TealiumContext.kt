@@ -12,6 +12,7 @@ import com.tealium.core.api.pubsub.ObservableState
 import com.tealium.core.api.settings.CoreSettings
 import com.tealium.core.api.tracking.Tracker
 import com.tealium.core.api.transform.TransformerRegistry
+import com.tealium.core.api.misc.QueueMetrics
 
 class TealiumContext(
     val context: Context,
@@ -26,5 +27,6 @@ class TealiumContext(
     val activityManager: ActivityManager,
     val transformerRegistry: TransformerRegistry,
     val barrierRegistry: BarrierRegistry,
-    val moduleManager: ModuleManager
+    val moduleManager: ModuleManager,
+    val queueMetrics: QueueMetrics
 )

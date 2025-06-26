@@ -67,6 +67,24 @@ object Schema {
                 ON d.$COLUMN_ID = q.${QueueTable.COLUMN_DISPATCH_ID} 
         """.trimIndent()
 
+        val SELECT_QUEUE_SIZE_FOR_PROCESSOR: String = """
+            SELECT COUNT(*) 
+            FROM ${QueueTable.TABLE_NAME}
+                INNER JOIN $TABLE_NAME d 
+                ON d.$COLUMN_ID = ${QueueTable.COLUMN_DISPATCH_ID}
+            WHERE d.${COLUMN_TIMESTAMP} >= ?
+            AND ${QueueTable.COLUMN_PROCESSOR_ID} = ?
+        """.trimIndent()
+
+        val SELECT_QUEUE_SIZES_BY_PROCESSOR: String = """
+            SELECT ${QueueTable.COLUMN_PROCESSOR_ID}, COUNT(*) 
+            FROM ${QueueTable.TABLE_NAME}
+                INNER JOIN $TABLE_NAME d 
+                ON d.$COLUMN_ID = ${QueueTable.COLUMN_DISPATCH_ID}
+            WHERE d.${COLUMN_TIMESTAMP} >= ?
+            GROUP BY ${QueueTable.COLUMN_PROCESSOR_ID} 
+        """.trimIndent()
+
         val DELETE_OLDEST_X_DISPATCHES: String = """
             DELETE FROM $TABLE_NAME 
             WHERE $COLUMN_ID IN (

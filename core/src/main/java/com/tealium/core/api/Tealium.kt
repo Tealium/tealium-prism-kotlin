@@ -1,5 +1,6 @@
 package com.tealium.core.api
 
+import com.tealium.core.api.barriers.Barrier
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.misc.TealiumException
 import com.tealium.core.api.misc.TealiumResult
@@ -32,6 +33,13 @@ interface Tealium {
     fun track(dispatch: Dispatch)
     fun track(dispatch: Dispatch, onComplete: TrackResultListener)
 
+    /**
+     * Flushes any queued events from the system when it is considered safe to do so by any [Barrier]s
+     * that may be blocking.
+     *
+     * This method will not override those [Barrier] implementations whose [Barrier.isFlushable]
+     * returns false. But when non-flushable barriers open, a flush will still occur.
+     */
     fun flushEventQueue()
 
     /**

@@ -23,6 +23,7 @@ class MainActivity : AppCompatActivity(), FeatureListFragment.FeatureSelectedLis
     private lateinit var binding: ActivityMainBinding
     private lateinit var trackEventButton: Button
     private lateinit var secondActivityButton: Button
+    private lateinit var flushButton: Button
     private lateinit var fragmentContainer: LinearLayout
     private lateinit var switchEnabled: SwitchCompat
 
@@ -35,6 +36,7 @@ class MainActivity : AppCompatActivity(), FeatureListFragment.FeatureSelectedLis
         trackEventButton = binding.btnTrackEvent
         secondActivityButton = binding.btnSecondActivity
         fragmentContainer = binding.fragmentContainer
+        flushButton = binding.btnFlushEvents
 
         switchEnabled = binding.switchTealiumEnabled
         switchEnabled.isChecked = viewModel.isEnabled
@@ -53,6 +55,9 @@ class MainActivity : AppCompatActivity(), FeatureListFragment.FeatureSelectedLis
         }
         secondActivityButton.setOnClickListener {
             startActivity(Intent(this@MainActivity, Activity2::class.java))
+        }
+        flushButton.setOnClickListener {
+            viewModel.flush()
         }
 
         subscribeSnackbarNotifications()

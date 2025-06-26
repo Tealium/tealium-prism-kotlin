@@ -41,4 +41,8 @@ class MainActivityViewModel : ViewModel() {
     fun track(eventName: String) {
         TealiumHelper.track(eventName)
     }
+
+    fun flush() {
+        TealiumHelper.flush()
+    }
 }

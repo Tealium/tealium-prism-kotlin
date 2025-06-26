@@ -41,6 +41,14 @@ fun <T> Observable<T>.map(): Observable<T> {
     return map(passthroughTransform())
 }
 
+/**
+ * Convenience method that maps any incoming emission to [Unit]
+ */
+@Suppress("RedundantUnitExpression")
+fun <T> Observable<T>.mapToUnit(): Observable<Unit> {
+    return map { _ -> Unit }
+}
+
 fun <T> SubscribableState<T>.asObservableState() : ObservableState<T> {
     return ObservableStateImpl(this)
 }

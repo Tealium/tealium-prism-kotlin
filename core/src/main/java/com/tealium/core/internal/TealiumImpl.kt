@@ -5,7 +5,9 @@ import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.logger.logIfWarnEnabled
 import com.tealium.core.api.misc.ActivityManager
+import com.tealium.core.api.misc.QueueMetrics
 import com.tealium.core.api.misc.Schedulers
+import com.tealium.core.api.misc.TimeFrameUtils.milliseconds
 import com.tealium.core.api.modules.Dispatcher
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
@@ -23,6 +25,7 @@ import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
 import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.api.transform.Transformer
+import com.tealium.core.internal.dispatch.BarrierCoordinator
 import com.tealium.core.internal.dispatch.BarrierCoordinatorImpl
 import com.tealium.core.internal.dispatch.BarrierManager
 import com.tealium.core.internal.dispatch.BarrierRegistryImpl
@@ -31,6 +34,7 @@ import com.tealium.core.internal.dispatch.MappingOperation
 import com.tealium.core.internal.dispatch.MappingsEngine
 import com.tealium.core.internal.dispatch.QueueManager
 import com.tealium.core.internal.dispatch.QueueManagerImpl
+import com.tealium.core.internal.dispatch.QueueMetricsImpl
 import com.tealium.core.internal.dispatch.TransformerCoordinator
 import com.tealium.core.internal.dispatch.TransformerCoordinatorImpl
 import com.tealium.core.internal.dispatch.TransformerRegistryImpl
@@ -89,6 +93,7 @@ class TealiumImpl(
     private val coreSettings: ObservableState<CoreSettings>
     private val networkUtilities: NetworkUtilities
     private val dispatchManager: DispatchManagerImpl
+    private val barrierCoordinator: BarrierCoordinator
     private val tracker: TrackerImpl
     private val tealiumContext: TealiumContext
     private val disposables: CompositeDisposable = DisposableContainer()
@@ -148,12 +153,15 @@ class TealiumImpl(
         val queueManager =
             createQueueManager(queueRepository, coreSettings, moduleManager.modules, logger)
 
+        val queueMetrics = QueueMetricsImpl(queueManager)
+        barrierCoordinator = BarrierCoordinatorImpl(barrierManager.barriers, this.activityManager.applicationStatus, queueMetrics)
+
         val loadRuleEngine = LoadRuleEngineImpl(settings)
         val mappingsEngine = MappingsEngine(settings.map(::extractMappings)
             .withState { extractMappings(settings.value) })
         dispatchManager = DispatchManagerImpl(
             moduleManager = moduleManager,
-            barrierCoordinator = BarrierCoordinatorImpl(barrierManager.barriers),
+            barrierCoordinator = barrierCoordinator,
             transformerCoordinator = transformerCoordinator,
             dispatchers = moduleManager.modules
                 .map { it.filterIsInstance<Dispatcher>().toSet() },
@@ -191,7 +199,8 @@ class TealiumImpl(
                 activityManager = this.activityManager,
                 transformerRegistry = TransformerRegistryImpl(transformerCoordinator),
                 barrierRegistry = BarrierRegistryImpl(barrierManager),
-                moduleManager = moduleManager
+                moduleManager = moduleManager,
+                queueMetrics = queueMetrics
             )
 
         val factories = preconfigureFactories(config.modules, queueManager, moduleManager.modules)
@@ -263,7 +272,7 @@ class TealiumImpl(
     }
 
     fun flushEventQueue() {
-        TODO("Not yet implemented")
+        barrierCoordinator.flush()
     }
 
     @Throws(PersistenceException::class)

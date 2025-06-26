@@ -86,9 +86,15 @@ object TealiumHelper {
         }
         config.apply {
             useRemoteSettings = false
-            localSdkSettingsFileName = "tealium-settings.json"
+            localSdkSettingsFileName = "tealium-settings.jsonc"
 
 //            addBarrier(Barriers.connectivity(),
+//                setOf(
+//                    BarrierScope.Dispatcher(CollectDispatcher.moduleName),
+//                    BarrierScope.Dispatcher("logger")
+//                )
+//            )
+//            addBarrier(Barriers.batching(),
 //                setOf(
 //                    BarrierScope.Dispatcher(CollectDispatcher.moduleName),
 //                    BarrierScope.Dispatcher("logger")
@@ -175,7 +181,10 @@ object TealiumHelper {
                     .commit()
             }
         }
+    }
 
+    fun flush() {
+        shared?.flushEventQueue()
     }
 
     private fun onTracked(status: TrackResult) {
@@ -237,6 +246,7 @@ object TealiumHelper {
                         context.logger.logIfInfoEnabled(id) {
                             "Audit: Dispatched ${dispatches.logDescriptions()}"
                         }
+                        callback.onComplete(dispatches)
                         return CompletedDisposable
                     }
 

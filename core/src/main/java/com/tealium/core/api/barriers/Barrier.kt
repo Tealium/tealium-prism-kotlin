@@ -2,6 +2,7 @@ package com.tealium.core.api.barriers
 
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.modules.Dispatcher
+import com.tealium.core.api.pubsub.Observables
 
 /**
  * Defines a utility that can influence whether or not it is safe to continue processing events for
@@ -20,5 +21,13 @@ interface Barrier {
      * [BarrierState.Closed] should be emitted to disallow further processing, and [BarrierState.Open]
      * to allow processing again.
      */
-    val onState: Observable<BarrierState>
+    fun onState(dispatcherId: String): Observable<BarrierState>
+
+    /**
+     * States whether or not this [Barrier] can be bypassed for "flush" events.
+     *
+     * @return An [Observable] that emits true if this [Barrier] can be bypassed; else false
+     */
+    val isFlushable: Observable<Boolean>
+        get() = Observables.just(true)
 }

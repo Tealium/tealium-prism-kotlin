@@ -8,16 +8,31 @@ import com.tealium.core.api.barriers.ConfigurableBarrier
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.pubsub.Observable
+import com.tealium.core.api.pubsub.Observables
+
+fun barrier(
+    barrierId: String,
+    state: Observable<BarrierState>,
+    flushable: Boolean = false
+): ConfigurableBarrier =
+    barrier(barrierId, state, Observables.just(flushable))
 
 /**
  * Creates a new test [Barrier] with the given values
  */
-fun barrier(id: String, state: Observable<BarrierState>): ConfigurableBarrier {
+fun barrier(
+    barrierId: String,
+    state: Observable<BarrierState>,
+    flushable: Observable<Boolean>
+): ConfigurableBarrier {
     return object : ConfigurableBarrier {
         override val id: String
-            get() = id
-        override val onState: Observable<BarrierState>
-            get() = state
+            get() = barrierId
+
+        override fun onState(dispatcherId: String): Observable<BarrierState> = state
+
+        override val isFlushable: Observable<Boolean>
+            get() = flushable
     }
 }
 
@@ -25,7 +40,10 @@ fun barrier(id: String, state: Observable<BarrierState>): ConfigurableBarrier {
  * Creates a new test [BarrierFactory] returning the provided [barrier] when [BarrierFactory.create]
  * is called.
  */
-fun barrierFactory(barrier: ConfigurableBarrier, defaultScope: Set<BarrierScope>? = null) : BarrierFactory = object : BarrierFactory {
+fun barrierFactory(
+    barrier: ConfigurableBarrier,
+    defaultScope: Set<BarrierScope>? = null
+): BarrierFactory = object : BarrierFactory {
     override val id: String
         get() = barrier.id
 

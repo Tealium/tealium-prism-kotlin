@@ -1,5 +1,6 @@
 package com.tealium.core.api.barriers
 
+import com.tealium.core.internal.barriers.BatchingBarrier
 import com.tealium.core.internal.network.ConnectivityBarrier
 
 /**
@@ -29,6 +30,26 @@ object Barriers {
      */
     fun connectivity(defaultScope: Set<BarrierScope>) : BarrierFactory =
         ConnectivityBarrier.Factory(defaultScope)
+
+
+    /**
+     * Returns the [BarrierFactory] for creating the "BatchingBarrier". Use this barrier to only
+     * dispatch events when a certain number of queued events has been reached for any of the
+     * Dispatcher in scope.
+     */
+    fun batching(): BarrierFactory =
+        BatchingBarrier.Factory()
+
+    /**
+     * Returns the [BarrierFactory] for creating the "BatchingBarrier". Use this barrier to only
+     * dispatch events when a certain number of queued events has been reached for any of the
+     * Dispatcher in scope.
+     *
+     * @param defaultScope Set of [BarrierScope]s to use by default in case no other scope was
+     * configured in the settings.
+     */
+    fun batching(defaultScope: Set<BarrierScope>): BarrierFactory =
+        BatchingBarrier.Factory(defaultScope)
 
     // TODO - other BarrierFactory getters.
 }

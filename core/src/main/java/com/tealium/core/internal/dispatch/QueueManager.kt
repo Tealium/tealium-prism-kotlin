@@ -1,6 +1,8 @@
 package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.logger.logIfDebugEnabled
+import com.tealium.core.api.logger.logIfErrorEnabled
 import com.tealium.core.api.misc.TimeFrame
 import com.tealium.core.api.persistence.PersistenceException
 import com.tealium.core.api.pubsub.Observable
@@ -11,8 +13,6 @@ import com.tealium.core.api.settings.CoreSettings
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.internal.logger.LogCategory
 import com.tealium.core.internal.logger.ids
-import com.tealium.core.api.logger.logIfDebugEnabled
-import com.tealium.core.api.logger.logIfErrorEnabled
 import com.tealium.core.internal.logger.logDescriptions
 import com.tealium.core.internal.logger.nonNullMessage
 import com.tealium.core.internal.persistence.repositories.QueueRepository
@@ -24,6 +24,21 @@ interface QueueManager {
      * emitted value is the set of processor names that have had new events stored.
      */
     val enqueuedDispatchesForProcessors: Observable<Set<String>>
+
+    /**
+     * An observable stream to notify that there have been [Dispatch]es deleted from the queue. The
+     * emitted value is the set of processor names that have had events deleted.
+     */
+    val deletedDispatchesForProcessors: Observable<Set<String>>
+
+    /**
+     * An observable stream to notify changes in the number of [Dispatch]es that are yet to be sent.
+     * The value is the number of [Dispatch]es that are currently queued, minus the number that are
+     * currently in-flight.
+     *
+     * @param processorId The id of the processor whose queue size is required.
+     */
+    fun queueSizePendingDispatch(processorId: String): Observable<Int>
 
     /**
      * Returns an observable stream of the number of dispatches currently in-flight for a given [processor]
@@ -80,6 +95,8 @@ class QueueManagerImpl(
     private val logger: Logger
 ) : QueueManager {
 
+    private val _deletedDispatches: Subject<Set<String>> = Observables.publishSubject()
+
     init {
         settings.subscribe(::handleSettingsUpdate)
         processors.subscribe(::deleteQueues)
@@ -87,6 +104,23 @@ class QueueManagerImpl(
 
     override val enqueuedDispatchesForProcessors: Observable<Set<String>>
         get() = _enqueuedDispatches.asObservable()
+
+    override val deletedDispatchesForProcessors: Observable<Set<String>>
+        get() = _deletedDispatches.asObservable()
+
+    override fun queueSizePendingDispatch(processorId: String): Observable<Int> {
+        val possibleQueueSizeChanges = enqueuedDispatchesForProcessors
+            .merge(deletedDispatchesForProcessors)
+            .filter { it.contains(processorId) }
+            .map { }
+
+        return possibleQueueSizeChanges
+            .startWith(Unit)
+            .map { queueRepository.queueSize(processorId) }
+            .combine(inFlightCount(processorId)) { queueSize, inFlight ->
+                (queueSize - inFlight).coerceAtLeast(0)
+            }.distinct()
+    }
 
     override fun inFlightCount(processor: String): Observable<Int> {
         return inFlightDispatches.map { inFlight ->
@@ -135,7 +169,7 @@ class QueueManagerImpl(
                 "Removed processed dispatches for processor ($processor): (${dispatches.ids()})"
             }
 
-            removeFromInflightDispatches(processor, dispatches)
+            onDispatchesDeleted(processor, dispatches)
         } catch (ex: PersistenceException) {
             logger.logIfErrorEnabled(LogCategory.QUEUE_MANAGER) {
                 "Failed to remove processed dispatches for processor ($processor): (${dispatches.ids()})\nError: ${ex.message}"
@@ -151,7 +185,7 @@ class QueueManagerImpl(
                 "Removed all processed dispatches for processor (%s)", processor
             )
 
-            removeAllInflightDispatches(processor)
+            onProcessorsDeleted(setOf(processor))
         } catch (ex: PersistenceException) {
             logger.error(
                 LogCategory.QUEUE_MANAGER,
@@ -164,17 +198,16 @@ class QueueManagerImpl(
 
     private fun deleteQueues(currentProcessors: Set<String>) {
         try {
-            queueRepository.deleteQueues(forProcessorsNotIn = currentProcessors)
-            logger.debug(
-                LogCategory.QUEUE_MANAGER,
-                "Deleted queued events for disabled processors. Currently enabled processors are: %s",
-                currentProcessors
-            )
+            val affectedProcessors = calculateProcessorDeletions {
+                queueRepository.deleteQueues(forProcessorsNotIn = currentProcessors)
+                logger.debug(
+                    LogCategory.QUEUE_MANAGER,
+                    "Deleted queued events for disabled processors. Currently enabled processors are: %s",
+                    currentProcessors
+                )
+            } + inFlightDispatches.value.keys.filter { !currentProcessors.contains(it) }
 
-            inFlightDispatches.value.keys.filter { !currentProcessors.contains(it) }
-                .forEach { missingProcessor ->
-                    removeAllInflightDispatches(missingProcessor)
-                }
+            onProcessorsDeleted(affectedProcessors)
         } catch (ex: PersistenceException) {
             logger.error(
                 LogCategory.QUEUE_MANAGER,
@@ -186,37 +219,61 @@ class QueueManagerImpl(
     }
 
     private fun handleSettingsUpdate(coreSettings: CoreSettings) {
-        try {
-            queueRepository.resize(coreSettings.maxQueueSize)
-            logger.debug(
-                LogCategory.QUEUE_MANAGER,
-                "Resized the queue to (%s) and deleted eventual overflowing dispatches",
-                coreSettings.maxQueueSize
-            )
-        } catch (ex: PersistenceException) {
-            logger.error(
-                LogCategory.QUEUE_MANAGER,
-                "Failed to delete dispatches exceeding the maxQueueSize of (%s)\nError: %s",
-                coreSettings.maxQueueSize,
-                ex.nonNullMessage()
-            )
-        }
+        val affectedProcessors = calculateProcessorDeletions {
+            try {
+                queueRepository.resize(coreSettings.maxQueueSize)
+                logger.debug(
+                    LogCategory.QUEUE_MANAGER,
+                    "Resized the queue to (%s) and deleted eventual overflowing dispatches",
+                    coreSettings.maxQueueSize
+                )
+            } catch (ex: PersistenceException) {
+                logger.error(
+                    LogCategory.QUEUE_MANAGER,
+                    "Failed to delete dispatches exceeding the maxQueueSize of (%s)\nError: %s",
+                    coreSettings.maxQueueSize,
+                    ex.nonNullMessage()
+                )
+            }
 
-        val expiration: TimeFrame = coreSettings.expiration
-        try {
-            queueRepository.setExpiration(expiration)
-            logger.debug(
-                LogCategory.QUEUE_MANAGER,
-                "Set Queue Expiration to %s and deleted all expired dispatches", expiration
-            )
-        } catch (ex: PersistenceException) {
-            logger.error(
-                LogCategory.QUEUE_MANAGER,
-                "Failed to delete expired dispatches for expiration %s\nError: %s",
-                expiration,
-                ex.nonNullMessage()
-            )
+            val expiration: TimeFrame = coreSettings.expiration
+            try {
+                queueRepository.setExpiration(expiration)
+                logger.debug(
+                    LogCategory.QUEUE_MANAGER,
+                    "Set Queue Expiration to %s and deleted all expired dispatches", expiration
+                )
+            } catch (ex: PersistenceException) {
+                logger.error(
+                    LogCategory.QUEUE_MANAGER,
+                    "Failed to delete expired dispatches for expiration %s\nError: %s",
+                    expiration,
+                    ex.nonNullMessage()
+                )
+            }
         }
+        _deletedDispatches.onNext(affectedProcessors)
+    }
+
+    /**
+     * Utility method to record the queue sizes for each processor prior to possibly deleting some
+     * unknown events. A second query for the same queue sizes is used to determine which processors
+     * have had events deleted.
+     */
+    private inline fun calculateProcessorDeletions(task: () -> Unit) : Set<String> {
+        val initialQueueSizes = queueRepository.queueSizeByProcessor()
+
+        task.invoke()
+
+        val afterQueueSizes = queueRepository.queueSizeByProcessor()
+        val affectedProcessors: Set<String> = initialQueueSizes.mapNotNull { (processor, size) ->
+            val newSize = afterQueueSizes[processor]
+            if (newSize == null || newSize < size) {
+                processor
+            } else null
+        }.toSet()
+
+        return affectedProcessors
     }
 
     private fun addToInflightDispatches(processor: String, dispatches: List<Dispatch>) {
@@ -229,8 +286,10 @@ class QueueManagerImpl(
         inFlightDispatches.onNext(inFlight)
     }
 
-    private fun removeFromInflightDispatches(processor: String, dispatches: List<Dispatch>) {
+    private fun onDispatchesDeleted(processor: String, dispatches: List<Dispatch>) {
         if (dispatches.isEmpty()) return
+        _deletedDispatches.onNext(setOf(processor))
+
         val inFlight = inFlightDispatches.value.toMutableMap()
 
         inFlight[processor] = inFlight[processor]?.filter { dispatch ->
@@ -240,10 +299,10 @@ class QueueManagerImpl(
         inFlightDispatches.onNext(inFlight)
     }
 
-    private fun removeAllInflightDispatches(processor: String) {
-        val inFlight = inFlightDispatches.value.toMutableMap()
+    private fun onProcessorsDeleted(processors: Set<String>) {
+        _deletedDispatches.onNext(processors)
 
-        inFlight[processor] = mutableSetOf()
+        val inFlight = inFlightDispatches.value.filterKeys { !processors.contains(it) }
 
         inFlightDispatches.onNext(inFlight)
     }

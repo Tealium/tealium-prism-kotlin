@@ -3,7 +3,10 @@ package com.tealium.core.internal.persistence.repositories
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.misc.TimeFrame
 import com.tealium.core.api.misc.TimeFrameUtils.days
+import com.tealium.core.api.misc.TimeFrameUtils.inMilliseconds
+import com.tealium.core.api.misc.TimeFrameUtils.seconds
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.internal.persistence.database.DatabaseProvider
@@ -20,19 +23,20 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
+import java.util.UUID
 
 class SQLQueueRepositoryTests {
 
-    lateinit var app: Application
-    lateinit var queueRepository: SQLQueueRepository
-    lateinit var dbProvider: DatabaseProvider
+    private lateinit var app: Application
+    private lateinit var queueRepository: SQLQueueRepository
+    private lateinit var dbProvider: DatabaseProvider
 
-    lateinit var dispatch1: Dispatch
-    lateinit var dispatch2: Dispatch
-    lateinit var processor1: String
-    lateinit var processor2: String
-    lateinit var processor3: String
-    lateinit var defaultProcessors: Set<String>
+    private lateinit var dispatch1: Dispatch
+    private lateinit var dispatch2: Dispatch
+    private lateinit var processor1: String
+    private lateinit var processor2: String
+    private lateinit var processor3: String
+    private lateinit var defaultProcessors: Set<String>
 
     @Before
     fun setUp() {
@@ -44,8 +48,8 @@ class SQLQueueRepositoryTests {
         // Repositories
         queueRepository = SQLQueueRepository(
             dbProvider,
-            10,
-            1.days
+            maxQueueSize = 10,
+            expiration = 1.days
         )
 
         dispatch1 = Dispatch.create(
@@ -158,30 +162,26 @@ class SQLQueueRepositoryTests {
         assertEquals(dispatch3.id, dispatches2[1].id)
     }
 
-//    @Test
-//    fun storeDispatch_RemovesExpiredDispatches_When_MakingSpace() {
-//        settings.onNext(CoreSettings(maxQueueSize = 1, expiration = 1))
-//
-//        val expired = Dispatch.create(
-//            "expired",
-//            dispatch1.payload(),
-//            SQLQueueRepository.getExpiryTimestamp(queueRepository.expiration) - 1
-//        )!!
-//
-//        queueRepository.storeDispatch(listOf(expired), setOf(processor1))
-//        queueRepository.storeDispatch(listOf(dispatch1), setOf(processor1))
-//        assertEquals(1, queueRepository.size)
-//        assertEquals(1, queueRepository.processorQueueSize())
-//
-//        queueRepository.storeDispatch(listOf(dispatch2), setOf(processor1))
-//        assertEquals(1, queueRepository.size)
-//        assertEquals(1, queueRepository.processorQueueSize())
-//
-//        val dispatches1 = queueRepository.getQueuedDispatches(-1, processor1)
-//
-//        assertEquals(1, dispatches1.size)
-//        assertEquals(dispatch2.id, dispatches1[0].id)
-//    }
+    @Test
+    fun storeDispatch_RemovesExpiredDispatches_When_MakingSpace() {
+        queueRepository.resize(2)
+
+        val expired = createExpiredDispatch(expiredBy = 1.seconds)
+
+        queueRepository.storeDispatch(listOf(expired, dispatch1), setOf(processor1))
+        assertEquals(2, queueRepository.size)
+        assertEquals(2, queueRepository.processorQueueSize())
+
+        queueRepository.storeDispatch(listOf(dispatch2), setOf(processor1))
+        assertEquals(2, queueRepository.size)
+        assertEquals(2, queueRepository.processorQueueSize())
+
+        val dispatches1 = queueRepository.getQueuedDispatches(-1, processor1)
+
+        assertEquals(2, dispatches1.size)
+        assertEquals(dispatch1.id, dispatches1[0].id)
+        assertEquals(dispatch2.id, dispatches1[1].id)
+    }
 
     @Test
     fun deleteDispatch_DeletesEntries_ForIndividualProcessor() {
@@ -603,6 +603,115 @@ class SQLQueueRepositoryTests {
         assertEquals(0, dispatches2.size)
         assertEquals(0, dispatches3.size)
     }
+
+    @Test
+    fun queueSizeByProcessor_Returns_Empty_Map_When_Queue_Is_Empty() {
+        val result = queueRepository.queueSizeByProcessor()
+
+        assertEquals(emptyMap<String, Int>(), result)
+    }
+
+    @Test
+    fun queueSizeByProcessor_Returns_Queue_Sizes_For_All_Processors() {
+        queueRepository.storeDispatch(listOf(dispatch1), setOf(processor1, processor2))
+        queueRepository.storeDispatch(listOf(dispatch2), setOf(processor2))
+
+        val results = queueRepository.queueSizeByProcessor()
+
+        assertEquals(mapOf(processor1 to 1, processor2 to 2), results)
+    }
+
+    @Test
+    fun queueSizeByProcessor_Increments_Queue_Sizes_When_Dispatch_Stored() {
+        queueRepository.storeDispatch(listOf(dispatch1), setOf(processor1))
+
+        val results1 = queueRepository.queueSizeByProcessor()
+        queueRepository.storeDispatch(listOf(dispatch2), setOf(processor1))
+        val results2 = queueRepository.queueSizeByProcessor()
+
+        assertEquals(1, results1[processor1])
+        assertEquals(2, results2[processor1])
+    }
+
+    @Test
+    fun queueSizeByProcessor_Decrements_Queue_Sizes_When_Dispatch_Deleted() {
+        queueRepository.storeDispatch(listOf(dispatch1, dispatch2), setOf(processor1))
+
+        val results1 = queueRepository.queueSizeByProcessor()
+        queueRepository.deleteDispatch(dispatch1, processor1)
+        val results2 = queueRepository.queueSizeByProcessor()
+
+        assertEquals(2, results1[processor1])
+        assertEquals(1, results2[processor1])
+    }
+
+    @Test
+    fun queueSizeByProcessor_Decrements_Queue_Sizes_When_Multiple_Dispatches_Deleted() {
+        queueRepository.storeDispatch(listOf(dispatch1, dispatch2), setOf(processor1))
+
+        val results1 = queueRepository.queueSizeByProcessor()
+        queueRepository.deleteDispatches(listOf(dispatch1, dispatch2), processor1)
+        val results2 = queueRepository.queueSizeByProcessor()
+
+        assertEquals(2, results1[processor1])
+        assertNull(results2[processor1])
+    }
+
+    @Test
+    fun queueSizeByProcessor_Ignores_Expired_Dispatches_Still_On_Disk() {
+        val expired = createExpiredDispatch(expiredBy = 1.days)
+        queueRepository.storeDispatch(listOf(expired, dispatch1, dispatch2), setOf(processor1))
+
+        val results = queueRepository.queueSizeByProcessor()
+
+        assertEquals(2, results[processor1])
+    }
+
+    @Test
+    fun queueSize_Returns_Zero_When_Queue_Is_Empty() {
+        val result = queueRepository.queueSize(processor1)
+
+        assertEquals(0, result)
+    }
+
+    @Test
+    fun queueSize_Returns_Zero_When_Invalid_Processor() {
+        val result = queueRepository.queueSize("missing proccessor")
+
+        assertEquals(0, result)
+    }
+
+    @Test
+    fun queueSize_Returns_Queue_Count_When_Queue_Is_Not_Empty() {
+        queueRepository.storeDispatch(listOf(dispatch1), setOf(processor1, processor2))
+        queueRepository.storeDispatch(listOf(dispatch2), setOf(processor2))
+
+        val processor1Size = queueRepository.queueSize(processor1)
+        val processor2Size = queueRepository.queueSize(processor2)
+
+        assertEquals(1, processor1Size)
+        assertEquals(2, processor2Size)
+    }
+
+    @Test
+    fun queueSize_Ignores_Expired_Dispatches_Still_On_Disk() {
+        val expired = createExpiredDispatch(expiredBy = 1.days)
+        queueRepository.storeDispatch(listOf(expired, dispatch1, dispatch2), setOf(processor1))
+
+        val results = queueRepository.queueSize(processor1)
+
+        assertEquals(2, results)
+    }
+
+    private fun createExpiredDispatch(
+        id: String = UUID.randomUUID().toString(),
+        payload: DataObject = DataObject.EMPTY_OBJECT,
+        expiredBy: TimeFrame
+    ): Dispatch = Dispatch.create(
+        id,
+        payload,
+        SQLQueueRepository.getExpiryTimestamp(queueRepository.expiration) - expiredBy.inMilliseconds()
+    )!!
 
     private fun prePopulateProcessors() {
         queueRepository.deleteQueues(

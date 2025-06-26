@@ -53,7 +53,12 @@ class QueueManagerTests {
         coreSettings = Observables.publishSubject()
 
         queueManager = QueueManagerImpl(
-            queueRepository, coreSettings, processors, inFlightDispatches, enqueuedDispatches, SystemLogger
+            queueRepository,
+            coreSettings,
+            processors,
+            inFlightDispatches,
+            enqueuedDispatches,
+            SystemLogger
         )
     }
 
@@ -62,7 +67,12 @@ class QueueManagerTests {
         val processors = Observables.replaySubject<Set<String>>(1)
         processors.onNext(setOf(dispatcher1))
         queueManager = QueueManagerImpl(
-            queueRepository, coreSettings, processors, inFlightDispatches, enqueuedDispatches, SystemLogger
+            queueRepository,
+            coreSettings,
+            processors,
+            inFlightDispatches,
+            enqueuedDispatches,
+            SystemLogger
         )
 
         verify {
@@ -73,7 +83,12 @@ class QueueManagerTests {
     @Test
     fun processors_Removes_ProcessorQueues_When_Modules_Update() {
         queueManager = QueueManagerImpl(
-            queueRepository, coreSettings, processors, inFlightDispatches, enqueuedDispatches, SystemLogger
+            queueRepository,
+            coreSettings,
+            processors,
+            inFlightDispatches,
+            enqueuedDispatches,
+            SystemLogger
         )
         processors.onNext(setOf(dispatcher1))
 
@@ -88,7 +103,12 @@ class QueueManagerTests {
         val inFlightCount = mockk<(Int) -> Unit>(relaxed = true)
 
         queueManager = QueueManagerImpl(
-            queueRepository, coreSettings, processors, inFlightDispatches, enqueuedDispatches, SystemLogger
+            queueRepository,
+            coreSettings,
+            processors,
+            inFlightDispatches,
+            enqueuedDispatches,
+            SystemLogger
         )
         queueManager.inFlightCount(dispatcher1).subscribe(inFlightCount)
         processors.onNext(setOf(dispatcher2))
@@ -97,6 +117,22 @@ class QueueManagerTests {
             queueRepository.deleteQueues(forProcessorsNotIn = setOf(dispatcher2))
             inFlightCount(3) // init
             inFlightCount(0) // post-delete
+        }
+    }
+
+    @Test
+    fun processors_Emits_Deletions_For_Processors_Whose_Events_Were_Deleted() {
+        val deleted = mockk<(Set<String>) -> Unit>(relaxed = true)
+        every { queueRepository.queueSizeByProcessor() } returnsMany listOf(
+            mapOf("processor1" to 1, "processor2" to 2, "processor3" to 3), // initial
+            mapOf("processor1" to 1)                                        // after update
+        )
+
+        queueManager.deletedDispatchesForProcessors.subscribe(deleted)
+        processors.onNext(setOf("processor1"))
+
+        verify {
+            deleted.invoke(setOf("processor2", "processor3"))
         }
     }
 
@@ -255,6 +291,18 @@ class QueueManagerTests {
     }
 
     @Test
+    fun deleteDispatches_Emits_Affected_Processors_When_Dispatches_Deleted() {
+        val deleted = mockk<(Set<String>) -> Unit>(relaxed = true)
+
+        queueManager.deletedDispatchesForProcessors.subscribe(deleted)
+        queueManager.deleteDispatches(listOf(dispatch1), dispatcher1)
+
+        verify {
+            deleted(setOf(dispatcher1))
+        }
+    }
+
+    @Test
     fun deleteAllDispatches_Removes_Dispatches_From_Repository_For_Processor() {
         queueManager.deleteAllDispatches(dispatcher1)
 
@@ -262,6 +310,18 @@ class QueueManagerTests {
             queueRepository.deleteAllDispatches(dispatcher1)
         }
         confirmVerified(queueRepository)
+    }
+
+    @Test
+    fun deleteAllDispatches_Emits_Affected_Processors_When_Dispatches_Deleted() {
+        val deleted = mockk<(Set<String>) -> Unit>(relaxed = true)
+
+        queueManager.deletedDispatchesForProcessors.subscribe(deleted)
+        queueManager.deleteAllDispatches(dispatcher1)
+
+        verify {
+            deleted(setOf(dispatcher1))
+        }
     }
 
     @Test
@@ -294,6 +354,22 @@ class QueueManagerTests {
 
         verify {
             queueRepository.setExpiration(10.days)
+        }
+    }
+
+    @Test
+    fun settings_Emits_Deletions_For_Missing_Or_Reduced_Queue_Size_After_Update() {
+        val deleted = mockk<(Set<String>) -> Unit>(relaxed = true)
+        every { queueRepository.queueSizeByProcessor() } returnsMany listOf(
+            mapOf("unchanged" to 1, "reduced" to 2, "removed" to 3), // initial
+            mapOf("unchanged" to 1, "reduced" to 1)                  // after update
+        )
+
+        queueManager.deletedDispatchesForProcessors.subscribe(deleted)
+        coreSettings.onNext(CoreSettingsImpl(expiration = 10.days, maxQueueSize = 100))
+
+        verify {
+            deleted.invoke(setOf("reduced", "removed"))
         }
     }
 }

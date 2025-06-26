@@ -31,15 +31,15 @@ class CombineObservable<T1, T2, R>(
         private val source2: Observable<T2>,
         private val combiner: (T1, T2) -> R,
     ): Observer<R> {
-        private var item1: T1? = null
-        private var item2: T2? = null
+        private var item1: PendingEmission<T1>? = null
+        private var item2: PendingEmission<T2>? = null
         private val container: CompositeDisposable = DisposableContainer()
 
         private fun publish() {
             val first = item1
             val second = item2
             if (first != null && second != null) {
-                observer.onNext(combiner.invoke(first, second))
+                observer.onNext(combiner.invoke(first.value, second.value))
             }
         }
 
@@ -49,12 +49,12 @@ class CombineObservable<T1, T2, R>(
 
         fun subscribe(): Disposable {
             source1.subscribe {
-                item1 = it
+                item1 = PendingEmission(it)
                 publish()
             }.addTo(container)
 
             source2.subscribe {
-                item2 = it
+                item2 = PendingEmission(it)
                 publish()
             }.addTo(container)
 

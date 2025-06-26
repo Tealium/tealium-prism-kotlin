@@ -82,6 +82,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/activity_2" />
+        <Space
+            android:layout_width="24dp"
+            android:layout_height="match_parent" />
+        <Button
+            android:id="@+id/btn_flush_events"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/flush" />
 
     </LinearLayout>
 

@@ -19,11 +19,6 @@ import com.tealium.core.internal.settings.SdkSettings
 interface InternalModuleManager : ModuleManager {
 
     /**
-     * Observable stream of all [Module] implementations in the system.
-     */
-    val modules: ObservableState<List<Module>>
-
-    /**
      * Adds a [ModuleFactory] to the list of available factories
      *
      * @param moduleFactory The [ModuleFactory] to be added

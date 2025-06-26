@@ -19,7 +19,7 @@ class IterableCombineObservableTests {
     }
 
     @Test
-    fun combine_Emits_OnlyWhenBothHaveEmitted() {
+    fun combine_Emits_Only_When_Both_Have_Emitted() {
         val subject1 = Observables.publishSubject<Int>()
         val subject2 = Observables.publishSubject<Int>()
         val onNext = mockk<(Int) -> Unit>(relaxed = true)
@@ -40,7 +40,7 @@ class IterableCombineObservableTests {
     }
 
     @Test
-    fun combine_EmitsAllSubsequent_WhenBothHaveEmitted() {
+    fun combine_Emits_All_Subsequent_When_Both_Have_Emitted() {
         val subject1 = Observables.publishSubject<Int>()
         val subject2 = Observables.publishSubject<Int>()
         val onNext = mockk<(Int) -> Unit>(relaxed = true)
@@ -62,7 +62,7 @@ class IterableCombineObservableTests {
     }
 
     @Test
-    fun combine_DoesNotEmit_WhenOnlyOneHasEmitted() {
+    fun combine_Does_Not_Emit_When_Only_One_Has_Emitted() {
         val subject1 = Observables.publishSubject<Int>()
         val subject2 = Observables.publishSubject<Int>()
         val onNext = mockk<(Int) -> Unit>(relaxed = true)
@@ -77,7 +77,7 @@ class IterableCombineObservableTests {
     }
 
     @Test
-    fun combine_CanCombineMultipleObservables() {
+    fun combine_Can_Combine_Multiple_Observables() {
         val subject1 = Observables.publishSubject<Int>()
         val subject2 = Observables.publishSubject<Int>()
         val subject3 = Observables.publishSubject<Int>()
@@ -100,7 +100,7 @@ class IterableCombineObservableTests {
     }
 
     @Test
-    fun combine_CanCombineMultipleObservables_WithVarargs() {
+    fun combine_Can_Combine_Multiple_Observables_With_Varargs() {
         val subject1 = Observables.publishSubject<Int>()
         val subject2 = Observables.publishSubject<Int>()
         val subject3 = Observables.publishSubject<Int>()
@@ -123,7 +123,7 @@ class IterableCombineObservableTests {
     }
 
     @Test
-    fun combine_EmitsIterable_InCorrectOrder() {
+    fun combine_Emits_Iterable_In_Correct_Order() {
         val subject1 = Observables.publishSubject<Int>()
         val subject2 = Observables.publishSubject<Int>()
         val subject3 = Observables.publishSubject<Int>()
@@ -151,7 +151,7 @@ class IterableCombineObservableTests {
     }
 
     @Test
-    fun combine_EmitsImmediately_When_SourcesEmpty() {
+    fun combine_Emits_Immediately_When_Sources_Empty() {
         val onNext = mockk<(Int) -> Unit>(relaxed = true)
 
         val combiner: (Iterable<Int>) -> Int = mockk()
@@ -169,7 +169,22 @@ class IterableCombineObservableTests {
     }
 
     @Test
-    fun combine_Dispose_StopsEmitting() {
+    fun combine_Can_Emit_Null_Emissions() {
+        val nulls = Observables.just<Int?>(null)
+        val moreNulls = Observables.just<Int?>(null)
+        val onNext = mockk<(Iterable<Int?>) -> Unit>(relaxed = true)
+
+        Observables.combine(listOf(nulls, moreNulls)) {
+            it
+        }.subscribe(onNext)
+
+        verify {
+            onNext(listOf(null, null))
+        }
+    }
+
+    @Test
+    fun combine_Dispose_Stops_Emitting() {
         val subject1 = Observables.publishSubject<Int>()
         val subject2 = Observables.publishSubject<Int>()
         val subject3 = Observables.publishSubject<Int>()

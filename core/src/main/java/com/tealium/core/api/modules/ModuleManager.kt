@@ -4,6 +4,7 @@ import com.tealium.core.api.Tealium
 import com.tealium.core.api.modules.ModuleInfo
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.pubsub.Observable
+import com.tealium.core.api.pubsub.ObservableState
 
 /**
  * The [ModuleManager] is responsible for managing [Module] implementations throughout the [Tealium]
@@ -11,6 +12,11 @@ import com.tealium.core.api.pubsub.Observable
  * // TODO - complete
  */
 interface ModuleManager {
+
+    /**
+     * Observable stream of all [Module] implementations in the system.
+     */
+    val modules: ObservableState<List<Module>>
 
     /**
      * Returns a [List] containing information related to the currently enabled [Module] implementations

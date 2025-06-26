@@ -27,8 +27,8 @@ class ConnectivityBarrier(
     )
 
     override val id: String = BARRIER_ID
-    override val onState: Observable<BarrierState>
-        get() = connectivityStatus.combine(wifiOnly) { status, wifiOnly ->
+    override fun onState(dispatcherId: String): Observable<BarrierState> =
+        connectivityStatus.combine(wifiOnly) { status, wifiOnly ->
             connectionSatisfied(status, wifiOnly)
         }.distinct()
 
@@ -39,6 +39,9 @@ class ConnectivityBarrier(
             BarrierState.Closed
         }
     }
+
+    override val isFlushable: Observable<Boolean>
+        get() = connectivityStatus.map { status -> status is Connectivity.Status.Connected }
 
     override fun updateConfiguration(configuration: DataObject) {
         wifiOnly.onNext(configuration.wifiOnly)

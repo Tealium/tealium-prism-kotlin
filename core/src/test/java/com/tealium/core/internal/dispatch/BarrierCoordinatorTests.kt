@@ -3,11 +3,16 @@ package com.tealium.core.internal.dispatch
 import com.tealium.core.api.barriers.BarrierScope
 import com.tealium.core.api.barriers.BarrierState
 import com.tealium.core.api.barriers.ConfigurableBarrier
+import com.tealium.core.api.misc.ActivityManager
+import com.tealium.core.api.misc.QueueMetrics
 import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.ReplaySubject
 import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.pubsub.Subject
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import io.mockk.verifyOrder
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -18,6 +23,7 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class BarrierCoordinatorTests {
 
+    private lateinit var appStatus: ReplaySubject<ActivityManager.ApplicationStatus>
     private lateinit var allState1: Subject<BarrierState>
     private lateinit var allState2: Subject<BarrierState>
     private lateinit var allState3: Subject<BarrierState>
@@ -26,9 +32,17 @@ class BarrierCoordinatorTests {
     private lateinit var barriers: List<Pair<ConfigurableBarrier, Set<BarrierScope>>>
     private lateinit var barrierSubject: StateSubject<List<ScopedBarrier>>
     private lateinit var barrierCoordinator: BarrierCoordinatorImpl
+    private lateinit var queueSize: Subject<Int>
+    private lateinit var queueMetrics: QueueMetrics
 
     @Before
     fun setUp() {
+        // have at least one event for flushing
+        queueSize = Observables.stateSubject(1)
+        queueMetrics = mockk()
+        every { queueMetrics.queueSizePendingDispatch(any()) } returns queueSize
+        appStatus = Observables.replaySubject(1)
+
         // Default: all barriers Open
         allState1 = Observables.stateSubject(BarrierState.Open)
         allState2 = Observables.stateSubject(BarrierState.Open)
@@ -50,7 +64,7 @@ class BarrierCoordinatorTests {
         )
         barrierSubject = Observables.stateSubject(barriers)
 
-        barrierCoordinator = BarrierCoordinatorImpl(barrierSubject)
+        barrierCoordinator = BarrierCoordinatorImpl(barrierSubject, appStatus, queueMetrics)
     }
 
     @Test
@@ -61,7 +75,6 @@ class BarrierCoordinatorTests {
             assertEquals(BarrierState.Open, isOpen)
         }
     }
-
 
     @Test
     fun onBarrierState_Is_Open_When_All_Barriers_Are_Unscoped() {
@@ -197,6 +210,241 @@ class BarrierCoordinatorTests {
         }
         verify(inverse = true) {
             verifier(BarrierState.Closed)
+        }
+    }
+
+    @Test
+    fun flush_Ignores_Barriers_That_Are_Flushable() {
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+        val blockingBarrier =
+            barrier("blocking", Observables.just(BarrierState.Closed), flushable = true)
+        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, setOf(BarrierScope.All))))
+
+        barrierCoordinator.onBarriersState("dispatcher_1")
+            .subscribe(verifier)
+
+        verify(inverse = true) {
+            verifier(BarrierState.Open)
+        }
+
+        barrierCoordinator.flush()
+        verify {
+            verifier(BarrierState.Open)
+        }
+    }
+
+    @Test
+    fun flush_Does_Not_Ignore_Barriers_That_Are_Not_Flushable() {
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+        val blockingBarrier =
+            barrier("blocking", Observables.just(BarrierState.Closed), flushable = false)
+        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, setOf(BarrierScope.All))))
+
+        barrierCoordinator.onBarriersState("dispatcher_1")
+            .subscribe(verifier)
+        barrierCoordinator.flush()
+
+        verify(inverse = true) {
+            verifier(BarrierState.Open)
+        }
+    }
+
+    @Test
+    fun flush_Only_Ignores_Barriers_That_Are_Flushable() {
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+        val flushable =
+            barrier("flushable", Observables.just(BarrierState.Closed), flushable = true)
+        val notFlushable =
+            barrier("nonFlushable", Observables.just(BarrierState.Closed), flushable = false)
+        barrierSubject.onNext(
+            listOf(
+                ScopedBarrier(flushable, setOf(BarrierScope.All)),
+                ScopedBarrier(notFlushable, setOf(BarrierScope.All))
+            )
+        )
+
+        barrierCoordinator.onBarriersState("dispatcher_1")
+            .subscribe(verifier)
+
+        barrierCoordinator.flush()
+        verify(inverse = true) {
+            verifier(BarrierState.Open)
+        }
+    }
+
+    @Test
+    fun flush_Closes_When_Queue_Size_Reaches_Zero() {
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+        val blockingBarrier =
+            barrier("blocking", Observables.just(BarrierState.Closed), flushable = true)
+        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, setOf(BarrierScope.All))))
+
+        barrierCoordinator.onBarriersState("dispatcher_1")
+            .subscribe(verifier)
+        barrierCoordinator.flush()
+
+        verify(exactly = 1) {
+            verifier(BarrierState.Closed)
+            verifier(BarrierState.Open)
+        }
+
+        queueSize.onNext(0)
+        verify(exactly = 2) {
+            verifier(BarrierState.Closed)
+        }
+    }
+
+    @Test
+    fun flush_Opens_If_Barrier_IsFlushable_Becomes_True() {
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+
+        val flushable = Observables.stateSubject(false)
+        val blockingBarrier =
+            barrier("blocking", Observables.just(BarrierState.Closed), flushable)
+        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, setOf(BarrierScope.All))))
+
+        barrierCoordinator.onBarriersState("dispatcher_1")
+            .subscribe(verifier)
+        barrierCoordinator.flush()
+
+        verify(inverse = true) {
+            verifier(BarrierState.Open)
+        }
+
+        flushable.onNext(true)
+        verify(exactly = 1) {
+            verifier(BarrierState.Open)
+        }
+    }
+
+    @Test
+    fun flush_Closes_If_Barrier_IsFlushable_Becomes_False() {
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+
+        val flushable = Observables.stateSubject(true)
+        val blockingBarrier =
+            barrier("blocking", Observables.just(BarrierState.Closed), flushable)
+        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, setOf(BarrierScope.All))))
+
+        barrierCoordinator.onBarriersState("dispatcher_1")
+            .subscribe(verifier)
+        barrierCoordinator.flush()
+
+        verifyOrder {
+            verifier(BarrierState.Closed)
+            verifier(BarrierState.Open)
+        }
+
+        flushable.onNext(false)
+        verify(exactly = 2) {
+            verifier(BarrierState.Closed)
+        }
+    }
+
+    @Test
+    fun flush_Remains_Open_If_Barrier_Open_And_Is_Not_Flushable() {
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+
+        val flushable = Observables.stateSubject(false)
+        val blockingBarrier =
+            barrier("blocking", Observables.just(BarrierState.Open), flushable)
+        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, setOf(BarrierScope.All))))
+
+        barrierCoordinator.onBarriersState("dispatcher_1")
+            .subscribe(verifier)
+        barrierCoordinator.flush()
+
+        verify(inverse = true) {
+            verifier(BarrierState.Closed)
+        }
+    }
+
+    @Test
+    fun flush_Resumes_When_Paused_By_Non_Flushable_Barrier_And_Barrier_Reopens() {
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+        val flushable =
+            barrier("flushable", Observables.just(BarrierState.Closed), flushable = true)
+        val nonFlushableState = Observables.stateSubject(BarrierState.Open)
+        val notFlushable =
+            barrier("nonFlushable", nonFlushableState, flushable = false)
+        barrierSubject.onNext(
+            listOf(
+                ScopedBarrier(flushable, setOf(BarrierScope.All)),
+                ScopedBarrier(notFlushable, setOf(BarrierScope.All))
+            )
+        )
+
+        barrierCoordinator.onBarriersState("dispatcher_1")
+            .subscribe(verifier)
+        barrierCoordinator.flush()
+
+        verify(exactly = 1) {
+            verifier(BarrierState.Closed)
+            verifier(BarrierState.Open)
+        }
+
+        nonFlushableState.onNext(BarrierState.Closed)
+        verify(exactly = 2) {
+            verifier(BarrierState.Closed)
+        }
+
+        nonFlushableState.onNext(BarrierState.Open)
+        verify(exactly = 2) {
+            verifier(BarrierState.Open)
+        }
+    }
+
+    @Test
+    fun flush_Pauses_When_Non_Flushable_Barrier_Closes() {
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+        val barrierState = Observables.stateSubject(BarrierState.Open)
+        val nonFlushable =
+            barrier("blocking", barrierState, flushable = false)
+        barrierSubject.onNext(listOf(ScopedBarrier(nonFlushable, setOf(BarrierScope.All))))
+
+        barrierCoordinator.onBarriersState("dispatcher_1")
+            .subscribe(verifier)
+        barrierCoordinator.flush()
+
+        verify(exactly = 1) {
+            verifier(BarrierState.Open)
+        }
+        verify(inverse = true) {
+            verifier(BarrierState.Closed)
+        }
+
+        barrierState.onNext(BarrierState.Closed)
+        verify(exactly = 1) {
+            verifier(BarrierState.Closed)
+        }
+    }
+
+    @Test
+    fun appStatus_Changes_Trigger_Flush() {
+        val blockingBarrier =
+            barrier("blocking", Observables.just(BarrierState.Closed), flushable = true)
+        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, setOf(BarrierScope.All))))
+
+        listOf(
+            ActivityManager.ApplicationStatus.Init(),
+            ActivityManager.ApplicationStatus.Backgrounded(),
+            ActivityManager.ApplicationStatus.Foregrounded()
+        ).forEach { status ->
+            val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+
+            barrierCoordinator.onBarriersState("dispatcher_1")
+                .subscribe(verifier)
+
+            verify(inverse = true) {
+                verifier(BarrierState.Open)
+            }
+
+            appStatus.onNext(status)
+            verify {
+                verifier(BarrierState.Open)
+            }
+
+            appStatus.clear()
         }
     }
 }

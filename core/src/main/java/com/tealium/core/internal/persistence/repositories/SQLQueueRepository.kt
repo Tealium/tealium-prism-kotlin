@@ -2,10 +2,10 @@ package com.tealium.core.internal.persistence.repositories
 
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
-import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.misc.TimeFrame
 import com.tealium.core.api.misc.TimeFrameUtils.days
+import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.internal.persistence.database.DatabaseProvider
 import com.tealium.core.internal.persistence.database.Schema.COUNT_TABLE_NAME
 import com.tealium.core.internal.persistence.database.Schema.DispatchTable
@@ -13,6 +13,7 @@ import com.tealium.core.internal.persistence.database.Schema.LegacyTables
 import com.tealium.core.internal.persistence.database.Schema.QueueTable
 import com.tealium.core.internal.persistence.database.dropTableIfExists
 import com.tealium.core.internal.persistence.database.getFirstIntOrNull
+import com.tealium.core.internal.persistence.database.getIntOrNull
 import com.tealium.core.internal.persistence.database.getLongOrNull
 import com.tealium.core.internal.persistence.database.getStringOrNull
 import com.tealium.core.internal.persistence.database.getTimestampMilliseconds
@@ -46,7 +47,31 @@ class SQLQueueRepository(
             }
         }
 
-    private var migrationAttempted: Boolean = false
+    override fun queueSize(processor: String): Int {
+        return db.rawQuery(
+            DispatchTable.SELECT_QUEUE_SIZE_FOR_PROCESSOR,
+            arrayOf(getExpiryTimestamp().toString(), processor)
+        ).use { cursor ->
+            cursor.getFirstIntOrNull() ?: 0
+        }
+    }
+
+    override fun queueSizeByProcessor(): Map<String, Int> {
+        return db.rawQuery(
+            DispatchTable.SELECT_QUEUE_SIZES_BY_PROCESSOR,
+            arrayOf(getExpiryTimestamp().toString())
+        ).use { cursor ->
+            cursor.mapNotNull {
+                val processorId = getStringOrNull(0)
+                val count = getIntOrNull(1)
+                if (processorId != null && count != null) {
+                    processorId to count
+                } else {
+                    null
+                }
+            }.toMap()
+        }
+    }
 
     /**
      * For testing purposes only.
@@ -68,14 +93,6 @@ class SQLQueueRepository(
                 QueueTable.deleteProcessors(forProcessorsNotIn),
                 forProcessorsNotIn.toTypedArray()
             )
-        }
-        if (!migrationAttempted) {
-            migrationAttempted = true
-            try {
-                db.migrateDispatchQueue(expiration)
-            } catch (ignore: Exception) {
-                // log this
-            }
         }
     }
 
@@ -156,8 +173,12 @@ class SQLQueueRepository(
     }
 
     override fun resize(newSize: Int) {
+        val oldSize = maxQueueSize
         maxQueueSize = newSize
-        createSpaceIfRequired(0)
+
+        if (oldSize > newSize) {
+            createSpaceIfRequired(0)
+        }
     }
 
     override fun setExpiration(expiration: TimeFrame) {

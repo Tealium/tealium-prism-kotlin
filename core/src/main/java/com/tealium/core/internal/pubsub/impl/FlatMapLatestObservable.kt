@@ -1,11 +1,11 @@
 package com.tealium.core.internal.pubsub.impl
 
 import com.tealium.core.api.pubsub.CompositeDisposable
+import com.tealium.core.api.pubsub.Disposable
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.Observer
-import com.tealium.core.internal.pubsub.addTo
-import com.tealium.core.api.pubsub.Disposable
 import com.tealium.core.internal.pubsub.DisposableContainer
+import com.tealium.core.internal.pubsub.addTo
 
 /**
  * The [FlatMapLatestObservable] transforms emissions from the given [source], returning a new
@@ -31,20 +31,34 @@ class FlatMapLatestObservable<T, L>(
     class FlatMapLatestObserver<T, L>(
         private val observer: Observer<L>,
         private val transform: (T) -> Observable<L>,
-        private val container: CompositeDisposable = DisposableContainer()
+        private val container: CompositeDisposable = DisposableContainer(),
     ) : Observer<T> {
-
         private var subscription: Disposable? = null
+        private var isSubscribing = false
+        private var latestEmission: PendingEmission<T>? = null
 
         override fun onNext(value: T) {
-            subscription?.let { old ->
-                old.dispose()
-                container.remove(old)
-            }
+            latestEmission = PendingEmission(value)
+            if (isSubscribing) return
 
-            val newSubscription = transform(value).subscribe(observer)
-            subscription = newSubscription
-            container.add(newSubscription)
+            isSubscribing = true
+            try {
+                var emission = latestEmission
+                while (emission != null) {
+                    latestEmission = null
+                    subscription?.let { old ->
+                        old.dispose()
+                        container.remove(old)
+                    }
+
+                    subscription = transform(emission.value).subscribe(observer)
+                    emission = latestEmission
+                }
+                subscription?.addTo(container)
+            } finally {
+                isSubscribing = false
+            }
         }
     }
+
 }

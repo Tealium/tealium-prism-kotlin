@@ -1,9 +1,9 @@
 package com.tealium.core.internal.pubsub.impl
 
 import com.tealium.core.api.pubsub.Disposable
-import com.tealium.core.internal.pubsub.DisposableContainer
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.Observer
+import com.tealium.core.internal.pubsub.DisposableContainer
 import com.tealium.core.internal.pubsub.addTo
 
 /**
@@ -30,26 +30,22 @@ class IterableCombineObservable<T, R>(
         private val observer: Observer<R>,
         private val sources: Iterable<Observable<T>>,
         private val combiner: (Iterable<T>) -> R,
-    ) : Observer<R> {
+    ) {
 
-        private var emissions: MutableList<T?> = sources.map { null }.toMutableList()
+        private val emissions: MutableList<PendingEmission<T>?> = sources.map { null }.toMutableList()
         private val container = DisposableContainer()
 
         private fun publish() {
             val latest = emissions
             if (latest.all { it != null }) {
-                observer.onNext(combiner.invoke(latest.mapNotNull { it }))
+                observer.onNext(combiner.invoke(latest.mapNotNull { it }.map { it.value }))
             }
-        }
-
-        override fun onNext(value: R) {
-            // do nothing
         }
 
         fun subscribe(): Disposable {
             sources.forEachIndexed { idx, source ->
                 source.subscribe {
-                    emissions[idx] = it
+                    emissions[idx] = PendingEmission(it)
                     publish()
                 }.addTo(container)
             }

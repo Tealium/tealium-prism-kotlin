@@ -25,6 +25,17 @@ interface QueueRepository {
     val size: Int
 
     /**
+     * Returns a map of all queue sizes where the key is the processor Id and the value is the
+     * queue size.
+     */
+    fun queueSizeByProcessor(): Map<String, Int>
+
+    /**
+     * Returns the queue size for the given processor
+     */
+    fun queueSize(processor: String): Int
+
+    /**
      * Adds the [dispatches] to the queue, creating entries for all [processors]s provided.
      * Note. when executed with existing [dispatches], any entries currently in the queue will be
      * removed.

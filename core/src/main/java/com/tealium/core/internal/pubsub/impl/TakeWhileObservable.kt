@@ -13,11 +13,12 @@ import com.tealium.core.internal.pubsub.addTo
  */
 class TakeWhileObservable<T>(
     private val source: Observable<T>,
-    private val predicate: (T) -> Boolean
+    private val predicate: (T) -> Boolean,
+    private val inclusive: Boolean = false
 ) : Observable<T> {
     override fun subscribe(observer: Observer<T>): Disposable {
         val container = DisposableContainer()
-        val parent = TakeWhileObserver(observer, predicate, container)
+        val parent = TakeWhileObserver(observer, predicate, container, inclusive)
 
         source.subscribe(parent)
             .addTo(container)
@@ -27,7 +28,8 @@ class TakeWhileObservable<T>(
     class TakeWhileObserver<T>(
         private val observer: Observer<T>,
         private val predicate: (T) -> Boolean,
-        private val container: DisposableContainer
+        private val container: DisposableContainer,
+        private val inclusive: Boolean = false
     ): Observer<T> {
 
         override fun onNext(value: T) {
@@ -36,7 +38,9 @@ class TakeWhileObservable<T>(
             if (predicate.invoke(value)) {
                 observer.onNext(value)
             } else {
-                // TODO... inclusive
+                if (inclusive) {
+                    observer.onNext(value)
+                }
                 container.dispose()
             }
         }

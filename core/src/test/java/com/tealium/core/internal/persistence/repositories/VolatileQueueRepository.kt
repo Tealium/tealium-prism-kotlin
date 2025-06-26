@@ -19,6 +19,10 @@ class VolatileQueueRepository(
         }
     }
 
+    override fun queueSizeByProcessor(): Map<String, Int> = queue.mapValues { it.value.size }
+
+    override fun queueSize(processor: String): Int = queue[processor]?.size ?: 0
+
     override fun getQueuedDispatches(count: Int, processor: String): List<Dispatch> =
         getQueuedDispatches(count, setOf(), processor)
 
@@ -54,7 +58,13 @@ class VolatileQueueRepository(
     }
 
     override fun resize(newSize: Int) {
-        // TODO("Not yet implemented")
+        queue.mapValues { (_, q) ->
+            val iterator = q.iterator()
+            while (iterator.hasNext() && q.size > newSize) {
+                iterator.next()
+                iterator.remove()
+            }
+        }
     }
 
     override fun setExpiration(expiration: TimeFrame) {

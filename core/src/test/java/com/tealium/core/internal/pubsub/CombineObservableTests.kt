@@ -10,7 +10,7 @@ import org.junit.Test
 class CombineObservableTests {
 
     @Test
-    fun combine_Emits_OnlyWhenBothHaveEmitted() {
+    fun combine_Emits_Only_When_Both_Have_Emitted() {
         val subject1 = Observables.publishSubject<Int>()
         val subject2 = Observables.publishSubject<Int>()
         val onNext = mockk<(Int) -> Unit>(relaxed = true)
@@ -31,7 +31,7 @@ class CombineObservableTests {
     }
 
     @Test
-    fun combine_EmitsAllSubsequent_WhenBothHaveEmitted() {
+    fun combine_Emits_All_Subsequent_When_Both_Have_Emitted() {
         val subject1 = Observables.publishSubject<Int>()
         val subject2 = Observables.publishSubject<Int>()
         val onNext = mockk<(Int) -> Unit>(relaxed = true)
@@ -53,7 +53,7 @@ class CombineObservableTests {
     }
 
     @Test
-    fun combine_DoesNotEmit_WhenOnlyOneHasEmitted() {
+    fun combine_Does_Not_Emit_When_Only_One_Has_Emitted() {
         val subject1 = Observables.publishSubject<Int>()
         val subject2 = Observables.publishSubject<Int>()
         val onNext = mockk<(Int) -> Unit>(relaxed = true)
@@ -68,7 +68,7 @@ class CombineObservableTests {
     }
 
     @Test
-    fun combine_CanCombineMultipleTypes() {
+    fun combine_Can_Combine_Multiple_Types() {
         val subject1 = Observables.publishSubject<String>()
         val subject2 = Observables.publishSubject<Int>()
         val onNext = mockk<(String) -> Unit>(relaxed = true)
@@ -81,7 +81,7 @@ class CombineObservableTests {
 
         subject1.onNext("b")
         subject2.onNext(2)
-        verify() {
+        verify {
             onNext("a1")
             onNext("b1")
             onNext("b2")
@@ -89,7 +89,24 @@ class CombineObservableTests {
     }
 
     @Test
-    fun combine_Dispose_StopsEmitting() {
+    fun combine_Can_Emit_Null_Values() {
+        val subject1 = Observables.publishSubject<String?>()
+        val subject2 = Observables.publishSubject<String?>()
+        val onNext = mockk<(String?) -> Unit>(relaxed = true)
+
+        Observables.combine(subject1, subject2) { s1, _ ->
+            s1
+        }.subscribe(onNext)
+
+        subject1.onNext(null)
+        subject2.onNext(null)
+        verify {
+            onNext(null)
+        }
+    }
+
+    @Test
+    fun combine_Dispose_Stops_Emitting() {
         val subject1 = Observables.publishSubject<Int>()
         val subject2 = Observables.publishSubject<Int>()
         val onNext = mockk<(Int) -> Unit>(relaxed = true)
