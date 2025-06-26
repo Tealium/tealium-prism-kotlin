@@ -262,7 +262,7 @@ class DeviceDataProviderTests {
 
         every { defaultDisplay.rotation } returns Surface.ROTATION_180
 
-        assertEquals("Portrait UpsideDown", deviceDataProvider.deviceOrientation)
+        assertEquals("Portrait Upside Down", deviceDataProvider.deviceOrientation)
 
         every { defaultDisplay.rotation } returns Surface.ROTATION_270
 

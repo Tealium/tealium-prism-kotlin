@@ -101,7 +101,7 @@ class DeviceDataProviderImpl(
         get() {
             return when (defaultDisplay.rotation) {
                 Surface.ROTATION_90 -> "Landscape Right"
-                Surface.ROTATION_180 -> "Portrait UpsideDown"
+                Surface.ROTATION_180 -> "Portrait Upside Down"
                 Surface.ROTATION_270 -> "Landscape Left"
                 else -> "Portrait"
             }

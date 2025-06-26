@@ -17,7 +17,6 @@ import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.publish.maven.plugins.MavenPublishPlugin
 import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.toolchain.JavaLanguageVersion
-import org.gradle.jvm.toolchain.internal.DefaultJavaToolchainService
 import org.gradle.kotlin.dsl.apply
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.create
@@ -77,17 +76,15 @@ class TealiumLibraryPlugin : Plugin<Project> {
                 sourceCompatibility = JavaVersion.VERSION_1_8
                 targetCompatibility = JavaVersion.VERSION_1_8
             }
-            extensions.configure(KotlinAndroidProjectExtension::class.java) {
-                jvmToolchain {
-                    languageVersion.set(JavaLanguageVersion.of(8))
+            tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
+                kotlinOptions {
+                    jvmTarget = JavaVersion.VERSION_1_8.toString()
                 }
             }
-
-            tasks.withType(Test::class.java).configureEach {
-                val toolchainService = objects.newInstance(DefaultJavaToolchainService::class.java)
-                javaLauncher.set(toolchainService.launcherFor {
+            extensions.configure(KotlinAndroidProjectExtension::class.java) {
+                jvmToolchain {
                     languageVersion.set(JavaLanguageVersion.of(17))
-                })
+                }
             }
         }
     }
