@@ -5,6 +5,7 @@ import com.tealium.core.api.settings.CollectDispatcherSettingsBuilder
 import com.tealium.core.api.settings.DeepLinkSettingsBuilder
 import com.tealium.core.api.settings.VisitorServiceSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.internal.modules.TimeCollector
 import com.tealium.core.internal.modules.VisitorServiceImpl
 import com.tealium.core.internal.modules.collect.CollectDispatcher
 import com.tealium.core.internal.modules.deeplink.DeepLinkHandlerModule
@@ -151,4 +152,13 @@ object Modules {
         val enforcedSettingsBuilder = enforcedSettings(DeepLinkSettingsBuilder())
         return DeepLinkHandlerModule.Factory(enforcedSettingsBuilder)
     }
+
+    /**
+     * Returns a factory for creating the TimeCollector module, used to add a variety of additional
+     * time-based data to each [Dispatch]
+     */
+    @JvmStatic
+    fun timeCollector() : ModuleFactory =
+        TimeCollector.Factory
+
 }

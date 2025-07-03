@@ -2,7 +2,7 @@ package com.tealium.core.api.tracking
 
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.internal.persistence.database.getTimestampMilliseconds
-import java.util.*
+import java.util.UUID
 
 class Dispatch private constructor(
     private var dataObject: DataObject,
@@ -43,7 +43,7 @@ class Dispatch private constructor(
          * [Keys.TEALIUM_EVENT]
          * [Keys.TEALIUM_EVENT_TYPE]
          * [Keys.REQUEST_UUID]
-         * [Keys.TIMESTAMP]
+         * [Keys.TEALIUM_TIMESTAMP_EPOCH_MILLISECONDS]
          */
         @JvmOverloads
         @JvmStatic
@@ -59,7 +59,7 @@ class Dispatch private constructor(
                 .put(Keys.TEALIUM_EVENT, eventName)
                 .put(Keys.TEALIUM_EVENT_TYPE, type.friendlyName)
                 .put(Keys.REQUEST_UUID, uuid)
-                .put(Keys.TIMESTAMP, timestamp)
+                .put(Keys.TEALIUM_TIMESTAMP_EPOCH_MILLISECONDS, timestamp)
                 .putAll(dataObject)
                 .build()
 
@@ -100,6 +100,8 @@ class Dispatch private constructor(
         }
     }
 
+
+    // TODO - KDoc the rest of these keys
     object Keys {
         const val TEALIUM_EVENT_TYPE = "tealium_event_type"
         const val TEALIUM_EVENT = "tealium_event"
@@ -169,12 +171,53 @@ class Dispatch private constructor(
         const val TEALIUM_RANDOM = "tealium_random"
 
         // TimeCollector
-        const val TIMESTAMP = "timestamp"
-        const val TIMESTAMP_LOCAL = "timestamp_local"
-        const val TIMESTAMP_OFFSET = "timestamp_offset"
-        const val TIMESTAMP_UNIX = "timestamp_unix"
-        const val TIMESTAMP_UNIX_MILLISECONDS = "timestamp_unix_milliseconds"
-        const val TIMESTAMP_EPOCH = "timestamp_epoch"
+
+        /**
+         * The difference, measured in seconds, between the current time and midnight, January 1, 1970 UTC
+         */
+        const val TEALIUM_TIMESTAMP_EPOCH = "tealium_timestamp_epoch"
+
+        /**
+         * The difference, measured in milliseconds, between the current time and midnight, January 1, 1970 UTC
+         */
+        const val TEALIUM_TIMESTAMP_EPOCH_MILLISECONDS = "tealium_timestamp_epoch_milliseconds"
+
+        /**
+         * Returns an ISO-8601 local date format using device default as the time zone
+         *
+         * e.g. '2011-12-03T10:15:30'
+         */
+        const val TEALIUM_TIMESTAMP_LOCAL = "tealium_timestamp_local"
+
+        /**
+         * Returns an ISO-8601 date format using device default as the time zone, including the timezone
+         * offset.
+         *
+         * e.g. '2011-12-03T10:15:30+01:00'
+         */
+        const val TEALIUM_TIMESTAMP_LOCAL_WITH_OFFSET = "tealium_timestamp_local_with_offset"
+
+        /**
+         * The timezone offset as a decimal, in hours. Examples:
+         * ```
+         * +08:00 == 8
+         * +05:45 == 5.75
+         * -04:00 == -4
+         * ```
+         */
+        const val TEALIUM_TIMESTAMP_OFFSET = "tealium_timestamp_offset"
+
+        /**
+         * The timezone identifier, e.g. `Europe/London`
+         */
+        const val TEALIUM_TIMESTAMP_TIMEZONE = "tealium_timestamp_timezone"
+
+        /**
+         * The ISO-8601 date format using UTC as the time zone
+         *
+         * e.g. '2011-12-03T10:15:30Z'
+         */
+        const val TEALIUM_TIMESTAMP_UTC = "tealium_timestamp_utc"
 
         // ConsentManager
         // TODO - tidy up?

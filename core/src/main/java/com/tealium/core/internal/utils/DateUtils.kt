@@ -1,52 +1,46 @@
 package com.tealium.core.internal.utils
 
-import android.os.Build
-import androidx.annotation.RequiresApi
-import java.text.SimpleDateFormat
 import java.time.Instant
-import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.LocalTime
-import java.time.ZoneOffset
-import java.time.ZonedDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
 
-object DateUtils {
-    private const val FORMAT_ISO_8601 = "yyyy-MM-dd'T'HH:mm:ss'Z'"
-    private const val TIME_ZONE = "UTC"
 
-    private var formatIso8601 = SimpleDateFormat(FORMAT_ISO_8601, Locale.ROOT)
+/**
+ * A class for formatting [Instant] objects into common [String] formats.
+ */
+interface DateFormatter {
+    /**
+     * Returns an ISO-8601 date format using UTC as the time zone
+     *
+     * e.g. '2011-12-03T10:15:30Z'
+     */
+    fun iso8601Utc(instant: Instant): String
 
-    fun formatDate(date: Date): String {
-        formatIso8601.timeZone = TimeZone.getTimeZone(TIME_ZONE)
-        return formatIso8601.format(date)
-    }
+    /**
+     * Returns an ISO-8601 date format using device default as the time zone
+     *
+     * e.g. '2011-12-03T10:15:30'
+     */
+    fun iso8601Local(instant: Instant, timeZone: ZoneId): String
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
-    fun formatZonedDateTime(date: ZonedDateTime): String {
-        return date.format(DateTimeFormatter.ISO_INSTANT)
-    }
+    /**
+     * Returns an ISO-8601 date format using device default as the time zone, including the timezone
+     * offset.
+     *
+     * e.g. '2011-12-03T10:15:30+01:00'
+     */
+    fun iso8601LocalWithOffset(instant: Instant, timeZone: ZoneId): String
+}
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
-    fun formatLocalDate(date: LocalDate): String {
-        return date.atStartOfDay(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT)
-    }
+object DateUtils : DateFormatter {
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
-    fun formatLocalDateTime(date: LocalDateTime): String {
-        return date.atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT)
-    }
+    override fun iso8601Utc(instant: Instant): String =
+        DateTimeFormatter.ISO_INSTANT.format(instant)
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
-    fun formatLocalTime(date: LocalTime): String {
-        return date.toString()
-    }
+    override fun iso8601Local(instant: Instant, timeZone: ZoneId): String =
+        DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(instant.atZone(timeZone))
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
-    fun formatInstant(date: Instant): String {
-        return date.toString()
-    }
+    override fun iso8601LocalWithOffset(instant: Instant, timeZone: ZoneId): String =
+        DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(instant.atZone(timeZone))
+
 }
