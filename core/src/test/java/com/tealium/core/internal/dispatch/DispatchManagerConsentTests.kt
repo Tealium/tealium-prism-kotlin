@@ -1,116 +1,62 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.modules.consent.ConsentDecision
+import com.tealium.core.api.consent.ConsentDecision
+import com.tealium.core.api.data.DataItemUtils.asDataList
+import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.modules.Module
+import com.tealium.core.api.pubsub.Observable
+import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.tracking.Dispatch
-import com.tealium.core.api.transform.DispatchScope
 import com.tealium.core.api.tracking.TrackResult
-import io.mockk.Called
-import io.mockk.Runs
+import com.tealium.core.api.transform.DispatchScope
+import com.tealium.core.internal.consent.CmpConfigurationSelector
+import com.tealium.core.internal.consent.ConsentInspector
+import com.tealium.core.internal.consent.ConsentIntegrationManager
+import com.tealium.core.internal.consent.ConsentManager
+import com.tealium.core.internal.settings.consent.ConsentConfiguration
+import com.tealium.core.internal.settings.consent.ConsentPurpose
 import io.mockk.every
-import io.mockk.slot
-import io.mockk.just
 import io.mockk.mockk
+import io.mockk.spyk
 import io.mockk.verify
 import org.junit.Test
 
 class DispatchManagerConsentTests : DispatchManagerTestsBase() {
 
+    private fun disableConsent() {
+        dispatchManager = createDispatchManager(consentManager = null)
+    }
+
+    private fun enableConsent(consentManager: ConsentManager) {
+        dispatchManager = createDispatchManager(consentManager = consentManager)
+    }
+
     @Test
-    fun track_StoresDispatch_WhenConsentIsDisabled() {
+    fun track_Stores_Dispatch_When_Consent_Is_Disabled() {
         disableConsent()
 
         dispatchManager.track(dispatch1)
 
         verify {
-            transformerCoordinator.transform(dispatch1, DispatchScope.AfterCollectors, any())
             queueManager.storeDispatches(listOf(dispatch1), any())
         }
-        verify(inverse = true) {
-            consentManager.getConsentDecision()
-        }
     }
 
     @Test
-    fun track_AppliesConsent_WhenDecision_IsImplicit() {
-        enableConsent()
-        every { consentManager.getConsentDecision() } returns ConsentDecision(
-            ConsentDecision.DecisionType.Implicit,
-            emptySet()
-        )
+    fun track_Applies_Consent_To_Dispatch_When_Consent_Is_Enabled() {
+        val consentManager = mockConsentManager(accepted = true)
+        enableConsent(consentManager)
 
         dispatchManager.track(dispatch1)
 
         verify {
             consentManager.applyConsent(dispatch1)
-            queueManager wasNot Called
         }
     }
 
     @Test
-    fun track_DoesNothing_WhenTealiumPurposeIsNotConsented() {
-        enableConsent()
-        every { consentManager.getConsentDecision() } returns ConsentDecision(
-            ConsentDecision.DecisionType.Explicit,
-            emptySet()
-        )
-        every { consentManager.tealiumConsented(any()) } returns false
-
-        dispatchManager.track(dispatch1)
-
-        verify {
-            queueManager wasNot Called
-            transformerCoordinator wasNot Called
-        }
-    }
-
-    @Test
-    fun track_RunsTransformations_WhenTealiumPurposeIsNotBlocked() {
-        enableConsent()
-        every { consentManager.getConsentDecision() } returns ConsentDecision(
-            ConsentDecision.DecisionType.Explicit,
-            emptySet()
-        )
-        every { consentManager.tealiumConsented(any()) } returns true
-
-        dispatchManager.track(dispatch1)
-
-        verify {
-            transformerCoordinator.transform(dispatch1, DispatchScope.AfterCollectors, any())
-            consentManager.applyConsent(dispatch1)
-            queueManager wasNot Called
-        }
-    }
-
-    @Test
-    fun track_DropsDispatch_WhenTransformerReturnsNull() {
-        disableConsent()
-        val completionCapture = slot<(Dispatch?) -> Unit>()
-        every {
-            transformerCoordinator.transform(
-                dispatch1,
-                DispatchScope.AfterCollectors,
-                capture(completionCapture)
-            )
-        } answers {
-            completionCapture.captured(null)
-        }
-
-        dispatchManager.track(dispatch1)
-
-        verify {
-            transformerCoordinator.transform(dispatch1, DispatchScope.AfterCollectors, any())
-            queueManager wasNot Called
-        }
-        verify(inverse = true) {
-            consentManager.applyConsent(dispatch1)
-        }
-    }
-
-    @Test
-    fun track_Notifies_DispatchAccepted_WhenDispatchQueued_ForConsent() {
-        enableConsent()
-        every { consentManager.getConsentDecision() } returns null
-        every { consentManager.applyConsent(any()) } just Runs
+    fun track_Notifies_Dispatch_Accepted_When_Consent_Manager_Returns_Accepted() {
+        enableConsent(mockConsentManager(accepted = true))
         val onComplete: (TrackResult) -> Unit = mockk(relaxed = true)
 
         dispatchManager.track(dispatch1, onComplete)
@@ -121,10 +67,8 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
     }
 
     @Test
-    fun track_Notifies_DispatchDropped_WhenTealiumConsent_Denied() {
-        enableConsent()
-        every { consentManager.getConsentDecision() } returns ConsentDecision(ConsentDecision.DecisionType.Explicit, setOf())
-        every { consentManager.tealiumConsented(any()) } returns false
+    fun track_Notifies_Dispatch_Dropped_When_Consent_Manager_Returns_Dropped() {
+        enableConsent(mockConsentManager(accepted = false))
         val onComplete: (TrackResult) -> Unit = mockk(relaxed = true)
 
         dispatchManager.track(dispatch1, onComplete)
@@ -132,5 +76,142 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
         verify {
             onComplete(TrackResult.Dropped(dispatch1))
         }
+    }
+
+    @Test
+    fun track_Notifies_Dispatch_Dropped_When_Tealium_Consent_Explicitly_Blocked() {
+        enableConsent(mockConsentManager(tealiumExplicitlyBlocked = true))
+        val onComplete: (TrackResult) -> Unit = mockk(relaxed = true)
+
+        dispatchManager.track(dispatch1, onComplete)
+
+        verify {
+            onComplete(TrackResult.Dropped(dispatch1))
+        }
+    }
+
+    @Test
+    fun track_Runs_Transformations_When_Tealium_Purpose_Is_Not_Blocked() {
+        enableConsent(mockConsentManager(accepted = true))
+
+        dispatchManager.track(dispatch1)
+
+        verify {
+            transformerCoordinator.transform(dispatch1, DispatchScope.AfterCollectors, any())
+        }
+    }
+
+    @Test
+    fun startDispatchLoop_Dequeues_Events_When_Consent_Disabled() {
+        disableConsent()
+        queueManager.storeDispatches(
+            listOf(dispatch1, dispatch2),
+            modules.value.map(Module::id).toSet()
+        )
+
+        dispatchManager.startDispatchLoop()
+
+        verify {
+            dispatcher1.dispatch(listOf(dispatch1), any())
+            dispatcher1.dispatch(listOf(dispatch2), any())
+        }
+    }
+
+    @Test
+    fun startDispatchLoop_Does_Not_Dequeue_Events_When_Consent_Enabled_And_No_Decision() {
+        val cmpSelector = mockk<CmpConfigurationSelector>()
+        every { cmpSelector.consentInspector } returns Observables.stateSubject(null)
+        every { cmpSelector.configuration } returns Observables.stateSubject(null)
+        enableConsent(ConsentIntegrationManager(modules, queueManager, cmpSelector))
+        queueManager.storeDispatches(
+            listOf(dispatch1, dispatch2),
+            modules.value.map(Module::id).toSet()
+        )
+
+        dispatchManager.startDispatchLoop()
+
+        verify(inverse = true) {
+            queueManager.getQueuedDispatches(any(), any())
+            dispatcher1.dispatch(listOf(dispatch1), any())
+            dispatcher1.dispatch(listOf(dispatch2), any())
+        }
+    }
+
+    @Test
+    fun startDispatchLoop_Processes_Events_That_Are_Accepted_By_Consent_And_Deletes_Them() {
+        val consentInspector = ConsentInspector(
+            ConsentConfiguration(
+                "tealium",
+                emptySet(),
+                mapOf("purpose1" to ConsentPurpose("purpose1", setOf(dispatcher1Name)))
+            ),
+            ConsentDecision(ConsentDecision.DecisionType.Explicit, setOf("purpose1")),
+            setOf("purpose1")
+        )
+        val cmpSelector = mockk<CmpConfigurationSelector>()
+        every { cmpSelector.consentInspector } returns Observables.stateSubject(consentInspector)
+        every { cmpSelector.configuration } returns Observables.stateSubject(consentInspector.configuration)
+        enableConsent(ConsentIntegrationManager(modules, queueManager, cmpSelector))
+        dispatch1.addAll(DataObject.create { put(Dispatch.Keys.PURPOSES_WITH_CONSENT_ALL, listOf("purpose1").asDataList()) })
+        dispatch2.addAll(DataObject.create { put(Dispatch.Keys.PURPOSES_WITH_CONSENT_ALL, listOf("purpose1").asDataList()) })
+        queueManager.storeDispatches(
+            listOf(dispatch1, dispatch2),
+            modules.value.map(Module::id).toSet()
+        )
+
+        dispatchManager.startDispatchLoop()
+
+        verify {
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
+        }
+        verify {
+            dispatcher1.dispatch(listOf(dispatch1), any())
+            dispatcher1.dispatch(listOf(dispatch2), any())
+        }
+    }
+
+    @Test
+    fun startDispatchLoop_Deletes_Events_That_Are_Dropped_By_Consent() {
+        val consentInspector = ConsentInspector(
+            ConsentConfiguration("tealium", emptySet(), emptyMap()),
+            ConsentDecision(ConsentDecision.DecisionType.Explicit, emptySet()),
+            emptySet()
+        )
+        val cmpSelector = mockk<CmpConfigurationSelector>()
+        every { cmpSelector.consentInspector } returns Observables.stateSubject(consentInspector)
+        every { cmpSelector.configuration } returns Observables.stateSubject(consentInspector.configuration)
+        enableConsent(ConsentIntegrationManager(modules, queueManager, cmpSelector))
+        queueManager.storeDispatches(
+            listOf(dispatch1, dispatch2),
+            modules.value.map(Module::id).toSet()
+        )
+
+        dispatchManager.startDispatchLoop()
+
+        verify {
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
+        }
+        verify(inverse = true) {
+            dispatcher1.dispatch(listOf(dispatch1), any())
+            dispatcher1.dispatch(listOf(dispatch2), any())
+        }
+    }
+
+    private fun mockConsentManager(
+        tealiumExplicitlyBlocked: Boolean = false,
+        configuration: Observable<ConsentConfiguration?> = Observables.just(null),
+        accepted: Boolean = true
+    ): ConsentManager {
+        return spyk(object : ConsentManager {
+            override val tealiumPurposeExplicitlyBlocked: Boolean
+                get() = tealiumExplicitlyBlocked
+            override val configuration: Observable<ConsentConfiguration?>
+                get() = configuration
+
+            override fun applyConsent(dispatch: Dispatch): TrackResult =
+                if (accepted) TrackResult.Accepted(dispatch) else TrackResult.Dropped(dispatch)
+        })
     }
 }

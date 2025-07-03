@@ -1,4 +1,4 @@
-package com.tealium.core.api.modules.consent
+package com.tealium.core.api.consent
 
 /**
  * Describes a decision by the user as to their chosen consent preferences. This is expected to be

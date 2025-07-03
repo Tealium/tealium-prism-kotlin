@@ -5,6 +5,7 @@ import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.modules.Dispatcher
+import com.tealium.core.api.modules.Module
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.pubsub.Subject
@@ -15,12 +16,11 @@ import com.tealium.core.api.transform.DispatchScope
 import com.tealium.core.api.transform.TransformationScope
 import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.Transformer
+import com.tealium.core.internal.consent.ConsentManager
 import com.tealium.core.internal.modules.InternalModuleManager
-import com.tealium.core.internal.modules.consent.ConsentManager
 import com.tealium.core.internal.persistence.repositories.QueueRepository
 import com.tealium.core.internal.persistence.repositories.VolatileQueueRepository
 import com.tealium.core.internal.rules.LoadRuleEngine
-import com.tealium.core.internal.rules.LoadRuleResult
 import com.tealium.core.internal.settings.CoreSettingsImpl
 import com.tealium.tests.common.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
@@ -28,10 +28,8 @@ import com.tealium.tests.common.TestDispatcher
 import com.tealium.tests.common.TestTransformer
 import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.MockKAnnotations
-import io.mockk.Runs
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
-import io.mockk.just
 import io.mockk.spyk
 import org.junit.Before
 import java.util.concurrent.ConcurrentHashMap
@@ -42,10 +40,6 @@ import java.util.concurrent.ConcurrentHashMap
  */
 open class DispatchManagerTestsBase {
 
-
-    @MockK
-    protected lateinit var consentManager: ConsentManager
-
     @MockK
     protected lateinit var barrierCoordinator: BarrierCoordinator
 
@@ -55,13 +49,14 @@ open class DispatchManagerTestsBase {
     @MockK
     protected lateinit var loadRuleEngine: LoadRuleEngine
 
+    protected var consentManager: ConsentManager? = null
     protected lateinit var logger: Logger
     protected lateinit var scheduler: Scheduler
     protected lateinit var dispatcher1Name: String
     protected lateinit var dispatcher2Name: String
     protected lateinit var dispatcher1: Dispatcher
     protected lateinit var dispatcher2: Dispatcher
-    protected lateinit var dispatchers: StateSubject<Set<Dispatcher>>
+    protected lateinit var modules: StateSubject<List<Module>>
     protected lateinit var barrierFlow: Subject<BarrierState>
     protected lateinit var processors: Subject<Set<String>>
     protected lateinit var queueManager: QueueManager
@@ -88,21 +83,18 @@ open class DispatchManagerTestsBase {
         logger = SystemLogger
         scheduler = testTealiumScheduler
 
-        // Consent Defaulted to disabled
-        every { consentManager.applyConsent(any()) } just Runs
-        every { moduleManager.getModuleOfType(ConsentManager::class.java) } returns null
-
         // Two available test dispatchers
         dispatcher1Name =
             "dispatcher_1" // Workaround; spyk in verify blocks fails on `Dispatcher.name`
         dispatcher2Name = "dispatcher_2" // but direct string values dont.
         dispatcher1 = spyk(TestDispatcher(dispatcher1Name))
         dispatcher2 = spyk(TestDispatcher(dispatcher2Name))
-        dispatchers = Observables.stateSubject(setOf(dispatcher1, dispatcher2))
-        every { moduleManager.getModulesOfType(Dispatcher::class.java) } answers { dispatchers.value.toList() }
+        modules = Observables.stateSubject(listOf(dispatcher1, dispatcher2))
+        every { moduleManager.modules } returns modules
+        every { moduleManager.getModulesOfType(Dispatcher::class.java) } answers { modules.value.filterIsInstance<Dispatcher>() }
 
         every { loadRuleEngine.evaluateLoadRules(any(), any()) } answers {
-            LoadRuleResult(args[1] as List<Dispatch>, emptyList())
+            DispatchSplit(args[1] as List<Dispatch>, emptyList())
         }
 
         // Queue defaulted to empty
@@ -142,7 +134,6 @@ open class DispatchManagerTestsBase {
         onAfterSetup()
     }
 
-
     /**
      * JUnit won't guarantee the execution order of multiple @Before annotated methods.
      * So inheriting classes cannot make their own and have them reliably execute after the default
@@ -156,9 +147,9 @@ open class DispatchManagerTestsBase {
         barrierCoordinator: BarrierCoordinator = this.barrierCoordinator,
         transformerCoordinator: TransformerCoordinator = this.transformerCoordinator,
         queueManager: QueueManager = this.queueManager,
-        dispatchers: StateSubject<Set<Dispatcher>> = this.dispatchers,
         loadRuleEngine: LoadRuleEngine = this.loadRuleEngine,
         mappingsEngine: MappingsEngine = this.mappingsEngine,
+        consentManager: ConsentManager? = this.consentManager,
         logger: Logger = this.logger,
         maxInFlight: Int = DispatchManagerImpl.MAXIMUM_INFLIGHT_EVENTS_PER_DISPATCHER
     ): DispatchManagerImpl = DispatchManagerImpl(
@@ -166,20 +157,12 @@ open class DispatchManagerTestsBase {
         barrierCoordinator,
         transformerCoordinator,
         queueManager,
-        dispatchers,
         loadRuleEngine,
         mappingsEngine,
+        consentManager,
         logger,
         maxInFlight
     )
-
-    protected fun enableConsent() {
-        every { moduleManager.getModuleOfType(ConsentManager::class.java) } returns consentManager
-    }
-
-    protected fun disableConsent() {
-        every { moduleManager.getModuleOfType(ConsentManager::class.java) } returns null
-    }
 
     protected fun testDispatch(
         event: String,

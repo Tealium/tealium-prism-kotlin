@@ -13,6 +13,9 @@ import com.tealium.core.api.rules.Rule.Companion.just
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
 import com.tealium.core.api.tracking.TealiumDispatchType
+import com.tealium.core.internal.dispatch.DispatchSplit
+import com.tealium.core.internal.dispatch.successful
+import com.tealium.core.internal.dispatch.unsuccessful
 import com.tealium.core.internal.pubsub.CompletedDisposable
 import com.tealium.core.internal.settings.ModuleSettings
 import com.tealium.core.internal.settings.SdkSettings
@@ -100,7 +103,7 @@ class LoadRuleEngineTests {
         val dispatch = createDispatch(DataObject.create { put("true", true) })
 
         val result = engine.evaluateLoadRules(TestDispatcher("no_load_rule"), dispatch)
-        assertTrue(result.passed.contains(dispatch))
+        assertTrue(result.successful.contains(dispatch))
     }
 
     @Test
@@ -115,8 +118,8 @@ class LoadRuleEngineTests {
         val dispatch = createDispatch(DataObject.create { put("true", true) })
 
         val result = engine.evaluateLoadRules(module1, dispatch)
-        assertTrue(result.passed.contains(dispatch))
-        assertTrue(result.failed.isEmpty())
+        assertTrue(result.successful.contains(dispatch))
+        assertTrue(result.unsuccessful.isEmpty())
     }
 
     @Test
@@ -131,8 +134,8 @@ class LoadRuleEngineTests {
         val dispatch = createDispatch(DataObject.create { put("true", false) })
 
         val result = engine.evaluateLoadRules(module1, dispatch)
-        assertTrue(result.passed.isEmpty())
-        assertTrue(result.failed.contains(dispatch))
+        assertTrue(result.successful.isEmpty())
+        assertTrue(result.unsuccessful.contains(dispatch))
     }
 
     @Test
@@ -153,8 +156,8 @@ class LoadRuleEngineTests {
         })
 
         val result = engine.evaluateLoadRules(module1And2, dispatch)
-        assertTrue(result.passed.contains(dispatch))
-        assertTrue(result.failed.isEmpty())
+        assertTrue(result.successful.contains(dispatch))
+        assertTrue(result.unsuccessful.isEmpty())
     }
 
     @Test
@@ -184,7 +187,7 @@ class LoadRuleEngineTests {
 
         val result = engine.evaluateLoadRules(module1And2, dispatches)
 
-        assertTrue(result.failed.containsAll(dispatches))
+        assertTrue(result.unsuccessful.containsAll(dispatches))
     }
 
     @Test
@@ -214,7 +217,7 @@ class LoadRuleEngineTests {
 
         val result = engine.evaluateLoadRules(module1Or2, dispatches)
 
-        assertTrue(result.passed.containsAll(dispatches))
+        assertTrue(result.successful.containsAll(dispatches))
     }
 
     @Test
@@ -235,7 +238,7 @@ class LoadRuleEngineTests {
         })
 
         val result = engine.evaluateLoadRules(module1Or2, dispatch)
-        assertTrue(result.failed.contains(dispatch))
+        assertTrue(result.unsuccessful.contains(dispatch))
     }
 
     @Test
@@ -254,7 +257,7 @@ class LoadRuleEngineTests {
         })
 
         val result = engine.evaluateLoadRules(moduleJust1, dispatch)
-        assertTrue(result.passed.contains(dispatch))
+        assertTrue(result.successful.contains(dispatch))
     }
 
     @Test
@@ -273,7 +276,7 @@ class LoadRuleEngineTests {
         })
 
         val result = engine.evaluateLoadRules(moduleJust1, dispatch)
-        assertTrue(result.failed.contains(dispatch))
+        assertTrue(result.unsuccessful.contains(dispatch))
     }
 
     @Test
@@ -294,7 +297,7 @@ class LoadRuleEngineTests {
         })
 
         val result = engine.evaluateLoadRules(module1AndNot2, dispatch)
-        assertTrue(result.passed.contains(dispatch))
+        assertTrue(result.successful.contains(dispatch))
     }
 
     @Test
@@ -315,7 +318,7 @@ class LoadRuleEngineTests {
         })
 
         val result = engine.evaluateLoadRules(module1AndNot2, dispatch)
-        assertTrue(result.failed.contains(dispatch))
+        assertTrue(result.unsuccessful.contains(dispatch))
     }
 
     @Test
@@ -330,7 +333,7 @@ class LoadRuleEngineTests {
         val dispatch = createDispatch(DataObject.create { put("true", true) })
 
         val result = engine.evaluateLoadRules(moduleMissingRules, dispatch)
-        assertTrue(result.failed.contains(dispatch))
+        assertTrue(result.unsuccessful.contains(dispatch))
     }
 
     @Test
@@ -339,18 +342,18 @@ class LoadRuleEngineTests {
         val dispatch = createDispatch(DataObject.create { put("true", false) })
 
         val result = engine.evaluateLoadRules(module1, dispatch)
-        assertTrue(result.passed.contains(dispatch))
-        assertTrue(result.failed.isEmpty())
+        assertTrue(result.successful.contains(dispatch))
+        assertTrue(result.unsuccessful.isEmpty())
     }
 
     @Test
     fun evaluateLoadRules_Separates_Passed_And_Failed_When_Mixed_Results() {
-        val passed = createDispatch(DataObject.create { put("true", true) })
-        val failed = createDispatch(DataObject.create { put("true", false) })
+        val successful = createDispatch(DataObject.create { put("true", true) })
+        val unsuccessful = createDispatch(DataObject.create { put("true", false) })
 
-        val result = engine.evaluateLoadRules(module1, listOf(passed, failed))
-        assertTrue(result.passed.contains(passed))
-        assertTrue(result.failed.contains(failed))
+        val result = engine.evaluateLoadRules(module1, listOf(successful, unsuccessful))
+        assertTrue(result.successful.contains(successful))
+        assertTrue(result.unsuccessful.contains(unsuccessful))
     }
 
     private fun createDispatch(payload: DataObject, eventName: String = "event"): Dispatch =
@@ -359,7 +362,7 @@ class LoadRuleEngineTests {
     private fun LoadRuleEngineImpl.evaluateLoadRules(
         dispatcher: Dispatcher,
         dispatch: Dispatch
-    ): LoadRuleResult =
+    ): DispatchSplit =
         evaluateLoadRules(dispatcher, listOf(dispatch))
 
     private class DispatchingCollectorModule(

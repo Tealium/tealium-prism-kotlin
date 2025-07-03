@@ -4,6 +4,8 @@ import android.app.Application
 import com.tealium.core.api.barriers.Barrier
 import com.tealium.core.api.barriers.BarrierFactory
 import com.tealium.core.api.barriers.BarrierScope
+import com.tealium.core.api.consent.CmpAdapter
+import com.tealium.core.api.consent.ConsentDecision
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.LogHandler
 import com.tealium.core.api.misc.Environment
@@ -12,6 +14,7 @@ import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.rules.Condition
 import com.tealium.core.api.rules.Rule
+import com.tealium.core.api.settings.ConsentConfigurationBuilder
 import com.tealium.core.api.settings.CoreSettingsBuilder
 import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.Transformer
@@ -20,6 +23,7 @@ import com.tealium.core.internal.rules.LoadRule
 import com.tealium.core.internal.settings.BarrierSettings
 import com.tealium.core.internal.settings.CoreSettingsImpl
 import com.tealium.core.internal.settings.SdkSettings
+import com.tealium.core.internal.settings.consent.ConsentSettings
 import java.io.File
 
 class TealiumConfig @JvmOverloads constructor(
@@ -38,6 +42,9 @@ class TealiumConfig @JvmOverloads constructor(
     private val rules = DataObject.Builder()
     private val transformations = DataObject.Builder()
     private val barrierSettings = DataObject.Builder()
+    private var consentSettings = DataObject.Builder()
+    var cmpAdapter: CmpAdapter? = null
+        private set
 
     private val pathName
         get() = "${application.filesDir}${File.separatorChar}tealium${File.separatorChar}${accountName}${File.separatorChar}${profileName}${File.separatorChar}${environment.environment}"
@@ -109,6 +116,36 @@ class TealiumConfig @JvmOverloads constructor(
             barrierSettings.put(barrier.id, BarrierSettings(barrier.id, scopes))
     }
 
+    /**
+     * Enable consent integration with a [CMPAdapter].
+     *
+     * If you enable consent integration events will only be tracked after the [CmpAdapter] returns a [ConsentDecision],
+     * And only after a Consent Configuration is found for that adapter.
+     *
+     * Make sure to properly configure consent either locally, remotely or programmatically
+     * for the provided [CmpAdapter] to ensure proper tracking.
+     *
+     * @param cmpAdapter: The adapter that will report the [ConsentDecision] to the SDK
+     * @param enforcingSettings: An optional block called with a configuration builder, used to force some of the Consent Configuration properties.
+     *          Properties set with this block will have precedence to local and remote settings.
+     */
+    @JvmOverloads
+    fun enableConsentIntegration(
+        cmpAdapter: CmpAdapter,
+        enforcingSettings: ((ConsentConfigurationBuilder) -> ConsentConfigurationBuilder)? = null
+    ) {
+        this.cmpAdapter = cmpAdapter
+        consentSettings.clear()
+        if (enforcingSettings == null) return
+
+        val consentConfiguration = enforcingSettings.invoke(ConsentConfigurationBuilder())
+            .build()
+
+        consentSettings.put(ConsentSettings.Converter.KEY_CONFIGURATIONS, DataObject.create {
+            put(cmpAdapter.id, consentConfiguration)
+        })
+    }
+
     val enforcedSdkSettings: DataObject
         get() = DataObject.create {
             if (coreSettings != null) {
@@ -136,6 +173,11 @@ class TealiumConfig @JvmOverloads constructor(
             val barriers = barrierSettings.build()
             if (barriers != DataObject.EMPTY_OBJECT) {
                 put(SdkSettings.KEY_BARRIERS, barriers)
+            }
+
+            val consent = consentSettings.build()
+            if (consent != DataObject.EMPTY_OBJECT) {
+                put(SdkSettings.KEY_CONSENT, consent)
             }
         }
 }

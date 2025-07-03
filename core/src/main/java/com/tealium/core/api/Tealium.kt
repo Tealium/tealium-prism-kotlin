@@ -11,7 +11,6 @@ import com.tealium.core.api.modules.ModuleProxy
 import com.tealium.core.api.modules.TimedEventsManager
 import com.tealium.core.api.modules.TraceManager
 import com.tealium.core.api.modules.VisitorService
-import com.tealium.core.api.modules.consent.ConsentManager
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.internal.TealiumInstanceManager
@@ -23,7 +22,6 @@ interface Tealium {
     val deeplink: DeepLinkHandler
     val timedEvents: TimedEventsManager
     val dataLayer: DataLayer
-    val consent: ConsentManager
 
     // Optionals
     val visitorService: VisitorService?

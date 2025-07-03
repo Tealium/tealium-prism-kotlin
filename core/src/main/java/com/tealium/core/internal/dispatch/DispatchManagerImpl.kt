@@ -4,58 +4,50 @@ import com.tealium.core.api.barriers.BarrierState
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.logger.logIfDebugEnabled
 import com.tealium.core.api.modules.Dispatcher
-import com.tealium.core.api.modules.consent.ConsentDecision
 import com.tealium.core.api.pubsub.Disposable
 import com.tealium.core.api.pubsub.Observable
+import com.tealium.core.api.pubsub.ObservableState
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Observer
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TrackResult
 import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.api.transform.DispatchScope
+import com.tealium.core.internal.consent.ConsentManager
+import com.tealium.core.internal.consent.matchesConfiguration
 import com.tealium.core.internal.logger.LogCategory
 import com.tealium.core.internal.logger.logDescriptions
 import com.tealium.core.internal.modules.InternalModuleManager
-import com.tealium.core.internal.modules.consent.ConsentManager
+import com.tealium.core.internal.pubsub.CompletedDisposable
 import com.tealium.core.internal.pubsub.DisposableContainer
 import com.tealium.core.internal.pubsub.addTo
 import com.tealium.core.internal.rules.LoadRuleEngine
+
 
 class DispatchManagerImpl(
     private val moduleManager: InternalModuleManager,
     private val barrierCoordinator: BarrierCoordinator,
     private val transformerCoordinator: TransformerCoordinator,
     private val queueManager: QueueManager,
-    private val dispatchers: Observable<Set<Dispatcher>>,
     private val loadRuleEngine: LoadRuleEngine,
     private val mappingsEngine: MappingsEngine,
+    private val consentManager: ConsentManager?,
     private val logger: Logger,
     private val maxInFlightPerDispatcher: Int = MAXIMUM_INFLIGHT_EVENTS_PER_DISPATCHER
 ) : DispatchManager {
 
+    private val dispatchers: ObservableState<Set<Dispatcher>>
+        get() = moduleManager.modules.map { it.filterIsInstance<Dispatcher>().toSet() }
+            .withState { moduleManager.getModulesOfType(Dispatcher::class.java).toSet() }
+
     private var dispatchLoop: Disposable? = null
-    private val _dispatchers: Set<Dispatcher>
-        get() = moduleManager.getModulesOfType(Dispatcher::class.java).toSet()
-
-    private val consentManager: ConsentManager?
-        get() = moduleManager.getModuleOfType(ConsentManager::class.java)
-
-    private fun tealiumPurposeExplicitlyBlocked(): Boolean {
-        val consentManager = consentManager ?: return false
-
-        val decision = consentManager.getConsentDecision()
-        if (decision == null || decision.decisionType == ConsentDecision.DecisionType.Implicit)
-            return false
-
-        return !consentManager.tealiumConsented(decision.purposes)
-    }
 
     override fun track(dispatch: Dispatch) {
         track(dispatch, null)
     }
 
     override fun track(dispatch: Dispatch, onComplete: TrackResultListener?) {
-        if (tealiumPurposeExplicitlyBlocked()) {
+        if (consentManager?.tealiumPurposeExplicitlyBlocked == true) {
             logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
                 "Tealium consent purpose is explicitly blocked. Event ${dispatch.logDescription()} will be dropped."
             }
@@ -80,9 +72,8 @@ class DispatchManagerImpl(
                     "Event ${transformed.logDescription()} consent applied"
                 }
 
-                consentManager.applyConsent(transformed)
-                // TODO - This call may need to be moved into the Consent Manager implementation once it's done.
-                onComplete?.onTrackResultReady(TrackResult.Accepted(transformed))
+                val result = consentManager.applyConsent(transformed)
+                onComplete?.onTrackResultReady(result)
             } else {
                 logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
                     "Event ${transformed.logDescription()} accepted for processing"
@@ -90,7 +81,7 @@ class DispatchManagerImpl(
 
                 queueManager.storeDispatches(
                     listOf(transformed),
-                    _dispatchers.map(Dispatcher::id).toSet()
+                    dispatchers.value.map(Dispatcher::id).toSet()
                 )
                 onComplete?.onTrackResultReady(TrackResult.Accepted(transformed))
             }
@@ -109,11 +100,11 @@ class DispatchManagerImpl(
                 ensureBarriersOpen(dispatcher)
                     .async { dispatches, observer: Observer<Pair<Dispatcher, List<Dispatch>>> ->
                         logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
-                            "Sending events to dispatcher ${dispatcher.id}: ${dispatches.logDescriptions()}"
+                            "Sending events to dispatcher ${dispatcher.id}: ${dispatches.successful.logDescriptions()}"
                         }
 
                         transformAndDispatch(dispatches, dispatcher) { completedDispatches ->
-                            observer.onNext(Pair(dispatcher, completedDispatches))
+                            observer.onNext(dispatcher to completedDispatches)
                         }
                     }
             }.subscribe { (dispatcher, completedDispatches) ->
@@ -128,7 +119,7 @@ class DispatchManagerImpl(
             }
     }
 
-    private fun ensureBarriersOpen(dispatcher: Dispatcher): Observable<List<Dispatch>> =
+    private fun ensureBarriersOpen(dispatcher: Dispatcher): Observable<DispatchSplit> =
         barrierCoordinator.onBarriersState(dispatcher.id)
             .flatMapLatest { active ->
                 logger.debug(
@@ -137,11 +128,31 @@ class DispatchManagerImpl(
                 )
 
                 if (active == BarrierState.Open) {
-                    startDequeueLoop(dispatcher)
+                    startConsentedDequeueLoop(dispatcher)
                 } else {
                     Observables.empty()
                 }
             }
+
+    private fun startConsentedDequeueLoop(dispatcher: Dispatcher): Observable<DispatchSplit> {
+        if (consentManager == null) {
+            return startDequeueLoop(dispatcher)
+                .map { DispatchSplit(it, emptyList()) }
+        }
+
+        return consentManager.configuration.flatMapLatest { consentConfiguration ->
+            if (consentConfiguration == null) {
+                return@flatMapLatest Observables.empty()
+            }
+
+            startDequeueLoop(dispatcher)
+                .map { dispatches ->
+                    dispatches.partition {
+                        it.matchesConfiguration(consentConfiguration, dispatcher.id)
+                    }
+                }
+        }
+    }
 
     private fun startDequeueLoop(dispatcher: Dispatcher): Observable<List<Dispatch>> {
         val onInflightLower = queueManager.inFlightCount(dispatcher.id)
@@ -172,26 +183,27 @@ class DispatchManagerImpl(
      * Dropped dispatches will not be replaced in the batch to make up the numbers.
      */
     private fun transformAndDispatch(
-        dispatches: List<Dispatch>,
+        dispatches: DispatchSplit,
         dispatcher: Dispatcher,
         onProcessedDispatches: (List<Dispatch>) -> Unit
     ): Disposable {
+        if (dispatches.unsuccessful.isNotEmpty()) {
+            onProcessedDispatches.invoke(dispatches.unsuccessful)
+        }
+
+        if (dispatches.successful.isEmpty()) {
+            return CompletedDisposable
+        }
+
         val container = DisposableContainer()
         transformerCoordinator.transform(
-            dispatches,
+            dispatches.successful,
             DispatchScope.Dispatcher(dispatcher.id)
         ) { transformedDispatches ->
             if (container.isDisposed) return@transform
 
-            deleteMissingDispatches(dispatches, transformedDispatches, onProcessedDispatches)
-
-            val (passed, failed) = loadRuleEngine.evaluateLoadRules(dispatcher, transformedDispatches)
-            if (failed.isNotEmpty()) {
-                onProcessedDispatches(failed)
-                logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
-                    "Dispatching disallowed for Dispatcher(${dispatcher.id}) and Dispatches (${failed.logDescriptions()})"
-                }
-            }
+            val (passed, _) = loadRuleEngine.evaluateLoadRules(dispatcher, transformedDispatches)
+            deleteMissingDispatches(dispatches.successful, passed, dispatcher.id, onProcessedDispatches)
 
             val mapped = passed.map { dispatch -> mappingsEngine.map(dispatcher.id, dispatch) }
 
@@ -207,6 +219,7 @@ class DispatchManagerImpl(
     private fun deleteMissingDispatches(
         original: List<Dispatch>,
         transformedDispatches: List<Dispatch>,
+        dispatcherId: String,
         onProcessedDispatches: (List<Dispatch>) -> Unit
     ) {
         val missingDispatches = original.filter { oldDispatch ->
@@ -214,6 +227,9 @@ class DispatchManagerImpl(
         }
 
         if (missingDispatches.isNotEmpty()) {
+            logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
+                "Dispatching disallowed for Dispatcher(${dispatcherId}) and Dispatches (${missingDispatches.logDescriptions()})"
+            }
             onProcessedDispatches(missingDispatches)
         }
     }

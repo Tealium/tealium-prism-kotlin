@@ -1,12 +1,12 @@
 package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.barriers.BarrierState
-import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.misc.TimeFrame
+import com.tealium.core.api.pubsub.Observables
 import com.tealium.tests.common.TestDispatcher
-import io.mockk.verify
 import io.mockk.every
 import io.mockk.spyk
+import io.mockk.verify
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -61,7 +61,7 @@ class DispatchManagerBarrierTests : DispatchManagerTestsBase() {
     @Test
     fun dispatchManager_StopsSendingDispatchesToDispatcher_WhenBarriersGetClosed() {
         dispatcher1 = spyk(TestDispatcher("dispatcher_1"))
-        dispatchers.onNext(setOf(dispatcher1))
+        modules.onNext(listOf(dispatcher1))
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1) // closes after first dispatch
@@ -88,7 +88,7 @@ class DispatchManagerBarrierTests : DispatchManagerTestsBase() {
                 callback.onComplete(dispatches)
             }
         })
-        dispatchers.onNext(setOf(dispatcher1))
+        modules.onNext(listOf(dispatcher1))
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1)
@@ -105,7 +105,7 @@ class DispatchManagerBarrierTests : DispatchManagerTestsBase() {
         every { barrierCoordinator.onBarriersState("dispatcher_2") } returns Observables.stateSubject(
             BarrierState.Closed
         )
-        dispatchers.onNext(setOf(dispatcher1, dispatcher2))
+        modules.onNext(listOf(dispatcher1, dispatcher2))
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1)

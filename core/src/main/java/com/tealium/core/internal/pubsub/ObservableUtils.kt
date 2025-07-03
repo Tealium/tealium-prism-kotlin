@@ -6,6 +6,7 @@ import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.ObservableState
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Observer
+import com.tealium.core.api.pubsub.Subscribable
 import com.tealium.core.api.pubsub.SubscribableState
 import com.tealium.core.internal.pubsub.impl.ObservableStateImpl
 
@@ -39,6 +40,10 @@ fun <T> passthroughTransform() : (T) -> T {
 
 fun <T> Observable<T>.map(): Observable<T> {
     return map(passthroughTransform())
+}
+
+fun <T> Subscribable<T>.asObservable() : Observable<T> {
+    return object : Observable<T>, Subscribable<T> by this { }
 }
 
 /**

@@ -1,7 +1,5 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.misc.TimeFrame
-import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.internal.pubsub.Subscription
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.spyk
@@ -9,7 +7,6 @@ import io.mockk.verify
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
@@ -24,7 +21,7 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
             // never completes; should stay at 1 in-flight
             Subscription()
         })
-        dispatchers.onNext(setOf(dispatcher1))
+        modules.onNext(listOf(dispatcher1))
         queue[dispatcher1.id] = mutableSetOf(dispatch1, dispatch2)
 
         dispatchManager = createDispatchManager(maxInFlight = 1)

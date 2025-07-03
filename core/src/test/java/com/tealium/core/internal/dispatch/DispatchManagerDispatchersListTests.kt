@@ -12,7 +12,7 @@ class DispatchManagerDispatchersListTests : DispatchManagerTestsBase() {
     @Test
     fun dispatchManager_SendsDispatches_ToAllDispatchers() {
         val dispatcher2 = spyk(TestDispatcher("dispatcher_2"))
-        dispatchers.onNext(setOf(dispatcher1, dispatcher2))
+        modules.onNext(listOf(dispatcher1, dispatcher2))
 
         dispatchManager.startDispatchLoop()
 
@@ -30,14 +30,14 @@ class DispatchManagerDispatchersListTests : DispatchManagerTestsBase() {
     fun dispatchManager_ContinuesSendingDispatches_ToEnabledDispatchers_WhenOneGetsDisabled() {
         val dispatcher2 = spyk(TestDispatcher("dispatcher_2"))
         dispatcher1 = spyk(TestDispatcher("dispatcher_1") { dispatches, callback ->
-            dispatchers.onNext(setOf(dispatcher2))
+            modules.onNext(listOf(dispatcher2))
             dispatchManager.track(dispatch2)
 
             scheduler.schedule(TimeFrame(100, TimeUnit.MILLISECONDS)) {
                 callback.onComplete(dispatches)
             }
         })
-        dispatchers.onNext(setOf(dispatcher1, dispatcher2))
+        modules.onNext(listOf(dispatcher1, dispatcher2))
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1) // dispatcher1 removed after first dispatch
@@ -60,14 +60,14 @@ class DispatchManagerDispatchersListTests : DispatchManagerTestsBase() {
     @Test
     fun dispatchManager_StopsSendingDispatchesToDispatcher_WhenDispatcherGetsDisabled() {
         dispatcher1 = spyk(TestDispatcher("dispatcher_1") { dispatches, callback ->
-            dispatchers.onNext(setOf())
+            modules.onNext(listOf())
             dispatchManager.track(dispatch2)
 
             scheduler.schedule(TimeFrame(100, TimeUnit.MILLISECONDS)) {
                 callback.onComplete(dispatches)
             }
         })
-        dispatchers.onNext(setOf(dispatcher1))
+        modules.onNext(listOf(dispatcher1))
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1) // dispatcher1 removed after first dispatch
@@ -85,13 +85,13 @@ class DispatchManagerDispatchersListTests : DispatchManagerTestsBase() {
     @Test
     fun dispatchManager_DoesNotCancelInflight_WhenDispatcherGetsDisabled() {
         dispatcher1 = spyk(TestDispatcher("dispatcher_1") { dispatches, callback ->
-            dispatchers.onNext(setOf())
+            modules.onNext(listOf())
 
             scheduler.schedule(TimeFrame(2000, TimeUnit.MILLISECONDS)) {
                 callback.onComplete(dispatches)
             }
         })
-        dispatchers.onNext(setOf(dispatcher1))
+        modules.onNext(listOf(dispatcher1))
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1)

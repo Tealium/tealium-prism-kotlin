@@ -91,7 +91,7 @@ class Dispatch private constructor(
          * For creating new Dispatch instances that do require those data points to be added, you
          * should use [create]
          */
-        internal fun create(id: String, dataObject: DataObject, timestamp: Long): Dispatch? {
+        internal fun create(id: String, dataObject: DataObject, timestamp: Long): Dispatch {
             return Dispatch(
                 dataObject = dataObject,
                 id = id,

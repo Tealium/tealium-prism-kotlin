@@ -9,16 +9,9 @@ import com.tealium.core.api.rules.Matchable
 import com.tealium.core.api.rules.Rule
 import com.tealium.core.api.rules.asMatchable
 import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.internal.dispatch.DispatchSplit
 import com.tealium.core.internal.settings.ModuleSettings
 import com.tealium.core.internal.settings.SdkSettings
-
-/**
- * Type-alias where the [Pair.first] contains the [Dispatch]es that passed all Load Rules, and the
- * [Pair.second] contains the failed.
- */
-typealias LoadRuleResult = Pair<List<Dispatch>, List<Dispatch>>
-inline val LoadRuleResult.passed: List<Dispatch> get() = this.first
-inline val LoadRuleResult.failed: List<Dispatch> get() = this.second
 
 /**
  * The [LoadRuleEngineImpl] is responsible for receiving the [SdkSettings] object, and transforming the
@@ -34,9 +27,9 @@ interface LoadRuleEngine {
 
     /**
      * Evaluates the load rules for the given [dispatcher] and [dispatches]. The result is a partition
-     * of the [dispatches] into two lists of either "passed" or "failed"
+     * of the [dispatches] into two lists of either "successful" or "unsuccessful"
      */
-    fun evaluateLoadRules(dispatcher: Dispatcher, dispatches: List<Dispatch>): LoadRuleResult
+    fun evaluateLoadRules(dispatcher: Dispatcher, dispatches: List<Dispatch>): DispatchSplit
 
     /**
      * Evaluates the load rules for the given [collector] and [dispatch] and returns `true` if the
@@ -80,9 +73,9 @@ class LoadRuleEngineImpl(
         }
     }
 
-    override fun evaluateLoadRules(dispatcher: Dispatcher, dispatches: List<Dispatch>): LoadRuleResult {
+    override fun evaluateLoadRules(dispatcher: Dispatcher, dispatches: List<Dispatch>): DispatchSplit {
         val rule = loadRules[dispatcher.id]
-            ?: return LoadRuleResult(dispatches, emptyList())
+            ?: return DispatchSplit(dispatches, emptyList())
 
         return dispatches.partition { dispatch ->
             rule.matches(dispatch.payload())

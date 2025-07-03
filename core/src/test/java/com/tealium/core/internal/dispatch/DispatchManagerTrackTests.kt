@@ -1,9 +1,9 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.tracking.Dispatch
-import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.misc.TimeFrame
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.coVerify
 import io.mockk.verify
@@ -24,7 +24,7 @@ class DispatchManagerTrackTests : DispatchManagerTestsBase() {
         }
 
         scheduler.execute {
-            dispatchers.onNext(setOf(dispatcher1, slowDispatcher))
+            modules.onNext(listOf(dispatcher1, slowDispatcher))
 
             queue[dispatcher1.id] = mutableSetOf(
                 dispatch1,
@@ -69,7 +69,7 @@ class DispatchManagerTrackTests : DispatchManagerTestsBase() {
         }
 
         scheduler.execute {
-            dispatchers.onNext(setOf(dispatcher1))
+            modules.onNext(listOf(dispatcher1))
             queue[dispatcher1.id] = mutableSetOf(
                 dispatch1,
                 dispatch2

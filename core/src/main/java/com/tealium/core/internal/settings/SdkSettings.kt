@@ -1,18 +1,20 @@
 package com.tealium.core.internal.settings
 
-import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.data.mapValuesNotNull
 import com.tealium.core.api.settings.CoreSettings
 import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.internal.misc.Converters
 import com.tealium.core.internal.rules.LoadRule
+import com.tealium.core.internal.settings.consent.ConsentSettings
 
 data class SdkSettings(
     val core: CoreSettings = CoreSettingsImpl(),
     val modules: Map<String, ModuleSettings> = emptyMap(),
     val loadRules: Map<String, LoadRule> = emptyMap(),
     val transformations: Map<String, TransformationSettings> = emptyMap(),
-    val barriers: Map<String, BarrierSettings> = emptyMap()
+    val barriers: Map<String, BarrierSettings> = emptyMap(),
+    val consent: ConsentSettings? = null
 ) {
 
     companion object {
@@ -20,6 +22,7 @@ data class SdkSettings(
         const val KEY_TRANSFORMATIONS = "transformations"
         const val KEY_BARRIERS = "barriers"
         const val KEY_LOAD_RULES = "load_rules"
+        const val KEY_CONSENT = "consent"
 
         fun fromDataObject(dataObject: DataObject): SdkSettings {
             val coreObject = dataObject.requireObject(CoreSettingsImpl.MODULE_NAME)
@@ -34,8 +37,11 @@ data class SdkSettings(
             val transformations =
                 transformationsObject.mapValuesNotNull(Converters.TransformationSettingsConverter::convert)
             val barriers = barriersObject.mapValuesNotNull(BarrierSettings.Converter::convert)
+            val consent = dataObject.get(KEY_CONSENT, ConsentSettings.Converter)
 
-            return SdkSettings(core, modules, loadRules, transformations, barriers)
+            return SdkSettings(
+                core, modules, loadRules, transformations, barriers, consent
+            )
         }
 
         private fun DataObject.requireObject(
@@ -43,11 +49,5 @@ data class SdkSettings(
             default: DataObject = DataObject.EMPTY_OBJECT
         ): DataObject =
             getDataObject(key) ?: default
-
-        private inline fun <T> DataObject.mapValuesNotNull(transform: (DataItem) -> T?): Map<String, T> =
-            mapNotNull { (key, value) ->
-                val transformed = transform(value) ?: return@mapNotNull null
-                key to transformed
-            }.toMap()
     }
 }

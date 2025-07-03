@@ -5,9 +5,7 @@ import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.logger.logIfWarnEnabled
 import com.tealium.core.api.misc.ActivityManager
-import com.tealium.core.api.misc.QueueMetrics
 import com.tealium.core.api.misc.Schedulers
-import com.tealium.core.api.misc.TimeFrameUtils.milliseconds
 import com.tealium.core.api.modules.Dispatcher
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
@@ -25,6 +23,7 @@ import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
 import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.api.transform.Transformer
+import com.tealium.core.internal.consent.ConsentIntegrationManager
 import com.tealium.core.internal.dispatch.BarrierCoordinator
 import com.tealium.core.internal.dispatch.BarrierCoordinatorImpl
 import com.tealium.core.internal.dispatch.BarrierManager
@@ -46,7 +45,6 @@ import com.tealium.core.internal.misc.TrackerImpl
 import com.tealium.core.internal.modules.InternalModuleManager
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import com.tealium.core.internal.modules.TealiumCollector
-import com.tealium.core.internal.modules.consent.ConsentModule
 import com.tealium.core.internal.modules.datalayer.DataLayerModule
 import com.tealium.core.internal.network.ConnectivityInterceptor
 import com.tealium.core.internal.network.ConnectivityRetriever
@@ -151,23 +149,37 @@ class TealiumImpl(
             coreSettings.value.expiration
         )
         val queueManager =
-            createQueueManager(queueRepository, coreSettings, moduleManager.modules, logger)
+            createQueueManager(
+                queueRepository,
+                coreSettings,
+                moduleManager.modules,
+                config.cmpAdapter != null,
+                logger
+            )
 
         val queueMetrics = QueueMetricsImpl(queueManager)
         barrierCoordinator = BarrierCoordinatorImpl(barrierManager.barriers, this.activityManager.applicationStatus, queueMetrics)
 
         val loadRuleEngine = LoadRuleEngineImpl(settings)
-        val mappingsEngine = MappingsEngine(settings.map(::extractMappings)
-            .withState { extractMappings(settings.value) })
+        val mappingsEngine = MappingsEngine(
+            settings.map(::extractMappings)
+                .withState { extractMappings(settings.value) })
+        val consentManager = ConsentIntegrationManager.create(
+            moduleManager.modules,
+            queueManager,
+            config.cmpAdapter,
+            settings.map { it.consent }.withState { settings.value.consent },
+            schedulers.tealium
+        )
+
         dispatchManager = DispatchManagerImpl(
             moduleManager = moduleManager,
             barrierCoordinator = barrierCoordinator,
             transformerCoordinator = transformerCoordinator,
-            dispatchers = moduleManager.modules
-                .map { it.filterIsInstance<Dispatcher>().toSet() },
             queueManager = queueManager,
             loadRuleEngine = loadRuleEngine,
             mappingsEngine = mappingsEngine,
+            consentManager = consentManager,
             logger = logger
         )
         tracker = TrackerImpl(moduleManager.modules, dispatchManager, loadRuleEngine, logger)
@@ -203,8 +215,7 @@ class TealiumImpl(
                 queueMetrics = queueMetrics
             )
 
-        val factories = preconfigureFactories(config.modules, queueManager, moduleManager.modules)
-        loadModuleFactories(factories, moduleManager, logger)
+        loadModuleFactories(config.modules, moduleManager, logger)
 
         barrierManager.initializeBarriers(config.barriers, tealiumContext)
         settings.subscribe { newSettings ->
@@ -298,33 +309,6 @@ class TealiumImpl(
                 TealiumCollector.Factory,
             )
         }
-
-        /**
-         * Pre-configures specialist factories tha may require internal dependencies that cannot
-         * be provided from external users.
-         *
-         * @param factories The list of [ModuleFactory]s as provided by the TealiumConfig
-         * @param queueManager The internal [QueueManager]
-         * @param modules An observable to subscribe to updates to all modules
-         *
-         * @return The list of configured [ModuleFactory] objects
-         */
-        fun preconfigureFactories(
-            factories: List<ModuleFactory>,
-            queueManager: QueueManager,
-            modules: ObservableState<List<Module>>
-        ): List<ModuleFactory> =
-            factories.map { factory ->
-                when (factory) {
-                    // Consent is a special case that should be added externally, but needs internal
-                    // components that should not be exposed anywhere else.
-                    is ConsentModule.Factory -> {
-                        factory.copy(queueManager = queueManager, modules = modules)
-                    }
-
-                    else -> factory
-                }
-            }
 
         /**
          * Loads the given [factories] into the given [moduleManager].
@@ -426,14 +410,18 @@ class TealiumImpl(
             queueRepository: QueueRepository,
             coreSettings: Observable<CoreSettings>,
             allModules: ObservableState<List<Module>>,
+            addConsent: Boolean,
             logger: Logger
         ): QueueManager {
+            val maybeConsent = if (addConsent) setOf(ConsentIntegrationManager.ID) else emptySet()
             return QueueManagerImpl(
                 queueRepository,
                 coreSettings,
                 allModules.filter { modules -> modules.isNotEmpty() }
-                    .map { modules -> modules.filter { module -> module is Dispatcher || module is ConsentModule } }
-                    .map { processors -> processors.map { it.id }.toSet() },
+                    .map { modules -> modules.filterIsInstance<Dispatcher>() }
+                    .map { processors ->
+                        processors.map { it.id }.toSet() + maybeConsent
+                    },
                 logger = logger
             )
         }

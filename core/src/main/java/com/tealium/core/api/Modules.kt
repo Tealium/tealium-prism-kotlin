@@ -1,16 +1,12 @@
 package com.tealium.core.api
 
-import com.tealium.core.api.modules.DeepLinkHandler
 import com.tealium.core.api.modules.ModuleFactory
-import com.tealium.core.api.modules.consent.ConsentManagementAdapter
 import com.tealium.core.api.settings.CollectDispatcherSettingsBuilder
-import com.tealium.core.api.settings.ConsentSettingsBuilder
 import com.tealium.core.api.settings.DeepLinkSettingsBuilder
 import com.tealium.core.api.settings.VisitorServiceSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.internal.modules.VisitorServiceImpl
 import com.tealium.core.internal.modules.collect.CollectDispatcher
-import com.tealium.core.internal.modules.consent.ConsentModule
 import com.tealium.core.internal.modules.deeplink.DeepLinkHandlerModule
 
 /**
@@ -37,34 +33,6 @@ import com.tealium.core.internal.modules.deeplink.DeepLinkHandlerModule
  * ```
  */
 object Modules {
-
-    /**
-     * Returns a configured [ModuleFactory] for enabling the Consent Management.
-     *
-     * @param cmp Required [ConsentManagementAdapter] implementation for delegating consent decisions to
-     */
-    @JvmStatic
-    fun consent(cmp: ConsentManagementAdapter): ModuleFactory {
-        return ConsentModule.Factory(cmp)
-    }
-
-    /**
-     * Returns a configured [ModuleFactory] for enabling the Consent Management.
-     *
-     * The [enforcedSettings] will be set for the lifetime of the [Tealium] instance that this [ModuleFactory]
-     * is loaded in, and these settings will override any that come from other local/remote sources.
-     *
-     * @param cmp Required [ConsentManagementAdapter] implementation for delegating consent decisions to
-     * @param enforcedSettings Consent settings that should override any from any other settings source
-     */
-    @JvmStatic
-    fun consent(
-        cmp: ConsentManagementAdapter,
-        enforcedSettings: (ConsentSettingsBuilder) -> ConsentSettingsBuilder
-    ): ModuleFactory {
-        val enforcedSettingsBuilder = enforcedSettings(ConsentSettingsBuilder())
-        return ConsentModule.Factory(cmp, enforcedSettingsBuilder)
-    }
 
     /**
      * Returns a configured [ModuleFactory] for enabling the Collect Dispatcher Module.

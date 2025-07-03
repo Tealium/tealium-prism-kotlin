@@ -13,7 +13,7 @@ import com.tealium.core.api.data.DataObject;
 import com.tealium.core.api.data.UnsupportedDataItemException;
 import com.tealium.core.api.misc.Environment;
 import com.tealium.core.api.modules.ModuleFactory;
-import com.tealium.core.api.modules.consent.ConsentManagementAdapter;
+import com.tealium.core.api.consent.CmpAdapter;
 import com.tealium.core.api.tracking.Dispatch;
 import com.tealium.core.api.tracking.TealiumDispatchType;
 import com.tealium.lifecycle.Lifecycle;
@@ -31,6 +31,12 @@ public class TealiumJavaHelper {
     public static void init(Application app) {
         TealiumConfig config = new TealiumConfig(app, "tealiummobile", "android", Environment.DEV,
                 configureModules());
+
+//        config.enableConsentIntegration(new ExampleCmpAdapter(), (settings) -> {
+//            settings.addPurpose("some_purpose", SetsKt.setOf("CollectDispatcher"))
+//                    .setRefireDispatcherIds(SetsKt.setOf("CollectDispatcher"));
+//            return settings;
+//        });
 
         Tealium teal = Tealium.create(config, (result) -> {
             if (result.isSuccess()) {
@@ -118,16 +124,5 @@ public class TealiumJavaHelper {
         return Lifecycle.configure(lifecycleSettingsBuilder ->
             lifecycleSettingsBuilder.setDataTarget(LifecycleDataTarget.AllEvents)
         );
-    }
-
-    private static ModuleFactory configureConsent() {
-        ConsentManagementAdapter cmp = new ExampleConsentManagementAdapter();
-        return Modules.consent(cmp);
-
-//        return Modules.consent(cmp, (settings) -> {
-//            settings.setShouldRefireDispatchers(SetsKt.hashSetOf("CollectDispatcher"))
-//                    .setDispatcherToPurposes(Collections.singletonMap("CollectDispatcher", SetsKt.hashSetOf("some_required_purpose")));
-//            return settings;
-//        });
     }
 }

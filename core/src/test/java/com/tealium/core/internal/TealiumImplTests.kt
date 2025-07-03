@@ -2,20 +2,17 @@ package com.tealium.core.internal
 
 import android.app.Activity
 import android.app.Application
-import com.tealium.core.api.Modules
 import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.misc.ActivityManager
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.pubsub.Observable
-import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Observer
 import com.tealium.core.internal.misc.ActivityManagerImpl
 import com.tealium.core.internal.modules.InternalModuleManager
 import com.tealium.core.internal.modules.ModuleManagerImpl
 import com.tealium.core.internal.modules.TealiumCollector
-import com.tealium.core.internal.modules.consent.ConsentModule
 import com.tealium.core.internal.modules.datalayer.DataLayerModule
 import com.tealium.core.internal.settings.MappingsImpl
 import com.tealium.core.internal.settings.ModuleSettings
@@ -32,7 +29,6 @@ import io.mockk.spyk
 import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -141,53 +137,6 @@ class TealiumImplTests {
                         && it.type == ActivityManager.ActivityLifecycleType.Stopped
             })
         }
-    }
-
-    @Test
-    fun preconfigureFactories_Replaces_Consent_Factory_With_Configured_Instance() {
-        val consentModule = Modules.consent(mockk())
-
-        val configuredFactories =
-            TealiumImpl.preconfigureFactories(
-                listOf(consentModule),
-                mockk(),
-                Observables.stateSubject(listOf())
-            )
-
-        assertFalse(configuredFactories.contains(consentModule))
-        assertNotNull(configuredFactories.find { it is ConsentModule.Factory })
-    }
-
-    @Test
-    fun preconfigureFactories_Does_Not_Replace_Non_Required_Modules() {
-        val otherModule = getTestModule()
-        val consentModule = Modules.consent(mockk())
-
-        val configuredFactories =
-            TealiumImpl.preconfigureFactories(
-                listOf(otherModule, consentModule),
-                mockk(),
-                Observables.stateSubject(listOf())
-            )
-
-        assertTrue(configuredFactories.contains(otherModule))
-    }
-
-    @Test
-    fun preconfigureFactories_Maintains_Insertion_Order_When_Replacing_Consent() {
-        val module1 = getTestModule(1)
-        val module2 = getTestModule(2)
-        val module3 = getTestModule(3)
-        val consent = Modules.consent(mockk())
-        val modules = listOf(module1, module2, consent, module3)
-
-        val configuredFactories =
-            TealiumImpl.preconfigureFactories(modules, mockk(), Observables.stateSubject(listOf()))
-
-        assertEquals(module1, configuredFactories[0])
-        assertEquals(module2, configuredFactories[1])
-        assertTrue(configuredFactories[2] is ConsentModule.Factory)
-        assertEquals(module3, configuredFactories[3])
     }
 
     @Test

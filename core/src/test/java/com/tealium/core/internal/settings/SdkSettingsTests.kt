@@ -1,5 +1,6 @@
 package com.tealium.core.internal.settings
 
+import com.tealium.core.api.data.DataItemUtils.asDataList
 import com.tealium.core.api.data.DataList
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.rules.Condition.Companion.isEqual
@@ -11,6 +12,9 @@ import com.tealium.core.internal.misc.Converters.TransformationSettingsConverter
 import com.tealium.core.internal.misc.Converters.TransformationSettingsConverter.KEY_TRANSFORMATION_ID
 import com.tealium.core.internal.misc.Converters.TransformationSettingsConverter.KEY_TRANSFORMER_ID
 import com.tealium.core.internal.rules.LoadRule
+import com.tealium.core.internal.settings.consent.ConsentConfiguration
+import com.tealium.core.internal.settings.consent.ConsentPurpose
+import com.tealium.core.internal.settings.consent.ConsentSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -24,7 +28,7 @@ class SdkSettingsTests {
     // TODO - deserialization tests for other objects (Modules/CoreSettings)
 
     @Test
-    fun init_With_LoadRules_Returns_SdkSettings_With_LoadRules() {
+    fun fromDataObject_With_LoadRules_Returns_SdkSettings_With_LoadRules() {
         val conditions = Rule.all(Rule.just(isEqual(true, null, "key", "value")))
         val settingsObject = DataObject.create {
             put(SdkSettings.KEY_LOAD_RULES, DataObject.create {
@@ -43,7 +47,7 @@ class SdkSettingsTests {
     }
 
     @Test
-    fun init_With_LoadRules_Returns_SdkSettings_Without_Invalid_LoadRules() {
+    fun fromDataObject_With_LoadRules_Returns_SdkSettings_Without_Invalid_LoadRules() {
         val settingsObject = DataObject.create {
             put(SdkSettings.KEY_LOAD_RULES, DataObject.create {
                 put("rule-1", DataObject.create {
@@ -58,7 +62,7 @@ class SdkSettingsTests {
     }
 
     @Test
-    fun init_With_LoadRules_Returns_SdkSettings_Without_Null_Conditions_When_Omitted() {
+    fun fromDataObject_With_LoadRules_Returns_SdkSettings_Without_Null_Conditions_When_Omitted() {
         val settingsObject = DataObject.create {
             put(SdkSettings.KEY_LOAD_RULES, DataObject.create {
                 put("rule-1", DataObject.create {
@@ -75,7 +79,7 @@ class SdkSettingsTests {
     }
 
     @Test
-    fun init_With_Transformations_Returns_SdkSettings_With_Transformations() {
+    fun fromDataObject_With_Transformations_Returns_SdkSettings_With_Transformations() {
         val expected = TransformationSettings(
             "id",
             "transformer",
@@ -102,7 +106,7 @@ class SdkSettingsTests {
     }
 
     @Test
-    fun init_With_Transformations_Returns_SdkSettings_Without_Invalid_Transformations() {
+    fun fromDataObject_With_Transformations_Returns_SdkSettings_Without_Invalid_Transformations() {
         val validTransformation = DataObject.create {
             put(KEY_TRANSFORMATION_ID, "id")
             put(KEY_TRANSFORMER_ID, "transformer")
@@ -119,5 +123,74 @@ class SdkSettingsTests {
         val settings = SdkSettings.fromDataObject(settingsObject)
 
         assertTrue(settings.transformations.isEmpty())
+    }
+
+    @Test
+    fun fromDataObject_With_ConsentSettings_Returns_SdkSettings_With_ConsentSettings() {
+        val expected = ConsentSettings(
+            mapOf(
+                "vendor_1" to ConsentConfiguration(
+                    "tealium", setOf("dispatcher1"), mapOf(
+                        "purpose1" to ConsentPurpose("purpose1", setOf("dispatcher1"))
+                    )
+                )
+            )
+        )
+        val settingsObject = DataObject.create {
+            put(SdkSettings.KEY_CONSENT, DataObject.create {
+                put(ConsentSettings.Converter.KEY_CONFIGURATIONS, DataObject.create {
+                    put("vendor_1", DataObject.create {
+                        put(ConsentConfiguration.Converter.KEY_TEALIUM_PURPOSE_ID, "tealium")
+                        put(
+                            ConsentConfiguration.Converter.KEY_REFIRE_DISPATCHER_IDS,
+                            listOf("dispatcher1").asDataList()
+                        )
+                        put(ConsentConfiguration.Converter.KEY_PURPOSES, DataObject.create {
+                            put("purpose1", DataObject.create {
+                                put(ConsentPurpose.Converter.KEY_PURPOSE_ID, "purpose1")
+                                put(
+                                    ConsentPurpose.Converter.KEY_DISPATCHER_IDS,
+                                    listOf("dispatcher1").asDataList()
+                                )
+                            })
+                        })
+                    })
+                })
+            })
+        }
+
+        val settings = SdkSettings.fromDataObject(settingsObject)
+
+        val recreatedConsent = settings.consent!!
+        assertEquals(expected, recreatedConsent)
+    }
+
+    @Test
+    fun fromDataObject_With_Invalid_ConsentSettings_Returns_SdkSettings_With_Empty_ConsentSettings() {
+        val settingsObject = DataObject.create {
+            put(SdkSettings.KEY_CONSENT, DataObject.create {
+                put(ConsentSettings.Converter.KEY_CONFIGURATIONS, DataObject.create {
+                    put("vendor_1", DataObject.create {
+                        // missing purposes
+                        put(ConsentConfiguration.Converter.KEY_TEALIUM_PURPOSE_ID, "tealium")
+                    })
+                })
+            })
+        }
+
+        val settings = SdkSettings.fromDataObject(settingsObject)
+
+        val recreatedConsent = settings.consent!!
+        assertEquals(emptyMap<String, ConsentConfiguration>(), recreatedConsent.configurations)
+    }
+
+    @Test
+    fun fromDataObject_Without_Consent_Object_Returns_SdkSettings_Without_ConsentSettings() {
+        val settingsObject = DataObject.EMPTY_OBJECT
+
+        val settings = SdkSettings.fromDataObject(settingsObject)
+
+        val recreatedConsent = settings.consent
+        assertNull(recreatedConsent)
     }
 }

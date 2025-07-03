@@ -2,9 +2,8 @@ package com.tealium.core.internal.dispatch
 
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.tracking.Dispatch
-import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.TransformationScope
-import com.tealium.core.internal.rules.LoadRuleResult
+import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.tests.common.TestTransformer
 import io.mockk.every
 import io.mockk.verify
@@ -28,7 +27,7 @@ class DispatchManagerLoadRuleTests : DispatchManagerTestsBase() {
     @Test
     fun dispatchManager_Does_Not_Dispatch_Events_That_Fail_Load_Rules() {
         every { loadRuleEngine.evaluateLoadRules(dispatcher1, listOf(dispatch1)) } answers {
-            LoadRuleResult(emptyList(), args[1] as List<Dispatch>)
+            DispatchSplit(emptyList(), args[1] as List<Dispatch>)
         }
         dispatchManager.track(dispatch1)
 
@@ -64,7 +63,7 @@ class DispatchManagerLoadRuleTests : DispatchManagerTestsBase() {
     @Test
     fun dispatchManager_Marks_Events_That_Fail_Load_Rules_As_Processed() {
         every { loadRuleEngine.evaluateLoadRules(dispatcher1, listOf(dispatch1)) } answers {
-            LoadRuleResult(emptyList(), args[1] as List<Dispatch>)
+            DispatchSplit(emptyList(), args[1] as List<Dispatch>)
         }
 
         dispatchManager.track(dispatch1)

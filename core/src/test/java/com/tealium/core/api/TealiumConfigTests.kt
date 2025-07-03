@@ -2,11 +2,13 @@ package com.tealium.core.api
 
 import com.tealium.core.api.barriers.BarrierScope
 import com.tealium.core.api.barriers.BarrierState
+import com.tealium.core.api.consent.CmpAdapter
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.rules.Condition.Companion.isDefined
 import com.tealium.core.api.rules.Condition.Companion.isEqual
 import com.tealium.core.api.rules.Rule
+import com.tealium.core.api.settings.ConsentConfigurationBuilder
 import com.tealium.core.api.transform.TransformationScope
 import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.internal.dispatch.barrier
@@ -15,9 +17,13 @@ import com.tealium.core.internal.misc.Converters
 import com.tealium.core.internal.rules.LoadRule
 import com.tealium.core.internal.settings.BarrierSettings
 import com.tealium.core.internal.settings.SdkSettings
+import com.tealium.core.internal.settings.consent.ConsentPurpose
+import com.tealium.core.internal.settings.consent.ConsentSettings
 import com.tealium.tests.common.getDefaultConfig
+import io.mockk.every
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -61,9 +67,16 @@ class TealiumConfigTests {
         config.addTransformation(transformation1)
         config.addTransformation(transformation2)
 
-        val transformations = config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_TRANSFORMATIONS)!!
-        assertEquals(transformation1, transformations.get("transformer-1-id-1", Converters.TransformationSettingsConverter))
-        assertEquals(transformation2, transformations.get("transformer-2-id-2", Converters.TransformationSettingsConverter))
+        val transformations =
+            config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_TRANSFORMATIONS)!!
+        assertEquals(
+            transformation1,
+            transformations.get("transformer-1-id-1", Converters.TransformationSettingsConverter)
+        )
+        assertEquals(
+            transformation2,
+            transformations.get("transformer-2-id-2", Converters.TransformationSettingsConverter)
+        )
     }
 
     @Test
@@ -107,7 +120,8 @@ class TealiumConfigTests {
     fun init_Omits_Transformations_Key_When_No_Transformations_Provided() {
         val config = getDefaultConfig(app = mockk())
 
-        val transformations = config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_TRANSFORMATIONS)
+        val transformations =
+            config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_TRANSFORMATIONS)
         assertNull(transformations)
     }
 
@@ -117,5 +131,74 @@ class TealiumConfigTests {
 
         val barriers = config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_BARRIERS)
         assertNull(barriers)
+    }
+
+    @Test
+    fun enableConsentIntegration_Adds_Consent_To_Enforced_Settings_Under_Consent_Key_When_Enforced_Settings_Set() {
+        val cmpAdapter = mockCmpAdapter()
+
+        val config = getDefaultConfig(app = mockk())
+        config.enableConsentIntegration(cmpAdapter) { settings ->
+            settings.addPurpose("purpose1", setOf("dispatcher1"))
+        }
+
+        val consent = config.enforcedSdkSettings.get(SdkSettings.KEY_CONSENT)
+        assertNotNull(consent)
+    }
+
+    @Test
+    fun enableConsentIntegration_Does_Not_Add_Consent_To_Enforced_Settings_When_Enforced_Settings_Omitted() {
+        val cmpAdapter = mockCmpAdapter()
+
+        val config = getDefaultConfig(app = mockk())
+        config.enableConsentIntegration(cmpAdapter)
+
+        val consent = config.enforcedSdkSettings.get(SdkSettings.KEY_CONSENT)
+        assertNull(consent)
+    }
+
+    @Test
+    fun enableConsentIntegration_Adds_Correctly_Serialized_Consent_Settings_To_Enforced_Settings() {
+        val cmpAdapter = mockCmpAdapter("cmp1")
+
+        val config = getDefaultConfig(app = mockk())
+        config.enableConsentIntegration(cmpAdapter) { settings ->
+            settings.addPurpose("purpose1", setOf("dispatcher1"))
+                .setRefireDispatcherIds(setOf("dispatcher2"))
+                .setTealiumPurposeId("tealium_purpose")
+        }
+
+        val consent = config.enforcedSdkSettings.get(SdkSettings.KEY_CONSENT, ConsentSettings.Converter)!!
+        val cmp1 = consent.configurations["cmp1"]!!
+        assertEquals("tealium_purpose", cmp1.tealiumPurposeId)
+        assertEquals(setOf("dispatcher2"), cmp1.refireDispatcherIds)
+        assertEquals(ConsentPurpose("purpose1", setOf("dispatcher1")), cmp1.purposes["purpose1"])
+    }
+
+    @Test
+    fun enableConsentIntegration_Removes_Previously_Added_Settings_When_Called_Multiple_Times() {
+        val cmp1 = mockCmpAdapter("cmp1")
+        val cmp2 = mockCmpAdapter("cmp2")
+        val settingsBlock: (ConsentConfigurationBuilder) -> ConsentConfigurationBuilder = { settings ->
+            settings.addPurpose("purpose1", setOf("dispatcher1"))
+                .setRefireDispatcherIds(setOf("dispatcher2"))
+                .setTealiumPurposeId("tealium_purpose")
+        }
+
+        val config = getDefaultConfig(app = mockk())
+        config.enableConsentIntegration(cmp1, settingsBlock)
+        config.enableConsentIntegration(cmp2, settingsBlock)
+
+        val consent = config.enforcedSdkSettings.get(SdkSettings.KEY_CONSENT, ConsentSettings.Converter)!!
+
+        assertEquals(1, consent.configurations.size)
+        assertNull(consent.configurations["cmp1"])
+        assertNotNull(consent.configurations["cmp2"])
+    }
+
+    private fun mockCmpAdapter(id: String = "cmp"): CmpAdapter {
+        val adapter = mockk<CmpAdapter>(relaxed = true)
+        every { adapter.id } returns id
+        return adapter
     }
 }

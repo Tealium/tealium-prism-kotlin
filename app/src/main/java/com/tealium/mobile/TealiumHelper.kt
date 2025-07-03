@@ -5,9 +5,6 @@ import android.util.Log
 import com.tealium.core.api.Modules
 import com.tealium.core.api.Tealium
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.api.barriers.BarrierScope
-import com.tealium.core.api.barriers.Barriers
-import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataItemUtils.asDataItem
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.LogLevel
@@ -39,9 +36,7 @@ import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.api.tracking.TrackResult
 import com.tealium.core.internal.logger.logDescriptions
-import com.tealium.core.internal.modules.collect.CollectDispatcher
 import com.tealium.core.internal.pubsub.CompletedDisposable
-import com.tealium.lifecycle.LifecycleDataTarget
 import com.tealium.lifecycle.lifecycle
 
 object TealiumHelper {
@@ -87,6 +82,11 @@ object TealiumHelper {
         config.apply {
             useRemoteSettings = false
             localSdkSettingsFileName = "tealium-settings.jsonc"
+
+//            enableConsentIntegration(ExampleCmpAdapter()) { settings ->
+//                settings.addPurpose("some_purpose", setOf("CollectDispatcher"))
+//                    .setRefireDispatcherIds(setOf("CollectDispatcher"))
+//            }
 
 //            addBarrier(Barriers.connectivity(),
 //                setOf(
@@ -206,14 +206,6 @@ object TealiumHelper {
             configureLifecycle(),
             configureLoggingDispatcher("logger")
         )
-    }
-
-    private fun configureConsent(): ModuleFactory {
-        // object should be subbed with actual cmp implementation.
-        return Modules.consent(ExampleConsentManagementAdapter())
-//        return Modules.consent(ExampleConsentManagementAdapter()) { settings ->
-//            settings.setDispatcherToPurposes(mapOf("CollectDispatcher" to setOf("some_purpose")))
-//        }
     }
 
     private fun configureCollect(): ModuleFactory {

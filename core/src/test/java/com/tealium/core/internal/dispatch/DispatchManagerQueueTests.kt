@@ -1,9 +1,9 @@
 package com.tealium.core.internal.dispatch
 
-import com.tealium.core.api.tracking.Dispatch
-import com.tealium.core.api.tracking.TrackResult
-import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.TealiumDispatchType
+import com.tealium.core.api.tracking.TrackResult
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.Ordering
 import io.mockk.mockk
@@ -36,7 +36,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
     @Test
     fun dispatchManager_SendsBatchesOfDispatchesToDispatcher_WhenQueued() {
         dispatcher1 = TestDispatcher.mock(dispatcher1Name, dispatchLimit = 2)
-        dispatchers.onNext(setOf(dispatcher1))
+        modules.onNext(listOf(dispatcher1))
         queue[dispatcher1.id] = mutableSetOf(
             dispatch1,
             dispatch2,
@@ -64,7 +64,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
     @Test
     fun dispatchManager_SendsBatchesOfDispatchesToDispatcher_WhenMultipleSent() {
         dispatcher1 = TestDispatcher.mock(dispatcher1Name, dispatchLimit = 2)
-        dispatchers.onNext(setOf(dispatcher1))
+        modules.onNext(listOf(dispatcher1))
         queue[dispatcher1.id] = mutableSetOf(
             dispatch1,
             dispatch2,
@@ -123,7 +123,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
     @Test
     fun dispatchManager_SendsBatchesToDispatcher_InOrder() {
         dispatcher1 = TestDispatcher.mock(dispatcher1Name, dispatchLimit = 2)
-        dispatchers.onNext(setOf(dispatcher1))
+        modules.onNext(listOf(dispatcher1))
         queue[dispatcher1.id] = mutableSetOf(
             dispatch1,
             dispatch2,

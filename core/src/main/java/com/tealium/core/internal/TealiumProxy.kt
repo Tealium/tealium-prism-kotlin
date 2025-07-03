@@ -12,7 +12,6 @@ import com.tealium.core.api.modules.ModuleProxy
 import com.tealium.core.api.modules.TimedEventsManager
 import com.tealium.core.api.modules.TraceManager
 import com.tealium.core.api.modules.VisitorService
-import com.tealium.core.api.modules.consent.ConsentManager
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.Observer
 import com.tealium.core.api.tracking.Dispatch
@@ -56,8 +55,7 @@ class TealiumProxy(
     override val deeplink: DeepLinkHandler = DeepLinkHandlerWrapper(this)
     override val timedEvents: TimedEventsManager = TimedEventsManagerWrapper(this)
     override val dataLayer: DataLayer = DataLayerWrapper(this)
-    override val consent: ConsentManager
-        get() = TODO()
+
     override val visitorService: VisitorService? = VisitorServiceWrapper(this)
 
     private val disposable = AsyncDisposableContainer(disposeOn = tealiumScheduler)
