@@ -440,35 +440,4 @@ class ModuleManagerImplTests {
 
         assertFalse(moduleManager.addModuleFactory(newModuleFactory))
     }
-
-    @Test
-    fun getModulesInfo_Returns_Information_For_All_Enabled_Modules() {
-        val info = moduleManager.modulesInfo
-
-        for (mod in modules) {
-            assertNotNull(info.find {
-                it.id == mod.id
-                        && it.version == mod.version
-            })
-        }
-    }
-
-    @Test
-    fun getModulesInfo_Returns_Information_For_Enabled_Modules_In_Order() {
-        val info = moduleManager.modulesInfo
-
-        modules.forEachIndexed { idx, module ->
-            assertEquals(module.id, info[idx].id)
-            assertEquals(module.version, info[idx].version)
-        }
-    }
-
-    @Test
-    fun getModulesInfo_Does_Not_Return_Information_For_Disabled_Modules() {
-        moduleManager.updateModuleSettings(context, disableModuleSettings(testDispatcher.id))
-
-        val info = moduleManager.modulesInfo
-
-        assertNull(info.find { it.id == testDispatcher.id })
-    }
 }

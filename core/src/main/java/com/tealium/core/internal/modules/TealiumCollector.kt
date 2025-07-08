@@ -7,7 +7,6 @@ import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.modules.Collector
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
-import com.tealium.core.api.modules.ModuleInfo
 import com.tealium.core.api.modules.ModuleManager
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.pubsub.ObservableState
@@ -50,31 +49,22 @@ class TealiumCollector(
             put(Dispatch.Keys.TEALIUM_RANDOM, random)
             put(Dispatch.Keys.TEALIUM_VISITOR_ID, visitorId.value)
 
-            put(
-                Dispatch.Keys.ENABLED_MODULES,
-                moduleManager.modulesInfo.map(ModuleInfo::id)
-                    .asDataList()
-            )
-            put(
-                Dispatch.Keys.ENABLED_MODULES_VERSIONS,
-                moduleManager.modulesInfo.map(ModuleInfo::version)
-                    .asDataList()
-            )
+            val modules = moduleManager.modules.value
+            put(Dispatch.Keys.ENABLED_MODULES, modules.map(Module::id).asDataList())
+            put(Dispatch.Keys.ENABLED_MODULES_VERSIONS, modules.map(Module::version).asDataList())
         }
     }
 
 
     override val id: String
-        get() = moduleName
+        get() = Factory.id
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
-    companion object {
-        private const val moduleName = "TealiumCollector"
-    }
-
     object Factory : ModuleFactory {
-        override val id = moduleName
+        override val id = "TealiumCollector"
+
+        override fun canBeDisabled(): Boolean = false
 
         override fun create(context: TealiumContext, configuration: DataObject): Module? {
             return TealiumCollector(context)

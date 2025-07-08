@@ -1,13 +1,11 @@
 package com.tealium.core.internal.modules
 
-import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.logger.logIfTraceEnabled
 import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
-import com.tealium.core.api.modules.ModuleInfo
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.ObservableState
@@ -22,9 +20,6 @@ class ModuleManagerImpl(
 ) : InternalModuleManager {
 
     private val moduleFactories: MutableMap<String, ModuleFactory> = linkedMapOf()
-
-    override val modulesInfo: List<ModuleInfo>
-        get() = _modules.value.map(::getModuleInfo)
 
     override val modules: ObservableState<List<Module>>
         get() = _modules.asObservableState()
@@ -146,8 +141,6 @@ class ModuleManagerImpl(
     }
 
     companion object {
-        private fun getModuleInfo(module: Module): ModuleInfo =
-            ModuleInfo(module.id, module.version)
 
         private fun createModule(
             context: TealiumContext,
