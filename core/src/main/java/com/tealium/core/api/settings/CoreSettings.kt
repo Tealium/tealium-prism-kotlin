@@ -17,16 +17,6 @@ interface CoreSettings {
     val logLevel: LogLevel
 
     /**
-     * An identifier to identify this unique data source.
-     */
-    val dataSource: String?
-
-    /**
-     * The number of events to send at a time
-     */
-    val batchSize: Int
-
-    /**
      * How many events can be queued at any given time. Events will be removed on an oldest-first basis
      * when the limit is reached.
      *
@@ -44,29 +34,9 @@ interface CoreSettings {
     val expiration: TimeFrame
 
     /**
-     * Whether or not events should be sent when the device has low battery
-     */
-    val batterySaver: Boolean
-
-    /**
-     * Whether or not events should only be sent on WiFi connections
-     */
-    val wifiOnly: Boolean
-
-    /**
      * How regularly the Sdk should check for updated Sdk settings
      */
     val refreshInterval: TimeFrame
-
-    /**
-     * Whether or not Deep Link Tracking is enabled.
-     */
-    val deepLinkTrackingEnabled: Boolean
-
-    /**
-     * Whether the entire Sdk is disabled or not
-     */
-    val disableLibrary: Boolean
 
     /**
      * The key to look for in the data layer when identifying a user.

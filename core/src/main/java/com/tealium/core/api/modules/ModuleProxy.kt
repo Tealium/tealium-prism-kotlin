@@ -55,5 +55,5 @@ interface ModuleProxy<T: Module> {
      *
      * @return [Single] containing either the result of the task, or the failing exception
      */
-    fun <R> executeModuleTask(task: (T, TealiumCallback<TealiumResult<R>>) -> Unit): Single<TealiumResult<R>>
+    fun <R> executeAsyncModuleTask(task: (T, TealiumCallback<TealiumResult<R>>) -> Unit): Single<TealiumResult<R>>
 }

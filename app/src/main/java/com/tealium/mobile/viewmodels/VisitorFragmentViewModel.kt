@@ -17,11 +17,13 @@ class VisitorFragmentViewModel : ViewModel() {
     val visitorIdFlow: Flow<String> = _visitorIdFlow.asSharedFlow()
 
     fun resetVisitorId() {
-        TealiumHelper.shared?.resetVisitorId(::handleNewVisitorId)
+        TealiumHelper.shared?.resetVisitorId()
+            ?.subscribe(::handleNewVisitorId)
     }
 
     fun clearStoredVisitorIds() {
-        TealiumHelper.shared?.clearStoredVisitorIds(::handleNewVisitorId)
+        TealiumHelper.shared?.clearStoredVisitorIds()
+            ?.subscribe(::handleNewVisitorId)
     }
 
     private fun handleNewVisitorId(result: TealiumResult<String>) {

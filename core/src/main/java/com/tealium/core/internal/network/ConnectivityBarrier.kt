@@ -11,7 +11,6 @@ import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.internal.modules.collect.CollectDispatcher
-import com.tealium.core.internal.settings.CoreSettingsImpl
 
 class ConnectivityBarrier(
     private val connectivityStatus: Observable<Connectivity.Status>,
@@ -55,9 +54,10 @@ class ConnectivityBarrier(
 
     companion object {
         const val BARRIER_ID = "ConnectivityBarrier"
+        const val KEY_WIFI_ONLY = "wifi_only"
 
         private val DataObject.wifiOnly: Boolean
-            get() = this.getBoolean(CoreSettingsImpl.KEY_WIFI_ONLY) ?: false
+            get() = this.getBoolean(KEY_WIFI_ONLY) ?: false
     }
 
     class Factory(

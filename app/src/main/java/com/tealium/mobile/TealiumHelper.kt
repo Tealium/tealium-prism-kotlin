@@ -77,7 +77,6 @@ object TealiumHelper {
         ) { settings ->
             settings
                 .setLogLevel(LogLevel.TRACE)
-                .setBatchSize(8)
         }
         config.apply {
             useRemoteSettings = false
@@ -173,7 +172,7 @@ object TealiumHelper {
         data: DataObject = DataObject.EMPTY_OBJECT
     ) {
         shared?.apply {
-            track(Dispatch.create(event, type, data), ::onTracked)
+            track(event, type, data).onSuccess(::onTracked)
 
             dataLayer.transactionally { editor ->
                 val sessionEvents = editor.getInt("count") ?: 1

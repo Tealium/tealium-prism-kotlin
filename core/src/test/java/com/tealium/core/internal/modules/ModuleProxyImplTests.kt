@@ -218,7 +218,7 @@ class ModuleProxyImplTests {
 
         dispatcherProxy.executeModuleTask(TestDispatcher::id)
             .subscribe(observer)
-        dispatcherProxy.executeModuleTask(callbackDispatcherTask)
+        dispatcherProxy.executeAsyncModuleTask(callbackDispatcherTask)
             .subscribe(observer)
 
         verify(exactly = 2) {
@@ -237,7 +237,7 @@ class ModuleProxyImplTests {
 
         dispatcherProxy.executeModuleTask(TestDispatcher::id)
             .subscribe(observer)
-        dispatcherProxy.executeModuleTask(callbackDispatcherTask)
+        dispatcherProxy.executeAsyncModuleTask(callbackDispatcherTask)
             .subscribe(observer)
 
         verify(exactly = 2) {
@@ -256,7 +256,7 @@ class ModuleProxyImplTests {
 
         dispatcherProxy.executeModuleTask<String> { _ -> throw exception }
             .subscribe(observer)
-        dispatcherProxy.executeModuleTask<String> { _, _ -> throw exception }
+        dispatcherProxy.executeAsyncModuleTask<String> { _, _ -> throw exception }
             .subscribe(observer)
 
         verify(exactly = 2) {
@@ -274,7 +274,7 @@ class ModuleProxyImplTests {
 
         dispatcherProxy.executeModuleTask(TestDispatcher::id)
             .subscribe(observer)
-        dispatcherProxy.executeModuleTask(callbackDispatcherTask)
+        dispatcherProxy.executeAsyncModuleTask(callbackDispatcherTask)
             .subscribe(observer)
 
         verify(exactly = 2) {
@@ -292,7 +292,7 @@ class ModuleProxyImplTests {
 
         listOf(
             dispatcherProxy.executeModuleTask(TestDispatcher::id),
-            dispatcherProxy.executeModuleTask(callbackDispatcherTask)
+            dispatcherProxy.executeAsyncModuleTask(callbackDispatcherTask)
         ).forEach {
             it.subscribe(observer)
             it.subscribe(observer)
@@ -329,16 +329,16 @@ class ModuleProxyImplTests {
     }
 
     @Test
-    fun executeModuleTask_With_Callback_Eagerly_Fetches_Value_Regardless_Of_Subscription_Order() {
+    fun executeAsyncModuleTask_With_Callback_Eagerly_Fetches_Value_Regardless_Of_Subscription_Order() {
         val observer1 = mockk<Observer<TealiumResult<Int>>>(relaxed = true)
         val observer2 = mockk<Observer<TealiumResult<Int>>>(relaxed = true)
         moduleManagerSubject.onNext(moduleManager)
         val proxy = createProxy(ModuleWithObservable::class.java)
 
-        val result1 = proxy.executeModuleTask { module, callback ->
+        val result1 = proxy.executeAsyncModuleTask { module, callback ->
             callback.onComplete(TealiumResult.success(module.counter.incrementAndGet()))
         }
-        val result2 = proxy.executeModuleTask { module, callback ->
+        val result2 = proxy.executeAsyncModuleTask { module, callback ->
             callback.onComplete(TealiumResult.success(module.counter.incrementAndGet()))
         }
         result2.subscribe(observer2)

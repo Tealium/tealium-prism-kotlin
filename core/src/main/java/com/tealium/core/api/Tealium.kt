@@ -1,6 +1,7 @@
 package com.tealium.core.api
 
 import com.tealium.core.api.barriers.Barrier
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.misc.TealiumException
 import com.tealium.core.api.misc.TealiumResult
@@ -11,8 +12,10 @@ import com.tealium.core.api.modules.ModuleProxy
 import com.tealium.core.api.modules.TimedEventsManager
 import com.tealium.core.api.modules.TraceManager
 import com.tealium.core.api.modules.VisitorService
-import com.tealium.core.api.tracking.Dispatch
-import com.tealium.core.api.tracking.TrackResultListener
+import com.tealium.core.api.pubsub.Single
+import com.tealium.core.api.pubsub.SingleResult
+import com.tealium.core.api.tracking.TealiumDispatchType
+import com.tealium.core.api.tracking.TrackResult
 import com.tealium.core.internal.TealiumInstanceManager
 
 interface Tealium {
@@ -26,10 +29,46 @@ interface Tealium {
     // Optionals
     val visitorService: VisitorService?
 
-    fun <T: Module> createModuleProxy(clazz: Class<T>) : ModuleProxy<T>
+    /**
+     * Creates a [ModuleProxy] for the given module [clazz] to allow for an easy creation of Module Wrappers.
+     *
+     * This method should only be used when creating a [Module] wrapper. Use the already prebuilt wrappers for modules included in the SDK.
+     *
+     * @param clazz The [Module] type that the proxy needs to wrap.
+     *
+     * @return The [ModuleProxy] for the given module.
+     */
+    fun <T : Module> createModuleProxy(clazz: Class<T>): ModuleProxy<T>
 
-    fun track(dispatch: Dispatch)
-    fun track(dispatch: Dispatch, onComplete: TrackResultListener)
+    /**
+     * Tracks an event with the specified name, and data. The event type will be [TealiumDispatchType.Event]
+     *
+     * @param name The name of the event to track.
+     * @param data Additional data to include with the event (optional).
+     *
+     * @return: A [Single] onto which you can subscribe to receive the completion with the eventual error
+     * or the [TrackResult] for this track request.
+     */
+    fun track(
+        name: String,
+        data: DataObject
+    ): SingleResult<TrackResult>
+
+    /**
+     * Tracks an event with the specified name, type, and data.
+     *
+     * @param name The name of the event to track.
+     * @param type The type of dispatch to use (default is .event).
+     * @param data Additional data to include with the event (optional).
+     *
+     * @return A [Single] onto which you can subscribe to receive the completion with the eventual error
+     * or the [TrackResult] for this track request.
+     */
+    fun track(
+        name: String,
+        type: TealiumDispatchType,
+        data: DataObject
+    ): SingleResult<TrackResult>
 
     /**
      * Flushes any queued events from the system when it is considered safe to do so by any [Barrier]s
@@ -37,25 +76,28 @@ interface Tealium {
      *
      * This method will not override those [Barrier] implementations whose [Barrier.isFlushable]
      * returns false. But when non-flushable barriers open, a flush will still occur.
+     *
+     * @return A [Single] onto which you can subscribe to receive the completion with the eventual error.
+     *      The returned [Single], in case of success, completes when the flush request is accepted, not when all the events have been flushed.
      */
-    fun flushEventQueue()
+    fun flushEventQueue(): SingleResult<Unit>
 
     /**
      * Resets the current visitor id to a new anonymous one.
      *
      * Note. the new anonymous id will be associated to any identity currently set.
      *
-     * @param callback The block called with the new `visitorId`, if successful, or an error
+     * @return A [SingleResult] which can be subscribed to to get the new `visitorId`, if successful, or an error
      */
-    fun resetVisitorId(callback: TealiumCallback<TealiumResult<String>>)
+    fun resetVisitorId(): SingleResult<String>
 
     /**
      * Removes all stored visitor identifiers as hashed identities, and generates a new
      * anonymous visitor id.
      *
-     * * @param callback The block called with the new `visitorId`, if successful, or an error
+     * @return A [SingleResult] which can be subscribed to to get the new `visitorId`, if successful, or an error
      */
-    fun clearStoredVisitorIds(callback: TealiumCallback<TealiumResult<String>>)
+    fun clearStoredVisitorIds(): SingleResult<String>
 
     /**
      * Shuts this instance of [Tealium] down and frees up all memory usage.
@@ -70,9 +112,9 @@ interface Tealium {
     /**
      * An [Exception] to signify that the [Tealium] instance has already been shutdown.
      */
-    class TealiumShutdownException(message: String?): TealiumException(message)
+    class TealiumShutdownException(message: String?) : TealiumException(message)
 
-    companion object: InstanceManager {
+    companion object : InstanceManager {
         private val instanceManager: InstanceManager = TealiumInstanceManager()
 
         @JvmStatic

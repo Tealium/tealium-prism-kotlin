@@ -1,8 +1,8 @@
 package com.tealium.core.internal
 
 import com.tealium.core.api.Tealium
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.misc.Scheduler
-import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.modules.DataLayer
 import com.tealium.core.api.modules.DeepLinkHandler
@@ -13,10 +13,11 @@ import com.tealium.core.api.modules.TimedEventsManager
 import com.tealium.core.api.modules.TraceManager
 import com.tealium.core.api.modules.VisitorService
 import com.tealium.core.api.pubsub.Observable
-import com.tealium.core.api.pubsub.Observer
+import com.tealium.core.api.pubsub.SingleResult
 import com.tealium.core.api.tracking.Dispatch
+import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.api.tracking.TrackResult
-import com.tealium.core.api.tracking.TrackResultListener
+import com.tealium.core.internal.misc.AsyncProxyImpl
 import com.tealium.core.internal.modules.ModuleProxyImpl
 import com.tealium.core.internal.modules.TimedEventsManagerWrapper
 import com.tealium.core.internal.modules.VisitorServiceWrapper
@@ -24,7 +25,6 @@ import com.tealium.core.internal.modules.datalayer.DataLayerWrapper
 import com.tealium.core.internal.modules.deeplink.DeepLinkHandlerWrapper
 import com.tealium.core.internal.modules.trace.TraceManagerWrapper
 import com.tealium.core.internal.pubsub.AsyncDisposableContainer
-import com.tealium.core.internal.pubsub.addTo
 
 
 /**
@@ -51,6 +51,8 @@ class TealiumProxy(
             result.getOrNull()?.moduleManager
         }
 
+    private val asyncProxy = AsyncProxyImpl(tealiumScheduler, onTealiumImplReady)
+
     override val trace: TraceManager = TraceManagerWrapper(this)
     override val deeplink: DeepLinkHandler = DeepLinkHandlerWrapper(this)
     override val timedEvents: TimedEventsManager = TimedEventsManagerWrapper(this)
@@ -62,62 +64,42 @@ class TealiumProxy(
 
     init {
         onTealiumImplReady.filter { it.exceptionOrNull() != null }
-            .take(1)
-            .subscribeOn(tealiumScheduler)
+            .asSingle(tealiumScheduler)
             .subscribe {
                 doShutdown()
             }
     }
 
-    private fun onTealiumImplReady(observer: Observer<TealiumResult<TealiumImpl>>) {
-        onTealiumImplReady
-            .take(1)
-            .subscribeOn(scheduler = tealiumScheduler)
-            .subscribe(observer)
-            .addTo(disposable)
+    override fun track(name: String, data: DataObject): SingleResult<TrackResult> =
+        track(name, TealiumDispatchType.Event, data)
+
+    override fun track(
+        name: String,
+        type: TealiumDispatchType,
+        data: DataObject
+    ): SingleResult<TrackResult> {
+        val dispatch = Dispatch.create(name, type, data)
+        return track(dispatch)
     }
 
-    private fun <T> onTealiumSuccess(
-        onSuccess: TealiumCallback<TealiumResult<T>>? = null,
-        task: (TealiumImpl) -> T
-    ) = onTealiumImplReady { initResult ->
-        try {
-            val tealiumImpl = initResult.getOrThrow()
-            val result = task.invoke(tealiumImpl)
-            onSuccess?.onComplete(TealiumResult.success(result))
-        } catch (e: Exception) {
-            onSuccess?.onComplete(TealiumResult.failure(e))
-        }
-    }
-
-    override fun track(dispatch: Dispatch) = onTealiumImplReady { tealium ->
-        tealium.getOrNull()?.track(dispatch)
-    }
-
-    override fun track(dispatch: Dispatch, onComplete: TrackResultListener) =
-        onTealiumImplReady { tealium ->
-            try {
-                val tealiumImpl = tealium.getOrThrow()
-                tealiumImpl.track(dispatch, onComplete)
-            } catch (e: Exception) {
-                onComplete.onTrackResultReady(TrackResult.Dropped(dispatch))
+    private fun track(dispatch: Dispatch) =
+        asyncProxy.executeAsyncTask { tealium, callback ->
+            tealium.track(dispatch) { trackResult ->
+                callback.onComplete(TealiumResult.success(trackResult))
             }
-            // TODO - arrange better error handling
         }
 
-    override fun flushEventQueue() = onTealiumSuccess { tealium ->
+    override fun flushEventQueue() = asyncProxy.executeTask { tealium ->
         tealium.flushEventQueue()
     }
 
-    override fun resetVisitorId(callback: TealiumCallback<TealiumResult<String>>) =
-        onTealiumSuccess(callback) { tealium ->
-            tealium.resetVisitorId()
-        }
+    override fun resetVisitorId() = asyncProxy.executeTask { tealium ->
+        tealium.resetVisitorId()
+    }
 
-    override fun clearStoredVisitorIds(callback: TealiumCallback<TealiumResult<String>>) =
-        onTealiumSuccess(callback) { tealium ->
-            tealium.clearStoredVisitorIds()
-        }
+    override fun clearStoredVisitorIds() = asyncProxy.executeTask { tealium ->
+        tealium.clearStoredVisitorIds()
+    }
 
     override fun <T : Module> createModuleProxy(clazz: Class<T>): ModuleProxy<T> =
         ModuleProxyImpl(clazz, moduleManager, tealiumScheduler)

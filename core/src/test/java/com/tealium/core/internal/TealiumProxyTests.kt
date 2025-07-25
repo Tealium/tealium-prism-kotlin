@@ -2,12 +2,13 @@ package com.tealium.core.internal
 
 import android.app.Application
 import com.tealium.core.api.Tealium
+import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.misc.Scheduler
-import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.misc.TealiumException
 import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.modules.Dispatcher
 import com.tealium.core.api.pubsub.Observables
+import com.tealium.core.api.pubsub.Observer
 import com.tealium.core.api.pubsub.Subject
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TrackResult
@@ -35,6 +36,7 @@ class TealiumProxyTests {
 
     @MockK
     private lateinit var onShutdown: (String) -> Unit
+
     @RelaxedMockK
     private lateinit var tealiumImpl: TealiumImpl
 
@@ -54,6 +56,9 @@ class TealiumProxyTests {
         scheduler = SynchronousScheduler()
         dispatch = Dispatch.create("Test")
         onTealiumImplReady = Observables.replaySubject(1)
+        every { tealiumImpl.track(any(), any()) } answers {
+            arg<TrackResultListener>(2).onTrackResultReady(TrackResult.Accepted(arg(1)))
+        }
 
         tealiumProxy = TealiumProxy(key, scheduler, onTealiumImplReady, onShutdown)
     }
@@ -65,17 +70,14 @@ class TealiumProxyTests {
 
     @Test
     fun onTealiumImplReady_Queues_Events_When_Tealium_Not_Ready() {
-        val listener = mockk<TrackResultListener>(relaxed = true)
-        tealiumProxy.track(dispatch, listener)
+        tealiumProxy.track("", DataObject.EMPTY_OBJECT)
 
         assertEquals(2, onTealiumImplReady.count) // includes shutdown sub
     }
 
     @Test
     fun onTealiumImplReady_Processes_Queued_Events_When_Tealium_Ready_Successfully() {
-        val listener = mockk<TrackResultListener>(relaxed = true)
-
-        tealiumProxy.track(dispatch, listener)
+        tealiumProxy.track("", DataObject.EMPTY_OBJECT)
         assertEquals(2, onTealiumImplReady.count)  // includes shutdown sub
         onTealiumImplReady.onNext(TealiumResult.success(tealiumImpl))
         assertEquals(1, onTealiumImplReady.count)  // includes shutdown sub
@@ -83,9 +85,7 @@ class TealiumProxyTests {
 
     @Test
     fun onTealiumImplReady_Processes_Queued_Events_When_Tealium_Failed_Init() {
-        val listener = mockk<TrackResultListener>(relaxed = true)
-
-        tealiumProxy.track(dispatch, listener)
+        tealiumProxy.track("", DataObject.EMPTY_OBJECT)
         assertEquals(2, onTealiumImplReady.count)  // includes shutdown sub
         onTealiumImplReady.onNext(TealiumResult.failure(TealiumException()))
         assertEquals(0, onTealiumImplReady.count)  // shutdown sub removed too
@@ -93,14 +93,18 @@ class TealiumProxyTests {
 
     @Test
     fun onTealiumImplReady_Executes_Shutdown_When_Received_Exception_Result() {
-        val listener = mockk<TrackResultListener>(relaxed = true)
+        val observer = mockk<Observer<TealiumResult<TrackResult>>>(relaxed = true)
+        val shutdownException = Tealium.TealiumShutdownException("")
 
         onTealiumImplReady.onNext(TealiumResult.success(tealiumImpl))
-        onTealiumImplReady.onNext(TealiumResult.failure(Tealium.TealiumShutdownException("")))
-        tealiumProxy.track(dispatch, listener)
+        onTealiumImplReady.onNext(TealiumResult.failure(shutdownException))
+        tealiumProxy.track("", DataObject.EMPTY_OBJECT)
+            .subscribe(observer)
 
-        verify(inverse = true) {
-            listener.onTrackResultReady(TrackResult.Accepted(dispatch))
+        verify {
+            observer.onNext(match {
+                it.exceptionOrNull() == shutdownException
+            })
         }
     }
 
@@ -157,44 +161,40 @@ class TealiumProxyTests {
     @Test
     fun track_Calls_TealiumImpl_When_Created_Successfully() {
         onTealiumImplReady.onNext(TealiumResult.success(tealiumImpl))
-        tealiumProxy.track(dispatch)
+        tealiumProxy.track("event", DataObject.EMPTY_OBJECT)
 
         verify {
-            tealiumImpl.track(dispatch)
+            tealiumImpl.track(match { it.tealiumEvent == "event" }, any())
         }
     }
 
     @Test
     fun track_Does_Not_Call_TealiumImpl_When_Created_Exceptionally() {
         onTealiumImplReady.onNext(TealiumResult.failure(Tealium.TealiumShutdownException("")))
-        tealiumProxy.track(dispatch)
+        tealiumProxy.track("event", DataObject.EMPTY_OBJECT)
 
         verify(inverse = true) {
-            tealiumImpl.track(dispatch)
+            tealiumImpl.track(any())
         }
     }
 
     @Test
     fun trackWithListener_Calls_TealiumImpl_When_Created_Successfully() {
-        val listener = mockk<TrackResultListener>(relaxed = true)
-
         onTealiumImplReady.onNext(TealiumResult.success(tealiumImpl))
-        tealiumProxy.track(dispatch, listener)
+        tealiumProxy.track("event", DataObject.EMPTY_OBJECT)
 
         verify {
-            tealiumImpl.track(dispatch, listener)
+            tealiumImpl.track(match { it.tealiumEvent == "event" }, any())
         }
     }
 
     @Test
     fun trackWithListener_Does_Not_Call_TealiumImpl_When_Created_Exceptionally() {
-        val listener = mockk<TrackResultListener>(relaxed = true)
-
         onTealiumImplReady.onNext(TealiumResult.failure(Tealium.TealiumShutdownException("")))
-        tealiumProxy.track(dispatch, listener)
+        tealiumProxy.track("event", DataObject.EMPTY_OBJECT)
 
         verify(inverse = true) {
-            tealiumImpl.track(dispatch, listener)
+            tealiumImpl.track(match { it.tealiumEvent == "event" }, any())
         }
     }
 
@@ -221,15 +221,16 @@ class TealiumProxyTests {
 
     @Test
     fun resetVisitorId_Calls_TealiumImpl_When_Created_Successfully() {
-        val listener = mockk<TealiumCallback<TealiumResult<String>>>(relaxed = true)
+        val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
         every { tealiumImpl.resetVisitorId() } returns "newVisitor"
 
         onTealiumImplReady.onNext(TealiumResult.success(tealiumImpl))
-        tealiumProxy.resetVisitorId(listener)
+        tealiumProxy.resetVisitorId()
+            .subscribe(observer)
 
         verify {
             tealiumImpl.resetVisitorId()
-            listener.onComplete(match {
+            observer.onNext(match {
                 it.getOrThrow() == "newVisitor"
             })
         }
@@ -237,23 +238,22 @@ class TealiumProxyTests {
 
     @Test
     fun resetVisitorId_Returns_Exception_When_Created_Exceptionally() {
-        val listener = mockk<TealiumCallback<TealiumResult<String>>>(relaxed = true)
+        val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
         val error = Tealium.TealiumShutdownException("")
 
         onTealiumImplReady.onNext(TealiumResult.failure(error))
-        tealiumProxy.resetVisitorId(listener)
+        tealiumProxy.resetVisitorId()
+            .subscribe(observer)
 
         verify {
-            listener.onComplete(match { it.exceptionOrNull() == error })
+            observer.onNext(match { it.exceptionOrNull() == error })
         }
     }
 
     @Test
     fun resetVisitorId_Does_Not_Call_TealiumImpl_When_Created_Exceptionally() {
-        val listener = mockk<TealiumCallback<TealiumResult<String>>>(relaxed = true)
-
         onTealiumImplReady.onNext(TealiumResult.failure(Tealium.TealiumShutdownException("")))
-        tealiumProxy.resetVisitorId(listener)
+        tealiumProxy.resetVisitorId()
 
         verify(inverse = true) {
             tealiumImpl.resetVisitorId()
@@ -262,15 +262,16 @@ class TealiumProxyTests {
 
     @Test
     fun clearStoredVisitorIds_Calls_TealiumImpl_When_Created_Successfully() {
-        val listener = mockk<TealiumCallback<TealiumResult<String>>>(relaxed = true)
+        val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
         every { tealiumImpl.clearStoredVisitorIds() } returns "newVisitor"
 
         onTealiumImplReady.onNext(TealiumResult.success(tealiumImpl))
-        tealiumProxy.clearStoredVisitorIds(listener)
+        tealiumProxy.clearStoredVisitorIds()
+            .subscribe(observer)
 
         verify {
             tealiumImpl.clearStoredVisitorIds()
-            listener.onComplete(match {
+            observer.onNext(match {
                 it.getOrThrow() == "newVisitor"
             })
         }
@@ -278,23 +279,22 @@ class TealiumProxyTests {
 
     @Test
     fun clearStoredVisitorIds_Returns_Exception_When_Created_Exceptionally() {
-        val listener = mockk<TealiumCallback<TealiumResult<String>>>(relaxed = true)
+        val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
         val error = Tealium.TealiumShutdownException("")
 
         onTealiumImplReady.onNext(TealiumResult.failure(error))
-        tealiumProxy.clearStoredVisitorIds(listener)
+        tealiumProxy.clearStoredVisitorIds()
+            .subscribe(observer)
 
         verify {
-            listener.onComplete(match { it.exceptionOrNull() == error })
+            observer.onNext(match { it.exceptionOrNull() == error })
         }
     }
 
     @Test
     fun clearStoredVisitorIds_Does_Not_Call_TealiumImpl_When_Created_Exceptionally() {
-        val listener = mockk<TealiumCallback<TealiumResult<String>>>(relaxed = true)
-
         onTealiumImplReady.onNext(TealiumResult.failure(Tealium.TealiumShutdownException("")))
-        tealiumProxy.clearStoredVisitorIds(listener)
+        tealiumProxy.clearStoredVisitorIds()
 
         verify(inverse = true) {
             tealiumImpl.clearStoredVisitorIds()

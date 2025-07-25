@@ -29,27 +29,6 @@ class CoreSettingsBuilderTests {
     }
 
     @Test
-    fun setDataSource_Sets_DataSource_In_DataObject() {
-        val settings = builder.setDataSource("abc123").build()
-
-        assertEquals("abc123", settings.getString(CoreSettingsImpl.KEY_DATA_SOURCE))
-    }
-
-    @Test
-    fun setBatchSize_Sets_BatchSize_In_DataObject() {
-        val five = builder.setBatchSize(5).build()
-        val tooSmall = builder.setBatchSize(-100).build()
-        val tooBig = builder.setBatchSize(100).build()
-
-        assertEquals(5, five.getInt(CoreSettingsImpl.KEY_BATCH_SIZE))
-        assertEquals(0, tooSmall.getInt(CoreSettingsImpl.KEY_BATCH_SIZE))
-        assertEquals(
-            CoreSettingsImpl.MAX_BATCH_SIZE,
-            tooBig.getInt(CoreSettingsImpl.KEY_BATCH_SIZE)
-        )
-    }
-
-    @Test
     fun setMaxQueueSize_Sets_MaxQueueSize_In_DataObject() {
         val settings = builder.setMaxQueueSize(200).build()
 
@@ -66,48 +45,12 @@ class CoreSettingsBuilderTests {
     }
 
     @Test
-    fun setBatterySaver_Sets_BatterySaver_In_DataObject() {
-        val enabled = builder.setBatterySaver(true).build()
-        val disabled = builder.setBatterySaver(false).build()
-
-        assertTrue(enabled.getBoolean(CoreSettingsImpl.KEY_BATTERY_SAVER)!!)
-        assertFalse(disabled.getBoolean(CoreSettingsImpl.KEY_BATTERY_SAVER)!!)
-    }
-
-    @Test
-    fun setWifiOnly_Sets_WifiOnly_In_DataObject() {
-        val enabled = builder.setWifiOnly(true).build()
-        val disabled = builder.setWifiOnly(false).build()
-
-        assertTrue(enabled.getBoolean(CoreSettingsImpl.KEY_WIFI_ONLY)!!)
-        assertFalse(disabled.getBoolean(CoreSettingsImpl.KEY_WIFI_ONLY)!!)
-    }
-
-    @Test
     fun setRefreshInterval_Sets_RefreshInterval_InSeconds_In_DataObject() {
         val oneDay = builder.setRefreshInterval(1.days).build()
         val tenMinutes = builder.setRefreshInterval(10.minutes).build()
 
         assertEquals(86_400, oneDay.getInt(CoreSettingsImpl.KEY_REFRESH_INTERVAL))
         assertEquals(600, tenMinutes.getInt(CoreSettingsImpl.KEY_REFRESH_INTERVAL))
-    }
-
-    @Test
-    fun setDeepLinkTrackingEnabled_Sets_DeepLinkTrackingEnabled_In_DataObject() {
-        val enabled = builder.setDeepLinkTrackingEnabled(true).build()
-        val disabled = builder.setDeepLinkTrackingEnabled(false).build()
-
-        assertTrue(enabled.getBoolean(CoreSettingsImpl.KEY_DEEPLINK_TRACKING_ENABLED)!!)
-        assertFalse(disabled.getBoolean(CoreSettingsImpl.KEY_DEEPLINK_TRACKING_ENABLED)!!)
-    }
-
-    @Test
-    fun setDisableLibrary_Sets_DisableLibrary_In_DataObject() {
-        val disabled = builder.setDisableLibrary(true).build()
-        val enabled = builder.setDisableLibrary(false).build()
-
-        assertFalse(enabled.getBoolean(CoreSettingsImpl.KEY_DISABLE_LIBRARY)!!)
-        assertTrue(disabled.getBoolean(CoreSettingsImpl.KEY_DISABLE_LIBRARY)!!)
     }
 
     @Test
@@ -125,15 +68,15 @@ class CoreSettingsBuilderTests {
 
     @Test
     fun build_Returns_DataObject_Without_Unset_Properties() {
-        val settings = builder.setBatchSize(10)
-            .setBatterySaver(true)
+        val settings = builder.setMaxQueueSize(10)
+            .setLogLevel(LogLevel.WARN)
             .build()
 
-        assertEquals(10, settings.getInt(CoreSettingsImpl.KEY_BATCH_SIZE))
-        assertTrue(settings.getBoolean(CoreSettingsImpl.KEY_BATTERY_SAVER)!!)
+        assertEquals(10, settings.getInt(CoreSettingsImpl.KEY_MAX_QUEUE_SIZE))
+        assertEquals(LogLevel.WARN, settings.get(CoreSettingsImpl.KEY_LOG_LEVEL, LogLevel.Converter))
 
         assertNull(settings.get(CoreSettingsImpl.KEY_EXPIRATION))
-        assertNull(settings.get(CoreSettingsImpl.KEY_DISABLE_LIBRARY))
-        assertNull(settings.get(CoreSettingsImpl.KEY_LOG_LEVEL))
+        assertNull(settings.get(CoreSettingsImpl.KEY_VISITOR_IDENTITY_KEY))
+        assertNull(settings.get(CoreSettingsImpl.KEY_REFRESH_INTERVAL))
     }
 }

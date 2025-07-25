@@ -12,10 +12,14 @@ import com.tealium.core.api.data.DataList;
 import com.tealium.core.api.data.DataObject;
 import com.tealium.core.api.data.UnsupportedDataItemException;
 import com.tealium.core.api.misc.Environment;
+import com.tealium.core.api.misc.TealiumResult;
 import com.tealium.core.api.modules.ModuleFactory;
 import com.tealium.core.api.consent.CmpAdapter;
+import com.tealium.core.api.pubsub.Single;
+import com.tealium.core.api.pubsub.SingleUtils;
 import com.tealium.core.api.tracking.Dispatch;
 import com.tealium.core.api.tracking.TealiumDispatchType;
+import com.tealium.core.api.tracking.TrackResult;
 import com.tealium.lifecycle.Lifecycle;
 import com.tealium.lifecycle.LifecycleDataTarget;
 
@@ -88,15 +92,14 @@ public class TealiumJavaHelper {
                     .put("", () -> DataItem.string(""))
                     .build();
 
-            tealium.track(Dispatch.create("",
+            tealium.track("",
                     TealiumDispatchType.Event,
-                    DataObject.EMPTY_OBJECT));
+                    DataObject.EMPTY_OBJECT);
 
-            tealium.track(Dispatch.create("",
+            Single<TealiumResult<TrackResult>> result = tealium.track("",
                     TealiumDispatchType.Event,
-                    DataObject.EMPTY_OBJECT), (status) -> {
-                Log.d("TealiumJavaHelper", "Processing status: " + status.getDispatch().getTealiumEvent() + " - " + status);
-            });
+                    DataObject.EMPTY_OBJECT);
+            SingleUtils.onSuccess(result, (status) -> Log.d("TealiumJavaHelper", "Processing status: " + status.getDispatch().getTealiumEvent() + " - " + status));
         });
     }
 
@@ -122,7 +125,7 @@ public class TealiumJavaHelper {
     private static ModuleFactory configureLifecycle() {
 //        return Lifecycle.configure();
         return Lifecycle.configure(lifecycleSettingsBuilder ->
-            lifecycleSettingsBuilder.setDataTarget(LifecycleDataTarget.AllEvents)
+                lifecycleSettingsBuilder.setDataTarget(LifecycleDataTarget.AllEvents)
         );
     }
 }

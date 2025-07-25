@@ -5,9 +5,11 @@ import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataItemUtils.asDataObject
 import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.misc.ActivityManager
 import com.tealium.core.api.misc.TimeFrame
+import com.tealium.core.api.misc.TimeFrameUtils.days
 import com.tealium.core.api.misc.TimeFrameUtils.minutes
 import com.tealium.core.api.misc.TimeFrameUtils.seconds
 import com.tealium.core.api.network.NetworkHelper
@@ -167,7 +169,7 @@ class SettingsManagerTests {
         val observer = mockk<(SdkSettings) -> Unit>(relaxed = true)
         mockRemoteResponse(
             configureCoreSettingsDataObject {
-                setDataSource("data_source")
+                setVisitorIdentityKey("identity")
             }
         )
         createSettingsManager()
@@ -179,7 +181,7 @@ class SettingsManagerTests {
 
         assertFalse(disposable.isDisposed)
         verify {
-            observer(match { it.core.dataSource == "data_source" })
+            observer(match { it.core.visitorIdentityKey == "identity" })
         }
     }
 
@@ -190,7 +192,7 @@ class SettingsManagerTests {
         val observer = mockk<(SdkSettings) -> Unit>(relaxed = true)
         mockRemoteResponse(
             configureCoreSettingsDataObject {
-                setDataSource("data_source")
+                setVisitorIdentityKey("identity")
             }
         )
         createSettingsManager()
@@ -202,7 +204,7 @@ class SettingsManagerTests {
         activities.onNext(ActivityManager.ApplicationStatus.Init())
 
         verify(inverse = true) {
-            observer(match { it.core.dataSource == "data_source" })
+            observer(match { it.core.visitorIdentityKey == "identity" })
         }
     }
 
@@ -213,18 +215,18 @@ class SettingsManagerTests {
         val observer = mockk<(SdkSettings) -> Unit>(relaxed = true)
         mockAssetResponse(
             configureCoreSettingsDataObject {
-                setDataSource("asset")
-                setBatchSize(1)
+                setVisitorIdentityKey("asset")
+                setMaxQueueSize(1)
             }
         )
         every { mockCache.resource } returns configureCoreSettingsDataObject {
-            setDataSource("cache")
-            setWifiOnly(true)
+            setVisitorIdentityKey("cache")
+            setLogLevel(LogLevel.WARN)
         }
         mockRemoteResponse(
             configureCoreSettingsDataObject {
-                setDataSource("remote")
-                setBatterySaver(true)
+                setVisitorIdentityKey("remote")
+                setExpiration(10.minutes)
             }
         )
         createSettingsManager()
@@ -237,10 +239,10 @@ class SettingsManagerTests {
 
         verify(inverse = true) {
             observer(match {
-                it.core.dataSource == "remote"
-                        && it.core.batterySaver
-                        && it.core.wifiOnly
-                        && it.core.batchSize == 1
+                it.core.visitorIdentityKey == "remote"
+                        && it.core.logLevel == LogLevel.WARN
+                        && it.core.expiration == 10.minutes
+                        && it.core.maxQueueSize == 1
             })
         }
     }
@@ -248,51 +250,51 @@ class SettingsManagerTests {
     @Test
     fun mergeSettings_Ignores_Null_Or_Empty_Settings() {
         val localSettings = configureCoreSettingsDataObject {
-            setDataSource("test")
+            setVisitorIdentityKey("test")
         }
 
         val mergedSettings =
             SettingsManager.mergeSettings(localSettings, null, DataObject.EMPTY_OBJECT)
         val sdkSettings = SdkSettings.fromDataObject(mergedSettings)
-        assertTrue(sdkSettings.core.dataSource == "test")
+        assertTrue(sdkSettings.core.visitorIdentityKey == "test")
     }
 
     @Test
     fun mergeSettings_Merges_All_Core_Settings() {
         val settings1 = configureCoreSettingsDataObject {
-            setDataSource("testSource")
+            setVisitorIdentityKey("identity")
         }
         val settings2 = configureCoreSettingsDataObject {
-            setBatterySaver(true)
+            setExpiration(2.days)
         }
         val settings3 = configureCoreSettingsDataObject {
-            setWifiOnly(true)
+            setMaxQueueSize(10)
         }
 
         val mergedSettings = SettingsManager.mergeSettings(settings1, settings2, settings3)
         val sdkSettings = SdkSettings.fromDataObject(mergedSettings)
 
-        assertTrue(sdkSettings.core.dataSource == "testSource")
-        assertTrue(sdkSettings.core.batterySaver)
-        assertTrue(sdkSettings.core.wifiOnly)
+        assertEquals("identity", sdkSettings.core.visitorIdentityKey)
+        assertEquals(172_800.seconds, sdkSettings.core.expiration)
+        assertEquals(10, sdkSettings.core.maxQueueSize)
     }
 
     @Test
     fun mergeSettings_Merges_Core_Settings_Replacing_Clashes_With_Higher_Priority_Values() {
         val settings1 = configureCoreSettingsDataObject {
-            setDataSource("testSource")
+            setVisitorIdentityKey("testIdentity")
         }
         val settings2 = configureCoreSettingsDataObject {
-            setDataSource("remoteSource")
+            setVisitorIdentityKey("remoteIdentity")
         }
         val settings3 = configureCoreSettingsDataObject {
-            setDataSource("programmaticSource")
+            setVisitorIdentityKey("programmaticIdentity")
         }
 
         val mergedSettings = SettingsManager.mergeSettings(settings1, settings2, settings3)
         val sdkSettings = SdkSettings.fromDataObject(mergedSettings)
 
-        assertTrue(sdkSettings.core.dataSource == "programmaticSource")
+        assertTrue(sdkSettings.core.visitorIdentityKey == "programmaticIdentity")
     }
 
     @Test

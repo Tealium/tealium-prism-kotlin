@@ -12,6 +12,8 @@ import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Single
 import com.tealium.core.api.pubsub.Subscribable
+import com.tealium.core.internal.misc.AsyncProxy
+import com.tealium.core.internal.misc.AsyncProxyImpl
 
 /**
  * A [ModuleProxy] is to be used for proxying access to modules that are or were available
@@ -29,18 +31,10 @@ class ModuleProxyImpl<T : Module>(
     private val scheduler: Scheduler,
 ) : ModuleProxy<T> {
 
-    override fun getModule(callback: TealiumCallback<T?>) {
-        moduleManager.take(1)
-            .subscribeOn(scheduler)
-            .subscribe { moduleManager ->
-                if (moduleManager == null) {
-                    callback.onComplete(null)
-                    return@subscribe
-                }
+    private val asyncProxy: AsyncProxy<T> = AsyncProxyImpl(scheduler, observeEnabledModule())
 
-                moduleManager.getModuleOfType(clazz, callback)
-            }
-    }
+    override fun getModule(callback: TealiumCallback<T?>) =
+        asyncProxy.getProxiedObject(callback)
 
     override fun observeModule(): Subscribable<T?> =
         moduleManager.flatMapLatest { manager ->
@@ -55,43 +49,10 @@ class ModuleProxyImpl<T : Module>(
         }.subscribeOn(scheduler)
 
     override fun <R> executeModuleTask(task: (T) -> R): Single<TealiumResult<R>> =
-        executeModuleTaskInternal { module ->
-            Observables.just(
-                TealiumResult.success(task.invoke(module))
-            )
-        }
+        asyncProxy.executeTask(task)
 
-    override fun <R> executeModuleTask(task: (T, TealiumCallback<TealiumResult<R>>) -> Unit): Single<TealiumResult<R>> =
-        executeModuleTaskInternal { module ->
-            Observables.callback { observer ->
-                try {
-                    task.invoke(module) { result ->
-                        observer.onNext(result)
-                    }
-                } catch (e: Exception) {
-                    observer.onNext(TealiumResult.failure(e))
-                }
-            }
-        }
-
-    private fun <R> executeModuleTaskInternal(transform: (T) -> Observable<TealiumResult<R>>): Single<TealiumResult<R>> {
-        val resultSubject = Observables.replaySubject<TealiumResult<R>>(1)
-
-        observeEnabledModule().flatMap { result ->
-            try {
-                val module = result.getOrThrow()
-                transform.invoke(module)
-            } catch (e: Exception) {
-                Observables.just(TealiumResult.failure(e))
-            }
-        }.asSingle(scheduler)
-            .subscribe(resultSubject)
-
-        // TODO - notify generic error handler?
-
-        return resultSubject
-            .asSingle(scheduler)
-    }
+    override fun <R> executeAsyncModuleTask(task: (T, TealiumCallback<TealiumResult<R>>) -> Unit): Single<TealiumResult<R>>  =
+        asyncProxy.executeAsyncTask(task)
 
     /**
      * Gets the [Module] as a [Observable] but also handles the checks for:
