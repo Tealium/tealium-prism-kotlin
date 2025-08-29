@@ -1,6 +1,7 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.BuildConfig
+import com.tealium.core.api.Modules
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.network.Connectivity.ConnectivityType
@@ -24,12 +25,12 @@ import org.junit.runners.JUnit4
 import org.junit.runners.Parameterized
 
 @RunWith(Enclosed::class)
-open class ConnectivityCollectorTests {
+open class ConnectivityDataModuleTests {
 
     @MockK
     protected lateinit var connectivity: StateSubject<Status>
 
-    protected lateinit var connectivityCollector: ConnectivityCollector
+    protected lateinit var connectivityDataModule: ConnectivityDataModule
 
     @Before
     fun setUp() {
@@ -37,21 +38,21 @@ open class ConnectivityCollectorTests {
 
         connectivity = Observables.stateSubject(Status.Connected(ConnectivityType.WIFI))
 
-        connectivityCollector = ConnectivityCollector(connectivity)
+        connectivityDataModule = ConnectivityDataModule(connectivity)
     }
 
     @RunWith(JUnit4::class)
-    class StandardTests : ConnectivityCollectorTests() {
+    class StandardTests : ConnectivityDataModuleTests() {
 
         @Test
-        fun factory_ReturnsModule_When_Enabled() {
+        fun factory_Returns_Module_When_Enabled() {
             val context = mockk<TealiumContext>(relaxed = true)
             val network = mockk<NetworkUtilities>(relaxed = true)
             every { context.network } returns network
             every { network.connectionStatus } returns Observables.stateSubject(Status.Unknown)
 
             assertNotNull(
-                ConnectivityCollector.Factory.create(
+                ConnectivityDataModule.Factory.create(
                     context, DataObject.EMPTY_OBJECT
                 )
             )
@@ -59,17 +60,17 @@ open class ConnectivityCollectorTests {
 
         @Test
         fun name_Matches_Factory() {
-            assertEquals(ConnectivityCollector.Factory.id, connectivityCollector.id)
+            assertEquals(ConnectivityDataModule.Factory.id, connectivityDataModule.id)
         }
 
         @Test
-        fun name_Returns_Connectivity() {
-            assertEquals("Connectivity", connectivityCollector.id)
+        fun name_Returns_ConnectivityData() {
+            assertEquals(Modules.Ids.CONNECTIVITY_DATA, connectivityDataModule.id)
         }
 
         @Test
         fun version_Returns_LibraryVersion() {
-            assertEquals(BuildConfig.TEALIUM_LIBRARY_VERSION, connectivityCollector.version)
+            assertEquals(BuildConfig.TEALIUM_LIBRARY_VERSION, connectivityDataModule.version)
         }
     }
 
@@ -77,7 +78,7 @@ open class ConnectivityCollectorTests {
     class ConnectivityTypeTests(
         private val connectivityStatus: Status,
         private val expected: String
-    ) : ConnectivityCollectorTests() {
+    ) : ConnectivityDataModuleTests() {
 
         companion object {
             @JvmStatic
@@ -93,12 +94,12 @@ open class ConnectivityCollectorTests {
         }
 
         @Test
-        fun collect_ReturnsDataObject_Containing_ConnectivityType() {
+        fun collect_Returns_DataObject_Containing_ConnectivityType() {
             connectivity.onNext(connectivityStatus)
             val dispatchContext =
                 DispatchContext(DispatchContext.Source.application(), DataObject.EMPTY_OBJECT)
 
-            val dataObject = connectivityCollector.collect(dispatchContext)
+            val dataObject = connectivityDataModule.collect(dispatchContext)
             assertEquals(expected, dataObject.getString(Dispatch.Keys.CONNECTION_TYPE)!!)
         }
     }

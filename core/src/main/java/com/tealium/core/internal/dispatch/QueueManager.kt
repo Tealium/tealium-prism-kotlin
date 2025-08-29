@@ -56,7 +56,18 @@ interface QueueManager {
      * entries will be returned.
      * @param processor The name of the processor whose dispatches are being retrieved
      */
-    fun getQueuedDispatches(count: Int, processor: String): List<Dispatch>
+    fun dequeueDispatches(count: Int, processor: String): List<Dispatch>
+
+    /**
+     * Returns the oldest [count], for the given [processor], but does **not** set them as "in-flight"
+     *
+     * The returned list will not include any [Dispatch]es that are already in-flight.
+     *
+     * @param count The maximum number of queued [Dispatch]es to return. If value is negative, then all
+     * entries will be returned.
+     * @param processor The name of the processor whose dispatches are being retrieved
+     */
+    fun peekDispatches(count: Int, processor: String): List<Dispatch>
 
     /**
      * Adds the [dispatches] to the queue, creating entries for all [processors]s provided.
@@ -128,12 +139,8 @@ class QueueManagerImpl(
         }.distinct()
     }
 
-    override fun getQueuedDispatches(count: Int, processor: String): List<Dispatch> {
-        val dispatches = queueRepository.getQueuedDispatches(
-            count,
-            inFlightDispatches.value[processor] ?: emptySet(),
-            processor
-        )
+    override fun dequeueDispatches(count: Int, processor: String): List<Dispatch> {
+        val dispatches = peekDispatches(count, processor)
 
         if (dispatches.isEmpty()) return emptyList()
         logger.logIfDebugEnabled(LogCategory.QUEUE_MANAGER) {
@@ -143,6 +150,14 @@ class QueueManagerImpl(
         addToInflightDispatches(processor, dispatches)
 
         return dispatches
+    }
+
+    override fun peekDispatches(count: Int, processor: String): List<Dispatch> {
+        return queueRepository.getQueuedDispatches(
+            count,
+            inFlightDispatches.value[processor] ?: emptySet(),
+            processor
+        )
     }
 
     override fun storeDispatches(dispatches: List<Dispatch>, processors: Set<String>) {

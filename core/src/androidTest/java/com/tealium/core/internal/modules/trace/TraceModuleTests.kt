@@ -18,11 +18,11 @@ import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
-class TraceManagerModuleTests {
+class TraceModuleTests {
 
     private lateinit var app: Application
     private lateinit var dataStore: DataStore
-    private lateinit var trace: TraceManagerModule
+    private lateinit var trace: TraceModule
     private lateinit var dispatchContext: DispatchContext
 
     @Before
@@ -35,12 +35,12 @@ class TraceManagerModuleTests {
 
         val dbProvider = InMemoryDatabaseProvider(getDefaultConfig(app))
         val modulesRepository = SQLModulesRepository(dbProvider)
-        val id = modulesRepository.registerModule(TraceManagerModule.Factory.id)
+        val id = modulesRepository.registerModule(TraceModule.Factory.id)
         val repository = SQLKeyValueRepository(dbProvider, id)
 
         dataStore = ModuleStore(repository)
 
-        trace = TraceManagerModule(
+        trace = TraceModule(
             dataStore, mockk()
         )
     }
@@ -94,7 +94,7 @@ class TraceManagerModuleTests {
         trace.join("12345")
 
         val dispatchContext = dispatchContext.copy(
-            DispatchContext.Source.module(TraceManagerModule::class.java)
+            DispatchContext.Source.module(TraceModule::class.java)
         )
         val data = trace.collect(dispatchContext)
 

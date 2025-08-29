@@ -1,6 +1,7 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.BuildConfig
+import com.tealium.core.api.Modules
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.modules.Collector
 import com.tealium.core.api.modules.Module
@@ -13,7 +14,7 @@ import com.tealium.core.internal.utils.DateUtils
 import java.time.Instant
 import java.time.ZoneId
 
-class TimeCollector(
+class TimeDataModule(
     private val dateFormatter: DateFormatter = DateUtils
 ) : Collector {
 
@@ -39,16 +40,14 @@ class TimeCollector(
     private fun calculateOffsetInHours(instant: Instant, timeZone: ZoneId): Double =
         timeZone.rules.getOffset(instant).totalSeconds / 3600.0
 
-    override val id: String
-        get() = Factory.id
+    override val id: String = Modules.Ids.TIME_DATA
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
     object Factory: ModuleFactory {
-        override val id: String
-            get() = "Time"
+        override val id: String = Modules.Ids.TIME_DATA
 
         override fun create(context: TealiumContext, configuration: DataObject): Module? =
-            TimeCollector()
+            TimeDataModule()
     }
 }

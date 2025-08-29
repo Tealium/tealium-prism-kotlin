@@ -3,6 +3,7 @@ package com.tealium.lifecycle
 import com.tealium.core.api.Tealium
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.misc.TealiumResult
+import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.pubsub.Single
 import com.tealium.lifecycle.internal.LifecycleModule
@@ -59,6 +60,11 @@ interface Lifecycle {
     companion object {
 
         /**
+         * The [Module.id] of the [Lifecycle] module.
+         */
+        const val ID = "Lifecycle"
+
+        /**
          * Returns a configured [ModuleFactory] for enabling the Lifecycle Module.
          */
         @JvmStatic
@@ -108,6 +114,12 @@ fun com.tealium.core.api.Modules.lifecycle(): ModuleFactory {
 fun com.tealium.core.api.Modules.lifecycle(enforcedSettings: (LifecycleSettingsBuilder) -> LifecycleSettingsBuilder): ModuleFactory {
     return Lifecycle.configure(enforcedSettings)
 }
+
+/**
+ * The [Module.id] of the [Lifecycle] module.
+ */
+val com.tealium.core.api.Modules.Ids.LIFECYCLE
+    get() = Lifecycle.ID
 
 /**
  * Returns the Lifecycle instance for a given Tealium instance

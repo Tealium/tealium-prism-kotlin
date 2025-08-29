@@ -183,7 +183,9 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
         dispatchManager.track(dispatch1, onComplete)
 
         verify {
-            onComplete(TrackResult.Accepted(dispatch1))
+            onComplete(match {
+                it.status == TrackResult.Status.Accepted
+            })
         }
     }
 }

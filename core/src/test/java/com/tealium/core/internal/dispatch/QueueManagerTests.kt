@@ -191,7 +191,7 @@ class QueueManagerTests {
     }
 
     @Test
-    fun getQueuedDispatches_Returns_Dispatches_For_Processor() {
+    fun dequeueDispatches_Returns_Dispatches_For_Processor() {
         every { queueRepository.getQueuedDispatches(1, any(), dispatcher1) } returns listOf(
             dispatch1
         )
@@ -202,9 +202,9 @@ class QueueManagerTests {
             dispatch3
         )
 
-        queueManager.getQueuedDispatches(1, dispatcher1)
-        queueManager.getQueuedDispatches(1, dispatcher2)
-        queueManager.getQueuedDispatches(1, dispatcher3)
+        queueManager.dequeueDispatches(1, dispatcher1)
+        queueManager.dequeueDispatches(1, dispatcher2)
+        queueManager.dequeueDispatches(1, dispatcher3)
 
         verify {
             queueRepository.getQueuedDispatches(1, any(), dispatcher1)
@@ -214,14 +214,14 @@ class QueueManagerTests {
     }
 
     @Test
-    fun getQueuedDispatches_Returns_Limited_Dispatches_For_Processor() {
+    fun dequeueDispatches_Returns_Limited_Dispatches_For_Processor() {
         every { queueRepository.getQueuedDispatches(any(), any(), dispatcher1) } returns listOf(
             dispatch1
         )
 
-        queueManager.getQueuedDispatches(1, dispatcher1)
-        queueManager.getQueuedDispatches(2, dispatcher1)
-        queueManager.getQueuedDispatches(3, dispatcher1)
+        queueManager.dequeueDispatches(1, dispatcher1)
+        queueManager.dequeueDispatches(2, dispatcher1)
+        queueManager.dequeueDispatches(3, dispatcher1)
 
         verify {
             queueRepository.getQueuedDispatches(1, any(), dispatcher1)
@@ -231,14 +231,14 @@ class QueueManagerTests {
     }
 
     @Test
-    fun getQueuedDispatches_Excludes_Inflight_Dispatches() {
+    fun dequeueDispatches_Excludes_Inflight_Dispatches() {
         every { queueRepository.getQueuedDispatches(any(), any(), dispatcher1) } answers {
             listOf(dispatch1)
         } andThenAnswer { listOf(dispatch2) } andThenAnswer { listOf(dispatch3) }
 
-        queueManager.getQueuedDispatches(1, dispatcher1)
-        queueManager.getQueuedDispatches(1, dispatcher1)
-        queueManager.getQueuedDispatches(1, dispatcher1)
+        queueManager.dequeueDispatches(1, dispatcher1)
+        queueManager.dequeueDispatches(1, dispatcher1)
+        queueManager.dequeueDispatches(1, dispatcher1)
 
         verify {
             queueRepository.getQueuedDispatches(1, emptySet(), dispatcher1)
@@ -248,7 +248,7 @@ class QueueManagerTests {
     }
 
     @Test
-    fun getQueuedDispatches_Updates_Inflight_Count() {
+    fun dequeueDispatches_Updates_Inflight_Count() {
         val inFlightCount = mockk<(Int) -> Unit>(relaxed = true)
         every { queueRepository.getQueuedDispatches(any(), any(), dispatcher1) } answers {
             listOf(dispatch1)
@@ -256,8 +256,8 @@ class QueueManagerTests {
 
         queueManager.inFlightCount(dispatcher1).subscribe(inFlightCount)
 
-        queueManager.getQueuedDispatches(1, dispatcher1)
-        queueManager.getQueuedDispatches(2, dispatcher1)
+        queueManager.dequeueDispatches(1, dispatcher1)
+        queueManager.dequeueDispatches(2, dispatcher1)
 
         verify {
             inFlightCount(1)

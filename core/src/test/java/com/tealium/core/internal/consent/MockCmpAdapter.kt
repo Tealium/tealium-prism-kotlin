@@ -2,6 +2,7 @@ package com.tealium.core.internal.consent
 
 import com.tealium.core.api.consent.CmpAdapter
 import com.tealium.core.api.consent.ConsentDecision
+import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.pubsub.SubscribableState
@@ -12,7 +13,7 @@ class MockCmpAdapter(
 ) : CmpAdapter {
     private val _consentDecision: StateSubject<ConsentDecision?> =
         Observables.stateSubject(null)
-    override val consentDecision: SubscribableState<ConsentDecision?>
+    override val consentDecision: Observable<ConsentDecision?>
         get() = _consentDecision.asObservableState()
 
     fun setDecision(decisionType: ConsentDecision.DecisionType, purposes: Set<String>) {

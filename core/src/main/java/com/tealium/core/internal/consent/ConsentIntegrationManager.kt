@@ -1,16 +1,25 @@
 package com.tealium.core.internal.consent
 
 import com.tealium.core.api.consent.CmpAdapter
+import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.logger.logIfDebugEnabled
+import com.tealium.core.api.logger.logIfErrorEnabled
+import com.tealium.core.api.logger.logIfTraceEnabled
+import com.tealium.core.api.logger.logIfWarnEnabled
 import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.modules.Dispatcher
 import com.tealium.core.api.modules.Module
-import com.tealium.core.api.pubsub.Disposable
+import com.tealium.core.api.pubsub.CompositeDisposable
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.ObservableState
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.TrackResult
 import com.tealium.core.internal.dispatch.QueueManager
+import com.tealium.core.internal.logger.LogCategory
+import com.tealium.core.internal.logger.logDescriptions
 import com.tealium.core.internal.persistence.database.getTimestampMilliseconds
+import com.tealium.core.internal.pubsub.DisposableContainer
+import com.tealium.core.internal.pubsub.addTo
 import com.tealium.core.internal.pubsub.asObservableState
 import com.tealium.core.internal.pubsub.filterNotNull
 import com.tealium.core.internal.settings.consent.ConsentConfiguration
@@ -20,14 +29,17 @@ class ConsentIntegrationManager(
     private val modules: ObservableState<List<Module>>,
     private val queueManager: QueueManager,
     private val cmpConfigurationSelector: CmpConfigurationSelector,
+    private val logger: Logger
 ) : ConsentManager {
 
-    private val subscription: Disposable?
+    private val subscriptions: CompositeDisposable = DisposableContainer()
 
-    private val dispatchers: Set<String>
-        get() = modules.value.filterIsInstance<Dispatcher>()
-            .map(Dispatcher::id)
-            .toSet()
+    private val dispatchers: ObservableState<Set<String>>
+        get() = modules.map(::mapDispatcherIdsToSet)
+            .withState { mapDispatcherIdsToSet(modules.value) }
+
+    private fun mapDispatcherIdsToSet(modules: List<Module>): Set<String> =
+        modules.filterIsInstance<Dispatcher>().map(Dispatcher::id).toSet()
 
     override val configuration: Observable<ConsentConfiguration?> =
         cmpConfigurationSelector.configuration.asObservableState() // TODO - add `asObservable()`
@@ -37,8 +49,39 @@ class ConsentIntegrationManager(
             ?: false
 
     init {
-        subscription = cmpConfigurationSelector.consentInspector.filterNotNull()
+        logConfigurationErrors()
+
+        cmpConfigurationSelector.consentInspector
+            .filterNotNull()
             .subscribe(::handleConsentChange)
+            .addTo(subscriptions)
+    }
+
+    private fun logConfigurationErrors() {
+        configuration
+            .mapNotNull { configuration ->
+                if (configuration == null) {
+                    logger.logIfWarnEnabled(LogCategory.CONSENT) {
+                        """
+                        No ConsentConfiguration selected for CMP: ${cmpConfigurationSelector.cmpAdapter.id}.
+                        Make sure you provide a configuration for this specific CMP in the ConsentSettings.
+                        """.trimIndent()
+                    }
+                }
+                configuration
+            }
+            .combine(dispatchers) { configuration, dispatcherIds ->
+                dispatcherIds.filter { dispatcherId ->
+                    !configuration.hasAtLeastOneRequiredPurposeForDispatcher(dispatcherId)
+                }
+            }
+            .filter { it.isNotEmpty() }
+            .distinct()
+            .subscribe { misconfiguredDispatchers ->
+                logger.logIfErrorEnabled(LogCategory.CONSENT) {
+                    "No purpose defined in ConsentConfiguration for dispatchers: $misconfiguredDispatchers.\nThese dispatchers will not fire!"
+                }
+            }.addTo(subscriptions)
     }
 
     private fun handleConsentChange(consentInspector: ConsentInspector) {
@@ -46,9 +89,13 @@ class ConsentIntegrationManager(
         try {
             if (consentInspector.tealiumExplicitlyBlocked()) return
 
-            val events = queueManager.getQueuedDispatches(-1, ID)
+            val events = queueManager.dequeueDispatches(-1, ID)
                 .mapNotNull { dispatch -> dispatch.applyDecision(decision) }
             if (events.isEmpty()) return
+
+            logger.logIfDebugEnabled(LogCategory.CONSENT) {
+                "Dispatches enqueued for ${consentInspector.decision.decisionType} decision: ${events.logDescriptions()}"
+            }
 
             enqueueDispatches(events, configuration.refireDispatcherIds)
         } finally {
@@ -58,31 +105,31 @@ class ConsentIntegrationManager(
 
     override fun applyConsent(dispatch: Dispatch): TrackResult {
         val consentInfo = cmpConfigurationSelector.consentInspector.value
-            ?: return enqueueForConsentAndAccept(dispatch)
+            ?: return enqueueForConsentAndAccept(dispatch, "Missing ConsentConfiguration or ConsentDecision, enqueued for Consent.")
 
         if (consentInfo.tealiumExplicitlyBlocked()) {
-            return TrackResult.Dropped(dispatch)
+            return TrackResult.dropped(dispatch, "Tealium explicitly blocked.")
         }
 
         if (!consentInfo.tealiumConsented()) {
-            return enqueueForConsentAndAccept(dispatch)
+            return enqueueForConsentAndAccept(dispatch, "Tealium implicitly not consented, enqueued for Consent")
         }
 
         val consentedDispatch = dispatch.applyDecision(consentInfo.decision)
-            ?: return TrackResult.Dropped(dispatch)
+            ?: return TrackResult.dropped(dispatch, "No unprocessed purposes present.")
 
-        val processors = dispatchers.toMutableSet()
+        val processors = dispatchers.value.toMutableSet()
         if (consentInfo.allowsRefire()) {
             processors.add(ID)
         }
 
         queueManager.storeDispatches(listOf(consentedDispatch), processors)
-        return TrackResult.Accepted(dispatch)
+        return TrackResult.accepted(dispatch, "Enqueued for processors: $processors")
     }
 
-    private fun enqueueForConsentAndAccept(dispatch: Dispatch): TrackResult {
+    private fun enqueueForConsentAndAccept(dispatch: Dispatch, info: String): TrackResult {
         queueManager.storeDispatches(listOf(dispatch), setOf(ID))
-        return TrackResult.Accepted(dispatch)
+        return TrackResult.accepted(dispatch, info)
     }
 
     private fun enqueueDispatches(dispatches: List<Dispatch>, refireDispatcherIds: Set<String>) {
@@ -91,7 +138,10 @@ class ConsentIntegrationManager(
         enqueueForRefire(refireDispatches, refireDispatcherIds)
 
         if (normalDispatches.isNotEmpty()) {
-            queueManager.storeDispatches(normalDispatches, dispatchers)
+            logger.logIfTraceEnabled(LogCategory.CONSENT) {
+                "Dispatches enqueued for all dispatchers ${normalDispatches.logDescriptions()}"
+            }
+            queueManager.storeDispatches(normalDispatches, dispatchers.value)
         }
     }
 
@@ -102,6 +152,9 @@ class ConsentIntegrationManager(
 
         val refireDispatches = dispatches.map { dispatch ->
             Dispatch.create(dispatch.id + "-refire", dispatch.payload(), getTimestampMilliseconds())
+        }
+        logger.logIfTraceEnabled(LogCategory.CONSENT) {
+            "Dispatches enqueued for refire dispatchers ${refireDispatches.logDescriptions()}"
         }
         queueManager.storeDispatches(
             refireDispatches,
@@ -117,22 +170,27 @@ class ConsentIntegrationManager(
             queueManager: QueueManager,
             cmpAdapter: CmpAdapter?,
             consentSettings: ObservableState<ConsentSettings?>,
-            scheduler: Scheduler
+            scheduler: Scheduler,
+            logger: Logger
         ): ConsentIntegrationManager? {
             if (cmpAdapter == null) return null
 
             return ConsentIntegrationManager(
                 modules,
                 queueManager,
-                CmpConfigurationSelector(consentSettings, cmpAdapter, scheduler)
+                CmpConfigurationSelector(consentSettings, cmpAdapter, scheduler),
+                logger
             )
         }
 
 
         fun shouldRefire(dispatch: Dispatch): Boolean {
             val processedPurposes =
-                dispatch.payload().getDataList(Dispatch.Keys.PURPOSES_WITH_CONSENT_PROCESSED)
+                dispatch.payload().getDataList(Dispatch.Keys.PROCESSED_PURPOSES)
             return processedPurposes != null && processedPurposes.size != 0
         }
+
+        fun ConsentConfiguration.hasAtLeastOneRequiredPurposeForDispatcher(dispatcherId: String): Boolean =
+            purposes.values.find { purpose -> purpose.dispatcherIds.contains(dispatcherId) } != null
     }
 }

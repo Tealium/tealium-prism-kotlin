@@ -57,7 +57,7 @@ class TealiumProxyTests {
         dispatch = Dispatch.create("Test")
         onTealiumImplReady = Observables.replaySubject(1)
         every { tealiumImpl.track(any(), any()) } answers {
-            arg<TrackResultListener>(2).onTrackResultReady(TrackResult.Accepted(arg(1)))
+            arg<TrackResultListener>(2).onTrackResultReady(TrackResult.accepted(arg(1), "accepted"))
         }
 
         tealiumProxy = TealiumProxy(key, scheduler, onTealiumImplReady, onShutdown)

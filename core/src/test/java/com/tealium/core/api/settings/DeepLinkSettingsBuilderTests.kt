@@ -1,6 +1,6 @@
 package com.tealium.core.api.settings
 
-import com.tealium.core.internal.modules.deeplink.DeepLinkHandlerConfiguration
+import com.tealium.core.internal.modules.deeplink.DeepLinkModuleConfiguration
 import com.tealium.tests.common.buildConfiguration
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -23,7 +23,7 @@ class DeepLinkSettingsBuilderTests {
         val configuration = builder.setAutomaticDeepLinkTrackingEnabled(true)
             .buildConfiguration()
 
-        assertTrue(configuration.getBoolean(DeepLinkHandlerConfiguration.KEY_AUTOMATIC_DEEPLINK_TRACKING)!!)
+        assertTrue(configuration.getBoolean(DeepLinkModuleConfiguration.KEY_AUTOMATIC_DEEPLINK_TRACKING)!!)
     }
 
     @Test
@@ -31,7 +31,7 @@ class DeepLinkSettingsBuilderTests {
         val configuration = builder.setAutomaticDeepLinkTrackingEnabled(false)
             .buildConfiguration()
 
-        assertFalse(configuration.getBoolean(DeepLinkHandlerConfiguration.KEY_AUTOMATIC_DEEPLINK_TRACKING)!!)
+        assertFalse(configuration.getBoolean(DeepLinkModuleConfiguration.KEY_AUTOMATIC_DEEPLINK_TRACKING)!!)
     }
 
     @Test
@@ -39,7 +39,7 @@ class DeepLinkSettingsBuilderTests {
         val configuration = builder.setSendDeepLinkEventEnabled(true)
             .buildConfiguration()
 
-        assertTrue(configuration.getBoolean(DeepLinkHandlerConfiguration.KEY_SEND_DEEPLINK_EVENT)!!)
+        assertTrue(configuration.getBoolean(DeepLinkModuleConfiguration.KEY_SEND_DEEPLINK_EVENT)!!)
     }
 
     @Test
@@ -47,7 +47,7 @@ class DeepLinkSettingsBuilderTests {
         val configuration = builder.setSendDeepLinkEventEnabled(false)
             .buildConfiguration()
 
-        assertFalse(configuration.getBoolean(DeepLinkHandlerConfiguration.KEY_SEND_DEEPLINK_EVENT)!!)
+        assertFalse(configuration.getBoolean(DeepLinkModuleConfiguration.KEY_SEND_DEEPLINK_EVENT)!!)
     }
 
     @Test
@@ -55,7 +55,7 @@ class DeepLinkSettingsBuilderTests {
         val configuration = builder.setDeepLinkTraceEnabled(true)
             .buildConfiguration()
 
-        assertTrue(configuration.getBoolean(DeepLinkHandlerConfiguration.KEY_DEEPLINK_TRACE_ENABLED)!!)
+        assertTrue(configuration.getBoolean(DeepLinkModuleConfiguration.KEY_DEEPLINK_TRACE_ENABLED)!!)
     }
 
     @Test
@@ -63,7 +63,7 @@ class DeepLinkSettingsBuilderTests {
         val configuration = builder.setDeepLinkTraceEnabled(false)
             .buildConfiguration()
 
-        assertFalse(configuration.getBoolean(DeepLinkHandlerConfiguration.KEY_DEEPLINK_TRACE_ENABLED)!!)
+        assertFalse(configuration.getBoolean(DeepLinkModuleConfiguration.KEY_DEEPLINK_TRACE_ENABLED)!!)
     }
 
     @Test
@@ -86,15 +86,15 @@ class DeepLinkSettingsBuilderTests {
         assertEquals(3, configuration.size)
         assertEquals(
             true,
-            configuration.getBoolean(DeepLinkHandlerConfiguration.KEY_AUTOMATIC_DEEPLINK_TRACKING)
+            configuration.getBoolean(DeepLinkModuleConfiguration.KEY_AUTOMATIC_DEEPLINK_TRACKING)
         )
         assertEquals(
             false,
-            configuration.getBoolean(DeepLinkHandlerConfiguration.KEY_SEND_DEEPLINK_EVENT)
+            configuration.getBoolean(DeepLinkModuleConfiguration.KEY_SEND_DEEPLINK_EVENT)
         )
         assertEquals(
             true,
-            configuration.getBoolean(DeepLinkHandlerConfiguration.KEY_DEEPLINK_TRACE_ENABLED)
+            configuration.getBoolean(DeepLinkModuleConfiguration.KEY_DEEPLINK_TRACE_ENABLED)
         )
     }
 }

@@ -1,6 +1,7 @@
 package com.tealium.core.internal.modules.datalayer
 
 import com.tealium.core.BuildConfig
+import com.tealium.core.api.Modules
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.modules.Collector
 import com.tealium.core.api.modules.Module
@@ -15,8 +16,7 @@ class DataLayerModule(
     val defaultExpiry: Expiry = DEFAULT_EXPIRY
 ) : Collector {
 
-    override val id: String
-        get() = Companion.id
+    override val id: String = Modules.Ids.DATA_LAYER
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
@@ -27,8 +27,7 @@ class DataLayerModule(
     companion object : ModuleFactory {
         val DEFAULT_EXPIRY = Expiry.FOREVER
 
-        override val id: String
-            get() = "DataLayer"
+        override val id: String = Modules.Ids.DATA_LAYER
 
         override fun create(context: TealiumContext, configuration: DataObject): Module? {
             val dataStore = context.storageProvider.getModuleStore(this)

@@ -1,6 +1,7 @@
 package com.tealium.core.internal.modules.trace
 
 import com.tealium.core.BuildConfig
+import com.tealium.core.api.Modules
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.misc.TealiumException
 import com.tealium.core.api.modules.Collector
@@ -14,7 +15,7 @@ import com.tealium.core.api.tracking.DispatchContext
 import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.api.tracking.Tracker
 
-class TraceManagerModule(
+class TraceModule(
     private val dataStore: DataStore,
     private val tracker: Tracker
 ) : Collector {
@@ -46,12 +47,11 @@ class TraceManagerModule(
         return dataStore.getAll()
     }
 
-    override val id: String
-        get() = Factory.id
+    override val id: String = Modules.Ids.TRACE
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
-    private companion object {
+    private companion object Companion {
         const val KILL_VISITOR_SESSION_EVENT = "kill_visitor_session"
         private fun createKillDispatch(traceId: String): Dispatch {
             return Dispatch.create(
@@ -65,12 +65,11 @@ class TraceManagerModule(
     }
 
     object Factory : ModuleFactory {
-        override val id: String
-            get() = "Trace"
+        override val id: String = Modules.Ids.TRACE
 
         override fun create(context: TealiumContext, configuration: DataObject): Module? {
             val storage = context.storageProvider.getModuleStore(this)
-            return TraceManagerModule(storage, context.tracker)
+            return TraceModule(storage, context.tracker)
         }
     }
 }

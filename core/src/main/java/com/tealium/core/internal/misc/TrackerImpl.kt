@@ -9,6 +9,7 @@ import com.tealium.core.api.modules.Module
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
+import com.tealium.core.api.tracking.TrackResult
 import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.api.tracking.Tracker
 import com.tealium.core.internal.dispatch.DispatchManager
@@ -32,6 +33,13 @@ class TrackerImpl(
         source: DispatchContext.Source,
         onComplete: TrackResultListener?
     ) {
+        if (dispatchManager.tealiumPurposeExplicitlyBlocked) {
+            val trackResult = TrackResult.dropped(dispatch, "Tealium consent purpose is explicitly blocked.")
+            logger.debug(LogCategory.TEALIUM, trackResult.description)
+            onComplete?.onTrackResultReady(trackResult)
+            return
+        }
+
         logger.logIfDebugEnabled(LogCategory.TEALIUM) {
             "New tracking event received: ${dispatch.logDescription()}"
         }

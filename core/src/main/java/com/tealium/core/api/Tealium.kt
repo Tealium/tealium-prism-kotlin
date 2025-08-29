@@ -10,7 +10,7 @@ import com.tealium.core.api.modules.DeepLinkHandler
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleProxy
 import com.tealium.core.api.modules.TimedEventsManager
-import com.tealium.core.api.modules.TraceManager
+import com.tealium.core.api.modules.Trace
 import com.tealium.core.api.modules.VisitorService
 import com.tealium.core.api.pubsub.Single
 import com.tealium.core.api.pubsub.SingleResult
@@ -21,7 +21,7 @@ import com.tealium.core.internal.TealiumInstanceManager
 interface Tealium {
 
     val key: String
-    val trace: TraceManager
+    val trace: Trace
     val deeplink: DeepLinkHandler
     val timedEvents: TimedEventsManager
     val dataLayer: DataLayer

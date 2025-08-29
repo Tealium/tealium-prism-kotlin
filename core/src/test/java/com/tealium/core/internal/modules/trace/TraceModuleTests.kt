@@ -21,7 +21,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
-class TraceManagerModuleTests {
+class TraceModuleTests {
 
     @RelaxedMockK
     private lateinit var tracker: Tracker
@@ -32,7 +32,7 @@ class TraceManagerModuleTests {
     @MockK
     private lateinit var editor: DataStore.Editor
 
-    private lateinit var trace: TraceManagerModule
+    private lateinit var trace: TraceModule
 
     @Before
     fun setUp() {
@@ -40,9 +40,9 @@ class TraceManagerModuleTests {
 
         every { dataStore.edit() } returns editor
         mockkEditor(editor)
-        mockTrackerResponse(TrackResult.Accepted(mockk()))
+        mockTrackerResponse(TrackResult.accepted(mockk(), ""))
 
-        trace = TraceManagerModule(
+        trace = TraceModule(
             dataStore, tracker
         )
     }
@@ -100,24 +100,24 @@ class TraceManagerModuleTests {
     @Test
     fun killVisitorSession_Returns_Accepted_When_Dispatch_Accepted() {
         val callback = mockk<TrackResultListener>(relaxed = true)
-        mockTrackerResponse(TrackResult.Accepted(mockk()))
+        mockTrackerResponse(TrackResult.accepted(mockk(), ""))
 
         trace.killVisitorSession(callback)
 
         verify {
-            callback.onTrackResultReady(match { it is TrackResult.Accepted })
+            callback.onTrackResultReady(match { it.status == TrackResult.Status.Accepted })
         }
     }
 
     @Test
     fun killVisitorSession_Returns_Dropped_When_Dispatch_Dropped() {
         val callback = mockk<TrackResultListener>(relaxed = true)
-        mockTrackerResponse(TrackResult.Dropped(mockk()))
+        mockTrackerResponse(TrackResult.dropped(mockk(), ""))
 
         trace.killVisitorSession(callback)
 
         verify {
-            callback.onTrackResultReady(match { it is TrackResult.Dropped })
+            callback.onTrackResultReady(match { it.status == TrackResult.Status.Dropped })
         }
     }
 
@@ -172,7 +172,7 @@ class TraceManagerModuleTests {
         }
         val dispatchContext =
             DispatchContext(
-                DispatchContext.Source.module(TraceManagerModule::class.java),
+                DispatchContext.Source.module(TraceModule::class.java),
                 DataObject.EMPTY_OBJECT
             )
 
@@ -183,7 +183,7 @@ class TraceManagerModuleTests {
 
     @Test
     fun id_Matches_Factory_Id() {
-        assertEquals(TraceManagerModule.Factory.id, trace.id)
+        assertEquals(TraceModule.Factory.id, trace.id)
     }
 
     @Test

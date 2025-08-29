@@ -1,6 +1,7 @@
 package com.tealium.core.internal.modules
 
 import android.content.Context
+import com.tealium.core.api.Modules
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
@@ -9,10 +10,10 @@ import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class DeviceDataCollectorTests {
+class DeviceDataModuleTests {
 
     @Test
-    fun testCollect() {
+    fun collect_Collects_All_DeviceDataProvider_Data_In_Correct_Keys() {
         val mockContext = mockk<Context>()
         val mockDeviceDataProvider = mockk<DeviceDataProvider>()
         val dispatchContext =
@@ -38,8 +39,8 @@ class DeviceDataCollectorTests {
         every { mockDeviceDataProvider.deviceBatteryPercent } returns 85
         every { mockDeviceDataProvider.deviceIsCharging } returns false
 
-        val deviceDataCollector = DeviceDataCollector(mockContext, mockDeviceDataProvider)
-        val collectedData = deviceDataCollector.collect(dispatchContext)
+        val deviceDataModule = DeviceDataModule(mockContext, mockDeviceDataProvider)
+        val collectedData = deviceDataModule.collect(dispatchContext)
 
         assertEquals("Google Pixel 7", collectedData.getString(Dispatch.Keys.DEVICE))
         assertEquals("Pixel 7", collectedData.getString(Dispatch.Keys.DEVICE_MODEL))
@@ -63,7 +64,7 @@ class DeviceDataCollectorTests {
     }
 
     @Test
-    fun testId() {
-        assertEquals("DeviceCollector", DeviceDataCollector.Factory.id)
+    fun factory_id_Matches_Module_Id() {
+        assertEquals(Modules.Ids.DEVICE_DATA, DeviceDataModule.Factory.id)
     }
 }

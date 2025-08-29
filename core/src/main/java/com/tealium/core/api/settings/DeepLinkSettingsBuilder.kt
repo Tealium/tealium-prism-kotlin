@@ -1,6 +1,6 @@
 package com.tealium.core.api.settings
 
-import com.tealium.core.internal.modules.deeplink.DeepLinkHandlerConfiguration
+import com.tealium.core.internal.modules.deeplink.DeepLinkModuleConfiguration
 
 /**
  * A builder class used to enforce the available configuration for Deep Link handling
@@ -19,7 +19,7 @@ class DeepLinkSettingsBuilder: CollectorSettingsBuilder<DeepLinkSettingsBuilder>
      * @param enabled `true` if Deep Links should automatically be handled, false
      */
     fun setAutomaticDeepLinkTrackingEnabled(enabled: Boolean) = apply {
-        configuration.put(DeepLinkHandlerConfiguration.KEY_AUTOMATIC_DEEPLINK_TRACKING, enabled)
+        configuration.put(DeepLinkModuleConfiguration.KEY_AUTOMATIC_DEEPLINK_TRACKING, enabled)
     }
 
     /**
@@ -30,7 +30,7 @@ class DeepLinkSettingsBuilder: CollectorSettingsBuilder<DeepLinkSettingsBuilder>
      * @param enabled `true` if an additional `deep_link` event should be sent upon a Deep Link being opened; else `false`
      */
     fun setSendDeepLinkEventEnabled(enabled: Boolean) = apply {
-        configuration.put(DeepLinkHandlerConfiguration.KEY_SEND_DEEPLINK_EVENT, enabled)
+        configuration.put(DeepLinkModuleConfiguration.KEY_SEND_DEEPLINK_EVENT, enabled)
     }
 
     /**
@@ -46,6 +46,6 @@ class DeepLinkSettingsBuilder: CollectorSettingsBuilder<DeepLinkSettingsBuilder>
      * @param enabled `true` if Trace features should be allowed to be controlled by Deep Links; else `false`
      */
     fun setDeepLinkTraceEnabled(enabled: Boolean) = apply {
-        configuration.put(DeepLinkHandlerConfiguration.KEY_DEEPLINK_TRACE_ENABLED, enabled)
+        configuration.put(DeepLinkModuleConfiguration.KEY_DEEPLINK_TRACE_ENABLED, enabled)
     }
 }

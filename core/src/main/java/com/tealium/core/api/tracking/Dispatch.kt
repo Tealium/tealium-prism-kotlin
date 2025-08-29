@@ -220,18 +220,25 @@ class Dispatch private constructor(
         const val TEALIUM_TIMESTAMP_UTC = "tealium_timestamp_utc"
 
         // ConsentManager
-        // TODO - tidy up?
-        const val CONSENT_POLICY = "policy"
-        const val CONSENT_STATUS = "consent_status"
-        const val CONSENT_CATEGORIES = "consent_categories"
-        const val CONSENT_DO_NOT_SELL = "do_not_sell"
-        const val CONSENT_LAST_UPDATED = "consent_last_updated"
-
-        // new consent manager
+        /**
+         * The type of consent decision that has been made; "implicit" or "explicit"
+         */
         const val CONSENT_TYPE = "consent_type"
-        const val PURPOSES_WITH_CONSENT_ALL = "purposes_with_consent_all"
-        const val PURPOSES_WITH_CONSENT_PROCESSED = "purposes_with_consent_processed"
-        const val PURPOSES_WITH_CONSENT_UNPROCESSED = "purposes_with_consent_unprocessed"
+
+        /**
+         * A list of all consented purposes, both processed and unprocessed.
+         */
+        const val ALL_CONSENTED_PURPOSES = "purposes_with_consent_all"
+
+        /**
+         * A list of consented purposes that have already been processed.
+         */
+        const val PROCESSED_PURPOSES = "purposes_with_consent_processed"
+
+        /**
+         * A list of consented purposes that are yet to be processed.
+         */
+        const val UNPROCESSED_PURPOSES = "purposes_with_consent_unprocessed"
 
         // TimedEvents
         const val TIMED_EVENT_NAME = "timed_event_name"

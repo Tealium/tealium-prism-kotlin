@@ -116,9 +116,9 @@ class QueueMetricsTests {
         queueManager.storeDispatches(listOf(createDispatch("2")), setOf("dispatcher_1"))
         queueManager.storeDispatches(listOf(createDispatch("3")), setOf("dispatcher_1"))
 
-        queueManager.getQueuedDispatches(1, "dispatcher_1")
-        queueManager.getQueuedDispatches(1, "dispatcher_1")
-        queueManager.getQueuedDispatches(1, "dispatcher_1")
+        queueManager.dequeueDispatches(1, "dispatcher_1")
+        queueManager.dequeueDispatches(1, "dispatcher_1")
+        queueManager.dequeueDispatches(1, "dispatcher_1")
 
         verifyOrder {
             // initial
@@ -140,7 +140,7 @@ class QueueMetricsTests {
         queueMetrics.queueSizePendingDispatch("dispatcher_1")
             .subscribe(verifier)
 
-        val dispatches = queueManager.getQueuedDispatches(1, "dispatcher_1")
+        val dispatches = queueManager.dequeueDispatches(1, "dispatcher_1")
         queueManager.deleteDispatches(dispatches, "dispatcher_1")
 
         verify(ordering = Ordering.SEQUENCE) {

@@ -1,5 +1,6 @@
 package com.tealium.core.internal.network
 
+import com.tealium.core.api.Modules
 import com.tealium.core.api.barriers.BarrierFactory
 import com.tealium.core.api.barriers.BarrierScope
 import com.tealium.core.api.barriers.BarrierState
@@ -10,7 +11,6 @@ import com.tealium.core.api.network.Connectivity
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
-import com.tealium.core.internal.modules.collect.CollectDispatcher
 
 class ConnectivityBarrier(
     private val connectivityStatus: Observable<Connectivity.Status>,
@@ -62,7 +62,7 @@ class ConnectivityBarrier(
 
     class Factory(
         private val defaultScope: Set<BarrierScope> = setOf(
-            BarrierScope.Dispatcher(CollectDispatcher.moduleName)
+            BarrierScope.Dispatcher(Modules.Ids.COLLECT)
         )
     ) : BarrierFactory {
         override val id: String = BARRIER_ID

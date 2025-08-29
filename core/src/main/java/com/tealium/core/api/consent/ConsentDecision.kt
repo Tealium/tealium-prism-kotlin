@@ -1,5 +1,11 @@
 package com.tealium.core.api.consent
 
+import com.tealium.core.api.consent.ConsentDecision.DecisionType.Explicit
+import com.tealium.core.api.consent.ConsentDecision.DecisionType.Implicit
+import com.tealium.core.api.data.DataItem
+import com.tealium.core.api.data.DataItemConvertible
+import com.tealium.core.api.data.DataItemUtils.asDataItem
+
 /**
  * Describes a decision by the user as to their chosen consent preferences. This is expected to be
  * provided by a Consent Management Provider.
@@ -20,7 +26,12 @@ data class ConsentDecision(
      *
      * [Explicit] when a specific decision has been made by the user.
      */
-    enum class DecisionType {
-        Implicit, Explicit
+    enum class DecisionType: DataItemConvertible {
+        Implicit, Explicit;
+
+        override fun asDataItem(): DataItem =
+            this.name
+                .lowercase()
+                .asDataItem()
     }
 }

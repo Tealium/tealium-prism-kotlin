@@ -50,7 +50,7 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
         dispatchManager.track(dispatch1)
 
         verify(inverse = true) {
-            queueManager.getQueuedDispatches(1, dispatcher1Name)
+            queueManager.dequeueDispatches(1, dispatcher1Name)
             dispatcher1.dispatch(listOf(dispatch1), any())
             dispatcher1.dispatch(listOf(dispatch2), any())
         }

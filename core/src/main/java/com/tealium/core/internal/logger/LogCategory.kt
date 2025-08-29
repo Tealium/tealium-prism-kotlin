@@ -2,6 +2,7 @@ package com.tealium.core.internal.logger
 
 object LogCategory {
     const val COLLECT = "Collect"
+    const val CONSENT = "Consent"
     const val DISPATCH_MANAGER = "DispatchManager"
     const val HTTP_CLIENT = "HTTPClient"
     const val NETWORK_HELPER = "NetworkHelper"

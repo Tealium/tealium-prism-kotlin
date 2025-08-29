@@ -6,18 +6,18 @@ import java.net.MalformedURLException
 import java.net.URL
 
 /**
- * Carries all available configuration for the Collect Dispatcher
+ * Carries all available configuration for the Collect Module
  *
  * @param url The endpoint to dispatch single events to
  * @param batchUrl The endpoint to dispatch batched events to
  * @param profile Optional - Tealium profile name to override on the payload
  */
-data class CollectDispatcherConfiguration(
+data class CollectModuleConfiguration(
     val url: URL = URL(DEFAULT_COLLECT_URL),
     val batchUrl: URL = URL(DEFAULT_COLLECT_BATCH_URL),
     val profile: String? = null
 ) {
-    companion object {
+    companion object Companion {
         const val MAX_BATCH_SIZE = 10
         const val DEFAULT_COLLECT_URL = "https://collect.tealiumiq.com/event"
         const val DEFAULT_COLLECT_BATCH_URL = "https://collect.tealiumiq.com/bulk-event"
@@ -41,14 +41,14 @@ data class CollectDispatcherConfiguration(
         const val KEY_COLLECT_BATCH_URL = "batch_dispatch_url"
         const val KEY_COLLECT_PROFILE = "dispatch_profile"
 
-        fun fromDataObject(configuration: DataObject): CollectDispatcherConfiguration? {
+        fun fromDataObject(configuration: DataObject): CollectModuleConfiguration? {
             val profile = configuration.getString(KEY_COLLECT_PROFILE)
             val url = configuration.parseUrl(KEY_COLLECT_URL, DEFAULT_COLLECT_URL)
             val batchUrl = configuration.parseUrl(KEY_COLLECT_BATCH_URL, DEFAULT_COLLECT_BATCH_URL)
 
             if (url == null || batchUrl == null) return null
 
-            return CollectDispatcherConfiguration(
+            return CollectModuleConfiguration(
                 url = url, batchUrl = batchUrl, profile = profile
             )
         }

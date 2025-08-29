@@ -1,6 +1,6 @@
 package com.tealium.core.api.consent
 
-import com.tealium.core.api.pubsub.Subscribable
+import com.tealium.core.api.pubsub.Observable
 
 /**
  * The [CmpAdapter] provides a consistent interface with external Consent Management
@@ -14,12 +14,12 @@ interface CmpAdapter {
     val id: String
 
     /**
-     * An observable flow of the [ConsentDecision]s from the visitor.
+     * An observable of the [ConsentDecision]s from the visitor.
      */
-    val consentDecision: Subscribable<ConsentDecision?>
+    val consentDecision: Observable<ConsentDecision?>
 
     /**
-     * Returns all possible purposes from the CMP.
+     * Returns all possible purposes from the CMP, if available.
      */
-    val allPurposes: Set<String>
+    val allPurposes: Set<String>?
 }

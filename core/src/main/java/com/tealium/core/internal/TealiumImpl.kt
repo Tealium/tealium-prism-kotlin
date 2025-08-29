@@ -44,7 +44,7 @@ import com.tealium.core.internal.misc.ActivityManagerProxy
 import com.tealium.core.internal.misc.TrackerImpl
 import com.tealium.core.internal.modules.InternalModuleManager
 import com.tealium.core.internal.modules.ModuleManagerImpl
-import com.tealium.core.internal.modules.TealiumCollector
+import com.tealium.core.internal.modules.TealiumDataModule
 import com.tealium.core.internal.modules.datalayer.DataLayerModule
 import com.tealium.core.internal.network.ConnectivityInterceptor
 import com.tealium.core.internal.network.ConnectivityRetriever
@@ -169,7 +169,8 @@ class TealiumImpl(
             queueManager,
             config.cmpAdapter,
             settings.map { it.consent }.withState { settings.value.consent },
-            schedulers.tealium
+            schedulers.tealium,
+            logger
         )
 
         dispatchManager = DispatchManagerImpl(
@@ -306,7 +307,7 @@ class TealiumImpl(
         private fun getDefaultModules(): List<ModuleFactory> {
             return listOf(
                 DataLayerModule,
-                TealiumCollector.Factory,
+                TealiumDataModule.Factory,
             )
         }
 

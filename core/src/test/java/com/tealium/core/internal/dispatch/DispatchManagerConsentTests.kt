@@ -13,12 +13,16 @@ import com.tealium.core.internal.consent.CmpConfigurationSelector
 import com.tealium.core.internal.consent.ConsentInspector
 import com.tealium.core.internal.consent.ConsentIntegrationManager
 import com.tealium.core.internal.consent.ConsentManager
+import com.tealium.core.internal.consent.MockCmpAdapter
 import com.tealium.core.internal.settings.consent.ConsentConfiguration
 import com.tealium.core.internal.settings.consent.ConsentPurpose
+import com.tealium.tests.common.SystemLogger
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.spyk
 import io.mockk.verify
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DispatchManagerConsentTests : DispatchManagerTestsBase() {
@@ -62,7 +66,9 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
         dispatchManager.track(dispatch1, onComplete)
 
         verify {
-            onComplete(TrackResult.Accepted(dispatch1))
+            onComplete(match {
+                it.status == TrackResult.Status.Accepted
+            })
         }
     }
 
@@ -74,7 +80,9 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
         dispatchManager.track(dispatch1, onComplete)
 
         verify {
-            onComplete(TrackResult.Dropped(dispatch1))
+            onComplete(match {
+                it.status == TrackResult.Status.Dropped
+            })
         }
     }
 
@@ -86,7 +94,9 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
         dispatchManager.track(dispatch1, onComplete)
 
         verify {
-            onComplete(TrackResult.Dropped(dispatch1))
+            onComplete(match {
+                it.status == TrackResult.Status.Dropped
+            })
         }
     }
 
@@ -120,9 +130,10 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
     @Test
     fun startDispatchLoop_Does_Not_Dequeue_Events_When_Consent_Enabled_And_No_Decision() {
         val cmpSelector = mockk<CmpConfigurationSelector>()
+        every { cmpSelector.cmpAdapter } returns MockCmpAdapter()
         every { cmpSelector.consentInspector } returns Observables.stateSubject(null)
         every { cmpSelector.configuration } returns Observables.stateSubject(null)
-        enableConsent(ConsentIntegrationManager(modules, queueManager, cmpSelector))
+        enableConsent(ConsentIntegrationManager(modules, queueManager, cmpSelector, SystemLogger))
         queueManager.storeDispatches(
             listOf(dispatch1, dispatch2),
             modules.value.map(Module::id).toSet()
@@ -131,7 +142,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
         dispatchManager.startDispatchLoop()
 
         verify(inverse = true) {
-            queueManager.getQueuedDispatches(any(), any())
+            queueManager.dequeueDispatches(any(), any())
             dispatcher1.dispatch(listOf(dispatch1), any())
             dispatcher1.dispatch(listOf(dispatch2), any())
         }
@@ -151,9 +162,9 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
         val cmpSelector = mockk<CmpConfigurationSelector>()
         every { cmpSelector.consentInspector } returns Observables.stateSubject(consentInspector)
         every { cmpSelector.configuration } returns Observables.stateSubject(consentInspector.configuration)
-        enableConsent(ConsentIntegrationManager(modules, queueManager, cmpSelector))
-        dispatch1.addAll(DataObject.create { put(Dispatch.Keys.PURPOSES_WITH_CONSENT_ALL, listOf("purpose1").asDataList()) })
-        dispatch2.addAll(DataObject.create { put(Dispatch.Keys.PURPOSES_WITH_CONSENT_ALL, listOf("purpose1").asDataList()) })
+        enableConsent(ConsentIntegrationManager(modules, queueManager, cmpSelector, SystemLogger))
+        dispatch1.addAll(DataObject.create { put(Dispatch.Keys.ALL_CONSENTED_PURPOSES, listOf("purpose1").asDataList()) })
+        dispatch2.addAll(DataObject.create { put(Dispatch.Keys.ALL_CONSENTED_PURPOSES, listOf("purpose1").asDataList()) })
         queueManager.storeDispatches(
             listOf(dispatch1, dispatch2),
             modules.value.map(Module::id).toSet()
@@ -181,7 +192,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
         val cmpSelector = mockk<CmpConfigurationSelector>()
         every { cmpSelector.consentInspector } returns Observables.stateSubject(consentInspector)
         every { cmpSelector.configuration } returns Observables.stateSubject(consentInspector.configuration)
-        enableConsent(ConsentIntegrationManager(modules, queueManager, cmpSelector))
+        enableConsent(ConsentIntegrationManager(modules, queueManager, cmpSelector, SystemLogger))
         queueManager.storeDispatches(
             listOf(dispatch1, dispatch2),
             modules.value.map(Module::id).toSet()
@@ -199,6 +210,25 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
         }
     }
 
+    @Test
+    fun tealiumPurposeExplicitlyBlocked_Returns_False_When_ConsentManager_Null() {
+        assertFalse(dispatchManager.tealiumPurposeExplicitlyBlocked)
+    }
+
+    @Test
+    fun tealiumPurposeExplicitlyBlocked_Returns_False_When_Tealium_Purpose_Consented() {
+        consentManager = mockConsentManager(tealiumExplicitlyBlocked = false)
+        dispatchManager = createDispatchManager(consentManager = consentManager)
+        assertFalse(dispatchManager.tealiumPurposeExplicitlyBlocked)
+    }
+
+    @Test
+    fun tealiumPurposeExplicitlyBlocked_Returns_True_When_Tealium_Purpose_Explicitly_Not_Consented() {
+        consentManager = mockConsentManager(tealiumExplicitlyBlocked = true)
+        dispatchManager = createDispatchManager(consentManager = consentManager)
+        assertTrue(dispatchManager.tealiumPurposeExplicitlyBlocked)
+    }
+
     private fun mockConsentManager(
         tealiumExplicitlyBlocked: Boolean = false,
         configuration: Observable<ConsentConfiguration?> = Observables.just(null),
@@ -211,7 +241,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
                 get() = configuration
 
             override fun applyConsent(dispatch: Dispatch): TrackResult =
-                if (accepted) TrackResult.Accepted(dispatch) else TrackResult.Dropped(dispatch)
+                if (accepted) TrackResult.accepted(dispatch, "") else TrackResult.dropped(dispatch, "")
         })
     }
 }

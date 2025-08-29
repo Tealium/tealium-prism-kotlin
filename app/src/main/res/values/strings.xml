@@ -8,4 +8,10 @@
     <string name="features">Features</string>
     <string name="tealium_enabled">Enabled</string>
     <string name="flush">Flush</string>
+    <string name="decision_type">Decision Type</string>
+    <string name="implicit">Implicit</string>
+    <string name="explicit">Explicit</string>
+    <string name="consent_purposes">Consent Purposes</string>
+    <string name="save_consent_settings">Save Consent Settings</string>
+    <string name="consent_settings">Consent Settings</string>
 </resources>

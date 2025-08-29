@@ -1,6 +1,7 @@
 package com.tealium.core.internal.modules.collect
 
 import com.tealium.core.BuildConfig
+import com.tealium.core.api.Modules
 import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.data.DataList
 import com.tealium.core.api.data.DataObject
@@ -12,7 +13,7 @@ import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.network.NetworkHelper
 import com.tealium.core.api.pubsub.Disposable
-import com.tealium.core.api.settings.CollectDispatcherSettingsBuilder
+import com.tealium.core.api.settings.CollectSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.internal.logger.LogCategory
 import com.tealium.core.api.logger.logIfTraceEnabled
@@ -22,32 +23,31 @@ import com.tealium.core.internal.pubsub.DisposableContainer
 import com.tealium.core.internal.pubsub.addTo
 
 /**
- * The [CollectDispatcher]
+ * The [CollectModule]
  */
-class CollectDispatcher(
+class CollectModule(
     private val config: TealiumConfig,
     private val logger: Logger,
     private val networkHelper: NetworkHelper,
-    private var collectDispatcherConfiguration: CollectDispatcherConfiguration,
+    private var collectModuleConfiguration: CollectModuleConfiguration,
 ) : Dispatcher, Module {
 
     constructor(
         tealiumContext: TealiumContext,
-        collectDispatcherConfiguration: CollectDispatcherConfiguration
+        collectModuleConfiguration: CollectModuleConfiguration
     ) : this(
         tealiumContext.config,
         tealiumContext.logger,
         tealiumContext.network.networkHelper,
-        collectDispatcherConfiguration
+        collectModuleConfiguration
     )
 
-    override val id: String
-        get() = moduleName
+    override val id: String = Modules.Ids.COLLECT
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
     override val dispatchLimit: Int
-        get() = CollectDispatcherConfiguration.MAX_BATCH_SIZE
+        get() = CollectModuleConfiguration.MAX_BATCH_SIZE
 
     override fun dispatch(
         dispatches: List<Dispatch>,
@@ -100,14 +100,14 @@ class CollectDispatcher(
             batch,
             visitorId,
             config.accountName,
-            collectDispatcherConfiguration.profile ?: config.profileName
+            collectModuleConfiguration.profile ?: config.profileName
         )
         if (compressed == null) {
             onProcessed.onComplete(batch)
             return CompletedDisposable
         }
 
-        return networkHelper.post(collectDispatcherConfiguration.batchUrl, compressed) {
+        return networkHelper.post(collectModuleConfiguration.batchUrl, compressed) {
             onProcessed.onComplete(batch)
         }
     }
@@ -116,27 +116,25 @@ class CollectDispatcher(
         dispatch: Dispatch,
         onProcessed: TealiumCallback<List<Dispatch>>
     ): Disposable {
-        collectDispatcherConfiguration.profile?.let { profile ->
+        collectModuleConfiguration.profile?.let { profile ->
             dispatch.addAll(DataObject.create {
                 put(Dispatch.Keys.TEALIUM_PROFILE, profile)
             })
         }
 
-        return networkHelper.post(collectDispatcherConfiguration.url, dispatch.payload()) {
+        return networkHelper.post(collectModuleConfiguration.url, dispatch.payload()) {
             onProcessed.onComplete(listOf(dispatch))
         }
     }
 
     override fun updateConfiguration(configuration: DataObject): Module? {
-        val newConfiguration = CollectDispatcherConfiguration.fromDataObject(configuration) ?: return null
+        val newConfiguration = CollectModuleConfiguration.fromDataObject(configuration) ?: return null
 
-        collectDispatcherConfiguration = newConfiguration
+        collectModuleConfiguration = newConfiguration
         return this
     }
 
     companion object {
-        const val moduleName = "CollectDispatcher"
-
         const val KEY_SHARED = "shared"
         const val KEY_EVENTS = "events"
 
@@ -207,20 +205,19 @@ class CollectDispatcher(
         private val settings: DataObject? = null
     ) : ModuleFactory {
 
-        constructor(builder: CollectDispatcherSettingsBuilder) : this(builder.build())
+        constructor(builder: CollectSettingsBuilder) : this(builder.build())
 
-        override val id: String
-            get() = moduleName
+        override val id: String = Modules.Ids.COLLECT
 
         override fun getEnforcedSettings(): DataObject? = settings
 
         override fun create(context: TealiumContext, configuration: DataObject): Module? {
-            val collectDispatcherConfiguration =
-                CollectDispatcherConfiguration.fromDataObject(configuration) ?: return null
+            val collectModuleConfiguration =
+                CollectModuleConfiguration.fromDataObject(configuration) ?: return null
 
-            return CollectDispatcher(
+            return CollectModule(
                 context,
-                collectDispatcherConfiguration
+                collectModuleConfiguration
             )
         }
     }

@@ -28,7 +28,7 @@ import org.robolectric.RobolectricTestRunner
 import java.net.URL
 
 @RunWith(RobolectricTestRunner::class)
-class CollectDispatcherTests {
+class CollectModuleTests {
 
     @MockK
     lateinit var networkHelper: NetworkHelper
@@ -39,10 +39,10 @@ class CollectDispatcherTests {
     @MockK
     lateinit var config: TealiumConfig
 
-    lateinit var collectDispatcher: CollectDispatcher
+    lateinit var collectModule: CollectModule
 
     private val logger: Logger = SystemLogger
-    private val defaultConfiguration = CollectDispatcherConfiguration()
+    private val defaultConfiguration = CollectModuleConfiguration()
     private val localhost = URL("https://localhost/")
     private val account = "tealium_account"
     private val profile = "tealium_profile"
@@ -76,12 +76,12 @@ class CollectDispatcherTests {
 
     @Test
     fun dispatch_Individually_SendsJson_ToConfiguredEndpoint() {
-        collectDispatcher = createCollectDispatcher()
+        collectModule = createCollectDispatcher()
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
         val dispatch = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch), observer)
+        collectModule.dispatch(listOf(dispatch), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(
@@ -97,14 +97,14 @@ class CollectDispatcherTests {
 
     @Test
     fun dispatch_Individually_OverridesUrl_WhenUrlIsOverridden() {
-        collectDispatcher = createCollectDispatcher(
-            collectConfig = CollectDispatcherConfiguration(url = localhost)
+        collectModule = createCollectDispatcher(
+            collectConfig = CollectModuleConfiguration(url = localhost)
         )
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
         val dispatch = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch), observer)
+        collectModule.dispatch(listOf(dispatch), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(localhost, any(), any())
@@ -116,15 +116,15 @@ class CollectDispatcherTests {
 
     @Test
     fun dispatch_Individually_OverridesProfile_WhenProfileIsOverridden() {
-        collectDispatcher = createCollectDispatcher(
-            collectConfig = CollectDispatcherConfiguration(
+        collectModule = createCollectDispatcher(
+            collectConfig = CollectModuleConfiguration(
                 profile = "override"
             )
         )
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
         val dispatch = createTestDispatch("test", profile = "default")
 
-        collectDispatcher.dispatch(listOf(dispatch), observer)
+        collectModule.dispatch(listOf(dispatch), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(defaultConfiguration.url, match {
@@ -138,13 +138,13 @@ class CollectDispatcherTests {
 
     @Test
     fun dispatch_Batches_SendsJson_ToConfiguredEndpoint() {
-        collectDispatcher = createCollectDispatcher()
+        collectModule = createCollectDispatcher()
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
         val dispatch1 = createTestDispatch("test")
         val dispatch2 = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch2), observer)
+        collectModule.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(defaultConfiguration.batchUrl, any(), any())
@@ -157,12 +157,12 @@ class CollectDispatcherTests {
 
     @Test
     fun dispatch_Batches_SendsIndividually_IfBatchOfOne() {
-        collectDispatcher = createCollectDispatcher()
+        collectModule = createCollectDispatcher()
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
         val dispatch = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch), observer)
+        collectModule.dispatch(listOf(dispatch), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(
@@ -178,15 +178,15 @@ class CollectDispatcherTests {
 
     @Test
     fun dispatch_Batches_OverridesUrl_WhenUrlIsOverridden() {
-        collectDispatcher = createCollectDispatcher(
-            collectConfig = CollectDispatcherConfiguration(batchUrl = localhost)
+        collectModule = createCollectDispatcher(
+            collectConfig = CollectModuleConfiguration(batchUrl = localhost)
         )
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
         val dispatch1 = createTestDispatch("test")
         val dispatch2 = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch2), observer)
+        collectModule.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(localhost, any(), any())
@@ -199,8 +199,8 @@ class CollectDispatcherTests {
 
     @Test
     fun dispatch_Batches_OverridesProfile_WhenProfileIsOverridden() {
-        collectDispatcher = createCollectDispatcher(
-            collectConfig = CollectDispatcherConfiguration(
+        collectModule = createCollectDispatcher(
+            collectConfig = CollectModuleConfiguration(
                 profile = "override"
             )
         )
@@ -208,11 +208,11 @@ class CollectDispatcherTests {
         val dispatch1 = createTestDispatch("test", profile = "default")
         val dispatch2 = createTestDispatch("test", profile = "default")
 
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch2), observer)
+        collectModule.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(defaultConfiguration.batchUrl, match {
-                it.getDataObject(CollectDispatcher.KEY_SHARED)!!
+                it.getDataObject(CollectModule.KEY_SHARED)!!
                     .getString(Dispatch.Keys.TEALIUM_PROFILE) == "override"
             }, any())
             observer(match {
@@ -224,7 +224,7 @@ class CollectDispatcherTests {
 
     @Test
     fun dispatch_Batches_CompressesCommonKeys_And_LeavesUniqueKeys() {
-        collectDispatcher = createCollectDispatcher()
+        collectModule = createCollectDispatcher()
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
         val dispatch1 = createTestDispatch("test", data = testDataObject.copy {
@@ -236,12 +236,12 @@ class CollectDispatcherTests {
             put("key_4", "string4")
         })
 
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch2), observer)
+        collectModule.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(defaultConfiguration.batchUrl, match {
-                val shared = it.getDataObject(CollectDispatcher.KEY_SHARED)!!
-                val events = it.getDataList(CollectDispatcher.KEY_EVENTS)!!
+                val shared = it.getDataObject(CollectModule.KEY_SHARED)!!
+                val events = it.getDataList(CollectModule.KEY_EVENTS)!!
                 val event1 = events.getDataObject(0)!!
                 val event2 = events.getDataObject(1)!!
 
@@ -261,8 +261,8 @@ class CollectDispatcherTests {
 
     @Test
     fun dispatch_Batches_OverridesProfile_InSharedDataOnly() {
-        collectDispatcher = createCollectDispatcher(
-            collectConfig = CollectDispatcherConfiguration(
+        collectModule = createCollectDispatcher(
+            collectConfig = CollectModuleConfiguration(
                 profile = "override"
             )
         )
@@ -276,12 +276,12 @@ class CollectDispatcherTests {
             put("key_4", "string4")
         })
 
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch2), observer)
+        collectModule.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(defaultConfiguration.batchUrl, match {
-                val shared = it.getDataObject(CollectDispatcher.KEY_SHARED)!!
-                val events = it.getDataList(CollectDispatcher.KEY_EVENTS)!!
+                val shared = it.getDataObject(CollectModule.KEY_SHARED)!!
+                val events = it.getDataList(CollectModule.KEY_EVENTS)!!
                 val event1 = events.getDataObject(0)!!
                 val event2 = events.getDataObject(1)!!
 
@@ -294,21 +294,21 @@ class CollectDispatcherTests {
 
     @Test
     fun dispatch_Splits_WhenMultipleUniqueVisitorId() {
-        collectDispatcher = createCollectDispatcher()
+        collectModule = createCollectDispatcher()
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
         val dispatch1 = createTestDispatch("test", visitorId = "visitor_1")
         val dispatch2 = createTestDispatch("test", visitorId = "visitor_2")
         val dispatch3 = createTestDispatch("test2", visitorId = "visitor_2")
 
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch2, dispatch3), observer)
+        collectModule.dispatch(listOf(dispatch1, dispatch2, dispatch3), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(defaultConfiguration.url, match {
                 it.getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_1"
             }, any())
             networkHelper.post(defaultConfiguration.batchUrl, match {
-                it.getDataObject(CollectDispatcher.KEY_SHARED)!!
+                it.getDataObject(CollectModule.KEY_SHARED)!!
                     .getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_2"
             }, any())
 
@@ -326,21 +326,21 @@ class CollectDispatcherTests {
 
     @Test
     fun updateConfiguration_UpdatesIndividualUrl() {
-        collectDispatcher = createCollectDispatcher()
+        collectModule = createCollectDispatcher()
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
         val dispatch1 = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch1), observer)
+        collectModule.dispatch(listOf(dispatch1), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(defaultConfiguration.url, any(), any())
         }
 
-        collectDispatcher.updateConfiguration(
+        collectModule.updateConfiguration(
             createConfigurationObject { it.setUrl(localhost.toString()) }
         )
-        collectDispatcher.dispatch(listOf(dispatch1), observer)
+        collectModule.dispatch(listOf(dispatch1), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(localhost, any(), any())
@@ -349,21 +349,21 @@ class CollectDispatcherTests {
 
     @Test
     fun updateConfiguration_UpdatesBatchUrl() {
-        collectDispatcher = createCollectDispatcher()
+        collectModule = createCollectDispatcher()
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
 
         val dispatch1 = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch1), observer)
+        collectModule.dispatch(listOf(dispatch1, dispatch1), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(defaultConfiguration.batchUrl, any(), any())
         }
 
-        collectDispatcher.updateConfiguration(
+        collectModule.updateConfiguration(
             createConfigurationObject { it.setBatchUrl(localhost.toString()) }
         )
-        collectDispatcher.dispatch(listOf(dispatch1, dispatch1), observer)
+        collectModule.dispatch(listOf(dispatch1, dispatch1), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(localhost, any(), any())
@@ -372,8 +372,8 @@ class CollectDispatcherTests {
 
     @Test
     fun updateConfiguration_UpdatesProfileOverride_ForIndividualEvents() {
-        collectDispatcher = createCollectDispatcher(
-            collectConfig = CollectDispatcherConfiguration(
+        collectModule = createCollectDispatcher(
+            collectConfig = CollectModuleConfiguration(
                 profile = "default"
             )
         )
@@ -381,7 +381,7 @@ class CollectDispatcherTests {
 
         val dispatch1 = createTestDispatch("test")
 
-        collectDispatcher.dispatch(listOf(dispatch1), observer)
+        collectModule.dispatch(listOf(dispatch1), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(defaultConfiguration.url, match {
@@ -390,10 +390,10 @@ class CollectDispatcherTests {
         }
 
         val overrideProfile = "override"
-        collectDispatcher.updateConfiguration(
+        collectModule.updateConfiguration(
             createConfigurationObject { it.setProfile(overrideProfile) }
         )
-        collectDispatcher.dispatch(listOf(dispatch1), observer)
+        collectModule.dispatch(listOf(dispatch1), observer)
 
         verify(timeout = 1000) {
             networkHelper.post(any<URL>(), match {
@@ -404,46 +404,46 @@ class CollectDispatcherTests {
 
     @Test
     fun updateConfiguration_ReturnsSelf_When_Default_Configuration_Provided() {
-        collectDispatcher = createCollectDispatcher()
+        collectModule = createCollectDispatcher()
 
         assertSame(
-            collectDispatcher,
-            collectDispatcher.updateConfiguration(DataObject.EMPTY_OBJECT)
+            collectModule,
+            collectModule.updateConfiguration(DataObject.EMPTY_OBJECT)
         )
     }
 
     @Test
     fun updateConfiguration_ReturnsNull_When_Invalid_Url() {
-        collectDispatcher = createCollectDispatcher()
+        collectModule = createCollectDispatcher()
 
-        assertNull(collectDispatcher.updateConfiguration(createConfigurationObject {
+        assertNull(collectModule.updateConfiguration(createConfigurationObject {
             it.setUrl("some_invalid_url")
         }))
     }
 
     @Test
     fun updateConfiguration_ReturnsNull_When_Invalid_BatchUrl() {
-        collectDispatcher = createCollectDispatcher()
+        collectModule = createCollectDispatcher()
 
-        assertNull(collectDispatcher.updateConfiguration(createConfigurationObject {
+        assertNull(collectModule.updateConfiguration(createConfigurationObject {
             it.setBatchUrl("some_invalid_url")
         }))
     }
 
     @Test
     fun name_Matches_Factory_Name() {
-        collectDispatcher = createCollectDispatcher()
+        collectModule = createCollectDispatcher()
 
-        assertEquals(CollectDispatcher.Factory().id, collectDispatcher.id)
+        assertEquals(CollectModule.Factory().id, collectModule.id)
     }
 
     /**
-     * Creates a new [CollectDispatcher] with reasonable defaults in case of parameter omission.
+     * Creates a new [CollectModule] with reasonable defaults in case of parameter omission.
      */
     private fun createCollectDispatcher(
-        collectConfig: CollectDispatcherConfiguration = CollectDispatcherConfiguration(),
-    ): CollectDispatcher {
-        return CollectDispatcher(
+        collectConfig: CollectModuleConfiguration = CollectModuleConfiguration(),
+    ): CollectModule {
+        return CollectModule(
             config,
             logger,
             networkHelper,

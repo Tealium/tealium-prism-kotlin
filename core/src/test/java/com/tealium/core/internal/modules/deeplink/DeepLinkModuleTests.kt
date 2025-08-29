@@ -3,6 +3,7 @@ package com.tealium.core.internal.modules.deeplink
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import com.tealium.core.api.Modules
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.misc.ActivityManager
 import com.tealium.core.api.modules.Module
@@ -24,7 +25,7 @@ import com.tealium.core.api.tracking.TrackResult
 import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.api.tracking.Tracker
 import com.tealium.core.internal.modules.ModuleManagerImpl
-import com.tealium.core.internal.modules.trace.TraceManagerModule
+import com.tealium.core.internal.modules.trace.TraceModule
 import com.tealium.tests.common.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.buildConfiguration
@@ -45,7 +46,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
-class DeepLinkHandlerModuleTests {
+class DeepLinkModuleTests {
 
     @RelaxedMockK
     lateinit var dataStore: DataStore
@@ -54,7 +55,7 @@ class DeepLinkHandlerModuleTests {
     lateinit var tracker: Tracker
 
     @RelaxedMockK
-    lateinit var traceModule: TraceManagerModule
+    lateinit var traceModule: TraceModule
 
     @RelaxedMockK
     lateinit var dataStoreEditor: DataStore.Editor
@@ -63,14 +64,14 @@ class DeepLinkHandlerModuleTests {
     private lateinit var modules: StateSubject<List<Module>>
     private lateinit var activities: ReplaySubject<ActivityManager.ActivityStatus>
     private lateinit var uri: Uri
-    private lateinit var configuration: DeepLinkHandlerConfiguration
-    private lateinit var deepLinkHandlerModule: DeepLinkHandlerModule
+    private lateinit var configuration: DeepLinkModuleConfiguration
+    private lateinit var deepLinkModule: DeepLinkModule
 
     @Before
     fun setUp() {
         MockKAnnotations.init(this)
 
-        configuration = DeepLinkHandlerConfiguration(
+        configuration = DeepLinkModuleConfiguration(
             automaticDeepLinkTracking = true,
             sendDeepLinkEvent = true,
             deepLinkTraceEnabled = true
@@ -85,7 +86,7 @@ class DeepLinkHandlerModuleTests {
 
         uri = Uri.parse("https://example.com/path?param1=value1&param2=value2")
 
-        deepLinkHandlerModule = DeepLinkHandlerModule(
+        deepLinkModule = DeepLinkModule(
             dataStore,
             tracker,
             moduleManager,
@@ -98,11 +99,11 @@ class DeepLinkHandlerModuleTests {
     @Test
     fun collect_Returns_Empty_Object_When_Source_Is_From_Module() {
         val dispatchContext = DispatchContext(
-            DispatchContext.Source.module(DeepLinkHandlerModule::class.java),
+            DispatchContext.Source.module(DeepLinkModule::class.java),
             DataObject.EMPTY_OBJECT
         )
 
-        val result = deepLinkHandlerModule.collect(dispatchContext)
+        val result = deepLinkModule.collect(dispatchContext)
 
         assertEquals(DataObject.EMPTY_OBJECT, result)
     }
@@ -116,7 +117,7 @@ class DeepLinkHandlerModuleTests {
         val dataObject = DataObject.create { put("key", "value") }
         every { dataStore.getAll() } returns dataObject
 
-        val result = deepLinkHandlerModule.collect(dispatchContext)
+        val result = deepLinkModule.collect(dispatchContext)
 
         assertEquals(dataObject, result)
     }
@@ -125,7 +126,7 @@ class DeepLinkHandlerModuleTests {
     fun handle_Does_Nothing_When_Uri_Is_Opaque() {
         uri = Uri.parse("mailto:someone@test.com")
 
-        deepLinkHandlerModule.handle(uri)
+        deepLinkModule.handle(uri)
 
         verify(exactly = 0) {
             dataStore.edit()
@@ -135,7 +136,7 @@ class DeepLinkHandlerModuleTests {
 
     @Test
     fun handle_Removes_Existing_Data_And_Stores_DeepLink_Data_When_Uri_Is_Valid() {
-        deepLinkHandlerModule.handle(uri)
+        deepLinkModule.handle(uri)
 
         val expected = DataObject.create {
             put(Dispatch.Keys.DEEP_LINK_URL, uri.toString())
@@ -151,11 +152,11 @@ class DeepLinkHandlerModuleTests {
 
     @Test
     fun handle_Tracks_Event_When_SendDeepLinkEvent_Is_Enabled() {
-        deepLinkHandlerModule.handle(uri)
+        deepLinkModule.handle(uri)
 
         verify {
             tracker.track(match {
-                it.tealiumEvent == DeepLinkHandlerModule.DEEP_LINK_EVENT
+                it.tealiumEvent == DeepLinkModule.DEEP_LINK_EVENT
             }, any(), any())
         }
     }
@@ -165,9 +166,9 @@ class DeepLinkHandlerModuleTests {
         val configuration = DeepLinkSettingsBuilder()
             .setSendDeepLinkEventEnabled(false)
             .buildConfiguration()
-        deepLinkHandlerModule.updateConfiguration(configuration)
+        deepLinkModule.updateConfiguration(configuration)
 
-        deepLinkHandlerModule.handle(uri)
+        deepLinkModule.handle(uri)
 
         verify(exactly = 0) {
             tracker.track(any(), any())
@@ -176,7 +177,7 @@ class DeepLinkHandlerModuleTests {
 
     @Test
     fun handle_Includes_DeepLink_Url_In_DataObject() {
-        deepLinkHandlerModule.handle(uri)
+        deepLinkModule.handle(uri)
 
         verify {
             dataStoreEditor.putAll(match {
@@ -190,9 +191,9 @@ class DeepLinkHandlerModuleTests {
         val configuration = DeepLinkSettingsBuilder()
             .setAutomaticDeepLinkTrackingEnabled(false)
             .buildConfiguration()
-        deepLinkHandlerModule.updateConfiguration(configuration)
+        deepLinkModule.updateConfiguration(configuration)
 
-        deepLinkHandlerModule.handle(uri)
+        deepLinkModule.handle(uri)
 
         verify {
             dataStoreEditor.putAll(match {
@@ -203,7 +204,7 @@ class DeepLinkHandlerModuleTests {
 
     @Test
     fun handle_Includes_Query_Parameters_In_DataObject() {
-        deepLinkHandlerModule.handle(uri)
+        deepLinkModule.handle(uri)
 
         verify {
             dataStoreEditor.putAll(match {
@@ -219,7 +220,7 @@ class DeepLinkHandlerModuleTests {
     fun handle_Includes_Referrer_Url_In_DataObject_When_Provided() {
         val referrer = Uri.parse("http://referrer.com")
 
-        deepLinkHandlerModule.handle(uri, referrer)
+        deepLinkModule.handle(uri, referrer)
 
         verify {
             dataStoreEditor.putAll(match {
@@ -232,10 +233,10 @@ class DeepLinkHandlerModuleTests {
     fun handle_Calls_TraceModule_Join_When_TraceId_Present() {
         val traceId = "test_trace_id"
         uri = uri.buildUpon()
-            .appendQueryParameter(DeepLinkHandlerModule.TRACE_ID_QUERY_PARAM, traceId)
+            .appendQueryParameter(DeepLinkModule.TRACE_ID_QUERY_PARAM, traceId)
             .build()
 
-        deepLinkHandlerModule.handle(uri)
+        deepLinkModule.handle(uri)
 
         verify {
             traceModule.join(traceId)
@@ -247,12 +248,12 @@ class DeepLinkHandlerModuleTests {
         val configuration = DeepLinkSettingsBuilder()
             .setDeepLinkTraceEnabled(false)
             .buildConfiguration()
-        deepLinkHandlerModule.updateConfiguration(configuration)
+        deepLinkModule.updateConfiguration(configuration)
         uri = uri.buildUpon()
-            .appendQueryParameter(DeepLinkHandlerModule.TRACE_ID_QUERY_PARAM, "traceId")
+            .appendQueryParameter(DeepLinkModule.TRACE_ID_QUERY_PARAM, "traceId")
             .build()
 
-        deepLinkHandlerModule.handle(uri)
+        deepLinkModule.handle(uri)
 
         verify(exactly = 0) {
             traceModule.join("traceId")
@@ -263,11 +264,11 @@ class DeepLinkHandlerModuleTests {
     fun handle_Calls_TraceModule_Leave_When_LeaveTrace_Present() {
         val traceId = "test_trace_id"
         uri = uri.buildUpon()
-            .appendQueryParameter(DeepLinkHandlerModule.TRACE_ID_QUERY_PARAM, traceId)
-            .appendQueryParameter(DeepLinkHandlerModule.LEAVE_TRACE_QUERY_PARAM, "true")
+            .appendQueryParameter(DeepLinkModule.TRACE_ID_QUERY_PARAM, traceId)
+            .appendQueryParameter(DeepLinkModule.LEAVE_TRACE_QUERY_PARAM, "true")
             .build()
 
-        deepLinkHandlerModule.handle(uri)
+        deepLinkModule.handle(uri)
 
         verify {
             traceModule.leave()
@@ -278,11 +279,11 @@ class DeepLinkHandlerModuleTests {
     fun handle_Calls_TraceModule_KillVisitorSession_When_KillVisitorSession_Present() {
         val traceId = "test_trace_id"
         uri = uri.buildUpon()
-            .appendQueryParameter(DeepLinkHandlerModule.TRACE_ID_QUERY_PARAM, traceId)
-            .appendQueryParameter(DeepLinkHandlerModule.KILL_VISITOR_SESSION, "true")
+            .appendQueryParameter(DeepLinkModule.TRACE_ID_QUERY_PARAM, traceId)
+            .appendQueryParameter(DeepLinkModule.KILL_VISITOR_SESSION, "true")
             .build()
 
-        deepLinkHandlerModule.handle(uri)
+        deepLinkModule.handle(uri)
 
         verify {
             traceModule.killVisitorSession(any())
@@ -294,32 +295,32 @@ class DeepLinkHandlerModuleTests {
         modules.onNext(emptyList()) // disable trace
         val traceId = "test_trace_id"
         uri = uri.buildUpon()
-            .appendQueryParameter(DeepLinkHandlerModule.TRACE_ID_QUERY_PARAM, traceId)
-            .appendQueryParameter(DeepLinkHandlerModule.KILL_VISITOR_SESSION, "true")
+            .appendQueryParameter(DeepLinkModule.TRACE_ID_QUERY_PARAM, traceId)
+            .appendQueryParameter(DeepLinkModule.KILL_VISITOR_SESSION, "true")
             .build()
 
-        deepLinkHandlerModule.handle(uri)
+        deepLinkModule.handle(uri)
     }
 
     @Test
     fun handle_Trace_Throws_Exception_When_KillVisitorSession_Fails() {
         val callback = slot<TrackResultListener>()
         every { traceModule.killVisitorSession(capture(callback)) } answers {
-            callback.captured.onTrackResultReady(TrackResult.Dropped(mockk()) )
+            callback.captured.onTrackResultReady(TrackResult.dropped(mockk(), "") )
         }
         uri = uri.buildUpon()
-            .appendQueryParameter(DeepLinkHandlerModule.TRACE_ID_QUERY_PARAM, "test_trace_id")
-            .appendQueryParameter(DeepLinkHandlerModule.KILL_VISITOR_SESSION, "true")
+            .appendQueryParameter(DeepLinkModule.TRACE_ID_QUERY_PARAM, "test_trace_id")
+            .appendQueryParameter(DeepLinkModule.KILL_VISITOR_SESSION, "true")
             .build()
 
-        deepLinkHandlerModule.handle(uri)
+        deepLinkModule.handle(uri)
     }
 
     @Test(expected = PersistenceException::class)
     fun handle_DeepLink_Throws_Exception_When_Persistence_Fails() {
         every { dataStoreEditor.commit() } throws PersistenceException("", mockk())
 
-        deepLinkHandlerModule.handle(uri)
+        deepLinkModule.handle(uri)
     }
 
     @Test
@@ -415,12 +416,12 @@ class DeepLinkHandlerModuleTests {
         every { activities.subscribe(any()) } returns disposable
 
         // Start with automatic tracking enabled
-        deepLinkHandlerModule = DeepLinkHandlerModule(
+        deepLinkModule = DeepLinkModule(
             dataStore,
             tracker,
             moduleManager,
             activities,
-            DeepLinkHandlerConfiguration(automaticDeepLinkTracking = true),
+            DeepLinkModuleConfiguration(automaticDeepLinkTracking = true),
             SystemLogger
         )
 
@@ -429,7 +430,7 @@ class DeepLinkHandlerModuleTests {
             .setAutomaticDeepLinkTrackingEnabled(false)
             .buildConfiguration()
 
-        deepLinkHandlerModule.updateConfiguration(newConfig)
+        deepLinkModule.updateConfiguration(newConfig)
 
         // Should dispose the subscription
         verify {
@@ -441,7 +442,7 @@ class DeepLinkHandlerModuleTests {
             .setAutomaticDeepLinkTrackingEnabled(true)
             .buildConfiguration()
 
-        deepLinkHandlerModule.updateConfiguration(enabledConfig)
+        deepLinkModule.updateConfiguration(enabledConfig)
 
         // Should create a new subscription
         verify(exactly = 2) {
@@ -455,16 +456,16 @@ class DeepLinkHandlerModuleTests {
         activities = mockk()
         every { activities.subscribe(any()) } returns disposable
 
-        deepLinkHandlerModule = DeepLinkHandlerModule(
+        deepLinkModule = DeepLinkModule(
             dataStore,
             tracker,
             moduleManager,
             activities,
-            DeepLinkHandlerConfiguration(automaticDeepLinkTracking = true),
+            DeepLinkModuleConfiguration(automaticDeepLinkTracking = true),
             SystemLogger
         )
 
-        deepLinkHandlerModule.onShutdown()
+        deepLinkModule.onShutdown()
 
         // Should dispose the subscription
         verifyOrder {
@@ -475,19 +476,19 @@ class DeepLinkHandlerModuleTests {
 
     @Test
     fun factory_Id_Returns_Expected_Module_Id() {
-        val factory = DeepLinkHandlerModule.Factory(DataObject.EMPTY_OBJECT)
+        val factory = DeepLinkModule.Factory(DataObject.EMPTY_OBJECT)
 
-        assertEquals(DeepLinkHandlerModule.MODULE_ID, factory.id)
+        assertEquals(Modules.Ids.DEEP_LINK, factory.id)
     }
 
     @Test
     fun factory_GetEnforcedSettings_Returns_Provided_Settings() {
         val enforcedSettings = DataObject.create {
-            put(DeepLinkHandlerConfiguration.KEY_AUTOMATIC_DEEPLINK_TRACKING, false)
-            put(DeepLinkHandlerConfiguration.KEY_SEND_DEEPLINK_EVENT, true)
+            put(DeepLinkModuleConfiguration.KEY_AUTOMATIC_DEEPLINK_TRACKING, false)
+            put(DeepLinkModuleConfiguration.KEY_SEND_DEEPLINK_EVENT, true)
         }
 
-        val factory = DeepLinkHandlerModule.Factory(enforcedSettings)
+        val factory = DeepLinkModule.Factory(enforcedSettings)
 
         assertEquals(enforcedSettings, factory.getEnforcedSettings())
     }
@@ -498,14 +499,14 @@ class DeepLinkHandlerModuleTests {
             .setAutomaticDeepLinkTrackingEnabled(false)
         val expected = settingsBuilder.build()
 
-        val factory = DeepLinkHandlerModule.Factory(settingsBuilder)
+        val factory = DeepLinkModule.Factory(settingsBuilder)
 
         assertEquals(expected, factory.getEnforcedSettings())
     }
 
     @Test
     fun factory_Create_Returns_DeepLinkHandlerModule_With_Configuration() {
-        val factory = DeepLinkHandlerModule.Factory(DataObject.EMPTY_OBJECT)
+        val factory = DeepLinkModule.Factory(DataObject.EMPTY_OBJECT)
         val tealiumContext = mockk<TealiumContext>()
         val storageProvider = mockk<ModuleStoreProvider>()
 
@@ -523,8 +524,8 @@ class DeepLinkHandlerModuleTests {
         val module = factory.create(tealiumContext, configuration)
 
         assertNotNull(module)
-        assertTrue(module is DeepLinkHandlerModule)
-        assertEquals(DeepLinkHandlerModule.MODULE_ID, module?.id)
+        assertTrue(module is DeepLinkModule)
+        assertEquals(Modules.Ids.DEEP_LINK, module?.id)
     }
 
     private fun mockActivity(

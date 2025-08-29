@@ -8,11 +8,11 @@ import com.tealium.core.api.modules.ModuleProxy
 import com.tealium.core.api.pubsub.Single
 
 class DeepLinkHandlerWrapper(
-    private val moduleProxy: ModuleProxy<DeepLinkHandlerModule>
+    private val moduleProxy: ModuleProxy<DeepLinkModule>
 ) : DeepLinkHandler {
     constructor(
         tealium: Tealium
-    ) : this(tealium.createModuleProxy(DeepLinkHandlerModule::class.java))
+    ) : this(tealium.createModuleProxy(DeepLinkModule::class.java))
 
     override fun handle(link: Uri): Single<TealiumResult<Unit>> =
         handle(link, null)

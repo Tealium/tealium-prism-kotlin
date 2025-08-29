@@ -1,7 +1,6 @@
 package com.tealium.core.internal.modules.trace
 
 import com.tealium.core.api.Tealium
-import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleManager
@@ -24,10 +23,10 @@ import io.mockk.verify
 import org.junit.Before
 import org.junit.Test
 
-class TraceManagerWrapperTests {
+class TraceWrapperTests {
 
     @RelaxedMockK
-    private lateinit var traceModule: TraceManagerModule
+    private lateinit var traceModule: TraceModule
 
     @RelaxedMockK
     private lateinit var observer: Observer<TealiumResult<Unit>>
@@ -38,23 +37,23 @@ class TraceManagerWrapperTests {
     private lateinit var modules: StateSubject<List<Module>>
     private lateinit var moduleManager: ModuleManager
     private lateinit var onModuleManager: Subject<ModuleManager?>
-    private lateinit var proxy: ModuleProxy<TraceManagerModule>
+    private lateinit var proxy: ModuleProxy<TraceModule>
 
-    private lateinit var traceManagerWrapper: TraceManagerWrapper
+    private lateinit var traceManagerWrapper: TraceWrapper
     private val scheduler = SynchronousScheduler()
 
     @Before
     fun setUp() {
         MockKAnnotations.init(this)
 
-        every { traceModule.id } returns TraceManagerModule.Factory.id
+        every { traceModule.id } returns TraceModule.Factory.id
         modules = Observables.stateSubject(listOf(traceModule))
         moduleManager = ModuleManagerImpl(scheduler, modules)
         onModuleManager = Observables.replaySubject(1)
         onModuleManager.onNext(moduleManager)
 
-        proxy = ModuleProxyImpl(TraceManagerModule::class.java, onModuleManager, scheduler)
-        traceManagerWrapper = TraceManagerWrapper(proxy)
+        proxy = ModuleProxyImpl(TraceModule::class.java, onModuleManager, scheduler)
+        traceManagerWrapper = TraceWrapper(proxy)
     }
 
     @Test
@@ -136,7 +135,7 @@ class TraceManagerWrapperTests {
 
     @Test
     fun killVisitorSession_Returns_Success_When_Dispatch_Accepted() {
-        mockModuleCallback(TrackResult.Accepted(mockk()))
+        mockModuleCallback(TrackResult.accepted(mockk(), ""))
 
         traceManagerWrapper.killVisitorSession()
             .subscribe(killVisitorObserver)
@@ -148,7 +147,7 @@ class TraceManagerWrapperTests {
 
     @Test
     fun killVisitorSession_Returns_Success_Even_When_Dispatch_Dropped() {
-        mockModuleCallback(TrackResult.Dropped(mockk()))
+        mockModuleCallback(TrackResult.dropped(mockk(), ""))
 
         traceManagerWrapper.killVisitorSession()
             .subscribe(killVisitorObserver)
@@ -160,14 +159,14 @@ class TraceManagerWrapperTests {
 
     @Test
     fun init_Delegates_Proxy_To_Tealium() {
-        val proxy = mockk<ModuleProxy<TraceManagerModule>>()
+        val proxy = mockk<ModuleProxy<TraceModule>>()
         val tealium = mockk<Tealium>()
-        every { tealium.createModuleProxy(TraceManagerModule::class.java) } returns proxy
+        every { tealium.createModuleProxy(TraceModule::class.java) } returns proxy
 
-        TraceManagerWrapper(tealium)
+        TraceWrapper(tealium)
 
         verify {
-            tealium.createModuleProxy(TraceManagerModule::class.java)
+            tealium.createModuleProxy(TraceModule::class.java)
         }
     }
 

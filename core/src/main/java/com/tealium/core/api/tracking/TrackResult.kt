@@ -2,23 +2,41 @@ package com.tealium.core.api.tracking
 
 /**
  * The [TrackResult] identifies whether or not a [Dispatch] has been accepted for further processing.
+ *
+ * @param dispatch The [Dispatch] instance that this [TrackResult] relates to.
+ * @param status The status that can be accepted for processing or dropped.
+ * @param info Some human readable info regarding the reason behind the status decision.
  */
-sealed class TrackResult {
-    /**
-     * The [Dispatch] instance that this [TrackResult] relates to.
-     */
-    abstract val dispatch: Dispatch
+data class TrackResult(
+    val dispatch: Dispatch,
+    val status: Status,
+    val info: String
+) {
 
     /**
-     * [Dropped] will indicate that the [Dispatch] was stopped from further processing - e.g. by a
-     * [Transformer] or consent decision - and as such, it will not be stored or sent for further
-     * processing.
+     * Informs if the [Dispatch] has been accepted for processing, or dropped.
      */
-    data class Dropped(override val dispatch: Dispatch): TrackResult()
+    enum class Status {
+        Accepted, Dropped
+    }
 
-    /**
-     * [Accepted] will indicate that the [Dispatch] has been accepted by the SDK, and it therefore
-     * persisted for future processing - e.g. by [Dispatcher]s or the consent process.
-     */
-    data class Accepted(override val dispatch: Dispatch): TrackResult()
+    val description: String
+        get() {
+            val statusStr = when (status) {
+                Status.Dropped -> "dropped"
+                Status.Accepted -> "accepted for processing"
+            }
+
+            return "Dispatch \"${dispatch.logDescription()}\" has been $statusStr. $info"
+        }
+
+    companion object {
+        @JvmStatic
+        fun accepted(dispatch: Dispatch, info: String) =
+            TrackResult(dispatch, Status.Accepted, info)
+
+        @JvmStatic
+        fun dropped(dispatch: Dispatch, reason: String) =
+            TrackResult(dispatch, Status.Dropped, "Reason: $reason")
+    }
 }

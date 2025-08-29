@@ -7,7 +7,6 @@ import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.internal.pubsub.DisposableContainer
 import com.tealium.core.internal.pubsub.addTo
-import com.tealium.core.internal.pubsub.asObservable
 import com.tealium.core.internal.settings.consent.ConsentConfiguration
 import com.tealium.core.internal.settings.consent.ConsentSettings
 
@@ -17,7 +16,7 @@ import com.tealium.core.internal.settings.consent.ConsentSettings
  */
 class CmpConfigurationSelector(
     private val consentSettings: ObservableState<ConsentSettings?>,
-    private val cmpAdapter: CmpAdapter,
+    val cmpAdapter: CmpAdapter,
     scheduler: Scheduler
 ) {
     private val _consentInspector: StateSubject<ConsentInspector?> = Observables.stateSubject(null)
@@ -32,7 +31,10 @@ class CmpConfigurationSelector(
         configuration = consentSettings.map(::extractConsentConfiguration)
             .withState { extractConsentConfiguration(consentSettings.value) }
 
-        configuration.combine(cmpAdapter.consentDecision.asObservable().observeOn(scheduler)) { config, decision ->
+        val consentDecisions = cmpAdapter.consentDecision
+            .distinct()
+            .observeOn(scheduler)
+        configuration.combine(consentDecisions) { config, decision ->
             if (config != null && decision != null) {
                 ConsentInspector(config, decision, cmpAdapter.allPurposes)
             } else {

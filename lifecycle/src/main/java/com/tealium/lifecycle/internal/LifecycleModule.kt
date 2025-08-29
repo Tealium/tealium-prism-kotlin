@@ -315,8 +315,7 @@ class LifecycleModule(
     ) : ModuleFactory {
         constructor(moduleSettings: LifecycleSettingsBuilder) : this(moduleSettings.build())
 
-        override val id: String
-            get() = LifecycleConfiguration.MODULE_ID
+        override val id: String = Lifecycle.ID
 
         override fun getEnforcedSettings(): DataObject? = settings
 
@@ -330,8 +329,7 @@ class LifecycleModule(
         }
     }
 
-    override val id: String
-        get() = LifecycleConfiguration.MODULE_ID
+    override val id: String = Lifecycle.ID
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 }

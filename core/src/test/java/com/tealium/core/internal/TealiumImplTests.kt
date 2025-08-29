@@ -12,7 +12,7 @@ import com.tealium.core.api.pubsub.Observer
 import com.tealium.core.internal.misc.ActivityManagerImpl
 import com.tealium.core.internal.modules.InternalModuleManager
 import com.tealium.core.internal.modules.ModuleManagerImpl
-import com.tealium.core.internal.modules.TealiumCollector
+import com.tealium.core.internal.modules.TealiumDataModule
 import com.tealium.core.internal.modules.datalayer.DataLayerModule
 import com.tealium.core.internal.settings.MappingsImpl
 import com.tealium.core.internal.settings.ModuleSettings
@@ -188,7 +188,7 @@ class TealiumImplTests {
 
         verify {
             moduleManager.addModuleFactory(match { it is DataLayerModule.Companion })
-            moduleManager.addModuleFactory(match { it is TealiumCollector.Factory })
+            moduleManager.addModuleFactory(match { it is TealiumDataModule.Factory })
         }
     }
 

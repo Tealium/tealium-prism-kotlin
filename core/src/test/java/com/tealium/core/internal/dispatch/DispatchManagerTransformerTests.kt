@@ -42,7 +42,9 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
         dispatchManager.track(dispatch1, onComplete)
 
         verify(timeout = 1000) {
-            onComplete(TrackResult.Dropped(dispatch1))
+            onComplete(match {
+                it.status == TrackResult.Status.Dropped
+            })
         }
     }
 }

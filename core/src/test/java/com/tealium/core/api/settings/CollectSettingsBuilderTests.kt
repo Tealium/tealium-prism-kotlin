@@ -1,18 +1,18 @@
 package com.tealium.core.api.settings
 
-import com.tealium.core.internal.modules.collect.CollectDispatcherConfiguration
+import com.tealium.core.internal.modules.collect.CollectModuleConfiguration
 import com.tealium.core.internal.settings.ModuleSettings
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
-class CollectDispatcherSettingsBuilderTests {
+class CollectSettingsBuilderTests {
 
-    private lateinit var builder: CollectDispatcherSettingsBuilder
+    private lateinit var builder: CollectSettingsBuilder
 
     @Before
     fun setUp() {
-        builder = CollectDispatcherSettingsBuilder()
+        builder = CollectSettingsBuilder()
     }
 
     @Test
@@ -22,7 +22,7 @@ class CollectDispatcherSettingsBuilderTests {
 
         assertEquals(
             "test-url",
-            config.getString(CollectDispatcherConfiguration.KEY_COLLECT_URL)
+            config.getString(CollectModuleConfiguration.KEY_COLLECT_URL)
         )
     }
 
@@ -33,7 +33,7 @@ class CollectDispatcherSettingsBuilderTests {
 
         assertEquals(
             "test-url",
-            config.getString(CollectDispatcherConfiguration.KEY_COLLECT_BATCH_URL)
+            config.getString(CollectModuleConfiguration.KEY_COLLECT_BATCH_URL)
         )
     }
 
@@ -44,7 +44,7 @@ class CollectDispatcherSettingsBuilderTests {
 
         assertEquals(
             "profile",
-            config.getString(CollectDispatcherConfiguration.KEY_COLLECT_PROFILE)
+            config.getString(CollectModuleConfiguration.KEY_COLLECT_PROFILE)
         )
     }
 
@@ -55,7 +55,7 @@ class CollectDispatcherSettingsBuilderTests {
 
         assertEquals(
             "domain",
-            config.getString(CollectDispatcherConfiguration.KEY_COLLECT_DOMAIN)
+            config.getString(CollectModuleConfiguration.KEY_COLLECT_DOMAIN)
         )
     }
 }

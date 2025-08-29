@@ -22,11 +22,14 @@ import com.tealium.core.api.tracking.TealiumDispatchType;
 import com.tealium.core.api.tracking.TrackResult;
 import com.tealium.lifecycle.Lifecycle;
 import com.tealium.lifecycle.LifecycleDataTarget;
+import static com.tealium.mobile.ExampleCmpAdapter.Purposes;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import kotlin.collections.SetsKt;
 
 public class TealiumJavaHelper {
     private TealiumJavaHelper() {
@@ -36,9 +39,11 @@ public class TealiumJavaHelper {
         TealiumConfig config = new TealiumConfig(app, "tealiummobile", "android", Environment.DEV,
                 configureModules());
 
-//        config.enableConsentIntegration(new ExampleCmpAdapter(), (settings) -> {
-//            settings.addPurpose("some_purpose", SetsKt.setOf("CollectDispatcher"))
-//                    .setRefireDispatcherIds(SetsKt.setOf("CollectDispatcher"));
+//        config.enableConsentIntegration(new ExampleCmpAdapter(app.getApplicationContext()), (settings) -> {
+//            settings
+//                    .setTealiumPurposeId(Purposes.TEALIUM)
+//                    .addPurpose(Purposes.TRACKING, SetsKt.setOf(Modules.Ids.COLLECT))
+//                    .setRefireDispatcherIds(SetsKt.setOf(Modules.Ids.COLLECT));
 //            return settings;
 //        });
 

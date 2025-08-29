@@ -11,11 +11,10 @@ class ConsentInspectorTests {
 
     private val tealiumPurpose = "tealium_purpose"
     private lateinit var decision: ConsentDecision
-    private lateinit var allPurposes: Set<String>
+    private var allPurposes: Set<String>? = null
     private lateinit var configuration: ConsentConfiguration
-    private val consentInspector: ConsentInspector by lazy {
-        ConsentInspector(configuration, decision, allPurposes)
-    }
+    private val consentInspector: ConsentInspector
+        get() = ConsentInspector(configuration, decision, allPurposes)
 
     @Before
     fun setUp() {
@@ -104,5 +103,14 @@ class ConsentInspectorTests {
         allPurposes = setOf("1", "2", "3")
 
         assertFalse(consentInspector.allowsRefire())
+    }
+
+    @Test
+    fun allowsRefire_Returns_True_When_AllPurposes_Is_Null() {
+        decision = ConsentDecision(ConsentDecision.DecisionType.Implicit, setOf("1"))
+        configuration = configuration.copy(refireDispatcherIds = setOf("dispatcher1"))
+        allPurposes = null
+
+        assertTrue(consentInspector.allowsRefire())
     }
 }

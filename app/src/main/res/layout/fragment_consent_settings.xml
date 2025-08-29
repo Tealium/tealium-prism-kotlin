@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:gravity="center_horizontal">
+
+    <TextView
+        android:id="@+id/text_view_consent_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/consent_settings"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp"/>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/decision_type"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="8dp"/>
+
+    <RadioGroup
+        android:id="@+id/radio_group_consent_type"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <RadioButton
+            android:id="@+id/radio_implicit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/implicit"
+            android:textSize="16sp"
+            android:padding="8dp"/>
+
+        <RadioButton
+            android:id="@+id/radio_explicit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/explicit"
+            android:textSize="16sp"
+            android:padding="8dp"/>
+    </RadioGroup>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/consent_purposes"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginTop="24dp"
+        android:layout_marginBottom="8dp"/>
+
+    <!-- Container for dynamically generated purpose checkboxes -->
+    <LinearLayout
+        android:id="@+id/purpose_checkboxes_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"/>
+
+    <Button
+        android:id="@+id/button_save_consent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/save_consent_settings"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="8dp"/>
+
+    <Button
+        android:id="@+id/button_back"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/back" />
+
+</LinearLayout>

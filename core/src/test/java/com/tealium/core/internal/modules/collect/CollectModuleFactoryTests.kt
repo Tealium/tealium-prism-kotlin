@@ -16,7 +16,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-class CollectDispatcherFactoryTests {
+class CollectModuleFactoryTests {
 
     @MockK
     lateinit var context: TealiumContext
@@ -40,17 +40,17 @@ class CollectDispatcherFactoryTests {
     }
 
     @Test
-    fun create_ReturnsCollectDispatcher_When_ModuleSettings_Enabled() {
-        val module = CollectDispatcher.Factory()
+    fun create_Returns_CollectModule_When_ModuleSettings_Enabled() {
+        val module = CollectModule.Factory()
             .create(context, DataObject.EMPTY_OBJECT)
 
         assertNotNull(module)
-        assertTrue(module is CollectDispatcher)
+        assertTrue(module is CollectModule)
     }
 
     @Test
-    fun create_ReturnsNull_When_Invalid_Url() {
-        val factory = CollectDispatcher.Factory()
+    fun create_Returns_Null_When_Invalid_Url() {
+        val factory = CollectModule.Factory()
 
         assertNull(factory.create(mockk(), createConfigurationObject {
             it.setUrl("some_invalid_url")
@@ -58,8 +58,8 @@ class CollectDispatcherFactoryTests {
     }
 
     @Test
-    fun create_ReturnsNull_When_Invalid_BatchUrl() {
-        val factory = CollectDispatcher.Factory()
+    fun create_Returns_Null_When_Invalid_BatchUrl() {
+        val factory = CollectModule.Factory()
 
         assertNull(factory.create(mockk(), createConfigurationObject {
             it.setBatchUrl("some_invalid_url")

@@ -10,7 +10,7 @@ import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleManager
 import com.tealium.core.api.modules.ModuleProxy
 import com.tealium.core.api.modules.TimedEventsManager
-import com.tealium.core.api.modules.TraceManager
+import com.tealium.core.api.modules.Trace
 import com.tealium.core.api.modules.VisitorService
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.SingleResult
@@ -23,7 +23,7 @@ import com.tealium.core.internal.modules.TimedEventsManagerWrapper
 import com.tealium.core.internal.modules.VisitorServiceWrapper
 import com.tealium.core.internal.modules.datalayer.DataLayerWrapper
 import com.tealium.core.internal.modules.deeplink.DeepLinkHandlerWrapper
-import com.tealium.core.internal.modules.trace.TraceManagerWrapper
+import com.tealium.core.internal.modules.trace.TraceWrapper
 import com.tealium.core.internal.pubsub.AsyncDisposableContainer
 
 
@@ -50,10 +50,9 @@ class TealiumProxy(
         onTealiumImplReady.map { result ->
             result.getOrNull()?.moduleManager
         }
-
     private val asyncProxy = AsyncProxyImpl(tealiumScheduler, onTealiumImplReady)
 
-    override val trace: TraceManager = TraceManagerWrapper(this)
+    override val trace: Trace = TraceWrapper(this)
     override val deeplink: DeepLinkHandler = DeepLinkHandlerWrapper(this)
     override val timedEvents: TimedEventsManager = TimedEventsManagerWrapper(this)
     override val dataLayer: DataLayer = DataLayerWrapper(this)

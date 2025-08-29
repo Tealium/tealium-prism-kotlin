@@ -1,5 +1,6 @@
 package com.tealium.core.internal.modules
 
+import com.tealium.core.api.Modules
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
@@ -10,12 +11,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
-class AppDataCollectorTests {
+class AppDataModuleTests {
 
     @RelaxedMockK
     private lateinit var appDataProvider: AppDataProvider
 
-    private lateinit var appDataCollector: AppDataCollector
+    private lateinit var appDataModule: AppDataModule
 
     @Before
     fun setUp() {
@@ -27,19 +28,19 @@ class AppDataCollectorTests {
         every { appDataProvider.appVersion } returns "1.0.0"
         every { appDataProvider.appMemoryUsage } returns 50L
 
-        appDataCollector = AppDataCollector(appDataProvider)
+        appDataModule = AppDataModule(appDataProvider)
     }
 
     @Test
-    fun id_Returns_CorrectId() {
-        assertEquals("AppDataCollector", AppDataCollector.Factory.id)
+    fun id_Returns_AppData() {
+        assertEquals(Modules.Ids.APP_DATA, AppDataModule.Factory.id)
     }
 
     @Test
     fun collect_Returns_AppData() {
         val dispatchContext =
             DispatchContext(DispatchContext.Source.application(), DataObject.EMPTY_OBJECT)
-        val bundle = appDataCollector.collect(dispatchContext)
+        val bundle = appDataModule.collect(dispatchContext)
 
         assertEquals("123456789", bundle.getString(Dispatch.Keys.APP_UUID))
         assertEquals("com.tealium.test", bundle.getString(Dispatch.Keys.APP_RDNS))

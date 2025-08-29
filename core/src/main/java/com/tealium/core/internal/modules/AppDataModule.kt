@@ -1,6 +1,7 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.BuildConfig
+import com.tealium.core.api.Modules
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.modules.Collector
 import com.tealium.core.api.modules.Module
@@ -14,7 +15,7 @@ import com.tealium.core.api.tracking.DispatchContext
 /**
  * Collects data related to the application package.
  */
-class AppDataCollector(
+class AppDataModule(
     private val appDataProvider: AppDataProvider
 ) : Collector {
 
@@ -37,18 +38,16 @@ class AppDataCollector(
         }
     }
 
-    override val id: String
-        get() = Factory.id
+    override val id: String = Modules.Ids.APP_DATA
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
     object Factory : ModuleFactory {
-        override val id: String
-            get() = "AppDataCollector"
+        override val id: String = Modules.Ids.APP_DATA
 
         override fun create(context: TealiumContext, configuration: DataObject): Module? {
             val dataStore = context.storageProvider.getModuleStore(this)
-            return AppDataCollector(context, dataStore)
+            return AppDataModule(context, dataStore)
         }
     }
 }

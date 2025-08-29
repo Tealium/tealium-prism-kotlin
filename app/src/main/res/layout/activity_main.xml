@@ -13,7 +13,7 @@
         android:layout_height="wrap_content"
         android:paddingBottom="12dp"
         android:gravity="center_horizontal"
-        app:layout_constraintBottom_toTopOf="@id/fragment_container"
+        app:layout_constraintBottom_toTopOf="@id/fragment_container_scroll"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
@@ -43,26 +43,33 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/top_layout"
-        app:layout_constraintBottom_toTopOf="@id/fragment_container"
+        app:layout_constraintBottom_toTopOf="@id/fragment_container_scroll"
         />
 
-    <LinearLayout
-        android:id="@+id/fragment_container"
+    <ScrollView
+        android:id="@+id/fragment_container_scroll"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_marginTop="16dp"
         app:layout_constraintBottom_toTopOf="@id/nav_layout"
         app:layout_constraintTop_toBottomOf="@id/top_layout"
         app:layout_constraintVertical_bias="0.0"
-        android:orientation="vertical"
-        android:gravity="center_horizontal">
-    </LinearLayout>
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:id="@+id/fragment_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+        </LinearLayout>
+    </ScrollView>
 
     <View style="@style/Divider"
         android:layout_margin="12dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/fragment_container"
+        app:layout_constraintTop_toBottomOf="@id/fragment_container_scroll"
         app:layout_constraintBottom_toTopOf="@id/nav_layout"
         />
 
@@ -75,7 +82,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/fragment_container">
+        app:layout_constraintTop_toBottomOf="@id/fragment_container_scroll">
 
         <Button
             android:id="@+id/btn_second_activity"

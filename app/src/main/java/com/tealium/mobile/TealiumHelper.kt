@@ -38,6 +38,7 @@ import com.tealium.core.api.tracking.TrackResult
 import com.tealium.core.internal.logger.logDescriptions
 import com.tealium.core.internal.pubsub.CompletedDisposable
 import com.tealium.lifecycle.lifecycle
+import com.tealium.mobile.ExampleCmpAdapter.Purposes
 
 object TealiumHelper {
 
@@ -45,6 +46,8 @@ object TealiumHelper {
 
     var shared: Tealium? = null
         private set
+
+    lateinit var cmp: MutableCmpAdapter
 
     val isEnabled: Boolean get() = shared != null
 
@@ -68,6 +71,9 @@ object TealiumHelper {
     }
 
     fun init(application: Application, onReady: ((TealiumResult<Tealium>) -> Unit)? = null) {
+        // Initialize and store the CmpAdapter
+        cmp = ExampleCmpAdapter(application.applicationContext)
+
         val config = TealiumConfig(
             application = application,
             modules = configureModules(),
@@ -82,20 +88,23 @@ object TealiumHelper {
             useRemoteSettings = false
             localSdkSettingsFileName = "tealium-settings.jsonc"
 
-//            enableConsentIntegration(ExampleCmpAdapter()) { settings ->
-//                settings.addPurpose("some_purpose", setOf("CollectDispatcher"))
-//                    .setRefireDispatcherIds(setOf("CollectDispatcher"))
-//            }
+            // Enable consent integration
+            enableConsentIntegration(cmp) { settings ->
+                settings
+                    .setTealiumPurposeId(Purposes.TEALIUM)
+                    .addPurpose(Purposes.TRACKING, setOf(Modules.Ids.COLLECT))
+                    .setRefireDispatcherIds(setOf(Modules.Ids.COLLECT))
+            }
 
 //            addBarrier(Barriers.connectivity(),
 //                setOf(
-//                    BarrierScope.Dispatcher(CollectDispatcher.moduleName),
+//                    BarrierScope.Dispatcher(Modules.Ids.COLLECT),
 //                    BarrierScope.Dispatcher("logger")
 //                )
 //            )
 //            addBarrier(Barriers.batching(),
 //                setOf(
-//                    BarrierScope.Dispatcher(CollectDispatcher.moduleName),
+//                    BarrierScope.Dispatcher(Modules.Ids.COLLECT),
 //                    BarrierScope.Dispatcher("logger")
 //                )
 //            )
@@ -189,17 +198,16 @@ object TealiumHelper {
     private fun onTracked(status: TrackResult) {
         Log.d(
             TAG,
-            "ProcessingStatus: ${status.dispatch.tealiumEvent} - ${status::class.simpleName}"
+            "ProcessingStatus: ${status.description}"
         )
     }
 
     private fun configureModules(): List<ModuleFactory> {
         return listOf(
-//            configureConsent(),
             configureCollect(),
-            Modules.connectivityCollector(),
-            Modules.appDataCollector(),
-            Modules.deviceDataCollector(),
+            Modules.connectivityData(),
+            Modules.appData(),
+            Modules.deviceData(),
             Modules.deepLink(),
             Modules.trace(),
             configureLifecycle(),

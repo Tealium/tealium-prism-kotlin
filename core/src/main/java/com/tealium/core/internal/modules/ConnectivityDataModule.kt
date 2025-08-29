@@ -1,6 +1,7 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.BuildConfig
+import com.tealium.core.api.Modules
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.modules.Collector
 import com.tealium.core.api.modules.Module
@@ -16,7 +17,7 @@ import com.tealium.core.api.tracking.DispatchContext
  *
  * @see Dispatch.Keys.CONNECTION_TYPE
  */
-class ConnectivityCollector(
+class ConnectivityDataModule(
     private val connectivity: ObservableState<Connectivity.Status>,
 ) : Collector {
 
@@ -31,17 +32,15 @@ class ConnectivityCollector(
         }
     }
 
-    override val id: String
-        get() = Factory.id
+    override val id: String = Modules.Ids.CONNECTIVITY_DATA
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
     object Factory : ModuleFactory {
-        override val id: String
-            get() = "Connectivity"
+        override val id: String = Modules.Ids.CONNECTIVITY_DATA
 
         override fun create(context: TealiumContext, configuration: DataObject): Module {
-            return ConnectivityCollector(context.network.connectionStatus)
+            return ConnectivityDataModule(context.network.connectionStatus)
         }
     }
 }

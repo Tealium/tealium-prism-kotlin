@@ -1,14 +1,20 @@
 package com.tealium.core.api
 
 import com.tealium.core.api.modules.ModuleFactory
-import com.tealium.core.api.settings.CollectDispatcherSettingsBuilder
+import com.tealium.core.api.settings.CollectSettingsBuilder
 import com.tealium.core.api.settings.DeepLinkSettingsBuilder
 import com.tealium.core.api.settings.VisitorServiceSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
-import com.tealium.core.internal.modules.TimeCollector
+import com.tealium.core.internal.modules.AppDataModule
+import com.tealium.core.internal.modules.ConnectivityDataModule
+import com.tealium.core.internal.modules.DeviceDataModule
+import com.tealium.core.internal.modules.TealiumDataModule
+import com.tealium.core.internal.modules.TimeDataModule
 import com.tealium.core.internal.modules.VisitorServiceImpl
-import com.tealium.core.internal.modules.collect.CollectDispatcher
-import com.tealium.core.internal.modules.deeplink.DeepLinkHandlerModule
+import com.tealium.core.internal.modules.collect.CollectModule
+import com.tealium.core.internal.modules.datalayer.DataLayerModule
+import com.tealium.core.internal.modules.deeplink.DeepLinkModule
+import com.tealium.core.internal.modules.trace.TraceModule
 
 /**
  * An object used for configuring available modules and retrieving them as a [ModuleFactory] to be
@@ -35,16 +41,28 @@ import com.tealium.core.internal.modules.deeplink.DeepLinkHandlerModule
  */
 object Modules {
 
-    /**
-     * Returns a configured [ModuleFactory] for enabling the Collect Dispatcher Module.
-     */
-    @JvmStatic
-    fun collect(): ModuleFactory {
-        return CollectDispatcher.Factory()
+    object Ids {
+        const val APP_DATA = "AppData"
+        const val COLLECT = "Collect"
+        const val CONNECTIVITY_DATA = "ConnectivityData"
+        const val DATA_LAYER = "DataLayer"
+        const val DEEP_LINK = "DeepLink"
+        const val DEVICE_DATA = "DeviceData"
+        const val TEALIUM_DATA = "TealiumData"
+        const val TIME_DATA = "TimeData"
+        const val TRACE = "Trace"
     }
 
     /**
-     * Returns a configured [ModuleFactory] for enabling the Collect Dispatcher Module.
+     * Returns a configured [ModuleFactory] for enabling the Collect Module.
+     */
+    @JvmStatic
+    fun collect(): ModuleFactory {
+        return CollectModule.Factory()
+    }
+
+    /**
+     * Returns a configured [ModuleFactory] for enabling the Collect Module.
      *
      * The [enforcedSettings] will be set for the lifetime of the [Tealium] instance that this [ModuleFactory]
      * is loaded in, and these settings will override any that come from other local/remote sources.
@@ -52,9 +70,9 @@ object Modules {
      * @param enforcedSettings Collect dispatcher settings that should override any from any other settings source
      */
     @JvmStatic
-    fun collect(enforcedSettings: (CollectDispatcherSettingsBuilder) -> CollectDispatcherSettingsBuilder): ModuleFactory {
-        val enforcedSettingsBuilder = enforcedSettings.invoke(CollectDispatcherSettingsBuilder())
-        return CollectDispatcher.Factory(enforcedSettingsBuilder)
+    fun collect(enforcedSettings: (CollectSettingsBuilder) -> CollectSettingsBuilder): ModuleFactory {
+        val enforcedSettingsBuilder = enforcedSettings.invoke(CollectSettingsBuilder())
+        return CollectModule.Factory(enforcedSettingsBuilder)
     }
 
     /**
@@ -83,22 +101,22 @@ object Modules {
      * @see Dispatch.Keys.CONNECTION_TYPE
      */
     @JvmStatic
-    fun connectivityCollector(): ModuleFactory =
-        com.tealium.core.internal.modules.ConnectivityCollector.Factory
+    fun connectivityData(): ModuleFactory =
+        ConnectivityDataModule.Factory
 
     /**
      * Collects data related to the user's device.
      */
     @JvmStatic
-    fun deviceDataCollector(): ModuleFactory =
-        com.tealium.core.internal.modules.DeviceDataCollector.Factory
+    fun deviceData(): ModuleFactory =
+        DeviceDataModule.Factory
 
     /**
      * Collects data related to the app package.
      */
     @JvmStatic
-    fun appDataCollector(): ModuleFactory =
-        com.tealium.core.internal.modules.AppDataCollector.Factory
+    fun appData(): ModuleFactory =
+        AppDataModule.Factory
 
     /**
      * Collects data that has been persisted into the Tealium data layer
@@ -110,7 +128,7 @@ object Modules {
      */
     @JvmStatic
     fun dataLayer(): ModuleFactory =
-        com.tealium.core.internal.modules.datalayer.DataLayerModule
+        DataLayerModule
 
     /**
      * Collects the Trace Id to support Tealium Trace
@@ -120,7 +138,7 @@ object Modules {
      */
     @JvmStatic
     fun trace(): ModuleFactory =
-        com.tealium.core.internal.modules.trace.TraceManagerModule.Factory
+        TraceModule.Factory
 
     /**
      * Collects the Tealium required data (Account, profile etc)
@@ -129,36 +147,36 @@ object Modules {
      * modules if required.
      */
     @JvmStatic
-    fun tealiumCollector(): ModuleFactory =
-        com.tealium.core.internal.modules.TealiumCollector.Factory
+    fun tealiumData(): ModuleFactory =
+        TealiumDataModule.Factory
 
     /**
-     * Returns a configured [ModuleFactory] for enabling the DeepLink Handler Module.
+     * Returns a configured [ModuleFactory] for enabling the DeepLink Module.
      */
     @JvmStatic
     fun deepLink(): ModuleFactory =
-        DeepLinkHandlerModule.Factory()
+        DeepLinkModule.Factory()
 
     /**
-     * Returns a configured [ModuleFactory] for enabling the DeepLink Handler Module.
+     * Returns a configured [ModuleFactory] for enabling the DeepLink Module.
      *
      * The [enforcedSettings] will be set for the lifetime of the [Tealium] instance that this [ModuleFactory]
      * is loaded in, and these settings will override any that come from other local/remote sources.
      *
-     * @param enforcedSettings DeepLink Handler settings that should override any from any other settings source
+     * @param enforcedSettings DeepLink settings that should override any from any other settings source
      */
     @JvmStatic
     fun deepLink(enforcedSettings: (DeepLinkSettingsBuilder) -> DeepLinkSettingsBuilder): ModuleFactory {
         val enforcedSettingsBuilder = enforcedSettings(DeepLinkSettingsBuilder())
-        return DeepLinkHandlerModule.Factory(enforcedSettingsBuilder)
+        return DeepLinkModule.Factory(enforcedSettingsBuilder)
     }
 
     /**
-     * Returns a factory for creating the TimeCollector module, used to add a variety of additional
+     * Returns a factory for creating the TimeData module, used to add a variety of additional
      * time-based data to each [Dispatch]
      */
     @JvmStatic
-    fun timeCollector() : ModuleFactory =
-        TimeCollector.Factory
+    fun timeData() : ModuleFactory =
+        TimeDataModule.Factory
 
 }

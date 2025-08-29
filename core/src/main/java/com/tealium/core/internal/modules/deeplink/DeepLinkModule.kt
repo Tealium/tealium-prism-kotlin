@@ -3,6 +3,7 @@ package com.tealium.core.internal.modules.deeplink
 import android.content.Intent
 import android.net.Uri
 import com.tealium.core.BuildConfig
+import com.tealium.core.api.Modules
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.logger.logIfErrorEnabled
@@ -25,14 +26,14 @@ import com.tealium.core.api.tracking.DispatchContext
 import com.tealium.core.api.tracking.TrackResult
 import com.tealium.core.api.tracking.Tracker
 import com.tealium.core.internal.logger.nonNullMessage
-import com.tealium.core.internal.modules.trace.TraceManagerModule
+import com.tealium.core.internal.modules.trace.TraceModule
 
-class DeepLinkHandlerModule(
+class DeepLinkModule(
     private val dataStore: DataStore,
     private val tracker: Tracker,
     private val moduleManager: ModuleManager,
     private val activities: Observable<ActivityManager.ActivityStatus>,
-    private var configuration: DeepLinkHandlerConfiguration,
+    private var configuration: DeepLinkModuleConfiguration,
     private val logger: Logger
 ) : Collector {
 
@@ -59,8 +60,8 @@ class DeepLinkHandlerModule(
         return dataStore.getAll()
     }
 
-    private fun getTrace(): TraceManagerModule? =
-        moduleManager.getModuleOfType(TraceManagerModule::class.java)
+    private fun getTrace(): TraceModule? =
+        moduleManager.getModuleOfType(TraceModule::class.java)
 
     private fun handleDeepLinkTrace(uri: Uri) {
         val traceId = uri.getQueryParameter(TRACE_ID_QUERY_PARAM)
@@ -71,7 +72,7 @@ class DeepLinkHandlerModule(
 
         if (uri.getQueryParameter(KILL_VISITOR_SESSION) != null) {
             trace.killVisitorSession { result ->
-                if (result is TrackResult.Accepted) {
+                if (result.status == TrackResult.Status.Accepted) {
                     logger.logIfTraceEnabled(id) {
                         "KillVisitorSession event accepted for dispatch."
                     }
@@ -103,7 +104,7 @@ class DeepLinkHandlerModule(
                 Dispatch.create(DEEP_LINK_EVENT, dataObject = dataObject),
                 DispatchContext.Source.module(this::class.java)
             ) { result ->
-                if (result is TrackResult.Accepted) {
+                if (result.status == TrackResult.Status.Accepted) {
                     logger.logIfTraceEnabled(id) {
                         "DeepLink event accepted for dispatch."
                     }
@@ -159,7 +160,7 @@ class DeepLinkHandlerModule(
     }
 
     override fun updateConfiguration(configuration: DataObject): Module {
-        this.configuration = DeepLinkHandlerConfiguration.fromDataObject(configuration)
+        this.configuration = DeepLinkModuleConfiguration.fromDataObject(configuration)
         updateAutomaticTrackingSubscription()
         return this
     }
@@ -181,14 +182,11 @@ class DeepLinkHandlerModule(
         disposable = activities.subscribe(::onActivityStatus)
     }
 
-    override val id: String
-        get() = MODULE_ID
+    override val id: String = Modules.Ids.DEEP_LINK
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
     companion object {
-        const val MODULE_ID = "DeepLinkHandler"
-
         const val TRACE_ID_QUERY_PARAM = Dispatch.Keys.TEALIUM_TRACE_ID
         const val LEAVE_TRACE_QUERY_PARAM = "leave_trace"
         const val KILL_VISITOR_SESSION = "kill_visitor_session"
@@ -201,19 +199,18 @@ class DeepLinkHandlerModule(
 
         constructor(enforcedSettingsBuilder: DeepLinkSettingsBuilder) : this(enforcedSettingsBuilder.build())
 
-        override val id: String
-            get() = MODULE_ID
+        override val id: String = Modules.Ids.DEEP_LINK
 
         override fun getEnforcedSettings(): DataObject? =
             enforcedSettings
 
         override fun create(context: TealiumContext, configuration: DataObject): Module? {
-            return DeepLinkHandlerModule(
+            return DeepLinkModule(
                 context.storageProvider.getModuleStore(this),
                 context.tracker,
                 context.moduleManager,
                 context.activityManager.activities,
-                DeepLinkHandlerConfiguration.fromDataObject(configuration),
+                DeepLinkModuleConfiguration.fromDataObject(configuration),
                 context.logger
             )
         }

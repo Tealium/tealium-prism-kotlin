@@ -46,13 +46,21 @@ class DispatchManagerImpl(
         track(dispatch, null)
     }
 
+    override val tealiumPurposeExplicitlyBlocked: Boolean
+        get() = consentManager?.tealiumPurposeExplicitlyBlocked == true
+
     override fun track(dispatch: Dispatch, onComplete: TrackResultListener?) {
-        if (consentManager?.tealiumPurposeExplicitlyBlocked == true) {
+        if (tealiumPurposeExplicitlyBlocked) {
             logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
                 "Tealium consent purpose is explicitly blocked. Event ${dispatch.logDescription()} will be dropped."
             }
 
-            onComplete?.onTrackResultReady(TrackResult.Dropped(dispatch))
+            onComplete?.onTrackResultReady(
+                TrackResult.dropped(
+                    dispatch,
+                    "Tealium consent purpose is explicitly blocked."
+                )
+            )
             return
         }
 
@@ -62,7 +70,12 @@ class DispatchManagerImpl(
                     "Event ${dispatch.logDescription()} dropped due to transformer"
                 }
 
-                onComplete?.onTrackResultReady(TrackResult.Dropped(dispatch))
+                onComplete?.onTrackResultReady(
+                    TrackResult.dropped(
+                        dispatch,
+                        "Transformers decision."
+                    )
+                )
                 return@transform
             }
 
@@ -79,11 +92,15 @@ class DispatchManagerImpl(
                     "Event ${transformed.logDescription()} accepted for processing"
                 }
 
-                queueManager.storeDispatches(
-                    listOf(transformed),
-                    dispatchers.value.map(Dispatcher::id).toSet()
+                val dispatcherIds = dispatchers.value.map(Dispatcher::id).toSet()
+                queueManager.storeDispatches(listOf(transformed), dispatcherIds)
+
+                onComplete?.onTrackResultReady(
+                    TrackResult.accepted(
+                        transformed,
+                        "Enqueued for processors: $dispatcherIds"
+                    )
                 )
-                onComplete?.onTrackResultReady(TrackResult.Accepted(transformed))
             }
         }
     }
@@ -165,7 +182,7 @@ class DispatchManagerImpl(
                 onInflightLower
                     .filter { it }
                     .map { _ ->
-                        queueManager.getQueuedDispatches(
+                        queueManager.dequeueDispatches(
                             dispatcher.dispatchLimit,
                             dispatcher.id
                         )
@@ -203,7 +220,12 @@ class DispatchManagerImpl(
             if (container.isDisposed) return@transform
 
             val (passed, _) = loadRuleEngine.evaluateLoadRules(dispatcher, transformedDispatches)
-            deleteMissingDispatches(dispatches.successful, passed, dispatcher.id, onProcessedDispatches)
+            deleteMissingDispatches(
+                dispatches.successful,
+                passed,
+                dispatcher.id,
+                onProcessedDispatches
+            )
 
             val mapped = passed.map { dispatch -> mappingsEngine.map(dispatcher.id, dispatch) }
 

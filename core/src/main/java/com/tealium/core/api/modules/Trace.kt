@@ -5,12 +5,12 @@ import com.tealium.core.api.pubsub.Single
 import com.tealium.core.api.tracking.TrackResult
 
 /**
- * The [TraceManager] is responsible for handling Tealium trace registration.
+ * The [Trace] is responsible for handling Tealium trace registration.
  *
  * Joining a trace will add the trace id to each event for filtering server side. Users can leave
  * the trace when finished.
  */
-interface TraceManager {
+interface Trace {
 
     /**
      * Attempts to kill the visitor session for the current trace.

@@ -12,7 +12,6 @@ data class LifecycleConfiguration(
 ) {
 
     companion object {
-        const val MODULE_ID = "Lifecycle"
         const val DEFAULT_SESSION_TIMEOUT = 24 * 60
         const val DEFAULT_AUTOTRACKING_ENABLED = true
         val DEFAULT_TRACKED_EVENTS = LifecycleEvent.values().toList()

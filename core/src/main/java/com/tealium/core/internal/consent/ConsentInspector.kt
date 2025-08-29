@@ -6,7 +6,7 @@ import com.tealium.core.internal.settings.consent.ConsentConfiguration
 data class ConsentInspector(
     val configuration: ConsentConfiguration,
     val decision: ConsentDecision,
-    val allPurposes: Set<String>
+    val allPurposes: Set<String>?
 ) {
     fun tealiumConsented(): Boolean =
         decision.purposes.contains(configuration.tealiumPurposeId)
@@ -18,5 +18,13 @@ data class ConsentInspector(
     fun allowsRefire(): Boolean =
         decision.decisionType == ConsentDecision.DecisionType.Implicit &&
                 configuration.refireDispatcherIds.isNotEmpty() &&
-                !decision.matchAll(allPurposes)
+                !allPurposesAreMatched()
+
+    private fun allPurposesAreMatched(): Boolean {
+        if (allPurposes == null) {
+            // Don't yet know the purposes, so assume not all matched
+            return false
+        }
+        return decision.matchAll(allPurposes)
+    }
 }

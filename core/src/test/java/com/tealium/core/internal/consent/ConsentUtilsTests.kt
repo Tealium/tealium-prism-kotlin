@@ -30,11 +30,11 @@ class ConsentUtilsTests {
             )
         )
 
-        dispatch.payload().getDataList(Dispatch.Keys.PURPOSES_WITH_CONSENT_UNPROCESSED)!!.forEach {
+        dispatch.payload().getDataList(Dispatch.Keys.UNPROCESSED_PURPOSES)!!.forEach {
             assertTrue(
                 allPurposes.contains(it.getString())
             )
         }
-        assertEquals(0, dispatch.payload().getDataList(Dispatch.Keys.PURPOSES_WITH_CONSENT_PROCESSED)!!.size)
+        assertEquals(0, dispatch.payload().getDataList(Dispatch.Keys.PROCESSED_PURPOSES)!!.size)
     }
 }

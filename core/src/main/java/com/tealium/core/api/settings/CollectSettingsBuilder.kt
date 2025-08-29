@@ -1,28 +1,28 @@
 package com.tealium.core.api.settings
 
 import com.tealium.core.api.TealiumConfig
-import com.tealium.core.internal.modules.collect.CollectDispatcherConfiguration
+import com.tealium.core.internal.modules.collect.CollectModuleConfiguration
 
 /**
- * Enables the configuration, at runtime, of the Collect Dispatcher.
+ * Enables the configuration, at runtime, of the Collect Module.
  *
  * Note. Any configuration set here will override any configuration provided by the local or remote
  * settings files and will no longer be overridable remotely.
  */
-class CollectDispatcherSettingsBuilder : DispatcherSettingsBuilder<CollectDispatcherSettingsBuilder>() {
+class CollectSettingsBuilder : DispatcherSettingsBuilder<CollectSettingsBuilder>() {
 
     /**
      * Sets the url to use when sending individual events
      */
     fun setUrl(url: String) = apply {
-        configuration.put(CollectDispatcherConfiguration.KEY_COLLECT_URL, url)
+        configuration.put(CollectModuleConfiguration.KEY_COLLECT_URL, url)
     }
 
     /**
      * Sets the url to use when sending batches of events
      */
     fun setBatchUrl(url: String) = apply {
-        configuration.put(CollectDispatcherConfiguration.KEY_COLLECT_BATCH_URL, url)
+        configuration.put(CollectModuleConfiguration.KEY_COLLECT_BATCH_URL, url)
     }
 
     /**
@@ -30,7 +30,7 @@ class CollectDispatcherSettingsBuilder : DispatcherSettingsBuilder<CollectDispat
      * the one configured in the [TealiumConfig]
      */
     fun setProfile(profile: String) = apply {
-        configuration.put(CollectDispatcherConfiguration.KEY_COLLECT_PROFILE, profile)
+        configuration.put(CollectModuleConfiguration.KEY_COLLECT_PROFILE, profile)
     }
 
     /**
@@ -39,6 +39,6 @@ class CollectDispatcherSettingsBuilder : DispatcherSettingsBuilder<CollectDispat
      * This option will not override the domain of any values provided in [setUrl] and [setBatchUrl]
      */
     fun setDomain(domain: String) = apply {
-        configuration.put(CollectDispatcherConfiguration.KEY_COLLECT_DOMAIN, domain)
+        configuration.put(CollectModuleConfiguration.KEY_COLLECT_DOMAIN, domain)
     }
 }

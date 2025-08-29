@@ -1,6 +1,7 @@
 package com.tealium.core.internal.modules.deeplink
 
 import android.net.Uri
+import com.tealium.core.api.Modules
 import com.tealium.core.api.Tealium
 import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.modules.Module
@@ -25,7 +26,7 @@ import org.junit.Test
 class DeepLinkHandlerWrapperTests {
 
     @RelaxedMockK
-    private lateinit var deepLinkModule: DeepLinkHandlerModule
+    private lateinit var deepLinkModule: DeepLinkModule
 
     @RelaxedMockK
     private lateinit var observer: Observer<TealiumResult<Unit>>
@@ -36,7 +37,7 @@ class DeepLinkHandlerWrapperTests {
     private lateinit var modules: StateSubject<List<Module>>
     private lateinit var moduleManager: ModuleManager
     private lateinit var onModuleManager: Subject<ModuleManager?>
-    private lateinit var proxy: ModuleProxy<DeepLinkHandlerModule>
+    private lateinit var proxy: ModuleProxy<DeepLinkModule>
 
     private lateinit var deepLinkHandlerWrapper: DeepLinkHandlerWrapper
     private val scheduler = SynchronousScheduler()
@@ -45,13 +46,13 @@ class DeepLinkHandlerWrapperTests {
     fun setUp() {
         MockKAnnotations.init(this)
 
-        every { deepLinkModule.id } returns DeepLinkHandlerModule.MODULE_ID
+        every { deepLinkModule.id } returns Modules.Ids.DEEP_LINK
         modules = Observables.stateSubject(listOf(deepLinkModule))
         moduleManager = ModuleManagerImpl(scheduler, modules)
         onModuleManager = Observables.replaySubject(1)
         onModuleManager.onNext(moduleManager)
 
-        proxy = ModuleProxyImpl(DeepLinkHandlerModule::class.java, onModuleManager, scheduler)
+        proxy = ModuleProxyImpl(DeepLinkModule::class.java, onModuleManager, scheduler)
         deepLinkHandlerWrapper = DeepLinkHandlerWrapper(proxy)
     }
 
@@ -120,14 +121,14 @@ class DeepLinkHandlerWrapperTests {
 
     @Test
     fun init_Delegates_Proxy_To_Tealium() {
-        val proxy = mockk<ModuleProxy<DeepLinkHandlerModule>>()
+        val proxy = mockk<ModuleProxy<DeepLinkModule>>()
         val tealium = mockk<Tealium>()
-        every { tealium.createModuleProxy(DeepLinkHandlerModule::class.java) } returns proxy
+        every { tealium.createModuleProxy(DeepLinkModule::class.java) } returns proxy
 
         DeepLinkHandlerWrapper(tealium)
 
         verify {
-            tealium.createModuleProxy(DeepLinkHandlerModule::class.java)
+            tealium.createModuleProxy(DeepLinkModule::class.java)
         }
     }
 }

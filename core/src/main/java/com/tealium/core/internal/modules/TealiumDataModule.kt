@@ -1,6 +1,7 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.BuildConfig
+import com.tealium.core.api.Modules
 import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.data.DataItemUtils.asDataList
 import com.tealium.core.api.data.DataObject
@@ -16,7 +17,7 @@ import java.security.SecureRandom
 import java.util.Locale
 import kotlin.math.abs
 
-class TealiumCollector(
+class TealiumDataModule(
     private val config: TealiumConfig,
     private val visitorId: ObservableState<String>,
     private val moduleManager: ModuleManager
@@ -56,18 +57,17 @@ class TealiumCollector(
     }
 
 
-    override val id: String
-        get() = Factory.id
+    override val id: String = Modules.Ids.TEALIUM_DATA
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
     object Factory : ModuleFactory {
-        override val id = "TealiumCollector"
+        override val id = Modules.Ids.TEALIUM_DATA
 
         override fun canBeDisabled(): Boolean = false
 
         override fun create(context: TealiumContext, configuration: DataObject): Module? {
-            return TealiumCollector(context)
+            return TealiumDataModule(context)
         }
     }
 }

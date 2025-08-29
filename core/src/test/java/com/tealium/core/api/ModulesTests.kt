@@ -1,8 +1,8 @@
 package com.tealium.core.api
 
-import com.tealium.core.internal.modules.ConnectivityCollector
+import com.tealium.core.internal.modules.ConnectivityDataModule
 import com.tealium.core.internal.modules.VisitorServiceImpl
-import com.tealium.core.internal.modules.collect.CollectDispatcher
+import com.tealium.core.internal.modules.collect.CollectModule
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -14,7 +14,7 @@ class ModulesTests {
     fun collect_Returns_CollectModuleFactory_With_No_Enforced_Settings() {
         val collectFactory = Modules.collect()
 
-        assertTrue(collectFactory is CollectDispatcher.Factory)
+        assertTrue(collectFactory is CollectModule.Factory)
         assertNull(collectFactory.getEnforcedSettings())
     }
 
@@ -24,7 +24,7 @@ class ModulesTests {
             settings.setProfile("test")
         }
 
-        assertTrue(collectFactory is CollectDispatcher.Factory)
+        assertTrue(collectFactory is CollectModule.Factory)
         assertNotNull(collectFactory.getEnforcedSettings())
     }
 
@@ -47,10 +47,10 @@ class ModulesTests {
     }
 
     @Test
-    fun connectivityCollector_Returns_ConnectivityCollectorFactory_With_No_Enforced_Settings() {
-        val connectivityCollectorFactory = Modules.connectivityCollector()
+    fun connectivityData_Returns_ConnectivityDataFactory_With_No_Enforced_Settings() {
+        val connectivityDataFactory = Modules.connectivityData()
 
-        assertTrue(connectivityCollectorFactory is ConnectivityCollector.Factory)
-        assertNull(connectivityCollectorFactory.getEnforcedSettings())
+        assertTrue(connectivityDataFactory is ConnectivityDataModule.Factory)
+        assertNull(connectivityDataFactory.getEnforcedSettings())
     }
 }

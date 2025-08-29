@@ -1,7 +1,7 @@
 package com.tealium.core.internal.modules.collect
 
 import com.tealium.core.api.data.DataObject
-import com.tealium.core.api.settings.CollectDispatcherSettingsBuilder
+import com.tealium.core.api.settings.CollectSettingsBuilder
 import com.tealium.core.internal.settings.ModuleSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,13 +12,13 @@ import org.robolectric.RobolectricTestRunner
 import java.net.URL
 
 @RunWith(RobolectricTestRunner::class)
-class CollectDispatcherConfigurationTests {
+class CollectModuleConfigurationTests {
 
     private val localhost = URL("https://localhost/")
 
     @Test
     fun fromDataObject_Uses_UrlOverrides() {
-        val config = CollectDispatcherConfiguration.fromDataObject(
+        val config = CollectModuleConfiguration.fromDataObject(
             createConfigurationObject {
                 it.setUrl(localhost.toString())
                     .setBatchUrl(localhost.toString())
@@ -31,7 +31,7 @@ class CollectDispatcherConfigurationTests {
 
     @Test
     fun fromDataObject_PrefersUrlOverrides_ToDomainOverride() {
-        val config = CollectDispatcherConfiguration.fromDataObject(
+        val config = CollectModuleConfiguration.fromDataObject(
             createConfigurationObject {
                 it.setUrl(localhost.toString())
                     .setBatchUrl(localhost.toString())
@@ -47,7 +47,7 @@ class CollectDispatcherConfigurationTests {
 
     @Test
     fun fromDataObject_UsesDomainOverride_WhenNoUrlOverride() {
-        val config = CollectDispatcherConfiguration.fromDataObject(
+        val config = CollectModuleConfiguration.fromDataObject(
             createConfigurationObject { it.setDomain("domain") }
         )
 
@@ -57,7 +57,7 @@ class CollectDispatcherConfigurationTests {
 
     @Test
     fun fromDataObject_Returns_Null_When_Invalid_Url_Provided() {
-        val config = CollectDispatcherConfiguration.fromDataObject(
+        val config = CollectModuleConfiguration.fromDataObject(
             createConfigurationObject {
                 it.setUrl("some_invalid_url")
             }
@@ -68,7 +68,7 @@ class CollectDispatcherConfigurationTests {
 
     @Test
     fun fromDataObject_Returns_Null_When_Invalid_BatchUrl_Provided() {
-        val config = CollectDispatcherConfiguration.fromDataObject(
+        val config = CollectModuleConfiguration.fromDataObject(
             createConfigurationObject {
                 it.setBatchUrl("some_invalid_url")
             }
@@ -79,9 +79,9 @@ class CollectDispatcherConfigurationTests {
 }
 
 inline fun createConfigurationObject(
-    block: (CollectDispatcherSettingsBuilder) -> Unit
+    block: (CollectSettingsBuilder) -> Unit
 ): DataObject {
-    val builder = CollectDispatcherSettingsBuilder()
+    val builder = CollectSettingsBuilder()
     block.invoke(builder)
     return builder.build().getDataObject(ModuleSettings.KEY_CONFIGURATION)!!
 }

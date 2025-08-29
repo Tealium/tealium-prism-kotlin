@@ -7,12 +7,13 @@ import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.StateSubject
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
+import com.tealium.core.api.tracking.TrackResult
+import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.internal.dispatch.DispatchManager
 import com.tealium.core.internal.rules.LoadRuleEngine
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestCollector
 import com.tealium.tests.common.TestDispatcher
-import io.mockk.Called
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
@@ -49,6 +50,9 @@ class TrackerImplTest {
         // default load rules allow all
         every { loadRuleEngine.rulesAllow(any(), any()) } returns true
 
+        // default tealium purpose not blocked
+        every { dispatchManager.tealiumPurposeExplicitlyBlocked } returns false
+
         tracker = TrackerImpl(modules, dispatchManager, loadRuleEngine, SystemLogger)
     }
 
@@ -58,8 +62,9 @@ class TrackerImplTest {
         tracker.track(dispatch, source)
 
         assertEquals(originalPayload, dispatch.payload())
-        verify {
-            dispatchManager wasNot Called
+        verify(inverse = true) {
+            dispatchManager.track(any())
+            dispatchManager.track(any(), any())
         }
     }
 
@@ -71,8 +76,9 @@ class TrackerImplTest {
         tracker.track(dispatch, source)
 
         assertEquals(originalPayload, dispatch.payload())
-        verify {
-            dispatchManager wasNot Called
+        verify(inverse = true) {
+            dispatchManager.track(any())
+            dispatchManager.track(any(), any())
         }
     }
 
@@ -177,6 +183,32 @@ class TrackerImplTest {
 
         verify(inverse = true) {
             collector.collect(any())
+        }
+    }
+
+    @Test
+    fun track_Does_Not_Enrich_Or_Store_When_Tealium_Purpose_Explicitly_Blocked() {
+        val collector = TestCollector.mock("test")
+        every { dispatchManager.tealiumPurposeExplicitlyBlocked } returns true
+
+        tracker.track(dispatch, source)
+
+        verify(inverse = true) {
+            collector.collect(any())
+            dispatchManager.track(any())
+            dispatchManager.track(any(), any())
+        }
+    }
+
+    @Test
+    fun track_Answers_Dropped_When_Tealium_Purpose_Explicitly_Blocked() {
+        val listener = mockk<TrackResultListener>(relaxed = true)
+        every { dispatchManager.tealiumPurposeExplicitlyBlocked } returns true
+
+        tracker.track(dispatch, source, listener)
+
+        verify {
+             listener.onTrackResultReady(match { it.status == TrackResult.Status.Dropped })
         }
     }
 
