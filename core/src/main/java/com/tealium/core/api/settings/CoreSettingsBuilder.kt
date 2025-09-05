@@ -28,6 +28,10 @@ class CoreSettingsBuilder {
         builder.put(CoreSettingsImpl.KEY_VISITOR_IDENTITY_KEY, key)
     }
 
+    fun setSessionTimeout(sessionTimeout: TimeFrame) = apply {
+        builder.put(CoreSettingsImpl.KEY_SESSION_TIMEOUT, sessionTimeout.inSeconds())
+    }
+
     fun build(): DataObject {
         return builder.build()
     }

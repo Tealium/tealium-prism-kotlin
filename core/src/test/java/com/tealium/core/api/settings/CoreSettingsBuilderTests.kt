@@ -61,6 +61,15 @@ class CoreSettingsBuilderTests {
     }
 
     @Test
+    fun setSessionTimeout_Sets_SessionTimeout_InSeconds_In_DataObject() {
+        val fiveMinutes = builder.setSessionTimeout(5.minutes).build()
+        val thirtyMinutes = builder.setSessionTimeout(30.minutes).build()
+
+        assertEquals(300, fiveMinutes.getInt(CoreSettingsImpl.KEY_SESSION_TIMEOUT))
+        assertEquals(1800, thirtyMinutes.getInt(CoreSettingsImpl.KEY_SESSION_TIMEOUT))
+    }
+
+    @Test
     fun build_Returns_EmptyDataObject_When_Nothing_Set() {
         val settings = builder.build()
         assertEquals(DataObject.EMPTY_OBJECT, settings)

@@ -245,5 +245,22 @@ class Dispatch private constructor(
         const val TIMED_EVENT_START = "timed_event_start"
         const val TIMED_EVENT_END = "timed_event_end"
         const val TIMED_EVENT_DURATION = "timed_event_duration"
+
+        // Session info
+
+        /**
+         * A [Long] value containing the time, measured in seconds, since midnight 01-01-1970
+         */
+        const val TEALIUM_SESSION_ID = "tealium_session_id"
+
+        /**
+         * A [Boolean] value of `true` to indicate that this event was the first event of a new session
+         */
+        const val IS_NEW_SESSION = "is_new_session"
+
+        /**
+         * A [Long] value of containing the session timeout measured in milliseconds
+         */
+        const val TEALIUM_SESSION_TIMEOUT = "_dc_ttl_"
     }
 }

@@ -8,6 +8,8 @@ import io.mockk.confirmVerified
 import io.mockk.mockk
 import io.mockk.verify
 import io.mockk.verifyOrder
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ReplaySubjectTests {
@@ -241,5 +243,62 @@ class ReplaySubjectTests {
             observer1.onNext(2)
             observer2.onNext(2)
         }
+    }
+
+    @Test
+    fun last_Returns_Null_When_No_Values_Have_Been_Published() {
+        val replaySubject = Observables.replaySubject<Int>(3)
+        assertNull(replaySubject.last())
+    }
+
+    @Test
+    fun last_Returns_Last_Value_When_One_Has_Been_Published() {
+        val replaySubject = Observables.replaySubject<Int>(3)
+        replaySubject.onNext(1)
+
+        assertEquals(1, replaySubject.last())
+    }
+
+    @Test
+    fun last_Returns_Only_Last_Value_When_Multiple_Have_Been_Published() {
+        val replaySubject = Observables.replaySubject<Int>(3)
+        replaySubject.onNext(1)
+        replaySubject.onNext(2)
+        replaySubject.onNext(3)
+
+        assertEquals(3, replaySubject.last())
+    }
+
+    @Test
+    fun last_Returns_Null_After_Clearing() {
+        val replaySubject = Observables.replaySubject<Int>(3)
+        replaySubject.onNext(1)
+        replaySubject.onNext(2)
+
+        replaySubject.clear()
+
+        assertNull(replaySubject.last())
+    }
+
+    @Test
+    fun last_Returns_Last_Published_After_Resizing() {
+        val replaySubject = Observables.replaySubject<Int>(3)
+        replaySubject.onNext(1)
+        replaySubject.onNext(2)
+
+        replaySubject.resize(1)
+
+        assertEquals(2, replaySubject.last())
+    }
+
+    @Test
+    fun last_Returns_Null_After_Resizing_To_Zero() {
+        val replaySubject = Observables.replaySubject<Int>(3)
+        replaySubject.onNext(1)
+        replaySubject.onNext(2)
+        
+        replaySubject.resize(0)
+
+        assertNull(replaySubject.last())
     }
 }

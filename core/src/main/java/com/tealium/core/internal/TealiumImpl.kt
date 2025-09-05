@@ -63,6 +63,8 @@ import com.tealium.core.internal.persistence.repositories.SQLQueueRepository
 import com.tealium.core.internal.pubsub.DisposableContainer
 import com.tealium.core.internal.pubsub.addTo
 import com.tealium.core.internal.rules.LoadRuleEngineImpl
+import com.tealium.core.internal.session.SessionManagerImpl
+import com.tealium.core.internal.session.SessionRegistryImpl
 import com.tealium.core.internal.settings.CoreSettingsImpl
 import com.tealium.core.internal.settings.SdkSettings
 import com.tealium.core.internal.settings.SettingsManager
@@ -99,6 +101,7 @@ class TealiumImpl(
     private val visitorIdProvider: VisitorIdProvider
     private val onModulesReady: ReplaySubject<Unit> = Observables.replaySubject(1)
     private val activityManager: ActivityManager = subscribeActivityManager(activityManager)
+    private val sessionManager: SessionManagerImpl
 
     init {
         makeTealiumDirectory(config)
@@ -113,7 +116,6 @@ class TealiumImpl(
         val storage = ModuleStoreProviderImpl(dbProvider, modulesRepository)
         val sharedDataStore = storage.getSharedDataStore()
 
-        // TODO - clear session data if necessary
         logger.debug(LogCategory.TEALIUM, "Purging expired data from the database")
         modulesRepository.deleteExpired(ModulesRepository.ExpirationType.UntilRestart)
 
@@ -134,6 +136,16 @@ class TealiumImpl(
 
         coreSettings =
             settings.map(SdkSettings::core).withState(settings.value::core)
+
+        sessionManager =
+            SessionManagerImpl(
+                sessionTimeout = coreSettings.map { it.sessionTimeout }
+                    .withState { coreSettings.value.sessionTimeout },
+                dataStore = storage.getSharedDataStore(),
+                scheduler = schedulers.tealium,
+                modulesRepository = modulesRepository,
+                logger = logger
+            )
 
         val transformerCoordinator =
             createTransformationsCoordinator(
@@ -158,7 +170,11 @@ class TealiumImpl(
             )
 
         val queueMetrics = QueueMetricsImpl(queueManager)
-        barrierCoordinator = BarrierCoordinatorImpl(barrierManager.barriers, this.activityManager.applicationStatus, queueMetrics)
+        barrierCoordinator = BarrierCoordinatorImpl(
+            barrierManager.barriers,
+            this.activityManager.applicationStatus,
+            queueMetrics
+        )
 
         val loadRuleEngine = LoadRuleEngineImpl(settings)
         val mappingsEngine = MappingsEngine(
@@ -183,7 +199,13 @@ class TealiumImpl(
             consentManager = consentManager,
             logger = logger
         )
-        tracker = TrackerImpl(moduleManager.modules, dispatchManager, loadRuleEngine, logger)
+        tracker = TrackerImpl(
+            moduleManager.modules,
+            dispatchManager,
+            loadRuleEngine,
+            sessionManager,
+            logger
+        )
 
         visitorIdProvider = VisitorIdProviderImpl(
             config,
@@ -213,7 +235,8 @@ class TealiumImpl(
                 transformerRegistry = TransformerRegistryImpl(transformerCoordinator),
                 barrierRegistry = BarrierRegistryImpl(barrierManager),
                 moduleManager = moduleManager,
-                queueMetrics = queueMetrics
+                queueMetrics = queueMetrics,
+                sessionRegistry = SessionRegistryImpl(sessionManager)
             )
 
         loadModuleFactories(config.modules, moduleManager, logger)
@@ -230,7 +253,6 @@ class TealiumImpl(
         dispatchManager.startDispatchLoop()
 
         logger.info(LogCategory.TEALIUM, "Instance %s initialized.", instanceName)
-        // todo - might have queued incoming events + dispatch them now.
     }
 
     /**
@@ -300,6 +322,7 @@ class TealiumImpl(
         dispatchManager.stopDispatchLoop()
         moduleManager.shutdown()
         connectivityRetriever.unsubscribe()
+        sessionManager.shutdown()
     }
 
     companion object {

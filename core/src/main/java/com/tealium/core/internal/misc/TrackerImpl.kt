@@ -13,6 +13,7 @@ import com.tealium.core.api.tracking.TrackResult
 import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.api.tracking.Tracker
 import com.tealium.core.internal.dispatch.DispatchManager
+import com.tealium.core.internal.session.SessionManager
 import com.tealium.core.internal.logger.LogCategory
 import com.tealium.core.internal.pubsub.subscribeOnce
 import com.tealium.core.internal.rules.LoadRuleEngine
@@ -21,6 +22,7 @@ class TrackerImpl(
     private val modules: Observable<List<Module>>,
     private val dispatchManager: DispatchManager,
     private val loadRuleEngine: LoadRuleEngine,
+    private val sessionManager: SessionManager,
     private val logger: Logger
 ) : Tracker {
 
@@ -51,6 +53,8 @@ class TrackerImpl(
             .map { modules -> modules.filterIsInstance<Collector>() }
             .map { collectors -> evaluateLoadRules(collectors, dispatch) }
             .subscribeOnce { collectors ->
+                sessionManager.registerDispatch(dispatch)
+
                 val dispatchContext = DispatchContext(source, dispatch.payload())
                 val collectedData = collect(collectors, dispatchContext)
                 dispatch.addAll(collectedData)

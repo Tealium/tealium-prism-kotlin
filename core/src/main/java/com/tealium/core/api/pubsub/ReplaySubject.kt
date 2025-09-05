@@ -23,4 +23,11 @@ interface ReplaySubject<T>: Subject<T> {
      * @param size the new max size of the replay cache
      */
     fun resize(size: Int)
+
+    /**
+     * Attempts to return the last item that was published.
+     *
+     * @return the last item that was published, or null if nothing has been published yet
+     */
+    fun last(): T?
 }

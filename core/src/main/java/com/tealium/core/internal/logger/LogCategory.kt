@@ -8,6 +8,7 @@ object LogCategory {
     const val NETWORK_HELPER = "NetworkHelper"
     const val QUEUE_MANAGER = "QueueManager"
     const val RESOURCE_REFRESHER = "ResourceRefresher"
+    const val SESSION_MANAGER = "SessionManager"
     const val SETTINGS_MANAGER = "SettingsManager"
     const val TEALIUM = "Tealium"
     const val VISITOR_ID_PROVIDER = "VisitorIdProvider"

@@ -7,6 +7,7 @@ import com.tealium.core.api.misc.TimeFrameUtils.days
 import com.tealium.core.api.misc.TimeFrameUtils.minutes
 import com.tealium.core.api.misc.TimeFrameUtils.seconds
 import com.tealium.core.api.settings.CoreSettings
+import com.tealium.core.internal.session.SessionManagerImpl
 
 data class CoreSettingsImpl(
     override val logLevel: LogLevel = DEFAULT_LOG_LEVEL,
@@ -14,6 +15,7 @@ data class CoreSettingsImpl(
     override val expiration: TimeFrame = DEFAULT_EXPIRATION_DAYS.days,
     override val refreshInterval: TimeFrame = DEFAULT_REFRESH_INTERVAL_MINUTES.minutes,
     override val visitorIdentityKey: String? = null,
+    override val sessionTimeout: TimeFrame = SessionManagerImpl.DEFAULT_SESSION_TIMEOUT
 ) : CoreSettings {
 
     companion object {
@@ -23,6 +25,7 @@ data class CoreSettingsImpl(
         const val KEY_EXPIRATION = "expiration"
         const val KEY_REFRESH_INTERVAL = "refresh_interval"
         const val KEY_VISITOR_IDENTITY_KEY = "visitor_identity_key"
+        const val KEY_SESSION_TIMEOUT = "session_timeout"
 
         val DEFAULT_LOG_LEVEL = LogLevel.ERROR
         const val DEFAULT_MAX_QUEUE_SIZE = 100
@@ -39,6 +42,7 @@ data class CoreSettingsImpl(
                 ?: DEFAULT_EXPIRATION_DAYS.days
             val interval = settings.getInt(KEY_REFRESH_INTERVAL)?.seconds
                 ?: DEFAULT_REFRESH_INTERVAL_MINUTES.minutes
+            val sessionTimeout = settings.getInt(KEY_SESSION_TIMEOUT)?.seconds ?: SessionManagerImpl.DEFAULT_SESSION_TIMEOUT
 
             return CoreSettingsImpl(
                 logLevel = logs,
@@ -46,6 +50,7 @@ data class CoreSettingsImpl(
                 expiration = expiration,
                 refreshInterval = interval,
                 visitorIdentityKey = visitorIdentityKey,
+                sessionTimeout = sessionTimeout
             )
         }
     }

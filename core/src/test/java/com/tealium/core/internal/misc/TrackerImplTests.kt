@@ -11,6 +11,7 @@ import com.tealium.core.api.tracking.TrackResult
 import com.tealium.core.api.tracking.TrackResultListener
 import com.tealium.core.internal.dispatch.DispatchManager
 import com.tealium.core.internal.rules.LoadRuleEngine
+import com.tealium.core.internal.session.SessionManager
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestCollector
 import com.tealium.tests.common.TestDispatcher
@@ -20,6 +21,7 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
 import io.mockk.verify
+import io.mockk.verifyOrder
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -31,6 +33,8 @@ class TrackerImplTest {
 
     @RelaxedMockK
     private lateinit var dispatchManager: DispatchManager
+    @RelaxedMockK
+    private lateinit var sessionManager: SessionManager
     @MockK
     private lateinit var loadRuleEngine: LoadRuleEngine
 
@@ -53,7 +57,7 @@ class TrackerImplTest {
         // default tealium purpose not blocked
         every { dispatchManager.tealiumPurposeExplicitlyBlocked } returns false
 
-        tracker = TrackerImpl(modules, dispatchManager, loadRuleEngine, SystemLogger)
+        tracker = TrackerImpl(modules, dispatchManager, loadRuleEngine, sessionManager, SystemLogger)
     }
 
     @Test
@@ -182,6 +186,39 @@ class TrackerImplTest {
         tracker.track(dispatch, source)
 
         verify(inverse = true) {
+            collector.collect(any())
+        }
+    }
+
+    @Test
+    fun track_Does_Not_Register_New_Dispatch_With_Session_Manager_When_Modules_Not_Emitted_Yet() {
+        tracker.track(dispatch, source)
+
+        verify(inverse = true) {
+            sessionManager.registerDispatch(dispatch)
+        }
+    }
+
+    @Test
+    fun track_Registers_New_Dispatch_With_Session_Manager_When_Modules_Have_Been_Emitted() {
+        val collector = TestCollector.mock("test")
+        tracker.track(dispatch, source)
+        modules.onNext(listOf(collector))
+
+        verify {
+            sessionManager.registerDispatch(dispatch)
+        }
+    }
+
+    @Test
+    fun track_Registers_New_Dispatch_With_Session_Manager_Before_Collection() {
+        val collector = TestCollector.mock("test")
+        modules.onNext(listOf( collector))
+
+        tracker.track(dispatch, source)
+
+        verifyOrder {
+            sessionManager.registerDispatch(dispatch)
             collector.collect(any())
         }
     }

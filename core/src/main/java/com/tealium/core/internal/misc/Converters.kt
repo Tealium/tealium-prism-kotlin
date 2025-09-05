@@ -3,8 +3,6 @@ package com.tealium.core.internal.misc
 import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataItemConverter
 import com.tealium.core.api.data.DataObject
-import com.tealium.core.api.rules.Condition
-import com.tealium.core.api.rules.Rule
 import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.internal.dispatch.transformationScopeFromString
 import com.tealium.core.internal.rules.conditionConverter

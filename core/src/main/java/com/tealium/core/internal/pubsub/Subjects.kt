@@ -65,7 +65,7 @@ abstract class BaseSubjectImpl<T> : Subject<T> {
         }
     }
 
-    override fun asObservable() : Observable<T> {
+    override fun asObservable(): Observable<T> {
         return PassthroughObservable(this)
     }
 
@@ -123,7 +123,7 @@ class StateSubjectImpl<T>(
         observer.onNext(value)
     }
 
-    override fun asObservableState() : ObservableState<T> {
+    override fun asObservableState(): ObservableState<T> {
         return ObservableStateImpl(this)
     }
 }
@@ -175,6 +175,9 @@ class ReplaySubjectImpl<T>(
             observer.onNext(value)
         }
     }
+
+    override fun last(): T? =
+        cache.lastOrNull()
 
     /**
      * Returns a non-negative value for the given [size].

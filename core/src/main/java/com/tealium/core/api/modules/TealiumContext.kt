@@ -5,14 +5,15 @@ import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.barriers.BarrierRegistry
 import com.tealium.core.api.logger.Logger
 import com.tealium.core.api.misc.ActivityManager
+import com.tealium.core.api.misc.QueueMetrics
 import com.tealium.core.api.misc.Schedulers
 import com.tealium.core.api.network.NetworkUtilities
 import com.tealium.core.api.persistence.ModuleStoreProvider
 import com.tealium.core.api.pubsub.ObservableState
+import com.tealium.core.api.session.SessionRegistry
 import com.tealium.core.api.settings.CoreSettings
 import com.tealium.core.api.tracking.Tracker
 import com.tealium.core.api.transform.TransformerRegistry
-import com.tealium.core.api.misc.QueueMetrics
 
 class TealiumContext(
     val context: Context,
@@ -28,5 +29,6 @@ class TealiumContext(
     val transformerRegistry: TransformerRegistry,
     val barrierRegistry: BarrierRegistry,
     val moduleManager: ModuleManager,
-    val queueMetrics: QueueMetrics
+    val queueMetrics: QueueMetrics,
+    val sessionRegistry: SessionRegistry
 )
