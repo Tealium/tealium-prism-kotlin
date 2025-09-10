@@ -9,11 +9,11 @@ import com.tealium.core.internal.modules.AppDataModule
 import com.tealium.core.internal.modules.ConnectivityDataModule
 import com.tealium.core.internal.modules.DeviceDataModule
 import com.tealium.core.internal.modules.TealiumDataModule
-import com.tealium.core.internal.modules.TimeDataModule
 import com.tealium.core.internal.modules.VisitorServiceImpl
 import com.tealium.core.internal.modules.collect.CollectModule
 import com.tealium.core.internal.modules.datalayer.DataLayerModule
 import com.tealium.core.internal.modules.deeplink.DeepLinkModule
+import com.tealium.core.internal.modules.time.TimeDataModule
 import com.tealium.core.internal.modules.trace.TraceModule
 
 /**

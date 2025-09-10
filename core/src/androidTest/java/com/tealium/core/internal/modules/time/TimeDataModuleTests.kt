@@ -1,21 +1,25 @@
-package com.tealium.core.internal.modules
+package com.tealium.core.internal.modules.time
 
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
-import com.tealium.core.internal.utils.DateFormatter
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
+import org.junit.Before
 import org.junit.Test
 import java.util.TimeZone
 
 class TimeDataModuleTests {
 
     private val firstOfJanuary2000 = 946684800000L
-    private val timeDataModule: TimeDataModule by lazy {
-        TimeDataModule()
+    private lateinit var timeDataModule: TimeDataModule
+
+    @Before
+    fun setUp() {
+        val timeDataSupplier = TimeDataSupplier.getInstance()
+        timeDataModule = TimeDataModule(timeDataSupplier)
     }
 
     @Test
@@ -30,13 +34,15 @@ class TimeDataModuleTests {
     }
 
     @Test
-    fun collect_Delegates_Date_Formats_To_Date_Formatter() {
-        val formatter = mockk<DateFormatter>()
-        every { formatter.iso8601Utc(any()) } returns "iso-utc"
-        every { formatter.iso8601Local(any(), any()) } returns "iso-local"
-        every { formatter.iso8601LocalWithOffset(any(), any()) } returns "iso-local-offset"
+    fun collect_Delegates_Date_Formats_To_TimeDateSupplier() {
+        val timeDataSupplier = mockk<TimeDataSupplier>()
+        every { timeDataSupplier.getTimeData(any()) } returns DataObject.create {
+            put(Dispatch.Keys.TEALIUM_TIMESTAMP_UTC, "iso-utc")
+            put(Dispatch.Keys.TEALIUM_TIMESTAMP_LOCAL, "iso-local")
+            put(Dispatch.Keys.TEALIUM_TIMESTAMP_LOCAL_WITH_OFFSET, "iso-local-offset")
+        }
 
-        val collected = TimeDataModule(formatter)
+        val collected = TimeDataModule(timeDataSupplier)
             .collect(dispatchContext())
 
         assertEquals("iso-utc", collected.getString(Dispatch.Keys.TEALIUM_TIMESTAMP_UTC))
