@@ -19,6 +19,7 @@ import com.tealium.core.internal.dispatch.unsuccessful
 import com.tealium.core.internal.pubsub.CompletedDisposable
 import com.tealium.core.internal.settings.ModuleSettings
 import com.tealium.core.internal.settings.SdkSettings
+import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestCollector
 import com.tealium.tests.common.TestDispatcher
 import org.junit.Assert.assertFalse
@@ -40,6 +41,11 @@ class LoadRuleEngineTests {
         "2" to LoadRule(
             "2", Rule.all(
                 just(Condition.isEqual(false, null, "false", "false"))
+            )
+        ),
+        "throwing" to LoadRule(
+            "throwing", Rule.all(
+                just(Condition.isGreaterThan(false, null, "number", "not-a-number"))
             )
         )
     )
@@ -71,6 +77,10 @@ class LoadRuleEngineTests {
                 rules = Rule.all(
                     just("missing_rule")
                 )
+            ), "throwing_rules" to ModuleSettings(
+                rules = Rule.all(
+                    just("throwing")
+                )
             )
         )
     )
@@ -82,13 +92,13 @@ class LoadRuleEngineTests {
     private val moduleJust1 = DispatchingCollectorModule("just_1")
     private val module1AndNot2 = DispatchingCollectorModule("1_and_not_2")
     private val moduleMissingRules = DispatchingCollectorModule("missing_rules")
-    private val moduleMissingCondition = DispatchingCollectorModule("missing_condition")
+    private val moduleWithThrowingRule = DispatchingCollectorModule("throwing_rules")
     private lateinit var engine: LoadRuleEngineImpl
 
     @Before
     fun setUp() {
         sdkSettings = Observables.stateSubject(settings)
-        engine = LoadRuleEngineImpl(sdkSettings)
+        engine = LoadRuleEngineImpl(sdkSettings, SystemLogger)
     }
 
     @Test
@@ -354,6 +364,26 @@ class LoadRuleEngineTests {
         val result = engine.evaluateLoadRules(module1, listOf(successful, unsuccessful))
         assertTrue(result.successful.contains(successful))
         assertTrue(result.unsuccessful.contains(unsuccessful))
+    }
+
+    @Test
+    fun rulesAllow_Does_Not_Throw_When_Rule_Throws() {
+        val withNumber = createDispatch(DataObject.create { put("number", 1) })
+
+        val result = engine.rulesAllow(moduleWithThrowingRule, withNumber)
+
+        assertFalse(result)
+    }
+
+    @Test
+    fun evaluateLoadRules_Does_Not_Throw_When_Rule_Throws() {
+        val withNumber = createDispatch(DataObject.create { put("number", 1) })
+        val withInvalidNumber = createDispatch(DataObject.create { put("number", false) })
+
+        val result = engine.evaluateLoadRules(moduleWithThrowingRule, listOf(withNumber, withInvalidNumber))
+
+        assertTrue(result.successful.isEmpty())
+        assertTrue(result.unsuccessful.containsAll(listOf(withNumber, withInvalidNumber)))
     }
 
     private fun createDispatch(payload: DataObject, eventName: String = "event"): Dispatch =

@@ -1,4 +1,5 @@
 @file:JvmName("RuleUtils")
+
 package com.tealium.core.api.rules
 
 import com.tealium.core.api.data.DataItem
@@ -214,7 +215,8 @@ sealed class Rule<T> : DataItemConvertible {
     }
 }
 
-fun <T, R> Rule<T>.matches(input: R): Boolean where T: Matchable<R> {
+@Throws(InvalidMatchException::class)
+fun <T, R> Rule<T>.matches(input: R): Boolean where T : Matchable<R> {
     return when (this) {
         is AndRule -> rules.all { it.matches(input) }
         is OrRule -> rules.any { it.matches(input) }
@@ -223,7 +225,7 @@ fun <T, R> Rule<T>.matches(input: R): Boolean where T: Matchable<R> {
     }
 }
 
-fun <T, R> Rule<T>.asMatchable(): Matchable<R> where T: Matchable<R> {
+fun <T, R> Rule<T>.asMatchable(): Matchable<R> where T : Matchable<R> {
     return Matchable { input ->
         this.matches(input)
     }

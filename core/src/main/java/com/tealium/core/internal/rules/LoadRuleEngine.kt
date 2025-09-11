@@ -1,15 +1,20 @@
 package com.tealium.core.internal.rules
 
 import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.logger.logIfWarnEnabled
 import com.tealium.core.api.modules.Collector
 import com.tealium.core.api.modules.Dispatcher
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.pubsub.ObservableState
+import com.tealium.core.api.rules.InvalidMatchException
 import com.tealium.core.api.rules.Matchable
 import com.tealium.core.api.rules.Rule
+import com.tealium.core.api.rules.RuleNotFoundException
 import com.tealium.core.api.rules.asMatchable
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.internal.dispatch.DispatchSplit
+import com.tealium.core.internal.logger.LogCategory
 import com.tealium.core.internal.settings.ModuleSettings
 import com.tealium.core.internal.settings.SdkSettings
 
@@ -40,8 +45,9 @@ interface LoadRuleEngine {
 
 
 class LoadRuleEngineImpl(
-    settings: ObservableState<SdkSettings>
-): LoadRuleEngine {
+    settings: ObservableState<SdkSettings>,
+    private val logger: Logger
+) : LoadRuleEngine {
 
     /**
      * Module Load Rules, keyed as [ModuleId -> Composite-LoadRule.]
@@ -53,39 +59,59 @@ class LoadRuleEngineImpl(
     }
 
     private fun initializeRules(sdkSettings: SdkSettings) {
-        initializeRules(sdkSettings.loadRules, sdkSettings.modules.mapNotNull { (moduleId, moduleSettings) ->
-            val rules = moduleSettings.rules ?: return@mapNotNull null
-            moduleId to rules
-        }.toMap())
+        initializeRules(
+            sdkSettings.loadRules,
+            sdkSettings.modules.mapNotNull { (moduleId, moduleSettings) ->
+                val rules = moduleSettings.rules ?: return@mapNotNull null
+                moduleId to rules
+            }.toMap()
+        )
     }
 
     private fun initializeRules(
         rules: Map<String, LoadRule>,
         moduleRules: Map<String, Rule<String>>
     ) {
-        loadRules = moduleRules.mapValues { (_, rule) ->
+        loadRules = moduleRules.mapValues { (moduleId, rule) ->
             rule.asMatchable { ruleId ->
                 // If an Id is set but rule is not found, then the rule was not defined or the format
-                // was incorrect. Assume a misconfiguration and return non-matching Matchable.
+                // was incorrect. Assume a misconfiguration and return a throwing Matchable.
                 rules[ruleId]?.conditions?.asMatchable()
-                    ?: Matchable.notMatches()
+                    ?: Matchable { throw RuleNotFoundException(ruleId, moduleId) }
             }
         }
     }
 
-    override fun evaluateLoadRules(dispatcher: Dispatcher, dispatches: List<Dispatch>): DispatchSplit {
+    override fun evaluateLoadRules(
+        dispatcher: Dispatcher,
+        dispatches: List<Dispatch>
+    ): DispatchSplit {
         val rule = loadRules[dispatcher.id]
             ?: return DispatchSplit(dispatches, emptyList())
 
         return dispatches.partition { dispatch ->
-            rule.matches(dispatch.payload())
+            try {
+                rule.matches(dispatch.payload())
+            } catch (ex: InvalidMatchException) {
+                logger.logIfWarnEnabled(LogCategory.LOAD_RULES) {
+                    "LoadRule evaluation failed for Dispatch(${dispatch.logDescription()}) and Dispatcher(${dispatcher.id}). Cause: ${ex.message}"
+                }
+                false
+            }
         }
     }
 
     override fun rulesAllow(collector: Collector, dispatch: Dispatch): Boolean {
-        val matchable = loadRules[collector.id]
+        val rule = loadRules[collector.id]
             ?: return true // no rule set, safe to execute
 
-        return matchable.matches(dispatch.payload())
+        return try {
+            rule.matches(dispatch.payload())
+        } catch (ex: InvalidMatchException) {
+            logger.logIfWarnEnabled(LogCategory.LOAD_RULES) {
+                "LoadRule evaluation failed for Dispatch(${dispatch.logDescription()}) and Collector(${collector.id}). Cause: ${ex.message}"
+            }
+            false
+        }
     }
 }

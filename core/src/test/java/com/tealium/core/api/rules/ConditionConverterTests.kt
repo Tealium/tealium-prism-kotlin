@@ -306,27 +306,27 @@ class ConditionConverterTests {
     }
 
     @Test
-    fun convert_Converts_IsPopulated_Operator_When_Present() {
+    fun convert_Converts_IsNotEmpty_Operator_When_Present() {
         val item = DataObject.create {
-            put(KEY_OPERATOR, "populated")
+            put(KEY_OPERATOR, "notempty")
             put(KEY_VARIABLE, "key")
         }.asDataItem()
 
         val condition = Condition.Converter.convert(item)!!
 
-        assertEquals(Operators.isPopulated, condition.operator)
+        assertEquals(Operators.isNotEmpty, condition.operator)
     }
 
     @Test
-    fun convert_Converts_IsNotPopulated_Operator_When_Present() {
+    fun convert_Converts_IsEmpty_Operator_When_Present() {
         val item = DataObject.create {
-            put(KEY_OPERATOR, "notpopulated")
+            put(KEY_OPERATOR, "empty")
             put(KEY_VARIABLE, "key")
         }.asDataItem()
 
         val condition = Condition.Converter.convert(item)!!
 
-        assertEquals(Operators.isNotPopulated, condition.operator)
+        assertEquals(Operators.isEmpty, condition.operator)
     }
 
     @Test
@@ -387,30 +387,6 @@ class ConditionConverterTests {
         val condition = Condition.Converter.convert(item)!!
 
         assertEquals(Operators.regularExpression, condition.operator)
-    }
-
-    @Test
-    fun convert_Converts_IsBadgeAssigned_Operator_When_Present() {
-        val item = DataObject.create {
-            put(KEY_OPERATOR, "is_badge_assigned")
-            put(KEY_VARIABLE, "key")
-        }.asDataItem()
-
-        val condition = Condition.Converter.convert(item)!!
-
-        assertEquals(Operators.isBadgeAssigned, condition.operator)
-    }
-
-    @Test
-    fun convert_Converts_IsBadgeNotAssigned_Operator_When_Present() {
-        val item = DataObject.create {
-            put(KEY_OPERATOR, "is_badge_not_assigned")
-            put(KEY_VARIABLE, "key")
-        }.asDataItem()
-
-        val condition = Condition.Converter.convert(item)!!
-
-        assertEquals(Operators.isBadgeNotAssigned, condition.operator)
     }
 
     @Test

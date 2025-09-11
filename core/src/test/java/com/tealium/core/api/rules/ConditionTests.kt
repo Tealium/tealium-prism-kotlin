@@ -196,22 +196,22 @@ class ConditionTests {
     }
 
     @Test
-    fun isPopulated_Returns_Condition_With_Provided_Parameters() {
+    fun isNotEmpty_Returns_Condition_With_Provided_Parameters() {
         val condition =
-            Condition.isPopulated(listOf("obj1", "obj2"), "key")
+            Condition.isNotEmpty(listOf("obj1", "obj2"), "key")
         assertEquals(listOf("obj1", "obj2"), condition.path)
         assertEquals("key", condition.variable)
-        assertEquals(Operators.isPopulated, condition.operator)
+        assertEquals(Operators.isNotEmpty, condition.operator)
         assertNull(condition.filter)
     }
 
     @Test
-    fun isNotPopulated_Returns_Condition_With_Provided_Parameters() {
+    fun isEmpty_Returns_Condition_With_Provided_Parameters() {
         val condition =
-            Condition.isNotPopulated(listOf("obj1", "obj2"), "key")
+            Condition.isEmpty(listOf("obj1", "obj2"), "key")
         assertEquals(listOf("obj1", "obj2"), condition.path)
         assertEquals("key", condition.variable)
-        assertEquals(Operators.isNotPopulated, condition.operator)
+        assertEquals(Operators.isEmpty, condition.operator)
         assertNull(condition.filter)
     }
 
@@ -265,25 +265,5 @@ class ConditionTests {
         assertEquals("key", condition.variable)
         assertEquals(Operators.regularExpression, condition.operator)
         assertEquals("target", condition.filter)
-    }
-
-    @Test
-    fun isBadgeAssigned_Returns_Condition_With_Provided_Parameters() {
-        val condition =
-            Condition.isBadgeAssigned(listOf("obj1", "obj2"), "key")
-        assertEquals(listOf("obj1", "obj2"), condition.path)
-        assertEquals("key", condition.variable)
-        assertEquals(Operators.isBadgeAssigned, condition.operator)
-        assertNull(condition.filter)
-    }
-
-    @Test
-    fun isBadgeNotAssigned_Returns_Condition_With_Provided_Parameters() {
-        val condition =
-            Condition.isBadgeNotAssigned(listOf("obj1", "obj2"), "key")
-        assertEquals(listOf("obj1", "obj2"), condition.path)
-        assertEquals("key", condition.variable)
-        assertEquals(Operators.isBadgeNotAssigned, condition.operator)
-        assertNull(condition.filter)
     }
 }

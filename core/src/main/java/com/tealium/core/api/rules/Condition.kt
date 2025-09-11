@@ -6,6 +6,7 @@ import com.tealium.core.api.data.DataItemConvertible
 import com.tealium.core.api.data.DataItemUtils.asDataList
 import com.tealium.core.api.data.DataList
 import com.tealium.core.api.data.DataObject
+import com.tealium.core.api.settings.VariableAccessor
 import com.tealium.core.internal.rules.Operators
 
 /**
@@ -18,12 +19,19 @@ import com.tealium.core.internal.rules.Operators
  * Although [Condition] instances can be made manually, there are many helper functions to make
  * creations more straightforward and easy to read.
  *
+ * With the exception of [isDefined]/[isNotDefined] which explicitly check for the existence of values
+ * at given keys, [Operator]s are typically expected to
+ *  - throw [MissingDataItemException] if the data item is not found in the payload
+ *  - throw [MissingFilterException] if the filter is `null`
+ *  - throw [NumberParseException] if it requires a numeric value in the payload or filter, but they were not parseable as such
+ *  - throw [UnsupportedOperatorException] if the operator is not supported for the type of data found in the payload
+ *
  * @param path An optional list of consecutive sub-keys for accessing the variable to be checked
  * @param variable The actual key in the [DataObject] to get the value from
  * @param operator The behavior of this [Condition]
  * @param filter The target value, in String format.
  */
-class Condition internal constructor(
+data class Condition internal constructor(
     val path: List<String>? = null,
     val variable: String,
     val operator: Operator,
@@ -45,50 +53,13 @@ class Condition internal constructor(
     }
 
     override fun matches(input: DataObject): Boolean {
-        val item = extractValue(input, path, variable)
-        return operator.apply(item, filter)
-    }
-
-    private fun extractValue(
-        dataObject: DataObject,
-        path: List<String>?,
-        variable: String
-    ): DataItem? {
-        if (path.isNullOrEmpty()) {
-            return dataObject.get(variable)
+        val variableAccessor = VariableAccessor(variable, path)
+        val item = input.extract(variableAccessor)
+        return try {
+            operator.apply(item, filter)
+        } catch (ex: OperatorFailedException) {
+            throw ConditionEvaluationException(this, ex)
         }
-
-        var obj = dataObject
-        for (key in path) {
-            val subObject = obj.getDataObject(key)
-            if (subObject !is DataObject) return null
-
-            obj = subObject
-        }
-
-        return obj.get(variable)
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as Condition
-
-        if (path != other.path) return false
-        if (variable != other.variable) return false
-        if (operator != other.operator) return false
-        if (filter != other.filter) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = path?.hashCode() ?: 0
-        result = 31 * result + variable.hashCode()
-        result = 31 * result + operator.hashCode()
-        result = 31 * result + (filter?.hashCode() ?: 0)
-        return result
     }
 
     /**
@@ -111,7 +82,9 @@ class Condition internal constructor(
          * @param filter The target value to check if the [dataItem] matches
          *
          * @return true if the [dataItem] matches the target [filter] for this [Operator]
+         * @throws OperatorFailedException when the [Operator] cannot be evaluated successfully.
          */
+        @Throws(OperatorFailedException::class)
         fun apply(dataItem: DataItem?, filter: String?): Boolean
 
         override fun asDataItem(): DataItem {
@@ -385,58 +358,58 @@ class Condition internal constructor(
             )
 
         /**
-         * Returns an [Operator] that checks whether a value can be found at key [variable], and that
-         * the value can be considered "populated"
+         * Returns an [Operator] that checks whether a value found at key [variable] would be considered
+         * "not empty"
          *
-         * "populated" is considered as the following for the different supported input types:
+         * "not empty" is considered as the following for the different supported input types:
          *  - [String] != ""
          *  - [DataList.size] != 0
          *  - [DataObject.size] != 0
-         *  - `value != null`, `value != [DataItem.NULL]`
+         *  - `value != [DataItem.NULL]`
          *
-         * Numeric values are always considered as populated.
+         * Numeric values are always considered as not empty.
          *
          * @param path optional list of keys that form the access to sub-objects when accessing the [variable]
          * @param variable the key to extract the value from for the comparison
          */
         @JvmStatic
         @JvmOverloads
-        fun isPopulated(
+        fun isNotEmpty(
             path: List<String>? = null,
             variable: String,
         ): Condition =
             Condition(
                 path,
                 variable,
-                Operators.isPopulated,
+                Operators.isNotEmpty,
                 null
             )
 
         /**
-         * Returns an [Operator] that checks whether a value cannot be found at key [variable], or that
-         * the value can be considered "not-populated"
+         * Returns an [Operator] that checks whether a value found at key [variable] would be considered
+         * "empty"
          *
-         * "not-populated" is considered as the following for the different supported input types:
+         * "empty" is considered as the following for the different supported input types:
          *  - [String] == ""
          *  - [DataList.size] == 0
          *  - [DataObject.size] == 0
-         *  - `value == null`, `value == [DataItem.NULL]`
+         *  - `value == [DataItem.NULL]`
          *
-         *  Numeric values are always considered as populated.
+         * Numeric values are always considered as "not empty".
          *
          * @param path optional list of keys that form the access to sub-objects when accessing the [variable]
          * @param variable the key to extract the value from for the comparison
          */
         @JvmStatic
         @JvmOverloads
-        fun isNotPopulated(
+        fun isEmpty(
             path: List<String>? = null,
             variable: String,
         ): Condition =
             Condition(
                 path,
                 variable,
-                Operators.isNotPopulated,
+                Operators.isEmpty,
                 null
             )
 
@@ -508,44 +481,6 @@ class Condition internal constructor(
                 variable,
                 Operators.regularExpression,
                 regex
-            )
-
-        /**
-         * Returns an [Operator] that checks whether there is a badge found at key [variable].
-         *
-         * @param path optional list of keys that form the access to sub-objects when accessing the [variable]
-         * @param variable the key to extract the value from for the comparison
-         */
-        @JvmStatic
-        @JvmOverloads
-        fun isBadgeAssigned(
-            path: List<String>? = null,
-            variable: String,
-        ): Condition =
-            Condition(
-                path,
-                variable,
-                Operators.isBadgeAssigned,
-                null
-            )
-
-        /**
-         * Returns an [Operator] that checks whether there is not a badge found at key [variable].
-         *
-         * @param path optional list of keys that form the access to sub-objects when accessing the [variable]
-         * @param variable the key to extract the value from for the comparison
-         */
-        @JvmStatic
-        @JvmOverloads
-        fun isBadgeNotAssigned(
-            path: List<String>? = null,
-            variable: String,
-        ): Condition =
-            Condition(
-                path,
-                variable,
-                Operators.isBadgeNotAssigned,
-                null
             )
     }
 }

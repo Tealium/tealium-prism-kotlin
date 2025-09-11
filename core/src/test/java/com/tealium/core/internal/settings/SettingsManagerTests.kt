@@ -655,7 +655,7 @@ class SettingsManagerTests {
                     "load_rule1" : {
                         "conditions": {
                             "variable": "var-2",
-                            "operator": "populated"
+                            "operator": "defined"
                         },
                         "id": "load_rule2"
                     }
@@ -671,7 +671,7 @@ class SettingsManagerTests {
         assertEquals("load_rule2", loadRule1.id)
 
         val conditions = loadRule1.conditions
-        assertTrue(conditions.matches(DataObject.create { put("var-2", "populated") }))
+        assertTrue(conditions.matches(DataObject.create { put("var-2", "defined") }))
         assertFalse(conditions.matches(DataObject.create { put("var-1", "defined") }))
     }
 

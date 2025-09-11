@@ -4,6 +4,11 @@ import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataList
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.rules.Condition
+import com.tealium.core.api.rules.ConditionEvaluationException
+import com.tealium.core.api.rules.MissingDataItemException
+import com.tealium.core.api.rules.MissingFilterException
+import com.tealium.core.api.rules.NumberParseException
+import com.tealium.tests.common.assertThrows
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -13,15 +18,24 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class ConditionsLessThanOrEqualsTests {
 
-    private val list = DataList.create { add("a"); add("b"); add("c") }
     private val payload = DataObject.create {
         put("string", "Value")
+        put("numberstring", "45")
         put("int", 345)
         put("double", 3.14)
         put("bool", true)
-        put("list", list)
-        put("object", DataObject.Builder().put("key", 345).build())
+        put("list", DataList.create {
+            add("a")
+            add(1)
+            add(false)
+            add(DataList.create { add("b"); add(2); add(true) })
+        })
+        put("object", DataObject.Builder().put("key", "Value").put("int", 345).build())
         put("null", DataItem.NULL)
+        put("infinity", Double.POSITIVE_INFINITY)
+        put("negativeinfinity", Double.NEGATIVE_INFINITY)
+        put("nan", Double.NaN)
+        put("emptystring", "")
     }
 
     @Test
@@ -31,37 +45,99 @@ class ConditionsLessThanOrEqualsTests {
             variable = "string",
             number = "Value"
         )
+        assertThrows<ConditionEvaluationException>(cause = NumberParseException::class) {
+            condition.matches(payload)
+        }
+    }
+
+    @Test
+    fun lessThanOrEquals_Matches_Number_String_When_Target_Is_Greater() {
+        val condition = Condition.isLessThan(
+            orEqual = true,
+            variable = "numberstring",
+            number = "100"
+        )
+        assertTrue(condition.matches(payload))
+    }
+
+    @Test
+    fun lessThanOrEquals_Matches_Number_String_When_Numbers_Are_Equal() {
+        val condition = Condition.isLessThan(
+            orEqual = true,
+            variable = "numberstring",
+            number = "45"
+        )
+        assertTrue(condition.matches(payload))
+    }
+
+    @Test
+    fun lessThanOrEquals_Does_Not_Match_Number_String_When_Target_Is_Smaller() {
+        val condition = Condition.isLessThan(
+            orEqual = true,
+            variable = "numberstring",
+            number = "40"
+        )
         assertFalse(condition.matches(payload))
     }
 
     @Test
-    fun lessThanOrEquals_Does_Not_Match_Boolean() {
+    fun lessThanOrEquals_Throws_When_DataItem_Is_Boolean() {
         val condition = Condition.isLessThan(
             orEqual = true,
             variable = "bool",
             number = "true"
         )
-        assertFalse(condition.matches(payload))
+        assertThrows<ConditionEvaluationException>(cause = NumberParseException::class) {
+            condition.matches(payload)
+        }
     }
 
     @Test
-    fun lessThanOrEquals_Does_Not_Match_Array() {
+    fun lessThanOrEquals_Throws_When_DataItem_Is_DataArray() {
         val condition = Condition.isLessThan(
             orEqual = true,
             variable = "list",
-            number = list.toString()
+            number = "10"
         )
-        assertFalse(condition.matches(payload))
+        assertThrows<ConditionEvaluationException>(cause = NumberParseException::class) {
+            condition.matches(payload)
+        }
     }
 
     @Test
-    fun lessThanOrEquals_Does_Not_Match_Objects() {
+    fun lessThanOrEquals_Throws_When_DataItem_Is_DataObject() {
         val condition = Condition.isLessThan(
             orEqual = true,
             variable = "object",
-            number = payload.getDataObject("object").toString()
+            number = "10"
         )
-        assertFalse(condition.matches(payload))
+        assertThrows<ConditionEvaluationException>(cause = NumberParseException::class) {
+            condition.matches(payload)
+        }
+    }
+
+    @Test
+    fun lessThanOrEquals_Throws_When_DataItem_Is_Null() {
+        val condition = Condition.isLessThan(
+            orEqual = true,
+            variable = "null",
+            number = "10"
+        )
+        assertThrows<ConditionEvaluationException>(cause = NumberParseException::class) {
+            condition.matches(payload)
+        }
+    }
+
+    @Test
+    fun lessThanOrEquals_Throws_When_Filter_Is_Null() {
+        val condition = Condition(
+            operator = Operators.lessThanOrEquals,
+            variable = "int",
+            filter = null
+        )
+        assertThrows<ConditionEvaluationException>(cause = MissingFilterException::class) {
+            condition.matches(payload)
+        }
     }
 
     @Test
@@ -170,9 +246,103 @@ class ConditionsLessThanOrEqualsTests {
         val condition = Condition.isLessThan(
             orEqual = true,
             path = listOf("object"),
-            variable = "key",
+            variable = "int",
             number = "346"
         )
         assertTrue(condition.matches(payload))
+    }
+
+    @Test
+    fun lessThanOrEquals_Does_Not_Match_Infinity() {
+        val condition = Condition.isLessThan(
+            orEqual = true,
+            variable = "infinity",
+            number = "10"
+        )
+        assertFalse(condition.matches(payload))
+    }
+
+    @Test
+    fun lessThanOrEquals_Matches_Infinity_Equality() {
+        val condition = Condition.isLessThan(
+            orEqual = true,
+            variable = "infinity",
+            number = "Infinity"
+        )
+        assertTrue(condition.matches(payload))
+    }
+
+    @Test
+    fun lessThanOrEquals_Matches_Negative_Infinity() {
+        val condition = Condition.isLessThan(
+            orEqual = true,
+            variable = "negativeinfinity",
+            number = "10"
+        )
+        assertTrue(condition.matches(payload))
+    }
+
+    @Test
+    fun lessThanOrEquals_Matches_Negative_Infinity_Equality() {
+        val condition = Condition.isLessThan(
+            orEqual = true,
+            variable = "negativeinfinity",
+            number = "-Infinity"
+        )
+        assertTrue(condition.matches(payload))
+    }
+
+    @Test
+    fun lessThanOrEquals_Does_Not_Match_When_DataItem_Is_NaN() {
+        val condition = Condition.isLessThan(
+            orEqual = true,
+            variable = "nan",
+            number = "0"
+        )
+        assertFalse(condition.matches(payload))
+    }
+
+    @Test
+    fun lessThanOrEquals_Does_Not_Match_When_Filter_Is_NaN() {
+        val condition = Condition.isLessThan(
+            orEqual = true,
+            variable = "infinity",
+            number = "NaN"
+        )
+        assertFalse(condition.matches(payload))
+    }
+
+    @Test
+    fun lessThanOrEquals_Does_Not_Match_When_Two_NaNs() {
+        val condition = Condition.isLessThan(
+            orEqual = true,
+            variable = "nan",
+            number = "NaN"
+        )
+        assertFalse(condition.matches(payload))
+    }
+
+    @Test
+    fun lessThanOrEquals_Throws_When_DataItem_Is_Empty_String() {
+        val condition = Condition.isLessThan(
+            orEqual = true,
+            variable = "emptystring",
+            number = "-99"
+        )
+        assertThrows<ConditionEvaluationException>(cause = NumberParseException::class) {
+            condition.matches(payload)
+        }
+    }
+
+    @Test
+    fun lessThanOrEquals_Throws_When_Filter_Is_Empty_String() {
+        val condition = Condition.isLessThan(
+            orEqual = true,
+            variable = "infinity",
+            number = ""
+        )
+        assertThrows<ConditionEvaluationException>(cause = NumberParseException::class) {
+            condition.matches(payload)
+        }
     }
 }

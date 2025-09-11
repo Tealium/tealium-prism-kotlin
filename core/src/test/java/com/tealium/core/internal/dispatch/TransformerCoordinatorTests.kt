@@ -11,18 +11,21 @@ import com.tealium.core.api.transform.TransformationScope
 import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.Transformer
 import com.tealium.tests.common.SynchronousScheduler
+import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestTransformer
 import io.mockk.MockKAnnotations
 import io.mockk.Ordering
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
 import io.mockk.verify
-import io.mockk.verifyOrder
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class TransformerCoordinatorTests {
 
     @RelaxedMockK
@@ -37,9 +40,9 @@ class TransformerCoordinatorTests {
     private lateinit var mockTransformer1: Transformer
     private lateinit var mockTransformer2: Transformer
     private lateinit var mockTransformer3: Transformer
+    private lateinit var mockTransformer4: Transformer
     private lateinit var registeredTransformers: StateSubject<List<Transformer>>
     private lateinit var transformationsSettings: StateSubject<Set<TransformationSettings>>
-    private lateinit var mappings: StateSubject<Map<String, TransformationSettings>>
     private lateinit var transformerCoordinator: TransformerCoordinatorImpl
 
     private val afterCollectors = TransformationSettings(
@@ -79,9 +82,10 @@ class TransformerCoordinatorTests {
         mockTransformer1 = TestTransformer.mock("transformer1")
         mockTransformer2 = TestTransformer.mock("transformer2")
         mockTransformer3 = TestTransformer.mock("transformer3")
+        mockTransformer4 = TestTransformer.mock("transformer4")
 
         registeredTransformers = Observables.stateSubject(
-            listOf(mockTransformer1, mockTransformer2, mockTransformer3)
+            listOf(mockTransformer1, mockTransformer2, mockTransformer3, mockTransformer4)
         )
 
         transformationsSettings = Observables.stateSubject(defaultTransformationSettings)
@@ -90,7 +94,8 @@ class TransformerCoordinatorTests {
             TransformerCoordinatorImpl(
                 registeredTransformers,
                 transformationsSettings,
-                SynchronousScheduler()
+                SynchronousScheduler(),
+                SystemLogger
             )
     }
 
@@ -270,7 +275,7 @@ class TransformerCoordinatorTests {
             onTransformed
         )
 
-        verify(inverse = true)  {
+        verify(inverse = true) {
             mockTransformer3.applyTransformation(
                 settings, dispatch, DispatchScope.AfterCollectors, any()
             )
@@ -547,5 +552,107 @@ class TransformerCoordinatorTests {
         transformerCoordinator.unregisterTransformation(duplicated)
 
         assertFalse(transformerCoordinator.allTransformations.contains(newTransformation))
+    }
+
+    @Test
+    fun transform_Does_Evaluate_Transformation_When_Condition_Matches() {
+        val dispatch = Dispatch.create("event", dataObject = DataObject.create {
+            put("number", 50)
+        })
+        val addedSettings = addTransformationWithConditions(
+            conditions = Rule.just(
+                Condition.isGreaterThan(
+                    false,
+                    null,
+                    "number",
+                    "10"
+                )
+            )
+        )
+
+        transformerCoordinator.transform(dispatch, DispatchScope.AfterCollectors, onTransformed)
+
+        verify {
+            mockTransformer4.applyTransformation(addedSettings, dispatch, any(), any())
+        }
+    }
+
+    @Test
+    fun transform_Does_Not_Evaluate_Transformation_When_Condition_Not_Matches() {
+        val dispatch = Dispatch.create("event", dataObject = DataObject.create {
+            put("number", 5)
+        })
+        val addedSettings = addTransformationWithConditions(
+            conditions = Rule.just(
+                Condition.isGreaterThan(
+                    false,
+                    null,
+                    "number",
+                    "10"
+                )
+            )
+        )
+
+        transformerCoordinator.transform(dispatch, DispatchScope.AfterCollectors, onTransformed)
+
+        verify(inverse = true) {
+            mockTransformer4.applyTransformation(addedSettings, dispatch, any(), any())
+        }
+    }
+
+    @Test
+    fun transform_Does_Not_Evaluate_Transformation_When_Invalid_Condition() {
+        val addedSettings = addTransformationWithConditions(
+            conditions = Rule.just(
+                Condition.isGreaterThan(
+                    false,
+                    null,
+                    "number",
+                    "not-a-number"
+                )
+            )
+        )
+
+        transformerCoordinator.transform(mockDispatch, DispatchScope.AfterCollectors, onTransformed)
+
+        verify(inverse = true) {
+            mockTransformer4.applyTransformation(addedSettings, any(), any(), any())
+        }
+    }
+
+    @Test
+    fun transform_Does_Not_Throw_When_Invalid_Condition() {
+        addTransformationWithConditions(
+            conditions = Rule.just(
+                Condition.isGreaterThan(
+                    false,
+                    null,
+                    "number",
+                    "not-a-number"
+                )
+            )
+        )
+
+        transformerCoordinator.transform(mockDispatch, DispatchScope.AfterCollectors, onTransformed)
+    }
+
+    private fun addTransformationWithConditions(
+        id: String = "after_collectors_with_conditions",
+        transformerId: String = "transformer4",
+        scopes: Set<TransformationScope> = setOf(
+            TransformationScope.AfterCollectors
+        ),
+        conditions: Rule<Condition>
+    ): TransformationSettings {
+        val afterCollectorsWithConditions = TransformationSettings(
+            id,
+            transformerId,
+            scopes,
+            conditions = conditions
+        )
+        val withAddedTransformations = transformationsSettings.value + afterCollectorsWithConditions
+        transformationsSettings.onNext(withAddedTransformations)
+
+        return afterCollectorsWithConditions
     }
 }

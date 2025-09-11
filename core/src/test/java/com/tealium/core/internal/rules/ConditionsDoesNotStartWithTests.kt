@@ -4,6 +4,11 @@ import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataList
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.rules.Condition
+import com.tealium.core.api.rules.ConditionEvaluationException
+import com.tealium.core.api.rules.MissingDataItemException
+import com.tealium.core.api.rules.MissingFilterException
+import com.tealium.core.api.rules.UnsupportedOperatorException
+import com.tealium.tests.common.assertThrows
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -18,9 +23,21 @@ class ConditionsDoesNotStartWithTests {
         put("int", 345)
         put("double", 3.14)
         put("bool", true)
-        put("list", DataList.create { add("a"); add("b"); add("c") })
+        put("list", DataList.create {
+            add("a")
+            add(1)
+            add(false)
+            add(DataList.create { add("b"); add(2); add(true) })
+        })
         put("object", DataObject.Builder().put("key", "Value").build())
         put("null", DataItem.NULL)
+    }
+    private val doublesPayload = DataObject.create {
+        put("list", DataList.create {
+            add(1.000)
+            add(2.200)
+            add(3.333)
+        })
     }
 
     @Test
@@ -74,6 +91,16 @@ class ConditionsDoesNotStartWithTests {
     }
 
     @Test
+    fun doesNotStartWith_Matches_Different_Int() {
+        val condition = Condition.doesNotStartWith(
+            ignoreCase = false,
+            variable = "int",
+            prefix = "12"
+        )
+        assertTrue(condition.matches(payload))
+    }
+
+    @Test
     fun doesNotStartWith_Does_Not_Match_Double() {
         val condition = Condition.doesNotStartWith(
             ignoreCase = false,
@@ -84,6 +111,16 @@ class ConditionsDoesNotStartWithTests {
     }
 
     @Test
+    fun doesNotStartWith_Matches_Different_Double() {
+        val condition = Condition.doesNotStartWith(
+            ignoreCase = false,
+            variable = "double",
+            prefix = "5.5"
+        )
+        assertTrue(condition.matches(payload))
+    }
+
+    @Test
     fun doesNotStartWith_Does_Not_Match_Bool() {
         val condition = Condition.doesNotStartWith(
             ignoreCase = false,
@@ -91,6 +128,16 @@ class ConditionsDoesNotStartWithTests {
             prefix = "tr"
         )
         assertFalse(condition.matches(payload))
+    }
+
+    @Test
+    fun doesNotStartWith_Matches_Different_Bool() {
+        val condition = Condition.doesNotStartWith(
+            ignoreCase = false,
+            variable = "bool",
+            prefix = "fa"
+        )
+        assertTrue(condition.matches(payload))
     }
 
     @Test
@@ -105,11 +152,51 @@ class ConditionsDoesNotStartWithTests {
     }
 
     @Test
-    fun doesNotStartWith_Does_Not_Match_Array() {
+    fun doesNotStartWith_Does_Not_Match_Stringified_Array() {
         val condition = Condition.doesNotStartWith(
             ignoreCase = false,
             variable = "list",
-            prefix = "[\"a"
+            prefix = "a,1"
+        )
+        assertFalse(condition.matches(payload))
+    }
+
+    @Test
+    fun doesNotStartWith_Does_Not_Match_Stringified_Array_Containing_Simplified_Doubles() {
+        val condition = Condition.doesNotStartWith(
+            ignoreCase = false,
+            variable = "list",
+            prefix = "1,2.2,"
+        )
+        assertFalse(condition.matches(doublesPayload))
+    }
+
+    @Test
+    fun doesNotStartWithIgnoreCase_Does_Not_Match_Stringified_Array_Containing_Simplified_Doubles() {
+        val condition = Condition.doesNotStartWith(
+            ignoreCase = true,
+            variable = "list",
+            prefix = "1,2.2,3.3"
+        )
+        assertFalse(condition.matches(doublesPayload))
+    }
+
+    @Test
+    fun doesNotStartWith_Matches_Json_Array_String() {
+        val condition = Condition.doesNotStartWith(
+            ignoreCase = false,
+            variable = "list",
+            prefix = "[\"a\""
+        )
+        assertTrue(condition.matches(payload))
+    }
+
+    @Test
+    fun doesNotStartWithIgnoreCase_Does_Not_Match_Stringified_Array() {
+        val condition = Condition.doesNotStartWith(
+            ignoreCase = true,
+            variable = "list",
+            prefix = "A,1"
         )
         assertFalse(condition.matches(payload))
     }
@@ -126,46 +213,112 @@ class ConditionsDoesNotStartWithTests {
     }
 
     @Test
-    fun doesNotStartWith_Does_Not_Match_When_Filter_Null() {
+    fun doesNotStartWith_Throws_When_Filter_Null() {
         val condition = Condition(
             path = listOf("object"),
             variable = "key",
             operator = Operators.doesNotStartWith,
             filter = null
         )
-        assertFalse(condition.matches(payload))
+        assertThrows<ConditionEvaluationException>(cause = MissingFilterException::class) {
+            condition.matches(payload)
+        }
     }
 
     @Test
-    fun doesNotStartWith_Does_Not_Match_When_DataItem_Missing() {
+    fun doesNotStartWith_Throws_When_DataItem_Missing() {
         val condition = Condition.doesNotStartWith(
             ignoreCase = false,
             path = listOf("object"),
             variable = "missing",
             prefix = "value"
         )
-        assertFalse(condition.matches(payload))
+        assertThrows<ConditionEvaluationException>(cause = MissingDataItemException::class) {
+            condition.matches(payload)
+        }
     }
 
     @Test
-    fun doesNotStartWithIgnoreCase_Does_Not_Match_When_Filter_Null() {
+    fun doesNotStartWithIgnoreCase_Throws_When_Filter_Null() {
         val condition = Condition(
             path = listOf("object"),
             variable = "key",
             operator = Operators.doesNotStartWithIgnoreCase,
             filter = null
         )
-        assertFalse(condition.matches(payload))
+        assertThrows<ConditionEvaluationException>(cause = MissingFilterException::class) {
+            condition.matches(payload)
+        }
     }
 
     @Test
-    fun doesNotStartWithIgnoreCase_Does_Not_Match_When_DataItem_Missing() {
+    fun doesNotStartWithIgnoreCase_Throws_When_DataItem_Missing() {
         val condition = Condition.doesNotStartWith(
             ignoreCase = true,
             path = listOf("object"),
             variable = "missing",
             prefix = "value"
         )
-        assertFalse(condition.matches(payload))
+        assertThrows<ConditionEvaluationException>(cause = MissingDataItemException::class) {
+            condition.matches(payload)
+        }
+    }
+
+    @Test
+    fun doesNotStartWith_Throws_When_DataItem_Is_A_DataObject() {
+        val condition = Condition.doesNotStartWith(
+            ignoreCase = false,
+            variable = "object",
+            prefix = "{\"key\""
+        )
+        assertThrows<ConditionEvaluationException>(cause = UnsupportedOperatorException::class) {
+            condition.matches(payload)
+        }
+    }
+
+    @Test
+    fun doesNotStartWithIgnoreCase_Throws_When_DataItem_Is_A_DataObject() {
+        val condition = Condition.doesNotStartWith(
+            ignoreCase = true,
+            variable = "object",
+            prefix = "{\"key\""
+        )
+        assertThrows<ConditionEvaluationException>(cause = UnsupportedOperatorException::class) {
+            condition.matches(payload)
+        }
+    }
+
+    @Test
+    fun doesNotStartWith_Throws_When_DataItem_Is_A_DataList_Containing_A_DataObject() {
+        val payload = DataObject.create {
+            put("list", DataList.create {
+                add(DataObject.EMPTY_OBJECT)
+            })
+        }
+        val condition = Condition.doesNotStartWith(
+            ignoreCase = false,
+            variable = "list",
+            prefix = "{\"key\""
+        )
+        assertThrows<ConditionEvaluationException>(cause = UnsupportedOperatorException::class) {
+            condition.matches(payload)
+        }
+    }
+
+    @Test
+    fun doesNotStartWithIgnoreCase_Throws_When_DataItem_Is_A_DataList_Containing_A_DataObject() {
+        val payload = DataObject.create {
+            put("list", DataList.create {
+                add(DataObject.EMPTY_OBJECT)
+            })
+        }
+        val condition = Condition.doesNotStartWith(
+            ignoreCase = true,
+            variable = "list",
+            prefix = "{\"key\""
+        )
+        assertThrows<ConditionEvaluationException>(cause = UnsupportedOperatorException::class) {
+            condition.matches(payload)
+        }
     }
 }

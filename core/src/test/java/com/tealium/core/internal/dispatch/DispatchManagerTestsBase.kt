@@ -122,7 +122,7 @@ open class DispatchManagerTestsBase {
         transformers = Observables.stateSubject(emptyList())
         transformerCoordinator = spyk(
             TransformerCoordinatorImpl(
-                transformers, transformations, SynchronousScheduler()
+                transformers, transformations, SynchronousScheduler(), SystemLogger
             )
         )
 

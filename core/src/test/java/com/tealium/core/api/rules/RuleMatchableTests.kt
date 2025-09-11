@@ -6,10 +6,12 @@ import com.tealium.core.api.rules.Condition.Companion.isDefined
 import com.tealium.core.api.rules.Condition.Companion.isEqual
 import com.tealium.core.api.rules.Condition.Companion.isGreaterThan
 import com.tealium.core.api.rules.Condition.Companion.isLessThan
-import com.tealium.core.api.rules.Condition.Companion.isPopulated
+import com.tealium.core.api.rules.Condition.Companion.isNotEmpty
+import com.tealium.core.api.rules.Condition.Companion.isNotDefined
 import com.tealium.core.api.rules.Condition.Companion.startsWith
 import com.tealium.core.api.rules.Rule.Companion.any
 import com.tealium.core.api.rules.Rule.Companion.just
+import com.tealium.tests.common.assertThrows
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -104,16 +106,16 @@ class RuleMatchableTests {
     }
 
     private val complexRule: Rule<Condition> = Rule.all(
-        // "string" key need to be non-empty
-        just(isPopulated(null, "populated")),
+        // "populated" key need to be non-empty
+        just(isNotEmpty(null, "populated")),
         // "true" key should be `true`
         just(isEqual(false, null, "true", "true")),
         Rule.all( // must contain `is_defined` and obj-1.key must start with "prefix"
             just(isDefined(null, "is_defined")),
             just(startsWith(true, listOf("obj-1"), "prefix", "PrEFiX")),
             any( // either `obj-1.list-1` or `obj-1.list-2` need to be non-empty
-                just(isPopulated(listOf("obj-1"), "list-1")),
-                just(isPopulated(listOf("obj-1"), "list-2"))
+                just(isNotEmpty(listOf("obj-1"), "list-1")),
+                just(isNotEmpty(listOf("obj-1"), "list-2"))
             )
         ),
         Rule.not( // must be 1-9 inclusive
@@ -148,9 +150,9 @@ class RuleMatchableTests {
     }
 
     @Test
-    fun matches_Returns_False_When_Key_Not_Populated() {
+    fun matches_Returns_False_When_Value_Empty() {
         assertFalse(complexRule.matches(successPayload.copy {
-            remove("populated")
+            put("populated", DataList.EMPTY_LIST)
         }))
         assertFalse(complexRule.matches(successPayload.copy {
             put("populated", "")
@@ -160,7 +162,7 @@ class RuleMatchableTests {
     @Test
     fun matches_Returns_False_When_Key_Not_Equals() {
         assertFalse(complexRule.matches(successPayload.copy {
-            remove("true")
+            put("true", "not bool")
         }))
         assertFalse(complexRule.matches(successPayload.copy {
             put("true", false)
@@ -180,8 +182,8 @@ class RuleMatchableTests {
         }))
         assertFalse(complexRule.matches(successPayload.copy {
             put("obj-1", obj1.copy {
-                remove("list-1")
-                remove("list-2")
+                put("list-1", DataList.EMPTY_LIST)
+                put("list-2", DataList.EMPTY_LIST)
             })
         }))
     }
@@ -191,12 +193,12 @@ class RuleMatchableTests {
         val obj1 = successPayload.getDataObject("obj-1")!!
         assertTrue(complexRule.matches(successPayload.copy {
             put("obj-1", obj1.copy {
-                remove("list-1")
+                put("list-1", DataList.EMPTY_LIST)
             })
         }))
         assertTrue(complexRule.matches(successPayload.copy {
             put("obj-1", obj1.copy {
-                remove("list-2")
+                put("list-2", DataList.EMPTY_LIST)
             })
         }))
     }
@@ -219,5 +221,81 @@ class RuleMatchableTests {
                 })
             })
         }))
+    }
+
+    @Test
+    fun matches_Throws_When_And_Rule_Evaluates_Throwing_Condition() {
+        val throwingRule = Rule.all(
+            // true - continues evaluation
+            just(isNotDefined(null, "key")),
+            // throws
+            just(isGreaterThan(false, null,"some_key", "non-number"))
+        )
+
+        assertThrows<ConditionEvaluationException>(MissingDataItemException::class) {
+            throwingRule.matches(DataObject.EMPTY_OBJECT)
+        }
+    }
+
+    @Test
+    fun matches_Does_Not_Throw_When_And_Rule_Does_Not_Evaluate_Throwing_Condition() {
+        val throwingRule = Rule.all(
+            // false - returns early
+            just(isDefined(null, "key")),
+            // throws
+            just(isGreaterThan(false, null,"some_key", "non-number"))
+        )
+
+        assertFalse(throwingRule.matches(DataObject.EMPTY_OBJECT))
+    }
+
+    @Test
+    fun matches_Throws_When_Or_Rule_Evaluates_Throwing_Condition() {
+        val throwingRule = Rule.any(
+            // false - continues evaluation
+            just(isDefined(null, "key")),
+            // throws
+            just(isGreaterThan(false, null,"some_key", "non-number")),
+            // true - never evaluated
+            just(isNotDefined(null, "key")),
+        )
+
+        assertThrows<ConditionEvaluationException>(MissingDataItemException::class) {
+            throwingRule.matches(DataObject.EMPTY_OBJECT)
+        }
+    }
+
+    @Test
+    fun matches_Does_Not_Throw_When_First_Or_Condition_Passes_But_Second_Throws() {
+        val throwingRule = Rule.any(
+            // true - does not continue evaluation
+            just(isNotDefined(null, "key")),
+            // throws
+            just(isGreaterThan(false, null,"some_key", "non-number"))
+        )
+
+        assertTrue(throwingRule.matches(DataObject.EMPTY_OBJECT))
+    }
+
+    @Test
+    fun matches_Throws_When_Just_Condition_Throws() {
+        val throwingRule = Rule.just(
+            isGreaterThan(false, null,"some_key", "non-number")
+        )
+
+        assertThrows<ConditionEvaluationException>(MissingDataItemException::class) {
+            throwingRule.matches(DataObject.EMPTY_OBJECT)
+        }
+    }
+
+    @Test
+    fun matches_Throws_When_Not_Condition_Throws() {
+        val throwingRule = Rule.not(
+            just(isGreaterThan(false, null,"some_key", "non-number"))
+        )
+
+        assertThrows<ConditionEvaluationException>(MissingDataItemException::class) {
+            throwingRule.matches(DataObject.EMPTY_OBJECT)
+        }
     }
 }

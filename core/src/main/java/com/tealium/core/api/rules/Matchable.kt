@@ -12,7 +12,9 @@ fun interface Matchable<T> {
      *
      * @param input The value to evaluate against
      * @return true if this [Matchable] matches, else false
+     * @throws InvalidMatchException when the matchable is invalid or cannot be evaluated.
      */
+    @Throws(InvalidMatchException::class)
     fun matches(input: T): Boolean
 
     companion object {

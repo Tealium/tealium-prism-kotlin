@@ -151,7 +151,8 @@ class TealiumImpl(
             createTransformationsCoordinator(
                 moduleManager.modules,
                 settingsManager.sdkSettings,
-                schedulers
+                schedulers,
+                logger
             )
         val barrierManager = BarrierManager(settings)
 
@@ -176,7 +177,7 @@ class TealiumImpl(
             queueMetrics
         )
 
-        val loadRuleEngine = LoadRuleEngineImpl(settings)
+        val loadRuleEngine = LoadRuleEngineImpl(settings, logger)
         val mappingsEngine = MappingsEngine(
             settings.map(::extractMappings)
                 .withState { extractMappings(settings.value) })
@@ -419,14 +420,16 @@ class TealiumImpl(
         fun createTransformationsCoordinator(
             modules: ObservableState<List<Module>>,
             sdkSettings: ObservableState<SdkSettings>,
-            schedulers: Schedulers
+            schedulers: Schedulers,
+            logger: Logger
         ): TransformerCoordinator {
             return TransformerCoordinatorImpl(
                 modules.map { it.filterIsInstance<Transformer>() }
                     .withState { modules.value.filterIsInstance<Transformer>() },
                 sdkSettings.map { it.transformations.values.toSet() }
                     .withState { sdkSettings.value.transformations.values.toSet() },
-                schedulers.tealium
+                schedulers.tealium,
+                logger
             )
         }
 

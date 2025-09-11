@@ -4,6 +4,11 @@ import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataList
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.rules.Condition
+import com.tealium.core.api.rules.ConditionEvaluationException
+import com.tealium.core.api.rules.MissingDataItemException
+import com.tealium.core.api.rules.MissingFilterException
+import com.tealium.core.api.rules.UnsupportedOperatorException
+import com.tealium.tests.common.assertThrows
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -18,9 +23,21 @@ class ConditionsNotEndsWithTests {
         put("int", 345)
         put("double", 3.14)
         put("bool", true)
-        put("list", DataList.create { add("a"); add("b"); add("c") })
+        put("list", DataList.create {
+            add("a")
+            add(1)
+            add(false)
+            add(DataList.create { add("b"); add(2); add(true) })
+        })
         put("object", DataObject.Builder().put("key", "Value").build())
         put("null", DataItem.NULL)
+    }
+    private val doublesPayload = DataObject.create {
+        put("list", DataList.create {
+            add(1.000)
+            add(2.200)
+            add(3.333)
+        })
     }
 
     @Test
@@ -54,7 +71,7 @@ class ConditionsNotEndsWithTests {
     }
 
     @Test
-    fun doesNotEndWith_Does_Not_Match_String_Ignoring_Case() {
+    fun doesNotEndWithIgnoreCase_Does_Not_Match_String_Ignoring_Case() {
         val condition = Condition.doesNotEndWith(
             ignoreCase = true,
             variable = "string",
@@ -74,6 +91,16 @@ class ConditionsNotEndsWithTests {
     }
 
     @Test
+    fun doesNotEndWith_Matches_Different_Int() {
+        val condition = Condition.doesNotEndWith(
+            ignoreCase = false,
+            variable = "int",
+            suffix = "46"
+        )
+        assertTrue(condition.matches(payload))
+    }
+
+    @Test
     fun doesNotEndWith_Does_Not_Match_Ending_Double() {
         val condition = Condition.doesNotEndWith(
             ignoreCase = false,
@@ -84,6 +111,16 @@ class ConditionsNotEndsWithTests {
     }
 
     @Test
+    fun doesNotEndWith_Matches_Different_Double() {
+        val condition = Condition.doesNotEndWith(
+            ignoreCase = false,
+            variable = "double",
+            suffix = ".15"
+        )
+        assertTrue(condition.matches(payload))
+    }
+
+    @Test
     fun doesNotEndWith_Does_Not_Match_Ending_Bool() {
         val condition = Condition.doesNotEndWith(
             ignoreCase = false,
@@ -91,6 +128,16 @@ class ConditionsNotEndsWithTests {
             suffix = "ue"
         )
         assertFalse(condition.matches(payload))
+    }
+
+    @Test
+    fun doesNotEndWith_Matches_Different_Bool() {
+        val condition = Condition.doesNotEndWith(
+            ignoreCase = false,
+            variable = "bool",
+            suffix = "se"
+        )
+        assertTrue(condition.matches(payload))
     }
 
     @Test
@@ -105,13 +152,83 @@ class ConditionsNotEndsWithTests {
     }
 
     @Test
-    fun doesNotEndWith_Does_Not_Match_Array() {
+    fun doesNotEndWith_Does_Not_Match_Stringified_Array() {
         val condition = Condition.doesNotEndWith(
             ignoreCase = false,
             variable = "list",
-            suffix = "c\"]"
+            suffix = "2,true"
         )
         assertFalse(condition.matches(payload))
+    }
+
+    @Test
+    fun doesNotEndWith_Matches_Stringified_Array_Not_Containing_Simplified_Doubles() {
+        val condition = Condition.doesNotEndWith(
+            ignoreCase = false,
+            variable = "list",
+            suffix = "3.3"
+        )
+        assertTrue(condition.matches(doublesPayload))
+    }
+
+    @Test
+    fun doesNotEndWithIgnoreCase_Matches_Stringified_Array_Not_Containing_Simplified_Doubles() {
+        val condition = Condition.doesNotEndWith(
+            ignoreCase = true,
+            variable = "list",
+            suffix = "3.3"
+        )
+        assertTrue(condition.matches(doublesPayload))
+    }
+
+    @Test
+    fun doesNotEndWith_Does_Not_Match_Stringified_Array_Containing_Simplified_Doubles() {
+        val condition = Condition.doesNotEndWith(
+            ignoreCase = false,
+            variable = "list",
+            suffix = "3.333"
+        )
+        assertFalse(condition.matches(doublesPayload))
+    }
+
+    @Test
+    fun doesNotEndWithIgnoreCase_Does_Not_Match_Stringified_Array_Containing_Simplified_Doubles() {
+        val condition = Condition.doesNotEndWith(
+            ignoreCase = true,
+            variable = "list",
+            suffix = "3.333"
+        )
+        assertFalse(condition.matches(doublesPayload))
+    }
+
+    @Test
+    fun doesNotEndWith_Matches_Json_Stringified_Array() {
+        val condition = Condition.doesNotEndWith(
+            ignoreCase = false,
+            variable = "list",
+            suffix = "\"b\",2,true]"
+        )
+        assertTrue(condition.matches(payload))
+    }
+
+    @Test
+    fun doesNotEndWithIgnoreCase_Does_Not_Match_Stringified_Array() {
+        val condition = Condition.doesNotEndWith(
+            ignoreCase = true,
+            variable = "list",
+            suffix = "b,2,TRUE"
+        )
+        assertFalse(condition.matches(payload))
+    }
+
+    @Test
+    fun doesNotEndWithIgnoreCase_Matches_Json_Stringified_Array() {
+        val condition = Condition.doesNotEndWith(
+            ignoreCase = true,
+            variable = "list",
+            suffix = "\"b\",2,true]"
+        )
+        assertTrue(condition.matches(payload))
     }
 
     @Test
@@ -126,36 +243,50 @@ class ConditionsNotEndsWithTests {
     }
 
     @Test
-    fun doesNotEndWith_Does_Not_Match_When_Filter_Null() {
+    fun doesNotEndWith_Does_Not_Match_When_Filter_Is_Null_String() {
         val condition = Condition(
-            path = listOf("object"),
-            variable = "key",
+            variable = "null",
             operator = Operators.doesNotEndWith,
-            filter = null
+            filter = "null"
         )
         assertFalse(condition.matches(payload))
     }
 
     @Test
-    fun doesNotEndWith_Does_Not_Match_When_DataItem_Missing() {
+    fun doesNotEndWith_Throws_When_Filter_Null() {
+        val condition = Condition(
+            variable = "string",
+            operator = Operators.doesNotEndWith,
+            filter = null
+        )
+        assertThrows<ConditionEvaluationException>(cause = MissingFilterException::class) {
+            condition.matches(payload)
+        }
+    }
+
+    @Test
+    fun doesNotEndWith_Throws_When_DataItem_Missing() {
         val condition = Condition.doesNotEndWith(
             ignoreCase = false,
             path = listOf("object"),
             variable = "missing",
             suffix = "value"
         )
-        assertFalse(condition.matches(payload))
+        assertThrows<ConditionEvaluationException>(cause = MissingDataItemException::class) {
+            condition.matches(payload)
+        }
     }
 
     @Test
-    fun doesNotEndWithIgnoreCase_Does_Not_Match_When_Filter_Null() {
+    fun doesNotEndWithIgnoreCase_Throws_When_Filter_Null() {
         val condition = Condition(
-            path = listOf("object"),
-            variable = "key",
+            variable = "string",
             operator = Operators.doesNotEndWithIgnoreCase,
             filter = null
         )
-        assertFalse(condition.matches(payload))
+        assertThrows<ConditionEvaluationException>(cause = MissingFilterException::class) {
+            condition.matches(payload)
+        }
     }
 
     @Test
@@ -166,6 +297,66 @@ class ConditionsNotEndsWithTests {
             variable = "missing",
             suffix = "value"
         )
-        assertFalse(condition.matches(payload))
+        assertThrows<ConditionEvaluationException>(cause = MissingDataItemException::class) {
+            condition.matches(payload)
+        }
+    }
+
+    @Test
+    fun doesNotEndWith_Throws_When_DataItem_Is_DataObject() {
+        val condition = Condition.doesNotEndWith(
+            ignoreCase = false,
+            variable = "object",
+            suffix = "value"
+        )
+        assertThrows<ConditionEvaluationException>(cause = UnsupportedOperatorException::class) {
+            condition.matches(payload)
+        }
+    }
+
+    @Test
+    fun doesNotEndWithIgnoreCase_Throws_When_DataItem_Is_DataObject() {
+        val condition = Condition.doesNotEndWith(
+            ignoreCase = true,
+            variable = "object",
+            suffix = "value"
+        )
+        assertThrows<ConditionEvaluationException>(cause = UnsupportedOperatorException::class) {
+            condition.matches(payload)
+        }
+    }
+
+    @Test
+    fun doesNotEndWith_Throws_When_DataItem_Is_A_DataList_Containing_A_DataObject() {
+        val payload = DataObject.create {
+            put("list", DataList.create {
+                add(DataObject.EMPTY_OBJECT)
+            })
+        }
+        val condition = Condition.doesNotEndWith(
+            ignoreCase = false,
+            variable = "list",
+            suffix = "{\"key\""
+        )
+        assertThrows<ConditionEvaluationException>(cause = UnsupportedOperatorException::class) {
+            condition.matches(payload)
+        }
+    }
+
+    @Test
+    fun doesNotEndWithIgnoreCase_Throws_When_DataItem_Is_A_DataList_Containing_A_DataObject() {
+        val payload = DataObject.create {
+            put("list", DataList.create {
+                add(DataObject.EMPTY_OBJECT)
+            })
+        }
+        val condition = Condition.doesNotEndWith(
+            ignoreCase = true,
+            variable = "list",
+            suffix = "{\"key\""
+        )
+        assertThrows<ConditionEvaluationException>(cause = UnsupportedOperatorException::class) {
+            condition.matches(payload)
+        }
     }
 }

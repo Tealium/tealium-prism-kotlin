@@ -4,6 +4,11 @@ import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataList
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.rules.Condition
+import com.tealium.core.api.rules.ConditionEvaluationException
+import com.tealium.core.api.rules.MissingDataItemException
+import com.tealium.core.api.rules.MissingFilterException
+import com.tealium.core.api.rules.UnsupportedOperatorException
+import com.tealium.tests.common.assertThrows
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -18,10 +23,23 @@ class ConditionsEndsWithTests {
         put("int", 345)
         put("double", 3.14)
         put("bool", true)
-        put("list", DataList.create { add("a"); add("b"); add("c") })
+        put("list", DataList.create {
+            add("a")
+            add(1)
+            add(false)
+            add(DataList.create { add("b"); add(2); add(true) })
+        })
         put("object", DataObject.Builder().put("key", "Value").build())
         put("null", DataItem.NULL)
     }
+    private val doublesPayload = DataObject.create {
+        put("list", DataList.create {
+            add(1.000)
+            add(2.200)
+            add(3.333)
+        })
+    }
+
 
     @Test
     fun endsWith_Matches_String() {
@@ -105,13 +123,43 @@ class ConditionsEndsWithTests {
     }
 
     @Test
-    fun endsWith_Matches_Array() {
+    fun endsWith_Matches_Stringified_Array() {
         val condition = Condition.endsWith(
             ignoreCase = false,
             variable = "list",
-            suffix = "c\"]"
+            suffix = "b,2,true"
         )
         assertTrue(condition.matches(payload))
+    }
+
+    @Test
+    fun endsWithIgnoreCase_Matches_Stringified_Array() {
+        val condition = Condition.endsWith(
+            ignoreCase = true,
+            variable = "list",
+            suffix = "B,2,TRUE"
+        )
+        assertTrue(condition.matches(payload))
+    }
+
+    @Test
+    fun endsWith_Matches_Stringified_Array_Containing_Simplified_Doubles() {
+        val condition = Condition.endsWith(
+            ignoreCase = false,
+            variable = "list",
+            suffix = ",3.333"
+        )
+        assertTrue(condition.matches(doublesPayload))
+    }
+
+    @Test
+    fun endsWithIgnoreCase_Matches_Stringified_Array_Containing_Simplified_Doubles() {
+        val condition = Condition.endsWith(
+            ignoreCase = true,
+            variable = "list",
+            suffix = "2.2,3.333"
+        )
+        assertTrue(condition.matches(doublesPayload))
     }
 
     @Test
@@ -126,46 +174,112 @@ class ConditionsEndsWithTests {
     }
 
     @Test
-    fun endsWith_Does_Not_Match_When_Filter_Null() {
+    fun endsWith_Throws_When_Filter_Null() {
         val condition = Condition(
             path = listOf("object"),
             variable = "key",
             operator = Operators.endsWith,
             filter = null
         )
-        assertFalse(condition.matches(payload))
+        assertThrows<ConditionEvaluationException>(cause = MissingFilterException::class) {
+            condition.matches(payload)
+        }
     }
 
     @Test
-    fun endsWith_Does_Not_Match_When_DataItem_Missing() {
+    fun endsWith_Throws_When_DataItem_Missing() {
         val condition = Condition.endsWith(
             ignoreCase = false,
             path = listOf("object"),
             variable = "missing",
             suffix = "value"
         )
-        assertFalse(condition.matches(payload))
+        assertThrows<ConditionEvaluationException>(cause = MissingDataItemException::class) {
+            condition.matches(payload)
+        }
     }
 
     @Test
-    fun endsWithIgnoreCase_Does_Not_Match_When_Filter_Null() {
+    fun endsWithIgnoreCase_Throws_When_Filter_Null() {
         val condition = Condition(
             path = listOf("object"),
             variable = "key",
             operator = Operators.endsWithIgnoreCase,
             filter = null
         )
-        assertFalse(condition.matches(payload))
+        assertThrows<ConditionEvaluationException>(cause = MissingFilterException::class) {
+            condition.matches(payload)
+        }
     }
 
     @Test
-    fun endsWithIgnoreCase_Does_Not_Match_When_DataItem_Missing() {
+    fun endsWithIgnoreCase_Throws_When_DataItem_Missing() {
         val condition = Condition.endsWith(
             ignoreCase = true,
             path = listOf("object"),
             variable = "missing",
             suffix = "value"
         )
-        assertFalse(condition.matches(payload))
+        assertThrows<ConditionEvaluationException>(cause = MissingDataItemException::class) {
+            condition.matches(payload)
+        }
+    }
+
+    @Test
+    fun endsWith_Throws_When_DataItem_Is_A_DataObject() {
+        val condition = Condition.endsWith(
+            ignoreCase = false,
+            variable = "object",
+            suffix = "{\"key\""
+        )
+        assertThrows<ConditionEvaluationException>(cause = UnsupportedOperatorException::class) {
+            condition.matches(payload)
+        }
+    }
+
+    @Test
+    fun endsWithIgnoreCase_Throws_When_DataItem_Is_A_DataObject() {
+        val condition = Condition.endsWith(
+            ignoreCase = true,
+            variable = "object",
+            suffix = "{\"key\""
+        )
+        assertThrows<ConditionEvaluationException>(cause = UnsupportedOperatorException::class) {
+            condition.matches(payload)
+        }
+    }
+
+    @Test
+    fun endsWith_Throws_When_DataItem_Is_A_DataList_Containing_A_DataObject() {
+        val payload = DataObject.create {
+            put("list", DataList.create {
+                add(DataObject.EMPTY_OBJECT)
+            })
+        }
+        val condition = Condition.endsWith(
+            ignoreCase = false,
+            variable = "list",
+            suffix = "{\"key\""
+        )
+        assertThrows<ConditionEvaluationException>(cause = UnsupportedOperatorException::class) {
+            condition.matches(payload)
+        }
+    }
+
+    @Test
+    fun endsWithIgnoreCase_Throws_When_DataItem_Is_A_DataList_Containing_A_DataObject() {
+        val payload = DataObject.create {
+            put("list", DataList.create {
+                add(DataObject.EMPTY_OBJECT)
+            })
+        }
+        val condition = Condition.endsWith(
+            ignoreCase = true,
+            variable = "list",
+            suffix = "{\"key\""
+        )
+        assertThrows<ConditionEvaluationException>(cause = UnsupportedOperatorException::class) {
+            condition.matches(payload)
+        }
     }
 }

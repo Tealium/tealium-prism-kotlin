@@ -4,6 +4,9 @@ import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataList
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.rules.Condition
+import com.tealium.core.api.rules.ConditionEvaluationException
+import com.tealium.core.api.rules.MissingDataItemException
+import com.tealium.tests.common.assertThrows
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -11,7 +14,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
-class ConditionsIsPopulatedTests {
+class ConditionsIsEmptyTests {
 
     private val list = DataList.create { add("a"); add("b"); add("c") }
     private val payload = DataObject.create {
@@ -30,9 +33,9 @@ class ConditionsIsPopulatedTests {
     }
 
     @Test
-    fun isPopulated_Matches_Non_Empty_Keys() {
+    fun isNotEmpty_Matches_Non_Empty_Keys() {
         payload.forEach { (key, _) ->
-            val condition = Condition.isPopulated(
+            val condition = Condition.isNotEmpty(
                 variable = key,
             )
             assertTrue(condition.matches(payload))
@@ -40,9 +43,9 @@ class ConditionsIsPopulatedTests {
     }
 
     @Test
-    fun isPopulated_Does_Not_Match_Empty_Keys() {
+    fun isNotEmpty_Does_Not_Match_Empty_Keys() {
         payloadOfEmpties.forEach { (key, _) ->
-            val condition = Condition.isPopulated(
+            val condition = Condition.isNotEmpty(
                 variable = key,
             )
             assertFalse(condition.matches(payloadOfEmpties))
@@ -50,17 +53,19 @@ class ConditionsIsPopulatedTests {
     }
 
     @Test
-    fun isPopulated_Does_Not_Match_Missing_Keys() {
-        val condition = Condition.isPopulated(
+    fun isNotEmpty_Throws_When_DataItem_Missing() {
+        val condition = Condition.isNotEmpty(
             variable = "missing",
         )
-        assertFalse(condition.matches(payload))
+        assertThrows<ConditionEvaluationException>(cause = MissingDataItemException::class) {
+            condition.matches(payload)
+        }
     }
 
     @Test
-    fun isNotPopulated_Does_Not_Match_Non_Empty_Keys() {
+    fun isEmpty_Does_Not_Match_Non_Empty_Keys() {
         payload.forEach { (key, _) ->
-            val condition = Condition.isNotPopulated(
+            val condition = Condition.isEmpty(
                 variable = key,
             )
             assertFalse(condition.matches(payload))
@@ -68,9 +73,9 @@ class ConditionsIsPopulatedTests {
     }
 
     @Test
-    fun isNotPopulated_Matches_Empty_Keys() {
+    fun isEmpty_Matches_Empty_Keys() {
         payloadOfEmpties.forEach { (key, _) ->
-            val condition = Condition.isNotPopulated(
+            val condition = Condition.isEmpty(
                 variable = key,
             )
             assertTrue(condition.matches(payloadOfEmpties))
@@ -78,10 +83,12 @@ class ConditionsIsPopulatedTests {
     }
 
     @Test
-    fun isNotPopulated_Does_Not_Match_Missing_Keys() {
-        val condition = Condition.isNotPopulated(
+    fun isEmpty_Throws_When_DataItem_Missing() {
+        val condition = Condition.isEmpty(
             variable = "missing",
         )
-        assertFalse(condition.matches(payload))
+        assertThrows<ConditionEvaluationException>(cause = MissingDataItemException::class) {
+            condition.matches(payload)
+        }
     }
 }

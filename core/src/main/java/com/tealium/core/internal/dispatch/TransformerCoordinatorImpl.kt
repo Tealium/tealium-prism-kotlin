@@ -1,17 +1,22 @@
 package com.tealium.core.internal.dispatch
 
+import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.logger.logIfWarnEnabled
 import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.pubsub.ObservableState
+import com.tealium.core.api.rules.InvalidMatchException
 import com.tealium.core.api.rules.matches
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.transform.DispatchScope
 import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.api.transform.Transformer
+import com.tealium.core.internal.logger.LogCategory
 
 class TransformerCoordinatorImpl(
     private val registeredTransformers: ObservableState<List<Transformer>>,
     private val transformations: ObservableState<Set<TransformationSettings>>,
-    private val scheduler: Scheduler
+    private val scheduler: Scheduler,
+    private val logger: Logger
 ) : TransformerCoordinator {
 
     private var additionalTransformations: Set<TransformationSettings> = setOf()
@@ -48,12 +53,31 @@ class TransformerCoordinatorImpl(
         }
     }
 
-    private fun getTransformations(dispatch: Dispatch, scope: DispatchScope): Set<TransformationSettings> {
-        val transformations = allTransformations.filter {
-            it.matchesScope(scope) && (it.conditions?.matches(dispatch.payload()) ?: true)
+    private fun getTransformations(
+        dispatch: Dispatch,
+        scope: DispatchScope
+    ): Set<TransformationSettings> {
+        val transformations = allTransformations.filter { transformation ->
+            transformation.matchesScope(scope) && matchesConditions(transformation, dispatch)
         }
 
         return transformations.toSet()
+    }
+
+    private fun matchesConditions(
+        transformation: TransformationSettings,
+        dispatch: Dispatch
+    ): Boolean {
+        if (transformation.conditions == null) return true
+
+        return try {
+            transformation.conditions.matches(dispatch.payload())
+        } catch (ex: InvalidMatchException) {
+            logger.logIfWarnEnabled(LogCategory.TRANSFORMATIONS) {
+                "Transformation conditions evaluation failed for Dispatch(${dispatch.logDescription()}) and Transformation(${transformation.transformerId}-${transformation.id}). Cause: ${ex.message}"
+            }
+            false
+        }
     }
 
     private fun recursiveSerialApply(

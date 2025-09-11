@@ -27,4 +27,5 @@ android {
 dependencies {
     implementation(project(":core"))
     compileOnly(libs.test.mockk.jvm)
+    compileOnly(libs.test.junit)
 }
