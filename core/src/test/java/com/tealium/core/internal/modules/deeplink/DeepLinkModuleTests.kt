@@ -541,12 +541,8 @@ class DeepLinkModuleTests {
         every { intent.action } returns action
         every { intent.data } returns uri
         every { intent.getParcelableExtra(Intent.EXTRA_REFERRER, Uri::class.java) } returns referrer
-        every {
-            intent.getParcelableExtra(
-                Intent.EXTRA_REFERRER_NAME,
-                String::class.java
-            )
-        } returns referrer?.toString()
+        every { intent.getParcelableExtra<Uri>(Intent.EXTRA_REFERRER) } returns referrer
+        every { intent.getStringExtra(Intent.EXTRA_REFERRER_NAME) } returns referrer?.toString()
 
         return activity
     }

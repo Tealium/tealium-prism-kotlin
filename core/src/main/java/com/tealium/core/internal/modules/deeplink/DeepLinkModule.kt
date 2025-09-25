@@ -1,7 +1,9 @@
 package com.tealium.core.internal.modules.deeplink
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import com.tealium.core.BuildConfig
 import com.tealium.core.api.Modules
 import com.tealium.core.api.data.DataObject
@@ -144,11 +146,7 @@ class DeepLinkModule(
         if (Intent.ACTION_VIEW != intent.action) return
 
         val uri = intent.data ?: return
-        val referrer = activity.referrer
-            ?: intent.getParcelableExtra(Intent.EXTRA_REFERRER, Uri::class.java)
-            ?: intent.getParcelableExtra(Intent.EXTRA_REFERRER_NAME, String::class.java)?.let {
-                Uri.parse(it)
-            }
+        val referrer = activity.referrer ?: getIntentReferrer(intent)
 
         try {
             handle(uri, referrer)
@@ -156,6 +154,19 @@ class DeepLinkModule(
             logger.logIfErrorEnabled(id) {
                 "Failed to handle deep link $uri\nError: ${ex.nonNullMessage()}"
             }
+        }
+    }
+
+    @SuppressLint("UseKtx")
+    private fun getIntentReferrer(intent: Intent) : Uri? {
+        val referrer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(Intent.EXTRA_REFERRER, Uri::class.java)
+        } else {
+            intent.getParcelableExtra(Intent.EXTRA_REFERRER)
+        }
+
+        return referrer ?: intent.getStringExtra(Intent.EXTRA_REFERRER_NAME)?.let {
+            Uri.parse(it)
         }
     }
 

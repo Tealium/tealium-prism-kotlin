@@ -2,8 +2,8 @@
 
 package com.tealium.core.api.pubsub
 
+import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.misc.TealiumResult
-import java.util.function.Consumer
 
 /**
  * A [Subscribable] implementation whereby only a single result is expected to be emitted to the subscriber.
@@ -49,11 +49,11 @@ typealias SingleResult<T> = Single<TealiumResult<T>>
  *
  * No errors will be made available to the subscribed [handler]
  */
-fun <T, R> Single<T>.onSuccess(handler: Consumer<R>): Disposable where T : TealiumResult<R> {
+fun <T, R> Single<T>.onSuccess(handler: TealiumCallback<R>): Disposable where T : TealiumResult<R> {
     return subscribe { result ->
         try {
             val value = result.getOrThrow()
-            handler.accept(value)
+            handler.onComplete(value)
         } catch (ignore: Exception) {
         }
     }
@@ -62,12 +62,12 @@ fun <T, R> Single<T>.onSuccess(handler: Consumer<R>): Disposable where T : Teali
 /**
  * Subscribes a handler for handling only the failure element of this [Single].
  */
-fun <T, R> Single<T>.onFailure(handler: Consumer<Exception>): Disposable where T : TealiumResult<R> {
+fun <T, R> Single<T>.onFailure(handler: TealiumCallback<Exception>): Disposable where T : TealiumResult<R> {
     return subscribe { result ->
         try {
             result.getOrThrow()
         } catch (ignore: Exception) {
-            handler.accept(ignore)
+            handler.onComplete(ignore)
         }
     }
 }
