@@ -51,11 +51,6 @@ object TealiumHelper {
 
     val isEnabled: Boolean get() = shared != null
 
-    private fun onVisitorIdUpdated(visitorId: String) {
-        Log.d("OnMain?", "Executing on ${Thread.currentThread().name}")
-        Log.d("Helper", "This Updated VisitorId: $visitorId")
-    }
-
     private fun onDataUpdated(dataObject: DataObject) {
         for (entry in dataObject) {
             onDataUpdated(entry.key, entry.value)
@@ -135,11 +130,6 @@ object TealiumHelper {
             }
             tealium.dataLayer.get("key").onSuccess {
                 Log.d("DataLayer", "Retrieved key with value: $it")
-            }
-
-            tealium.visitorService?.let { vs ->
-                vs.onVisitorIdUpdated.subscribe(::onVisitorIdUpdated)
-                vs.resetVisitorId()
             }
 
 //            tealium.trace.killVisitorSession()

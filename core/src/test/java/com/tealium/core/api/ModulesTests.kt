@@ -1,7 +1,6 @@
 package com.tealium.core.api
 
 import com.tealium.core.internal.modules.ConnectivityDataModule
-import com.tealium.core.internal.modules.VisitorServiceImpl
 import com.tealium.core.internal.modules.collect.CollectModule
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -26,24 +25,6 @@ class ModulesTests {
 
         assertTrue(collectFactory is CollectModule.Factory)
         assertNotNull(collectFactory.getEnforcedSettings())
-    }
-
-    @Test
-    fun visitorService_Returns_VisitorServiceFactory_With_No_Enforced_Settings() {
-        val visitorServiceFactory = Modules.visitorService()
-
-        assertTrue(visitorServiceFactory is VisitorServiceImpl.Factory)
-        assertNull(visitorServiceFactory.getEnforcedSettings())
-    }
-
-    @Test
-    fun visitorService_WithConfig_Returns_VisitorServiceFactory_With_Enforced_Settings() {
-        val visitorServiceFactory = Modules.visitorService { settings ->
-            settings.setProfile("test")
-        }
-
-        assertTrue(visitorServiceFactory is VisitorServiceImpl.Factory)
-        assertNotNull(visitorServiceFactory.getEnforcedSettings())
     }
 
     @Test

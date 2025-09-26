@@ -9,9 +9,7 @@ import com.tealium.core.api.modules.DeepLinkHandler
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleManager
 import com.tealium.core.api.modules.ModuleProxy
-import com.tealium.core.api.modules.TimedEventsManager
 import com.tealium.core.api.modules.Trace
-import com.tealium.core.api.modules.VisitorService
 import com.tealium.core.api.pubsub.Observable
 import com.tealium.core.api.pubsub.SingleResult
 import com.tealium.core.api.tracking.Dispatch
@@ -19,8 +17,6 @@ import com.tealium.core.api.tracking.TealiumDispatchType
 import com.tealium.core.api.tracking.TrackResult
 import com.tealium.core.internal.misc.AsyncProxyImpl
 import com.tealium.core.internal.modules.ModuleProxyImpl
-import com.tealium.core.internal.modules.TimedEventsManagerWrapper
-import com.tealium.core.internal.modules.VisitorServiceWrapper
 import com.tealium.core.internal.modules.datalayer.DataLayerWrapper
 import com.tealium.core.internal.modules.deeplink.DeepLinkHandlerWrapper
 import com.tealium.core.internal.modules.trace.TraceWrapper
@@ -54,10 +50,7 @@ class TealiumProxy(
 
     override val trace: Trace = TraceWrapper(this)
     override val deeplink: DeepLinkHandler = DeepLinkHandlerWrapper(this)
-    override val timedEvents: TimedEventsManager = TimedEventsManagerWrapper(this)
     override val dataLayer: DataLayer = DataLayerWrapper(this)
-
-    override val visitorService: VisitorService? = VisitorServiceWrapper(this)
 
     private val disposable = AsyncDisposableContainer(disposeOn = tealiumScheduler)
 

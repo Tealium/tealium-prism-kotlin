@@ -9,9 +9,7 @@ import com.tealium.core.api.modules.DataLayer
 import com.tealium.core.api.modules.DeepLinkHandler
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleProxy
-import com.tealium.core.api.modules.TimedEventsManager
 import com.tealium.core.api.modules.Trace
-import com.tealium.core.api.modules.VisitorService
 import com.tealium.core.api.pubsub.Single
 import com.tealium.core.api.pubsub.SingleResult
 import com.tealium.core.api.tracking.TealiumDispatchType
@@ -23,11 +21,7 @@ interface Tealium {
     val key: String
     val trace: Trace
     val deeplink: DeepLinkHandler
-    val timedEvents: TimedEventsManager
     val dataLayer: DataLayer
-
-    // Optionals
-    val visitorService: VisitorService?
 
     /**
      * Creates a [ModuleProxy] for the given module [clazz] to allow for an easy creation of Module Wrappers.

@@ -125,37 +125,11 @@ class TealiumProxyTests {
     }
 
     @Test
-    fun getTimedEvents_Returns_Same_Instance() {
-        val timedEvents1 = tealiumProxy.timedEvents
-        val timedEvents2 = tealiumProxy.timedEvents
-
-        assertSame(timedEvents1, timedEvents2)
-    }
-
-    @Test
     fun getDataLayer_Returns_Same_Instance() {
         val dataLayer1 = tealiumProxy.dataLayer
         val dataLayer2 = tealiumProxy.dataLayer
 
         assertSame(dataLayer1, dataLayer2)
-    }
-
-    @Test
-    fun getConsent_Returns_Same_Instance() {
-        // TODO - consent manager not implemented yet
-//        val consent1 = tealiumProxy.consent
-//        val consent2 = tealiumProxy.consent
-//
-//        assertSame(consent1, consent2)
-    }
-
-    @Test
-    fun getVisitorService_Returns_Same_Instance() {
-        // TODO - this may not be true once the module is introduced
-        val visitorService1 = tealiumProxy.visitorService
-        val visitorService2 = tealiumProxy.visitorService
-
-        assertSame(visitorService1, visitorService2)
     }
 
     @Test

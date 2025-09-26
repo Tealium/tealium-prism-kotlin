@@ -3,13 +3,11 @@ package com.tealium.core.api
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.settings.CollectSettingsBuilder
 import com.tealium.core.api.settings.DeepLinkSettingsBuilder
-import com.tealium.core.api.settings.VisitorServiceSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.internal.modules.AppDataModule
 import com.tealium.core.internal.modules.ConnectivityDataModule
 import com.tealium.core.internal.modules.DeviceDataModule
 import com.tealium.core.internal.modules.TealiumDataModule
-import com.tealium.core.internal.modules.VisitorServiceImpl
 import com.tealium.core.internal.modules.collect.CollectModule
 import com.tealium.core.internal.modules.datalayer.DataLayerModule
 import com.tealium.core.internal.modules.deeplink.DeepLinkModule
@@ -73,26 +71,6 @@ object Modules {
     fun collect(enforcedSettings: (CollectSettingsBuilder) -> CollectSettingsBuilder): ModuleFactory {
         val enforcedSettingsBuilder = enforcedSettings.invoke(CollectSettingsBuilder())
         return CollectModule.Factory(enforcedSettingsBuilder)
-    }
-
-    /**
-     * Returns a configured [ModuleFactory] for enabling the Visitor Service Module.
-     */
-    @JvmStatic
-    fun visitorService(): ModuleFactory = VisitorServiceImpl.Factory()
-
-    /**
-     * Returns a configured [ModuleFactory] for enabling the Visitor Service Module.
-     *
-     * The [enforcedSettings] will be set for the lifetime of the [Tealium] instance that this [ModuleFactory]
-     * is loaded in, and these settings will override any that come from other local/remote sources.
-     *
-     * @param enforcedSettings Visitor Service settings that should override any from any other settings source
-     */
-    @JvmStatic
-    fun visitorService(enforcedSettings: (VisitorServiceSettingsBuilder) -> VisitorServiceSettingsBuilder): ModuleFactory {
-        val enforcedSettingsBuilder = enforcedSettings(VisitorServiceSettingsBuilder())
-        return VisitorServiceImpl.Factory(enforcedSettingsBuilder)
     }
 
     /**
