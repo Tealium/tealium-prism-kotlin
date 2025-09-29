@@ -20,7 +20,7 @@ class DispatcherSettingsBuilderTests {
 
     @Before
     fun setup() {
-        builder = DispatcherSettingsBuilder()
+        builder = DispatcherSettingsBuilder("dispatcher")
     }
 
     @Test

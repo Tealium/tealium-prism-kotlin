@@ -52,37 +52,37 @@ class LoadRuleEngineTests {
 
     val settings = SdkSettings(
         loadRules = rules,
-        modules = mapOf(
-            "1" to ModuleSettings(
+        modules = listOf(
+            ModuleSettings("1",
                 rules = Rule.all(
                     just("1")
                 )
-            ), "1_and_2" to ModuleSettings(
+            ), ModuleSettings("1_and_2",
                 rules = Rule.all(
                     just("1"),
                     just("2")
                 )
-            ), "1_or_2" to ModuleSettings(
+            ), ModuleSettings( "1_or_2",
                 rules = Rule.any(
                     just("1"),
                     just("2")
                 )
-            ), "just_1" to ModuleSettings(
+            ), ModuleSettings("just_1",
                 rules = just("1")
-            ), "1_and_not_2" to ModuleSettings(
+            ), ModuleSettings("1_and_not_2",
                 rules = Rule.all(
                     just("1"), just("2").not()
                 )
-            ), "missing_rules" to ModuleSettings(
+            ), ModuleSettings( "missing_rules",
                 rules = Rule.all(
                     just("missing_rule")
                 )
-            ), "throwing_rules" to ModuleSettings(
+            ), ModuleSettings("throwing_rules",
                 rules = Rule.all(
                     just("throwing")
                 )
             )
-        )
+        ).associateBy { it.moduleId }
     )
 
     private lateinit var sdkSettings: StateSubject<SdkSettings>

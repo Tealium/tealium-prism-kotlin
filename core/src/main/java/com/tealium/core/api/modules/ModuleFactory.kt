@@ -8,8 +8,6 @@ import com.tealium.core.api.data.DataObject
  * initialization of the [Tealium] instance, but also when new remote settings have been retrieved,
  * if in use, and the module has since been enabled.
  *
- * The [id] value should match its respective [Module.id]
- *
  * @see Module
  */
 interface ModuleFactory {
@@ -17,7 +15,7 @@ interface ModuleFactory {
     /**
      * The unique name identifying this [ModuleFactory]
      */
-    val id: String
+    val moduleType: String
 
     /**
      * Specifies whether or not the [Module] produced by this [ModuleFactory] can be disabled by settings
@@ -39,11 +37,12 @@ interface ModuleFactory {
      * sources, however these will take precedence.
      *
      */
-    fun getEnforcedSettings(): DataObject? = null
+    fun getEnforcedSettings(): List<DataObject> = emptyList()
 
     /**
      * Called when a new instance of the [Module] is required to be created.
      *
+     * @param moduleId The id of the [Module] instance to be created
      * @param context The [TealiumContext] containing access to many shared dependencies that may
      * be required by the [Module] implementation being created.
      * @param configuration The current configuration for this module; this could be from a local,
@@ -51,5 +50,12 @@ interface ModuleFactory {
      * @return The new [Module] instance; or null if the Module is either disabled, missing required
      * properties in the [configuration] object, or missing required dependencies.
      */
-    fun create(context: TealiumContext, configuration: DataObject): Module?
+    fun create(moduleId: String, context: TealiumContext, configuration: DataObject): Module?
+
+    /**
+     * Determines whether or not this [ModuleFactory] should support multiple instances of the [Module]
+     * that it creates.
+     */
+    val allowsMultipleInstances: Boolean
+        get() = false
 }

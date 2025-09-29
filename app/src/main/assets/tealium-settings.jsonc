@@ -1,16 +1,19 @@
 {
-  "core":{
+  "core": {
     "batch_size":6,
     "deep_link_tracking_enabled":false,
     "log_level":"info",
     "settings_update_interval":15
   },
   "modules": {
-    "CollectDispatcher": {
+    "Collect": {
+      // id
+      "module_type": "Collect",
       "enabled":true
     },
     "Lifecycle":{
-      "enabled":true,
+      "module_type": "Lifecycle",
+      "enabled": true,
       "configuration": {
         "autotracking_enabled":true
       }

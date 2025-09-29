@@ -1,7 +1,7 @@
 package com.tealium.core.internal.modules.datalayer
 
+import com.tealium.core.api.Modules
 import com.tealium.core.api.data.DataObject
-import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.ModuleStoreProvider
@@ -31,8 +31,8 @@ class DataLayerModuleTests {
     }
 
     @Test
-    fun id_Matches_Factory_Id() {
-        assertEquals(DataLayerModule.id, dataLayer.id)
+    fun id_Matches_Factory_ModuleType() {
+        assertEquals(DataLayerModule.moduleType, dataLayer.id)
     }
 
     @Test
@@ -55,10 +55,10 @@ class DataLayerModuleTests {
         val context = mockk<TealiumContext>()
         val storageProvider = mockk<ModuleStoreProvider>()
         every { context.storageProvider } returns storageProvider
-        every {storageProvider.getModuleStore(any<ModuleFactory>()) } returns dataStore
+        every { storageProvider.getModuleStore(any<String>()) } returns dataStore
 
-        val dataLayer1 = DataLayerModule.create(context, DataObject.EMPTY_OBJECT)
-        val dataLayer2 = DataLayerModule.create(context, DataObject.EMPTY_OBJECT)
+        val dataLayer1 = DataLayerModule.create(Modules.Types.DATA_LAYER, context, DataObject.EMPTY_OBJECT)
+        val dataLayer2 = DataLayerModule.create(Modules.Types.DATA_LAYER, context, DataObject.EMPTY_OBJECT)
 
         assertNotSame(dataLayer1, dataLayer2)
     }

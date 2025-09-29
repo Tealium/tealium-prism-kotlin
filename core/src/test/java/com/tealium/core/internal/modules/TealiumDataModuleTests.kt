@@ -1,6 +1,7 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.BuildConfig
+import com.tealium.core.api.Modules
 import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.misc.Environment
 import com.tealium.core.api.modules.Module
@@ -174,16 +175,16 @@ class TealiumDataModuleTests {
     }
 
     @Test
-    fun factory_Id_Matches_Module_Id() {
-        val tealiumDataModule = TealiumDataModule.Factory.create(mockContext, mockk())!!
+    fun factory_ModuleType_Matches_Module_Id() {
+        val tealiumDataModule = TealiumDataModule.Factory.create(Modules.Types.TEALIUM_DATA, mockContext, mockk())!!
 
-        assertEquals(TealiumDataModule.Factory.id, tealiumDataModule.id)
+        assertEquals(TealiumDataModule.Factory.moduleType, tealiumDataModule.id)
     }
 
     @Test
     fun factory_Creates_New_Instances() {
-        val instance1 = TealiumDataModule.Factory.create(mockContext, mockk())
-        val instance2 = TealiumDataModule.Factory.create(mockContext, mockk())
+        val instance1 = TealiumDataModule.Factory.create(Modules.Types.TEALIUM_DATA, mockContext, mockk())
+        val instance2 = TealiumDataModule.Factory.create(Modules.Types.TEALIUM_DATA, mockContext, mockk())
 
         assertNotSame(instance1, instance2)
     }

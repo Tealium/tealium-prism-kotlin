@@ -33,7 +33,7 @@ class AppDataModuleTests {
 
     @Test
     fun id_Returns_AppData() {
-        assertEquals(Modules.Ids.APP_DATA, AppDataModule.Factory.id)
+        assertEquals(Modules.Types.APP_DATA, AppDataModule.Factory.moduleType)
     }
 
     @Test

@@ -22,6 +22,7 @@ import com.tealium.core.internal.logger.LoggerImpl
 import com.tealium.core.internal.rules.LoadRule
 import com.tealium.core.internal.settings.BarrierSettings
 import com.tealium.core.internal.settings.CoreSettingsImpl
+import com.tealium.core.internal.settings.ModuleSettings
 import com.tealium.core.internal.settings.SdkSettings
 import com.tealium.core.internal.settings.consent.ConsentSettings
 import java.io.File
@@ -152,11 +153,17 @@ class TealiumConfig @JvmOverloads constructor(
                 put(CoreSettingsImpl.MODULE_NAME, coreSettings)
             }
             val modulesObject = DataObject.create {
-                modules.forEach { factory ->
-                    factory.getEnforcedSettings()?.let { enforcedSettings ->
-                        put(factory.id, enforcedSettings)
+                modules.flatMap { factory ->
+                    factory.getEnforcedSettings().map { settings ->
+                        val moduleId = settings.getString(ModuleSettings.KEY_MODULE_ID)
+                            ?: factory.moduleType
+
+                        moduleId to settings.copy {
+                            put(ModuleSettings.KEY_MODULE_TYPE, factory.moduleType)
+                        }
                     }
-                }
+                }.distinctBy { (moduleId, _) -> moduleId }
+                    .forEach { (moduleId, enforcedSettings) -> put(moduleId, enforcedSettings) }
             }
             put(SdkSettings.KEY_MODULES, modulesObject)
 

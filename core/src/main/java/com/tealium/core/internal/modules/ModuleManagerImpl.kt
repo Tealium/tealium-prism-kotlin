@@ -1,7 +1,6 @@
 package com.tealium.core.internal.modules
 
 import com.tealium.core.api.logger.Logger
-import com.tealium.core.api.logger.logIfTraceEnabled
 import com.tealium.core.api.misc.Scheduler
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.modules.Module
@@ -25,11 +24,11 @@ class ModuleManagerImpl(
         get() = _modules.asObservableState()
 
     override fun addModuleFactory(moduleFactory: ModuleFactory): Boolean {
-        if (moduleFactories.contains(moduleFactory.id)) {
+        if (moduleFactories.contains(moduleFactory.moduleType)) {
             return false
         }
 
-        moduleFactories[moduleFactory.id] = moduleFactory
+        moduleFactories[moduleFactory.moduleType] = moduleFactory
         return true
     }
 
@@ -81,28 +80,61 @@ class ModuleManagerImpl(
     }
 
     override fun updateModuleSettings(context: TealiumContext, settings: SdkSettings) {
-        // iterate all factories to preserve insertion order
         val oldModules = _modules.value.associateBy(Module::id)
-        val newModules = moduleFactories.mapNotNull { (id, factory) ->
-            val module = oldModules[id]
-            val newSettings = settings.modules.getOrDefault(id)
-            if (module != null) {
-                updateOrDisableModule(
-                    factory.canBeDisabled(),
-                    module,
-                    newSettings,
-                    context.logger
+
+        val allModuleSettings = prepareModuleSettings(settings)
+
+        val createdModuleTypes = mutableSetOf<String>()
+        val newModules = allModuleSettings.mapNotNull { newSettings ->
+            val factory = moduleFactories[newSettings.moduleType]
+
+            if (factory == null) {
+                context.logger.warn(
+                    newSettings.moduleId,
+                    "Attempted to create module but factory implementation (${newSettings.moduleType}) not found"
                 )
-            } else {
-                createModule(
-                    context,
-                    newSettings,
-                    factory
-                )
+                return@mapNotNull null
             }
-        }.toList()
+
+            val firstInstanceForType = createdModuleTypes.add(factory.moduleType)
+            if (!firstInstanceForType && !factory.allowsMultipleInstances) {
+                context.logger.warn(
+                    newSettings.moduleId,
+                    "Attempted to create a second module instance for type (${newSettings.moduleType}); but instance already exists."
+                )
+                return@mapNotNull null
+            }
+
+            val moduleId = if (factory.allowsMultipleInstances) newSettings.moduleId else factory.moduleType
+            val module = oldModules[moduleId]
+            if (module != null) {
+                updateOrDisableModule(factory.canBeDisabled(), module, newSettings, context.logger)
+            } else {
+                createModule(moduleId, context, newSettings, factory)
+            }
+        }
 
         _modules.onNext(newModules)
+    }
+
+    /**
+     * Returns a list of all [ModuleSettings] from the given [SdkSettings], joined with additional
+     * default [ModuleSettings] for any [ModuleFactory] that was added but does not have any settings
+     * available.
+     *
+     * The returned list is sorted by [ModuleSettings.order], and deduplicated by [ModuleSettings.moduleId].
+     */
+    private fun prepareModuleSettings(settings: SdkSettings): List<ModuleSettings> {
+        val sortedModuleSettings = settings.modules.values.sortedBy { it.order }
+
+        val missingModuleSettings = moduleFactories.filterValues { factory ->
+            settings.modules.values.find { it.moduleType == factory.moduleType } == null
+        }.map { ModuleSettings(it.value.moduleType, order = Int.MAX_VALUE) }
+
+        val deduplicatedModuleSettings = (sortedModuleSettings + missingModuleSettings)
+            .distinctBy { it.moduleId }
+
+        return deduplicatedModuleSettings
     }
 
     private fun updateOrDisableModule(
@@ -112,7 +144,7 @@ class ModuleManagerImpl(
         logger: Logger
     ): Module? {
         if (canBeDisabled && !settings.enabled) {
-            logger.trace(module.id, "Module has been marked as disabled. Module will be shut down.")
+            logger.debug(module.id, "Module has been marked as disabled. Module will be shut down.")
             shutdownModule(module, logger)
             return null
         }
@@ -126,47 +158,26 @@ class ModuleManagerImpl(
             return null
         }
 
-        logger.logIfTraceEnabled(module.id) {
-            "Configuration updated to ${settings.configuration}"
-        }
+        logger.trace(module.id, "Configuration updated to ${settings.configuration}")
         return updatedModule
     }
 
     private fun shutdownModule(module: Module, logger: Logger) {
         module.onShutdown()
-        logger.trace(
-            module.id,
-            "Module has been shut down."
-        )
+        logger.trace(module.id, "Module has been shut down.")
     }
 
-    companion object {
-
-        private fun createModule(
-            context: TealiumContext,
-            settings: ModuleSettings,
-            factory: ModuleFactory
-        ): Module? {
-            return if (!factory.canBeDisabled() || settings.enabled) {
-                factory.create(context, settings.configuration)
-            } else null
-        }
-
-        /**
-         * Extracts the module settings for the named module; otherwise returns the default settings.
-         */
-        private fun getModuleSettings(
-            moduleName: String,
-            modulesSettings: Map<String, ModuleSettings>
-        ): ModuleSettings {
-            return modulesSettings[moduleName] ?: ModuleSettings()
-        }
-
-        /**
-         * Extracts the module settings for the named module; otherwise returns the default settings.
-         */
-        private fun Map<String, ModuleSettings>.getOrDefault(name: String): ModuleSettings {
-            return getModuleSettings(name, this)
+    private fun createModule(
+        moduleId: String,
+        context: TealiumContext,
+        settings: ModuleSettings,
+        factory: ModuleFactory
+    ): Module? {
+        return if (!factory.canBeDisabled() || settings.enabled) {
+            factory.create(moduleId, context, settings.configuration)
+        } else {
+            context.logger.debug(settings.moduleId, "Module failed to initialize.")
+            null
         }
     }
 }

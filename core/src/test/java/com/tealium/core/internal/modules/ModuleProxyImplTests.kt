@@ -30,8 +30,8 @@ class ModuleProxyImplTests {
     private val dispatcher = TestDispatcher("dispatcher")
     private val module = ModuleWithObservable(Observables.publishSubject(), "module")
     private val moduleFactories = listOf(
-        TestModuleFactory(dispatcher),
-        TestModuleFactory(module)
+        TestModuleFactory.forModule(dispatcher),
+        TestModuleFactory.forModule(module)
     )
     private lateinit var context: TealiumContext
     private lateinit var moduleManager: ModuleManagerImpl

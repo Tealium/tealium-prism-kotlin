@@ -681,10 +681,10 @@ class DataLayerWrapperTests {
      * Mock [ModuleFactory] to return a [DataLayerModule] with an injected mock [DataStore]
      */
     private class MockDataLayerFactory(private val module: DataLayerModule) : ModuleFactory {
-        override val id: String
-            get() = DataLayerModule.id
+        override val moduleType: String
+            get() = DataLayerModule.moduleType
 
-        override fun create(context: TealiumContext, configuration: DataObject): Module? {
+        override fun create(moduleId: String, context: TealiumContext, configuration: DataObject): Module? {
             return module
         }
     }

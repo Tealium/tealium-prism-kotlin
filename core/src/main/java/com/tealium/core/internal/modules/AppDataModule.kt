@@ -38,15 +38,15 @@ class AppDataModule(
         }
     }
 
-    override val id: String = Modules.Ids.APP_DATA
+    override val id: String = Modules.Types.APP_DATA
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
     object Factory : ModuleFactory {
-        override val id: String = Modules.Ids.APP_DATA
+        override val moduleType: String = Modules.Types.APP_DATA
 
-        override fun create(context: TealiumContext, configuration: DataObject): Module? {
-            val dataStore = context.storageProvider.getModuleStore(this)
+        override fun create(moduleId: String, context: TealiumContext, configuration: DataObject): Module? {
+            val dataStore = context.storageProvider.getModuleStore(moduleId)
             return AppDataModule(context, dataStore)
         }
     }

@@ -128,16 +128,16 @@ class TimeDataModuleTests {
     }
 
     @Test
-    fun factory_Id_Matches_Module_Id() {
-        val timeDataModule = TimeDataModule.Factory.create(mockk(), mockk())!!
+    fun factory_ModuleType_Matches_Module_Id() {
+        val timeDataModule = TimeDataModule.Factory.create(TimeDataModule.Factory.moduleType, mockk(), mockk())!!
 
-        assertEquals(TimeDataModule.Factory.id, timeDataModule.id)
+        assertEquals(TimeDataModule.Factory.moduleType, timeDataModule.id)
     }
 
     @Test
     fun factory_Creates_New_Instances() {
-        val instance1 = TimeDataModule.Factory.create(mockk(), mockk())
-        val instance2 = TimeDataModule.Factory.create(mockk(), mockk())
+        val instance1 = TimeDataModule.Factory.create("1", mockk(), mockk())
+        val instance2 = TimeDataModule.Factory.create("1", mockk(), mockk())
 
         assertNotSame(instance1, instance2)
     }

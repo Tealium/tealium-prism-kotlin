@@ -9,6 +9,7 @@ import com.tealium.core.api.rules.Condition.Companion.isDefined
 import com.tealium.core.api.rules.Condition.Companion.isEqual
 import com.tealium.core.api.rules.Rule
 import com.tealium.core.api.settings.ConsentConfigurationBuilder
+import com.tealium.core.api.settings.TestSettingsBuilder
 import com.tealium.core.api.transform.TransformationScope
 import com.tealium.core.api.transform.TransformationSettings
 import com.tealium.core.internal.dispatch.barrier
@@ -19,6 +20,7 @@ import com.tealium.core.internal.settings.BarrierSettings
 import com.tealium.core.internal.settings.SdkSettings
 import com.tealium.core.internal.settings.consent.ConsentPurpose
 import com.tealium.core.internal.settings.consent.ConsentSettings
+import com.tealium.tests.common.TestModuleFactory
 import com.tealium.tests.common.getDefaultConfig
 import io.mockk.every
 import io.mockk.mockk
@@ -168,7 +170,8 @@ class TealiumConfigTests {
                 .setTealiumPurposeId("tealium_purpose")
         }
 
-        val consent = config.enforcedSdkSettings.get(SdkSettings.KEY_CONSENT, ConsentSettings.Converter)!!
+        val consent =
+            config.enforcedSdkSettings.get(SdkSettings.KEY_CONSENT, ConsentSettings.Converter)!!
         val cmp1 = consent.configurations["cmp1"]!!
         assertEquals("tealium_purpose", cmp1.tealiumPurposeId)
         assertEquals(setOf("dispatcher2"), cmp1.refireDispatcherIds)
@@ -179,21 +182,73 @@ class TealiumConfigTests {
     fun enableConsentIntegration_Removes_Previously_Added_Settings_When_Called_Multiple_Times() {
         val cmp1 = mockCmpAdapter("cmp1")
         val cmp2 = mockCmpAdapter("cmp2")
-        val settingsBlock: (ConsentConfigurationBuilder) -> ConsentConfigurationBuilder = { settings ->
-            settings.addPurpose("purpose1", setOf("dispatcher1"))
-                .setRefireDispatcherIds(setOf("dispatcher2"))
-                .setTealiumPurposeId("tealium_purpose")
-        }
+        val settingsBlock: (ConsentConfigurationBuilder) -> ConsentConfigurationBuilder =
+            { settings ->
+                settings.addPurpose("purpose1", setOf("dispatcher1"))
+                    .setRefireDispatcherIds(setOf("dispatcher2"))
+                    .setTealiumPurposeId("tealium_purpose")
+            }
 
         val config = getDefaultConfig(app = mockk())
         config.enableConsentIntegration(cmp1, settingsBlock)
         config.enableConsentIntegration(cmp2, settingsBlock)
 
-        val consent = config.enforcedSdkSettings.get(SdkSettings.KEY_CONSENT, ConsentSettings.Converter)!!
+        val consent =
+            config.enforcedSdkSettings.get(SdkSettings.KEY_CONSENT, ConsentSettings.Converter)!!
 
         assertEquals(1, consent.configurations.size)
         assertNull(consent.configurations["cmp1"])
         assertNotNull(consent.configurations["cmp2"])
+    }
+
+    @Test
+    fun moduleFactory_Settings_Are_Added_To_Enforced_Settings_Using_ModuleId() {
+        val settings1 = TestSettingsBuilder("module_type")
+            .setModuleId("module_id_1")
+            .build()
+        val settings2 = TestSettingsBuilder("module_type")
+            .setModuleId("module_id_2")
+            .build()
+        val factory = TestModuleFactory(
+            "module_type",
+            config = listOf(settings1, settings2),
+            allowsMultipleInstances = true
+        )
+
+        val config = getDefaultConfig(app = mockk(), modules = listOf(factory))
+
+        val moduleObject = config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_MODULES)!!
+        assertEquals(settings1, moduleObject.getDataObject("module_id_1"))
+        assertEquals(settings2, moduleObject.getDataObject("module_id_2"))
+    }
+
+    @Test
+    fun moduleFactory_Settings_Are_Added_To_Enforced_Settings_Using_ModuleType_When_ModuleId_Omitted() {
+        val settings1 = TestSettingsBuilder("module_type")
+            .build()
+        val factory = TestModuleFactory("module_type", config = listOf(settings1))
+
+        val config = getDefaultConfig(app = mockk(), modules = listOf(factory))
+
+        val moduleObject = config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_MODULES)!!
+        assertEquals(settings1, moduleObject.getDataObject("module_type"))
+    }
+
+    @Test
+    fun moduleFactory_Settings_Only_Adds_Single_ModuleSettings_When_ModuleIds_Clash() {
+        val settings1 = TestSettingsBuilder("module_type")
+            .setModuleId("1")
+            .build()
+        val settings2 = TestSettingsBuilder("module_type")
+            .setModuleId("1")
+            .build()
+        val factory = TestModuleFactory("module_type", config = listOf(settings1, settings2))
+
+        val config = getDefaultConfig(app = mockk(), modules = listOf(factory))
+
+        val moduleObject = config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_MODULES)!!
+        assertEquals(settings1, moduleObject.getDataObject("1"))
+        assertNull(moduleObject.getDataObject("2"))
     }
 
     private fun mockCmpAdapter(id: String = "cmp"): CmpAdapter {

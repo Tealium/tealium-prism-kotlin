@@ -1,11 +1,12 @@
 package com.tealium.core.api.settings
 
+import com.tealium.core.api.Modules
 import com.tealium.core.internal.modules.deeplink.DeepLinkModuleConfiguration
 
 /**
  * A builder class used to enforce the available configuration for Deep Link handling
  */
-class DeepLinkSettingsBuilder: CollectorSettingsBuilder<DeepLinkSettingsBuilder>() {
+class DeepLinkSettingsBuilder: CollectorSettingsBuilder<DeepLinkSettingsBuilder>(Modules.Types.DEEP_LINK) {
 
     /**
      * Sets whether or not automatic deep link handling is enabled.

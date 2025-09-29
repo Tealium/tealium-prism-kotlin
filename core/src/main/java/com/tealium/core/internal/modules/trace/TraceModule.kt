@@ -47,7 +47,7 @@ class TraceModule(
         return dataStore.getAll()
     }
 
-    override val id: String = Modules.Ids.TRACE
+    override val id: String = Modules.Types.TRACE
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
@@ -65,10 +65,10 @@ class TraceModule(
     }
 
     object Factory : ModuleFactory {
-        override val id: String = Modules.Ids.TRACE
+        override val moduleType: String = Modules.Types.TRACE
 
-        override fun create(context: TealiumContext, configuration: DataObject): Module? {
-            val storage = context.storageProvider.getModuleStore(this)
+        override fun create(moduleId: String, context: TealiumContext, configuration: DataObject): Module? {
+            val storage = context.storageProvider.getModuleStore(moduleId)
             return TraceModule(storage, context.tracker)
         }
     }

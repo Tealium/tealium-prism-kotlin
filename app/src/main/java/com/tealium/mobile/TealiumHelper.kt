@@ -87,8 +87,8 @@ object TealiumHelper {
             enableConsentIntegration(cmp) { settings ->
                 settings
                     .setTealiumPurposeId(Purposes.TEALIUM)
-                    .addPurpose(Purposes.TRACKING, setOf(Modules.Ids.COLLECT))
-                    .setRefireDispatcherIds(setOf(Modules.Ids.COLLECT))
+                    .addPurpose(Purposes.TRACKING, setOf(Modules.Types.COLLECT))
+                    .setRefireDispatcherIds(setOf(Modules.Types.COLLECT))
             }
 
 //            addBarrier(Barriers.connectivity(),
@@ -223,10 +223,14 @@ object TealiumHelper {
 
     private fun configureLoggingDispatcher(id: String): ModuleFactory {
         return object : ModuleFactory {
-            override val id: String
+            override val moduleType: String
                 get() = id
 
-            override fun create(context: TealiumContext, configuration: DataObject): Module? {
+            override fun create(
+                moduleId: String,
+                context: TealiumContext,
+                configuration: DataObject
+            ): Module? {
                 return object : Dispatcher {
                     override fun dispatch(
                         dispatches: List<Dispatch>,

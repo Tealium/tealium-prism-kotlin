@@ -259,7 +259,8 @@ class LifecycleModule(
 
     override fun collect(dispatchContext: DispatchContext): DataObject {
         if (dispatchContext.source.isFromModule(this::class.java)
-            || lifecycleConfiguration.dataTarget != LifecycleDataTarget.AllEvents) {
+            || lifecycleConfiguration.dataTarget != LifecycleDataTarget.AllEvents
+        ) {
             return DataObject.EMPTY_OBJECT
         }
 
@@ -311,16 +312,24 @@ class LifecycleModule(
     }
 
     class Factory(
-        private val settings: DataObject? = null
+        enforcedSettings: DataObject? = null
     ) : ModuleFactory {
+
         constructor(moduleSettings: LifecycleSettingsBuilder) : this(moduleSettings.build())
 
-        override val id: String = Lifecycle.ID
+        private val enforcedSettings = enforcedSettings?.let { listOf(it) }
+            ?: emptyList()
 
-        override fun getEnforcedSettings(): DataObject? = settings
+        override val moduleType: String = Lifecycle.ID
 
-        override fun create(context: TealiumContext, configuration: DataObject): Module? {
-            val dataStore = context.storageProvider.getModuleStore(this)
+        override fun getEnforcedSettings(): List<DataObject> = enforcedSettings
+
+        override fun create(
+            moduleId: String,
+            context: TealiumContext,
+            configuration: DataObject
+        ): Module? {
+            val dataStore = context.storageProvider.getModuleStore(moduleId)
             return LifecycleModule(
                 context,
                 LifecycleConfiguration.fromDataObject(configuration),

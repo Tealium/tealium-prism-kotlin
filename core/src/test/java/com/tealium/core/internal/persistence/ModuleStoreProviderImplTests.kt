@@ -67,11 +67,11 @@ class ModuleStoreProviderImplTests {
     }
 
     @Test
-    fun getModuleStore_ReturnsSameObject_ForModule_AndFactory() {
+    fun getModuleStore_ReturnsSameObject_ForModule_And_Module_Id() {
         every { modulesRepository.modules } returns mapOf("test" to 2)
 
         val store1 = moduleStoreProviderImpl.getModuleStore(TestModule("test"))
-        val store2 = moduleStoreProviderImpl.getModuleStore(TestModuleFactory("test"))
+        val store2 = moduleStoreProviderImpl.getModuleStore("test")
 
         assertSame(store1, store2)
         assertEquals(1, keyValueRepositoryCreator.count)

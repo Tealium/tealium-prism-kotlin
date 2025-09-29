@@ -9,15 +9,14 @@ import com.tealium.core.api.modules.ModuleFactory
  *
  */
 interface ModuleStoreProvider {
+
     /**
-     * Registers a [ModuleFactory] for storage and returns its [DataStore] object, which can
+     * Registers a [Module] for storage and returns its [DataStore] object, which can
      * be used to read/write data.
      *
-     * @param moduleFactory The factory whose [DataStore] is required. This needs to be the
-     * Factory, to support dependency injection into the [Module][com.tealium.core.api.modules.Module]
-     * itself.
+     * @param module The module whose [DataStore] is required.
      */
-    fun getModuleStore(moduleFactory: ModuleFactory): DataStore
+    fun getModuleStore(moduleId: String): DataStore
 
     /**
      * Registers a [Module] for storage and returns its [DataStore] object, which can

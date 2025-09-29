@@ -13,9 +13,32 @@ import com.tealium.core.internal.settings.ModuleSettings
  *
  * Therefore it also doesn't require users to know which json key any particular setting needs to be set at.
  */
-open class ModuleSettingsBuilder<T: ModuleSettingsBuilder<T>> {
-    protected val builder: DataObject.Builder = DataObject.Builder()
+open class ModuleSettingsBuilder<T: ModuleSettingsBuilder<T>>(private val moduleType: String) {
+    protected val moduleSettings: DataObject.Builder = DataObject.Builder()
     protected val configuration: DataObject.Builder = DataObject.Builder()
+
+    /**
+     * Protected implementation for more specific builders to use when enabling multiple module id
+     * support.
+     *
+     * Specific builders that require this feature can implement [MultipleInstancesModuleSettingsBuilder]
+     * and wire its [MultipleInstancesModuleSettingsBuilder.setModuleId] method to call [setModuleIdInternal]
+     * to effectively make this functionality public.
+     */
+    @Suppress("UNCHECKED_CAST")
+    protected fun setModuleIdInternal(moduleId: String): T = apply {
+        moduleSettings.put(ModuleSettings.KEY_MODULE_ID, moduleId)
+    } as T
+
+    /**
+     * Sets the order in which the [Module] needs to be initialized.
+     *
+     * Modules will be initialized in natural integer order; lower values first.
+     */
+    @Suppress("UNCHECKED_CAST")
+    fun setOrder(order: Int): T = apply {
+        moduleSettings.put(ModuleSettings.KEY_ORDER, order)
+    } as T
 
     /**
      * Sets the resulting [Module] to be permanently enabled/disabled. Local/Remote settings sources will
@@ -23,14 +46,15 @@ open class ModuleSettingsBuilder<T: ModuleSettingsBuilder<T>> {
      */
     @Suppress("UNCHECKED_CAST")
     fun setEnabled(enabled: Boolean): T = apply {
-        builder.put(ModuleSettings.KEY_ENABLED, enabled)
+        moduleSettings.put(ModuleSettings.KEY_ENABLED, enabled)
     } as T
 
     /**
      * Returns the complete [Module] settings as configured by this [ModuleSettingsBuilder].
      */
     fun build(): DataObject =
-        builder
+        moduleSettings
+            .put(ModuleSettings.KEY_MODULE_TYPE, moduleType)
             .put(ModuleSettings.KEY_CONFIGURATION, configuration.build())
             .build()
 }

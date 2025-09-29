@@ -215,7 +215,7 @@ class TealiumImpl(
         )
         subscribeIdentityUpdates(
             settings.map(SdkSettings::core),
-            storage.getModuleStore(DataLayerModule),
+            storage.getModuleStore(DataLayerModule.moduleType),
             visitorIdProvider,
         ).addTo(disposables)
 
@@ -340,8 +340,8 @@ class TealiumImpl(
          *
          * Before adding them, it will also:
          *  - add the required default module factory implementations if they are missing
-         *  - log warnings when duplicate factory id's are provided
-         *  - log warnings when a factory with a default id is provided, but the implementation is not ours
+         *  - log warnings when duplicate factory moduleType's are provided
+         *  - log warnings when a factory with a default moduleType is provided, but the implementation is not ours
          *
          *  @param factories The [ModuleFactory]s to load into the [moduleManager]
          *  @param moduleManager The [InternalModuleManager] to add the [factories] to
@@ -357,7 +357,7 @@ class TealiumImpl(
             for (validatedFactory in addAndValidateDefaultFactories(factories, defaults, logger)) {
                 if (!moduleManager.addModuleFactory(validatedFactory)) {
                     logger.logIfWarnEnabled(LogCategory.TEALIUM) {
-                        "Duplicate Module Factory with id \"${validatedFactory.id}\" was found. It will not be used."
+                        "Duplicate Module Factory with moduleType \"${validatedFactory.moduleType}\" was found. It will not be used."
                     }
                 }
             }
@@ -378,19 +378,19 @@ class TealiumImpl(
             defaults: List<ModuleFactory>,
             logger: Logger
         ): List<ModuleFactory> {
-            val factoriesMap = factories.associateBy(ModuleFactory::id)
+            val factoriesMap = factories.associateBy(ModuleFactory::moduleType)
                 .toMutableMap()
 
             for (default in defaults) {
-                val configuredFactory = factoriesMap[default.id]
+                val configuredFactory = factoriesMap[default.moduleType]
                 if (configuredFactory == null) {
-                    factoriesMap[default.id] = default
+                    factoriesMap[default.moduleType] = default
                 } else if (configuredFactory.javaClass != default.javaClass) {
                     // note. could choose to throw here instead, to ensure required modules are our own
                     // implementations. There's no good reason for users to supply their own data layer
                     // or tealium collector implementation.
                     logger.logIfWarnEnabled(LogCategory.TEALIUM) {
-                        "A non-standard ModuleFactory implementation has been provided for default module (${configuredFactory.id}"
+                        "A non-standard ModuleFactory implementation has been provided for default module (${configuredFactory.moduleType}"
                     }
                 }
             }

@@ -1,5 +1,6 @@
 package com.tealium.core.internal.modules.collect
 
+import com.tealium.core.api.Modules
 import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.modules.TealiumContext
@@ -42,7 +43,7 @@ class CollectModuleFactoryTests {
     @Test
     fun create_Returns_CollectModule_When_ModuleSettings_Enabled() {
         val module = CollectModule.Factory()
-            .create(context, DataObject.EMPTY_OBJECT)
+            .create(Modules.Types.COLLECT, context, DataObject.EMPTY_OBJECT)
 
         assertNotNull(module)
         assertTrue(module is CollectModule)
@@ -52,7 +53,7 @@ class CollectModuleFactoryTests {
     fun create_Returns_Null_When_Invalid_Url() {
         val factory = CollectModule.Factory()
 
-        assertNull(factory.create(mockk(), createConfigurationObject {
+        assertNull(factory.create(Modules.Types.COLLECT, mockk(), createConfigurationObject {
             it.setUrl("some_invalid_url")
         }))
     }
@@ -61,7 +62,7 @@ class CollectModuleFactoryTests {
     fun create_Returns_Null_When_Invalid_BatchUrl() {
         val factory = CollectModule.Factory()
 
-        assertNull(factory.create(mockk(), createConfigurationObject {
+        assertNull(factory.create(Modules.Types.COLLECT, mockk(), createConfigurationObject {
             it.setBatchUrl("some_invalid_url")
         }))
     }

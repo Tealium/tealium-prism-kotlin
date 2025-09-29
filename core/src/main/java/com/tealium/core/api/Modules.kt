@@ -39,7 +39,10 @@ import com.tealium.core.internal.modules.trace.TraceModule
  */
 object Modules {
 
-    object Ids {
+    /**
+     * Object to hold the [ModuleFactory.moduleType] constants.
+     */
+    object Types {
         const val APP_DATA = "AppData"
         const val COLLECT = "Collect"
         const val CONNECTIVITY_DATA = "ConnectivityData"
@@ -68,9 +71,24 @@ object Modules {
      * @param enforcedSettings Collect dispatcher settings that should override any from any other settings source
      */
     @JvmStatic
-    fun collect(enforcedSettings: (CollectSettingsBuilder) -> CollectSettingsBuilder): ModuleFactory {
-        val enforcedSettingsBuilder = enforcedSettings.invoke(CollectSettingsBuilder())
-        return CollectModule.Factory(enforcedSettingsBuilder)
+    fun collect(enforcedSettings: (CollectSettingsBuilder) -> CollectSettingsBuilder): ModuleFactory =
+        collect(*arrayOf(enforcedSettings))
+
+    /**
+     * Returns a configured [ModuleFactory] for enabling the Collect Module.
+     *
+     * The [enforcedSettings] will be set for the lifetime of the [Tealium] instance that this [ModuleFactory]
+     * is loaded in, and these settings will override any that come from other local/remote sources.
+     *
+     * @param enforcedSettings A variable number of Collect dispatcher settings to configure multiple instances, that should override any from any other settings source
+     */
+    @JvmStatic
+    fun collect(vararg enforcedSettings: (CollectSettingsBuilder) -> CollectSettingsBuilder): ModuleFactory {
+        val configObjects = enforcedSettings.map { block ->
+            val enforcedSettingsBuilder = block.invoke(CollectSettingsBuilder())
+            enforcedSettingsBuilder.build()
+        }
+        return CollectModule.Factory(configObjects)
     }
 
     /**

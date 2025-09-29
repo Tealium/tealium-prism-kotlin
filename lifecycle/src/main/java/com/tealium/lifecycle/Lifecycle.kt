@@ -118,7 +118,7 @@ fun com.tealium.core.api.Modules.lifecycle(enforcedSettings: (LifecycleSettingsB
 /**
  * The [Module.id] of the [Lifecycle] module.
  */
-val com.tealium.core.api.Modules.Ids.LIFECYCLE
+val com.tealium.core.api.Modules.Types.LIFECYCLE
     get() = Lifecycle.ID
 
 /**

@@ -5,6 +5,7 @@ import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.modules.Collector
 import com.tealium.core.api.modules.Dispatcher
 import com.tealium.core.api.modules.Module
+import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.Observer
@@ -48,7 +49,7 @@ class ModuleManagerImplTests {
         testModule,
         moduleWithObservable
     )
-    private val defaultFactories = modules.map { TestModuleFactory(it) }
+    private val defaultFactories = modules.map { TestModuleFactory.forModule(it) }
 
     private lateinit var moduleManager: InternalModuleManager
     private lateinit var modulesSubject: StateSubject<List<Module>>
@@ -69,7 +70,7 @@ class ModuleManagerImplTests {
     }
 
     @Test
-    fun getModuleOfType_ReturnsSame_MatchingGivenSpecificClass() {
+    fun getModuleOfType_Returns_Same_Matching_Given_Specific_Class() {
         val collector = moduleManager.getModuleOfType(TestCollector::class.java)
         val dispatcher = moduleManager.getModuleOfType(TestDispatcher::class.java)
         val module = moduleManager.getModuleOfType(TestModule::class.java)
@@ -80,7 +81,7 @@ class ModuleManagerImplTests {
     }
 
     @Test
-    fun getModuleOfType_ReturnsSame_MatchingGivenInterface() {
+    fun getModuleOfType_Returns_Same_Matching_Given_Interface() {
         val collector = moduleManager.getModuleOfType(Collector::class.java)
         val dispatcher = moduleManager.getModuleOfType(Dispatcher::class.java)
 
@@ -89,21 +90,21 @@ class ModuleManagerImplTests {
     }
 
     @Test
-    fun getModuleOfType_ReturnsFirst_When_MatchingMultiple() {
+    fun getModuleOfType_Returns_First_When_Matching_Multiple() {
         val module = moduleManager.getModuleOfType(Module::class.java)
 
         assertSame(testCollector, module)
     }
 
     @Test
-    fun getModuleOfType_ReturnsNull_When_MatchingNone() {
+    fun getModuleOfType_Returns_Null_When_Matching_None() {
         val module = moduleManager.getModuleOfType(DataLayerModule::class.java)
 
         assertNull(module)
     }
 
     @Test
-    fun getModuleOfType_ReturnsSame_MatchingGivenSpecificClass_OnGivenScheduler() {
+    fun getModuleOfType_Returns_Same_Matching_Given_Specific_Class_On_Given_Scheduler() {
         val onCollector = mockk<TealiumCallback<TestCollector?>>(relaxed = true)
         val onDispatcher = mockk<TealiumCallback<TestDispatcher?>>(relaxed = true)
         val onModule = mockk<TealiumCallback<TestModule?>>(relaxed = true)
@@ -119,7 +120,7 @@ class ModuleManagerImplTests {
     }
 
     @Test
-    fun getModuleOfType_ReturnsSame_MatchingGivenInterface_OnGivenScheduler() {
+    fun getModuleOfType_Returns_Same_Matching_Given_Interface_On_Given_Scheduler() {
         val onCollector = mockk<TealiumCallback<Collector?>>(relaxed = true)
         val onDispatcher = mockk<TealiumCallback<Dispatcher?>>(relaxed = true)
         moduleManager.getModuleOfType(Collector::class.java, onCollector)
@@ -132,7 +133,7 @@ class ModuleManagerImplTests {
     }
 
     @Test
-    fun getModuleOfType_ReturnsFirst_When_MatchingMultiple_OnGivenScheduler() {
+    fun getModuleOfType_Returns_First_When_Matching_Multiple_On_Given_Scheduler() {
         val onModule = mockk<TealiumCallback<Module?>>(relaxed = true)
         moduleManager.getModuleOfType(Module::class.java, onModule)
 
@@ -142,7 +143,7 @@ class ModuleManagerImplTests {
     }
 
     @Test
-    fun getModuleOfType_ReturnsNull_When_MatchingNone_OnGivenScheduler() {
+    fun getModuleOfType_Returns_Null_When_Matching_None_On_Given_Scheduler() {
         val onModule = mockk<TealiumCallback<DataLayerModule?>>(relaxed = true)
         moduleManager.getModuleOfType(DataLayerModule::class.java, onModule)
 
@@ -152,7 +153,7 @@ class ModuleManagerImplTests {
     }
 
     @Test
-    fun getModulesOfType_ReturnsAll_When_MatchingMultiple() {
+    fun getModulesOfType_Returns_All_When_Matching_Multiple() {
         val modules = moduleManager.getModulesOfType(Module::class.java)
 
         assertSame(testCollector, modules[0])
@@ -161,7 +162,7 @@ class ModuleManagerImplTests {
     }
 
     @Test
-    fun getModulesOfType_ReturnsEmpty_When_MatchingNone() {
+    fun getModulesOfType_Returns_Empty_When_Matching_None() {
         val modules = moduleManager.getModulesOfType(DataLayerModule::class.java)
         assertTrue(modules.isEmpty())
     }
@@ -301,14 +302,14 @@ class ModuleManagerImplTests {
     }
 
     @Test
-    fun updateModuleSettings_ProvidesConfiguration_ToSpecificModules() {
-        val testCollectorSettings = ModuleSettings(configuration = DataObject.create {
+    fun updateModuleSettings_Provides_Configuration_To_Specific_Modules() {
+        val testCollectorSettings = ModuleSettings(testCollector.id, configuration = DataObject.create {
             put("collector_setting", "10")
         })
-        val testDispatcherSettings = ModuleSettings(configuration = DataObject.create {
+        val testDispatcherSettings = ModuleSettings(testDispatcher.id, configuration = DataObject.create {
             put("dispatcher_setting", "10")
         })
-        val testModuleSettings = ModuleSettings(configuration = DataObject.create {
+        val testModuleSettings = ModuleSettings(testModule.id, configuration = DataObject.create {
             put("module_setting", "10")
         })
         moduleManager.updateModuleSettings(
@@ -330,7 +331,7 @@ class ModuleManagerImplTests {
 
     @Test
     fun updateModuleSettings_Does_Not_Create_Module_When_Settings_Disabled() {
-        val creator = mockk<(TealiumContext, DataObject) -> Module>()
+        val creator = mockk<(String, TealiumContext, DataObject) -> Module>()
 
         moduleManager.addModuleFactory(TestModuleFactory("disabled_module", creator = creator))
         moduleManager.updateModuleSettings(context, disableModuleSettings("disabled_module"))
@@ -342,8 +343,8 @@ class ModuleManagerImplTests {
 
     @Test
     fun updateModuleSettings_Does_Create_Module_When_Settings_Disabled_But_Module_Cannot_Be_Disabled() {
-        val creator = mockk<(TealiumContext, DataObject) -> Module>()
-        every { creator.invoke(any(), any()) } returns mockk(relaxed = true)
+        val creator = mockk<(String, TealiumContext, DataObject) -> Module>()
+        every { creator.invoke(any(), any(), any()) } returns mockk(relaxed = true)
 
         moduleManager.addModuleFactory(
             TestModuleFactory(
@@ -355,15 +356,15 @@ class ModuleManagerImplTests {
         moduleManager.updateModuleSettings(context, disableModuleSettings("disabled_module"))
 
         verify {
-            creator(any(), any())
+            creator(any(), any(), any())
         }
     }
 
     @Test
     fun updateModuleSettings_Updates_Module_Configuration_When_Settings_Disabled_But_Module_Cannot_Be_Disabled() {
-        val creator = mockk<(TealiumContext, DataObject) -> Module>(relaxed = true)
+        val creator = mockk<(String, TealiumContext, DataObject) -> Module>(relaxed = true)
         val nonDisableableModule = TestModule.mock("disabled_module")
-        every { creator.invoke(any(), any()) } returns nonDisableableModule
+        every { creator.invoke(any(), any(), any()) } returns nonDisableableModule
 
         moduleManager.addModuleFactory(
             TestModuleFactory(
@@ -381,6 +382,117 @@ class ModuleManagerImplTests {
 
         verify {
             nonDisableableModule.updateConfiguration(any())
+        }
+    }
+
+    @Test
+    fun updateModuleSettings_Creates_Single_Instance_Module_With_Fixed_Id() {
+        val customId = "custom-id"
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf(
+            customId to ModuleSettings(moduleType = testModule.id, moduleId = customId)
+        )))
+
+        assertNotNull(moduleManager.modules.value.find { it.id == testModule.id })
+    }
+
+    @Test
+    fun updateModuleSettings_Creates_Single_Instance_Module_Only_Once() {
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf(
+            "1" to ModuleSettings(moduleType = testModule.id, "1"),
+            "2" to ModuleSettings(moduleType = testModule.id, "2"),
+        )))
+
+        assertEquals(1, moduleManager.modules.value.count { it.id == testModule.id })
+    }
+
+    @Test
+    fun updateModuleSettings_Creates_Multiple_Instance_Modules_Using_ModuleId_From_Settings() {
+        val multiFactory = multiInstanceFactory("custom_type")
+        moduleManager.addModuleFactory(multiFactory)
+
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf(
+            "1" to ModuleSettings(moduleType = multiFactory.moduleType, "1"),
+            "2" to ModuleSettings(moduleType = multiFactory.moduleType, "2"),
+        )))
+
+        assertNotNull(moduleManager.modules.value.find { it.id == "1" })
+        assertNotNull(moduleManager.modules.value.find { it.id == "2" })
+    }
+
+    @Test
+    fun updateModuleSettings_Creates_Multiple_Instance_Modules_Once_When_ModuleId_Clashes() {
+        val multiFactory = multiInstanceFactory("custom_type")
+        moduleManager.addModuleFactory(multiFactory)
+
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf(
+            "1" to ModuleSettings(moduleType = multiFactory.moduleType, "1"),
+            "2" to ModuleSettings(moduleType = multiFactory.moduleType, "1"),
+        )))
+
+        assertEquals(1, moduleManager.modules.value.count { it.id == "1"})
+        assertEquals(0, moduleManager.modules.value.count { it.id == "2"})
+    }
+
+    @Test
+    fun updateModuleSettings_Creates_Multiple_Instance_Modules_Once_When_ModuleId_Is_Undefined() {
+        val multiFactory = multiInstanceFactory("custom_type")
+        moduleManager.addModuleFactory(multiFactory)
+
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf(
+            "1" to ModuleSettings(moduleType = multiFactory.moduleType),
+            "2" to ModuleSettings(moduleType = multiFactory.moduleType),
+        )))
+
+        assertEquals(1, moduleManager.modules.value.count { it.id == multiFactory.moduleType})
+        assertEquals(0, moduleManager.modules.value.count { it.id == "1"})
+        assertEquals(0, moduleManager.modules.value.count { it.id == "2"})
+    }
+
+    @Test
+    fun updateModuleSettings_Creates_Multiple_Instance_Modules_Each_Time_When_ModuleId_Is_Undefined_On_One_Settings() {
+        val multiFactory = multiInstanceFactory("custom_type")
+        moduleManager.addModuleFactory(multiFactory)
+
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf(
+            "1" to ModuleSettings(moduleType = multiFactory.moduleType, "1"),
+            "2" to ModuleSettings(moduleType = multiFactory.moduleType), // uses default moduleType for id
+        )))
+
+        assertEquals(1, moduleManager.modules.value.count { it.id == multiFactory.moduleType})
+        assertEquals(1, moduleManager.modules.value.count { it.id == "1"})
+        assertEquals(0, moduleManager.modules.value.count { it.id == "2"})
+    }
+
+    @Test
+    fun updateModuleSettings_Creates_Modules_In_Order_Defined_By_Settings() {
+        val multiFactory = multiInstanceFactory("custom_type")
+        moduleManager.addModuleFactory(multiFactory)
+
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf(
+            "3" to ModuleSettings(moduleType = multiFactory.moduleType, "3", order = 3),
+            "2" to ModuleSettings(moduleType = multiFactory.moduleType, "2", order = 2),
+            "1" to ModuleSettings(moduleType = multiFactory.moduleType, "1", order = 1)
+        )))
+
+        assertEquals("1", moduleManager.modules.value[0].id)
+        assertEquals("2", moduleManager.modules.value[1].id)
+        assertEquals("3", moduleManager.modules.value[2].id)
+    }
+
+    @Test
+    fun updateModuleSettings_Creates_Modules_Putting_Modules_With_No_Order_Last() {
+        val multiFactory = multiInstanceFactory("custom_type")
+        moduleManager.addModuleFactory(multiFactory)
+
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf(
+            "2" to ModuleSettings(moduleType = multiFactory.moduleType, "2"),
+            "1" to ModuleSettings(moduleType = multiFactory.moduleType, "1", order = 1)
+        )))
+
+        // todo - revisit if we don't add using default settings
+        // modules from settings first, then additional defaults from Factories that had no settings
+        (listOf("1", "2") + modules.map(Module::id)).forEachIndexed { idx, id ->
+            assertEquals(id, moduleManager.modules.value[idx].id)
         }
     }
 
@@ -408,7 +520,7 @@ class ModuleManagerImplTests {
     @Test
     fun addModuleFactory_Adds_Factory_When_ModuleFactory_With_Same_Id_Not_Present() {
         val newModule = TestModule("unseen_id")
-        val newModuleFactory = TestModuleFactory(newModule)
+        val newModuleFactory = TestModuleFactory.forModule(newModule)
 
         moduleManager.addModuleFactory(newModuleFactory)
         moduleManager.updateModuleSettings(context, SdkSettings())
@@ -419,7 +531,7 @@ class ModuleManagerImplTests {
     @Test
     fun addModuleFactory_Does_Not_Add_Factory_When_ModuleFactory_With_Same_Id_Is_Present() {
         val newModule = TestModule(testDispatcher.id)
-        val newModuleFactory = TestModuleFactory(newModule)
+        val newModuleFactory = TestModuleFactory.forModule(newModule)
 
         moduleManager.addModuleFactory(newModuleFactory)
         moduleManager.updateModuleSettings(context, SdkSettings())
@@ -429,15 +541,25 @@ class ModuleManagerImplTests {
 
     @Test
     fun addModuleFactory_Returns_True_When_ModuleFactory_With_Same_Id_Not_Present() {
-        val newModuleFactory = TestModuleFactory(TestModule("unseen_id"))
+        val newModuleFactory = TestModuleFactory.forModule(TestModule("unseen_id"))
 
         assertTrue(moduleManager.addModuleFactory(newModuleFactory))
     }
 
     @Test
     fun addModuleFactory_Returns_False_When_ModuleFactory_With_Same_Id_Is_Present() {
-        val newModuleFactory = TestModuleFactory(TestModule(testDispatcher.id))
+        val newModuleFactory = TestModuleFactory.forModule(TestModule(testDispatcher.id))
 
         assertFalse(moduleManager.addModuleFactory(newModuleFactory))
+    }
+
+    private fun multiInstanceFactory(moduleType: String, creator: (String, TealiumContext, DataObject) -> Module? = { moduleId, _, _ ->
+        TestModule(moduleId)
+    }): ModuleFactory {
+        return TestModuleFactory(
+            moduleType = moduleType,
+            allowsMultipleInstances = true,
+            creator = creator
+        )
     }
 }

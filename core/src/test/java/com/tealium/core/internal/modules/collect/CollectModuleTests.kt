@@ -1,5 +1,6 @@
 package com.tealium.core.internal.modules.collect
 
+import com.tealium.core.api.Modules
 import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.Logger
@@ -434,7 +435,7 @@ class CollectModuleTests {
     fun name_Matches_Factory_Name() {
         collectModule = createCollectDispatcher()
 
-        assertEquals(CollectModule.Factory().id, collectModule.id)
+        assertEquals(CollectModule.Factory().moduleType, collectModule.id)
     }
 
     /**
@@ -444,6 +445,7 @@ class CollectModuleTests {
         collectConfig: CollectModuleConfiguration = CollectModuleConfiguration(),
     ): CollectModule {
         return CollectModule(
+            Modules.Types.COLLECT,
             config,
             logger,
             networkHelper,

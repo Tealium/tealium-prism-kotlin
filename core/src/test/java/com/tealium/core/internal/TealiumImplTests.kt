@@ -61,7 +61,7 @@ class TealiumImplTests {
     @Test
     fun tealium_Notifies_ApplicationSubscriberModules_IfSubscribed_AtLaunch() {
         val appObserver = mockk<Observer<ActivityManager.ApplicationStatus>>(relaxed = true)
-        val appAwareModuleFactory = TestModuleFactory("app-aware-module") { ctx, _ ->
+        val appAwareModuleFactory = TestModuleFactory("app-aware-module") { _, ctx, _ ->
             ObserverModule(
                 ctx.activityManager.applicationStatus,
                 appObserver
@@ -99,7 +99,7 @@ class TealiumImplTests {
     @Test
     fun tealium_Notifies_ActivitySubscriberModules_IfSubscribed_AtLaunch() {
         val appObserver = mockk<Observer<ActivityManager.ActivityStatus>>(relaxed = true)
-        val appAwareModuleFactory = TestModuleFactory("activity-aware-module") { ctx, _ ->
+        val appAwareModuleFactory = TestModuleFactory("activity-aware-module") { _, ctx, _ ->
             ObserverModule(
                 ctx.activityManager.activities,
                 appObserver
@@ -201,7 +201,7 @@ class TealiumImplTests {
     @Test
     fun extractMappings_Returns_Empty_List_When_SdkSetting_Has_No_Modules_With_Mappings() {
         val result =
-            TealiumImpl.extractMappings(SdkSettings(modules = mapOf("dispatcher" to ModuleSettings())))
+            TealiumImpl.extractMappings(SdkSettings(modules = mapOf("dispatcher" to ModuleSettings("module"))))
         assertTrue(result.isEmpty())
     }
 
@@ -216,7 +216,7 @@ class TealiumImplTests {
         val allMappings = TealiumImpl.extractMappings(
             SdkSettings(
                 modules = mapOf(
-                    "dispatcher" to ModuleSettings(mappings = mappings)
+                    "dispatcher" to ModuleSettings("module", mappings = mappings)
                 )
             )
         )
@@ -244,7 +244,7 @@ class TealiumImplTests {
     }
 
     private fun getTestModule(id: Int = 1): ModuleFactory =
-        TestModuleFactory(TestModule("module_$id"))
+        TestModuleFactory.forModule(TestModule("module_$id"))
 
     private class ObserverModule<T>(
         observable: Observable<T>,

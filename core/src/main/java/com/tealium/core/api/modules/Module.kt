@@ -6,7 +6,7 @@ import com.tealium.core.api.data.DataObject
 /**
  * The [Module] is the basis for extending functionality of the [Tealium] instance.
  *
- * The [id] should match the [ModuleFactory.id] that created it.
+ * The [id] should be unique for all modules.
  */
 interface Module {
     /**

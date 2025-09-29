@@ -475,10 +475,10 @@ class DeepLinkModuleTests {
     }
 
     @Test
-    fun factory_Id_Returns_Expected_Module_Id() {
+    fun factory_ModuleType_Returns_Expected_Module_Id() {
         val factory = DeepLinkModule.Factory(DataObject.EMPTY_OBJECT)
 
-        assertEquals(Modules.Ids.DEEP_LINK, factory.id)
+        assertEquals(Modules.Types.DEEP_LINK, factory.moduleType)
     }
 
     @Test
@@ -490,7 +490,7 @@ class DeepLinkModuleTests {
 
         val factory = DeepLinkModule.Factory(enforcedSettings)
 
-        assertEquals(enforcedSettings, factory.getEnforcedSettings())
+        assertEquals(listOf(enforcedSettings), factory.getEnforcedSettings())
     }
 
     @Test
@@ -501,7 +501,7 @@ class DeepLinkModuleTests {
 
         val factory = DeepLinkModule.Factory(settingsBuilder)
 
-        assertEquals(expected, factory.getEnforcedSettings())
+        assertEquals(listOf(expected), factory.getEnforcedSettings())
     }
 
     @Test
@@ -515,17 +515,17 @@ class DeepLinkModuleTests {
         every { tealiumContext.moduleManager } returns moduleManager
         every { tealiumContext.activityManager.activities } returns activities
         every { tealiumContext.logger } returns SystemLogger
-        every { storageProvider.getModuleStore(factory) } returns dataStore
+        every { storageProvider.getModuleStore(factory.moduleType) } returns dataStore
 
         val configuration = DeepLinkSettingsBuilder()
             .setAutomaticDeepLinkTrackingEnabled(true)
             .buildConfiguration()
 
-        val module = factory.create(tealiumContext, configuration)
+        val module = factory.create(Modules.Types.DEEP_LINK, tealiumContext, configuration)
 
         assertNotNull(module)
         assertTrue(module is DeepLinkModule)
-        assertEquals(Modules.Ids.DEEP_LINK, module?.id)
+        assertEquals(Modules.Types.DEEP_LINK, module?.id)
     }
 
     private fun mockActivity(

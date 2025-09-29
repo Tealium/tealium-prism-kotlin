@@ -14,7 +14,7 @@ class CollectorSettingsBuilderTests {
 
     @Test
     fun setRules_Sets_String_Rules_In_DataObject() {
-        val settings = CollectorSettingsBuilder()
+        val settings = CollectorSettingsBuilder("collector")
             .setRules(
                 Rule.just("rule_1")
                     .or(Rule.just("rule_2"))

@@ -1,5 +1,6 @@
 package com.tealium.core.api.settings
 
+import com.tealium.core.api.Modules
 import com.tealium.core.api.TealiumConfig
 import com.tealium.core.internal.modules.collect.CollectModuleConfiguration
 
@@ -9,7 +10,12 @@ import com.tealium.core.internal.modules.collect.CollectModuleConfiguration
  * Note. Any configuration set here will override any configuration provided by the local or remote
  * settings files and will no longer be overridable remotely.
  */
-class CollectSettingsBuilder : DispatcherSettingsBuilder<CollectSettingsBuilder>() {
+class CollectSettingsBuilder :
+    DispatcherSettingsBuilder<CollectSettingsBuilder>(Modules.Types.COLLECT),
+    MultipleInstancesModuleSettingsBuilder<CollectSettingsBuilder> {
+
+    override fun setModuleId(moduleId: String): CollectSettingsBuilder =
+        setModuleIdInternal(moduleId)
 
     /**
      * Sets the url to use when sending individual events

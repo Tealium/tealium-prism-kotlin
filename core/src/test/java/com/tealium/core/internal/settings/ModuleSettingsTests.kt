@@ -23,7 +23,7 @@ class ModuleSettingsTests {
 
     @Test
     fun convert_Sets_Enabled_To_True() {
-        val settingsObject = ModuleSettingsBuilder()
+        val settingsObject = ModuleSettingsBuilder("module")
             .setEnabled(true)
             .build()
 
@@ -33,7 +33,7 @@ class ModuleSettingsTests {
 
     @Test
     fun convert_Sets_Enabled_To_False() {
-        val settingsObject = ModuleSettingsBuilder()
+        val settingsObject = ModuleSettingsBuilder("module")
             .setEnabled(false)
             .build()
 
@@ -43,7 +43,7 @@ class ModuleSettingsTests {
 
     @Test
     fun convert_Defaults_To_Enabled_When_Omitted() {
-        val settingsObject = ModuleSettingsBuilder().build()
+        val settingsObject = ModuleSettingsBuilder("module").build()
 
         val settings = ModuleSettings.Converter.convert(settingsObject)!!
         assertTrue(settings.enabled)
@@ -51,7 +51,7 @@ class ModuleSettingsTests {
 
     @Test
     fun convert_Sets_Configuration_To_Empty_Object_When_Omitted() {
-        val settingsObject = ModuleSettingsBuilder().build()
+        val settingsObject = ModuleSettingsBuilder("module").build()
 
         val settings = ModuleSettings.Converter.convert(settingsObject)!!
         assertEquals(DataObject.EMPTY_OBJECT, settings.configuration)
@@ -64,6 +64,7 @@ class ModuleSettingsTests {
             put("prop2", "val2")
         }
         val settingsObject = DataObject.create {
+            put(ModuleSettings.KEY_MODULE_TYPE, "module")
             put(ModuleSettings.KEY_CONFIGURATION, configuration)
         }
 
@@ -73,7 +74,7 @@ class ModuleSettingsTests {
 
     @Test
     fun convert_Sets_Rules_To_Null_When_Omitted() {
-        val settingsObject = ModuleSettingsBuilder().build()
+        val settingsObject = ModuleSettingsBuilder("module").build()
 
         val settings = ModuleSettings.Converter.convert(settingsObject)!!
         assertNull(settings.rules)
@@ -82,7 +83,7 @@ class ModuleSettingsTests {
     @Test
     fun convert_Sets_Rules_To_Given_Rules() {
         val rule = Rule.all(Rule.just("rule1"), Rule.just("rule2"))
-        val settingsObject = CollectorSettingsBuilder()
+        val settingsObject = CollectorSettingsBuilder("module")
             .setRules(rule)
             .build()
 
@@ -92,7 +93,7 @@ class ModuleSettingsTests {
 
     @Test
     fun convert_Sets_Mappings_To_Null_When_Omitted() {
-        val settingsObject = DispatcherSettingsBuilder()
+        val settingsObject = DispatcherSettingsBuilder("module")
             .build()
 
         val settings = ModuleSettings.Converter.convert(settingsObject)!!
@@ -101,7 +102,7 @@ class ModuleSettingsTests {
 
     @Test
     fun convert_Sets_Mappings_To_Given_Mappings() {
-        val settingsObject = DispatcherSettingsBuilder()
+        val settingsObject = DispatcherSettingsBuilder("module")
             .setMappings {
                 from("source", "destination")
                     .ifValueEquals("target")

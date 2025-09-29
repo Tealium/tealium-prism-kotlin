@@ -64,7 +64,7 @@ class DeviceDataModuleTests {
     }
 
     @Test
-    fun factory_id_Matches_Module_Id() {
-        assertEquals(Modules.Ids.DEVICE_DATA, DeviceDataModule.Factory.id)
+    fun factory_ModuleType_Matches_Module_Id() {
+        assertEquals(Modules.Types.DEVICE_DATA, DeviceDataModule.Factory.moduleType)
     }
 }

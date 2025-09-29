@@ -53,19 +53,19 @@ open class ConnectivityDataModuleTests {
 
             assertNotNull(
                 ConnectivityDataModule.Factory.create(
-                    context, DataObject.EMPTY_OBJECT
+                    Modules.Types.CONNECTIVITY_DATA, context, DataObject.EMPTY_OBJECT
                 )
             )
         }
 
         @Test
         fun name_Matches_Factory() {
-            assertEquals(ConnectivityDataModule.Factory.id, connectivityDataModule.id)
+            assertEquals(ConnectivityDataModule.Factory.moduleType, connectivityDataModule.id)
         }
 
         @Test
         fun name_Returns_ConnectivityData() {
-            assertEquals(Modules.Ids.CONNECTIVITY_DATA, connectivityDataModule.id)
+            assertEquals(Modules.Types.CONNECTIVITY_DATA, connectivityDataModule.id)
         }
 
         @Test

@@ -46,7 +46,7 @@ class DeepLinkHandlerWrapperTests {
     fun setUp() {
         MockKAnnotations.init(this)
 
-        every { deepLinkModule.id } returns Modules.Ids.DEEP_LINK
+        every { deepLinkModule.id } returns Modules.Types.DEEP_LINK
         modules = Observables.stateSubject(listOf(deepLinkModule))
         moduleManager = ModuleManagerImpl(scheduler, modules)
         onModuleManager = Observables.replaySubject(1)

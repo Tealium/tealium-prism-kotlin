@@ -57,16 +57,16 @@ class TealiumDataModule(
     }
 
 
-    override val id: String = Modules.Ids.TEALIUM_DATA
+    override val id: String = Modules.Types.TEALIUM_DATA
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
     object Factory : ModuleFactory {
-        override val id = Modules.Ids.TEALIUM_DATA
+        override val moduleType = Modules.Types.TEALIUM_DATA
 
         override fun canBeDisabled(): Boolean = false
 
-        override fun create(context: TealiumContext, configuration: DataObject): Module? {
+        override fun create(moduleId: String, context: TealiumContext, configuration: DataObject): Module? {
             return TealiumDataModule(context)
         }
     }

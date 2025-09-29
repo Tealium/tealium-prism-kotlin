@@ -182,8 +182,8 @@ class TraceModuleTests {
     }
 
     @Test
-    fun id_Matches_Factory_Id() {
-        assertEquals(TraceModule.Factory.id, trace.id)
+    fun id_Matches_Factory_ModuleType() {
+        assertEquals(TraceModule.Factory.moduleType, trace.id)
     }
 
     @Test

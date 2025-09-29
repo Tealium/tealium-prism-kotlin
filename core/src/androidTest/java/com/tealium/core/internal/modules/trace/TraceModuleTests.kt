@@ -35,7 +35,7 @@ class TraceModuleTests {
 
         val dbProvider = InMemoryDatabaseProvider(getDefaultConfig(app))
         val modulesRepository = SQLModulesRepository(dbProvider)
-        val id = modulesRepository.registerModule(TraceModule.Factory.id)
+        val id = modulesRepository.registerModule(TraceModule.Factory.moduleType)
         val repository = SQLKeyValueRepository(dbProvider, id)
 
         dataStore = ModuleStore(repository)

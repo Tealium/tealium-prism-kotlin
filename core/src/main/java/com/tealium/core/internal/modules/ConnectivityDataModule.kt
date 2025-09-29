@@ -32,14 +32,14 @@ class ConnectivityDataModule(
         }
     }
 
-    override val id: String = Modules.Ids.CONNECTIVITY_DATA
+    override val id: String = Modules.Types.CONNECTIVITY_DATA
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
     object Factory : ModuleFactory {
-        override val id: String = Modules.Ids.CONNECTIVITY_DATA
+        override val moduleType: String = Modules.Types.CONNECTIVITY_DATA
 
-        override fun create(context: TealiumContext, configuration: DataObject): Module {
+        override fun create(moduleId: String, context: TealiumContext, configuration: DataObject): Module {
             return ConnectivityDataModule(context.network.connectionStatus)
         }
     }

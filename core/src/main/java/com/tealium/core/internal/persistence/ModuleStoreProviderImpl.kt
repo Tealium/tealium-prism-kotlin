@@ -27,8 +27,8 @@ class ModuleStoreProviderImpl(
     private val stores: MutableMap<Long, DataStore> = mutableMapOf()
 ) : ModuleStoreProvider {
 
-    override fun getModuleStore(moduleFactory: ModuleFactory): DataStore {
-        return getModuleStoreForName(moduleFactory.id)
+    override fun getModuleStore(moduleId: String): DataStore {
+        return getModuleStoreForName(moduleId)
     }
 
     override fun getModuleStore(module: Module): DataStore {

@@ -46,7 +46,7 @@ class TraceWrapperTests {
     fun setUp() {
         MockKAnnotations.init(this)
 
-        every { traceModule.id } returns TraceModule.Factory.id
+        every { traceModule.id } returns TraceModule.Factory.moduleType
         modules = Observables.stateSubject(listOf(traceModule))
         moduleManager = ModuleManagerImpl(scheduler, modules)
         onModuleManager = Observables.replaySubject(1)

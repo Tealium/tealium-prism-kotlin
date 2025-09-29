@@ -303,8 +303,8 @@ class SettingsManagerTests {
             """
             {
                 "modules" : {
-                   "module1" : { "enabled": true },
-                   "module2" : { "enabled": true }
+                   "module1" : { "module_type": "module1", "enabled": true },
+                   "module2" : { "module_type": "module2", "enabled": true }
                 }
             }
         """
@@ -313,8 +313,8 @@ class SettingsManagerTests {
             """
             {
                 "modules" : {
-                   "module3" : { "enabled": true },
-                   "module4" : { "enabled": true }
+                   "module3" : { "module_type": "module3", "enabled": true },
+                   "module4" : { "module_type": "module4", "enabled": true }
                 }
             }
         """
@@ -323,8 +323,8 @@ class SettingsManagerTests {
             """
             {
                 "modules" : {
-                   "module5" : { "enabled": true },
-                   "module6" : { "enabled": true }
+                   "module5" : { "module_type": "module5", "enabled": true },
+                   "module6" : { "module_type": "module6", "enabled": true }
                 }
             }
         """
@@ -345,6 +345,7 @@ class SettingsManagerTests {
             {
                 "modules" : {
                     "module1" : {
+                        "module_type": "module1",
                         "configuration" : {
                             "sub-key-1": 1,
                             "sub-obj": {
@@ -361,6 +362,7 @@ class SettingsManagerTests {
             {
                 "modules" : {
                     "module1" : {
+                        "module_type": "module1",
                         "enabled": true,
                         "configuration" : {
                             "sub-key-2": 2,

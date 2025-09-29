@@ -62,7 +62,7 @@ class ConnectivityBarrier(
 
     class Factory(
         private val defaultScope: Set<BarrierScope> = setOf(
-            BarrierScope.Dispatcher(Modules.Ids.COLLECT)
+            BarrierScope.Dispatcher(Modules.Types.COLLECT)
         )
     ) : BarrierFactory {
         override val id: String = BARRIER_ID

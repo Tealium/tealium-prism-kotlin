@@ -2,15 +2,20 @@ package com.tealium.core.internal.modules
 
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.pubsub.Subject
-import com.tealium.core.api.settings.ModuleSettingsBuilder
+import com.tealium.core.api.settings.TestSettingsBuilder
 import com.tealium.core.internal.settings.ModuleSettings
 import com.tealium.core.internal.settings.SdkSettings
 import java.util.concurrent.atomic.AtomicInteger
 
-private fun enableDisableModuleSettings(name: String, enabled: Boolean): SdkSettings = SdkSettings(
+private fun enableDisableModuleSettings(
+    moduleId: String,
+    moduleType: String = moduleId,
+    enabled: Boolean
+): SdkSettings = SdkSettings(
     modules = mapOf(
-        name to ModuleSettings.Converter.convert(
-            ModuleSettingsBuilder()
+        moduleId to ModuleSettings.Converter.convert(
+            TestSettingsBuilder(moduleType)
+                .setModuleId(moduleId)
                 .setEnabled(enabled)
                 .build().asDataItem()
         )!!
@@ -21,13 +26,15 @@ private fun enableDisableModuleSettings(name: String, enabled: Boolean): SdkSett
  * Returns an [SdkSettings] with a Modules Settings DataObject, with the [ModuleSettings.KEY_ENABLED]
  * set to `true`
  */
-fun enableModuleSettings(name: String): SdkSettings = enableDisableModuleSettings(name, true)
+fun enableModuleSettings(moduleId: String, moduleType: String = moduleId): SdkSettings =
+    enableDisableModuleSettings(moduleId, moduleType, true)
 
 /**
  * Returns an [SdkSettings] with a Modules Settings DataObject, with the [ModuleSettings.KEY_ENABLED]
  * set to `true`
  */
-fun disableModuleSettings(name: String): SdkSettings = enableDisableModuleSettings(name, false)
+fun disableModuleSettings(moduleId: String, moduleType: String = moduleId): SdkSettings =
+    enableDisableModuleSettings(moduleId, moduleType, false)
 
 /**
  * Test Module implementation with an observable property

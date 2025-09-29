@@ -6,6 +6,7 @@ import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.data.DataList
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.logger.Logger
+import com.tealium.core.api.logger.logIfTraceEnabled
 import com.tealium.core.api.misc.TealiumCallback
 import com.tealium.core.api.modules.Dispatcher
 import com.tealium.core.api.modules.Module
@@ -13,10 +14,8 @@ import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.network.NetworkHelper
 import com.tealium.core.api.pubsub.Disposable
-import com.tealium.core.api.settings.CollectSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.internal.logger.LogCategory
-import com.tealium.core.api.logger.logIfTraceEnabled
 import com.tealium.core.internal.logger.logDescriptions
 import com.tealium.core.internal.pubsub.CompletedDisposable
 import com.tealium.core.internal.pubsub.DisposableContainer
@@ -26,6 +25,7 @@ import com.tealium.core.internal.pubsub.addTo
  * The [CollectModule]
  */
 class CollectModule(
+    override val id: String,
     private val config: TealiumConfig,
     private val logger: Logger,
     private val networkHelper: NetworkHelper,
@@ -33,16 +33,17 @@ class CollectModule(
 ) : Dispatcher, Module {
 
     constructor(
+        id: String,
         tealiumContext: TealiumContext,
         collectModuleConfiguration: CollectModuleConfiguration
     ) : this(
+        id,
         tealiumContext.config,
         tealiumContext.logger,
         tealiumContext.network.networkHelper,
         collectModuleConfiguration
     )
 
-    override val id: String = Modules.Ids.COLLECT
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
@@ -202,20 +203,21 @@ class CollectModule(
     }
 
     class Factory(
-        private val settings: DataObject? = null
+        private val settings: List<DataObject> = emptyList()
     ) : ModuleFactory {
 
-        constructor(builder: CollectSettingsBuilder) : this(builder.build())
+        override val moduleType: String = Modules.Types.COLLECT
 
-        override val id: String = Modules.Ids.COLLECT
+        override fun getEnforcedSettings(): List<DataObject> = settings
 
-        override fun getEnforcedSettings(): DataObject? = settings
+        override val allowsMultipleInstances: Boolean = true
 
-        override fun create(context: TealiumContext, configuration: DataObject): Module? {
+        override fun create(moduleId: String, context: TealiumContext, configuration: DataObject): Module? {
             val collectModuleConfiguration =
                 CollectModuleConfiguration.fromDataObject(configuration) ?: return null
 
             return CollectModule(
+                moduleId,
                 context,
                 collectModuleConfiguration
             )

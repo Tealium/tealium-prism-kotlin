@@ -193,7 +193,7 @@ class DeepLinkModule(
         disposable = activities.subscribe(::onActivityStatus)
     }
 
-    override val id: String = Modules.Ids.DEEP_LINK
+    override val id: String = Modules.Types.DEEP_LINK
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
@@ -205,19 +205,25 @@ class DeepLinkModule(
     }
 
     class Factory(
-        private val enforcedSettings: DataObject? = null
+        enforcedSettings: DataObject? = null
     ) : ModuleFactory {
 
         constructor(enforcedSettingsBuilder: DeepLinkSettingsBuilder) : this(enforcedSettingsBuilder.build())
 
-        override val id: String = Modules.Ids.DEEP_LINK
+        private val enforcedSettings: List<DataObject> =
+            enforcedSettings?.let { listOf(it) } ?: emptyList()
 
-        override fun getEnforcedSettings(): DataObject? =
-            enforcedSettings
+        override val moduleType: String = Modules.Types.DEEP_LINK
 
-        override fun create(context: TealiumContext, configuration: DataObject): Module? {
+        override fun getEnforcedSettings(): List<DataObject> = enforcedSettings
+
+        override fun create(
+            moduleId: String,
+            context: TealiumContext,
+            configuration: DataObject
+        ): Module? {
             return DeepLinkModule(
-                context.storageProvider.getModuleStore(this),
+                context.storageProvider.getModuleStore(moduleId),
                 context.tracker,
                 context.moduleManager,
                 context.activityManager.activities,
