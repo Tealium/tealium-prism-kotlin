@@ -9,7 +9,7 @@ import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.Expiry
-import com.tealium.core.api.settings.DataLayerSettingsBuilder
+import com.tealium.core.api.settings.modules.DataLayerSettingsBuilder
 import com.tealium.core.api.tracking.DispatchContext
 
 class DataLayerModule(

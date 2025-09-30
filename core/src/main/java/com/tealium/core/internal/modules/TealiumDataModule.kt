@@ -11,7 +11,7 @@ import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.ModuleManager
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.pubsub.ObservableState
-import com.tealium.core.api.settings.TealiumDataSettingsBuilder
+import com.tealium.core.api.settings.modules.TealiumDataSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
 import java.security.SecureRandom

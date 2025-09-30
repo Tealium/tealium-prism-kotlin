@@ -1,5 +1,6 @@
 package com.tealium.core.api.settings
 
+import com.tealium.core.api.settings.modules.DeepLinkSettingsBuilder
 import com.tealium.core.internal.modules.deeplink.DeepLinkModuleConfiguration
 import com.tealium.tests.common.buildConfiguration
 import org.junit.Assert.assertEquals

@@ -1,15 +1,15 @@
 package com.tealium.core.api
 
 import com.tealium.core.api.modules.ModuleFactory
-import com.tealium.core.api.settings.AppDataSettingsBuilder
-import com.tealium.core.api.settings.CollectSettingsBuilder
-import com.tealium.core.api.settings.ConnectivityDataSettingsBuilder
-import com.tealium.core.api.settings.DataLayerSettingsBuilder
-import com.tealium.core.api.settings.DeepLinkSettingsBuilder
-import com.tealium.core.api.settings.DeviceDataSettingsBuilder
-import com.tealium.core.api.settings.TealiumDataSettingsBuilder
-import com.tealium.core.api.settings.TimeDataSettingsBuilder
-import com.tealium.core.api.settings.TraceSettingsBuilder
+import com.tealium.core.api.settings.modules.AppDataSettingsBuilder
+import com.tealium.core.api.settings.modules.CollectSettingsBuilder
+import com.tealium.core.api.settings.modules.ConnectivityDataSettingsBuilder
+import com.tealium.core.api.settings.modules.DataLayerSettingsBuilder
+import com.tealium.core.api.settings.modules.DeepLinkSettingsBuilder
+import com.tealium.core.api.settings.modules.DeviceDataSettingsBuilder
+import com.tealium.core.api.settings.modules.TealiumDataSettingsBuilder
+import com.tealium.core.api.settings.modules.TimeDataSettingsBuilder
+import com.tealium.core.api.settings.modules.TraceSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.internal.modules.AppDataModule
 import com.tealium.core.internal.modules.ConnectivityDataModule

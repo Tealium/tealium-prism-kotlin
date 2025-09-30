@@ -9,7 +9,7 @@ import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.network.Connectivity
 import com.tealium.core.api.pubsub.ObservableState
-import com.tealium.core.api.settings.ConnectivityDataSettingsBuilder
+import com.tealium.core.api.settings.modules.ConnectivityDataSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
 

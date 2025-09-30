@@ -3,6 +3,7 @@ package com.tealium.core.api.settings
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.rules.Rule
 import com.tealium.core.api.settings.json.TransformationOperation
+import com.tealium.core.api.settings.modules.DispatcherSettingsBuilder
 import com.tealium.core.internal.settings.MappingParameters
 import com.tealium.core.internal.settings.ModuleSettings
 import com.tealium.tests.common.trimJson

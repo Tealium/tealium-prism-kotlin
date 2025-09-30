@@ -7,7 +7,7 @@ import com.tealium.core.api.modules.Collector
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.TealiumContext
-import com.tealium.core.api.settings.TimeDataSettingsBuilder
+import com.tealium.core.api.settings.modules.TimeDataSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
 

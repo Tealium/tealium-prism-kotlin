@@ -8,7 +8,7 @@ import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.persistence.DataStore
-import com.tealium.core.api.settings.AppDataSettingsBuilder
+import com.tealium.core.api.settings.modules.AppDataSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.Dispatch.Keys.APP_UUID
 import com.tealium.core.api.tracking.DispatchContext

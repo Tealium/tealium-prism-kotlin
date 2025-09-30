@@ -8,7 +8,7 @@ import com.tealium.core.api.modules.Collector
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.TealiumContext
-import com.tealium.core.api.settings.DeviceDataSettingsBuilder
+import com.tealium.core.api.settings.modules.DeviceDataSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
 

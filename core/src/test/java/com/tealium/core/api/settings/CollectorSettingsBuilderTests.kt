@@ -2,6 +2,7 @@ package com.tealium.core.api.settings
 
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.rules.Rule
+import com.tealium.core.api.settings.modules.CollectorSettingsBuilder
 import com.tealium.core.internal.settings.ModuleSettings
 import com.tealium.tests.common.trimJson
 import org.junit.Assert.assertEquals

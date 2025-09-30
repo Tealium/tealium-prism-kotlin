@@ -18,7 +18,7 @@ import com.tealium.core.api.pubsub.Disposable
 import com.tealium.core.api.pubsub.Observables
 import com.tealium.core.api.pubsub.ReplaySubject
 import com.tealium.core.api.pubsub.StateSubject
-import com.tealium.core.api.settings.DeepLinkSettingsBuilder
+import com.tealium.core.api.settings.modules.DeepLinkSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
 import com.tealium.core.api.tracking.TrackResult

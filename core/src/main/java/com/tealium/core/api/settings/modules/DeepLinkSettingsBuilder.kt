@@ -1,4 +1,4 @@
-package com.tealium.core.api.settings
+package com.tealium.core.api.settings.modules
 
 import com.tealium.core.api.Modules
 import com.tealium.core.internal.modules.deeplink.DeepLinkModuleConfiguration

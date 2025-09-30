@@ -10,7 +10,7 @@ import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.Expiry
-import com.tealium.core.api.settings.TraceSettingsBuilder
+import com.tealium.core.api.settings.modules.TraceSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
 import com.tealium.core.api.tracking.TrackResultListener

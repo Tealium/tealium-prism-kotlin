@@ -1,7 +1,8 @@
-package com.tealium.core.api.settings
+package com.tealium.core.api.settings.modules
 
 import com.tealium.core.api.data.DataItemUtils.asDataList
 import com.tealium.core.api.modules.Dispatcher
+import com.tealium.core.api.settings.Mappings
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.internal.settings.MappingsImpl
 import com.tealium.core.internal.settings.ModuleSettings

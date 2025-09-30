@@ -1,7 +1,7 @@
 package com.tealium.tests.common
 
 import com.tealium.core.api.data.DataObject
-import com.tealium.core.api.settings.ModuleSettingsBuilder
+import com.tealium.core.api.settings.modules.ModuleSettingsBuilder
 import com.tealium.core.internal.settings.ModuleSettings
 
 /**

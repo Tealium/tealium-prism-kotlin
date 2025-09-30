@@ -2,7 +2,7 @@ package com.tealium.lifecycle
 
 import com.tealium.core.api.Modules
 import com.tealium.core.api.data.DataList
-import com.tealium.core.api.settings.CollectorSettingsBuilder
+import com.tealium.core.api.settings.modules.CollectorSettingsBuilder
 import com.tealium.lifecycle.internal.LifecycleConfiguration
 
 /**

@@ -1,7 +1,7 @@
 package com.tealium.core.internal.modules.collect
 
 import com.tealium.core.api.data.DataObject
-import com.tealium.core.api.settings.CollectSettingsBuilder
+import com.tealium.core.api.settings.modules.CollectSettingsBuilder
 import com.tealium.core.internal.settings.ModuleSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

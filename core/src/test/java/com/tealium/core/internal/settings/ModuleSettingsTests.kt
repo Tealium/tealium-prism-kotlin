@@ -2,9 +2,9 @@ package com.tealium.core.internal.settings
 
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.rules.Rule
-import com.tealium.core.api.settings.CollectorSettingsBuilder
-import com.tealium.core.api.settings.DispatcherSettingsBuilder
-import com.tealium.core.api.settings.ModuleSettingsBuilder
+import com.tealium.core.api.settings.modules.CollectorSettingsBuilder
+import com.tealium.core.api.settings.modules.DispatcherSettingsBuilder
+import com.tealium.core.api.settings.modules.ModuleSettingsBuilder
 import com.tealium.core.api.settings.ValueContainer
 import com.tealium.core.api.settings.VariableAccessor
 import org.junit.Assert.assertEquals
