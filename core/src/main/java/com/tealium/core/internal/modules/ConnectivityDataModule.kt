@@ -9,6 +9,7 @@ import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.network.Connectivity
 import com.tealium.core.api.pubsub.ObservableState
+import com.tealium.core.api.settings.ConnectivityDataSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
 
@@ -36,10 +37,23 @@ class ConnectivityDataModule(
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
-    object Factory : ModuleFactory {
+    class Factory(
+        settings: DataObject? = null
+    ) : ModuleFactory {
+        private val enforcedSettings: List<DataObject> =
+            settings?.let { listOf(it) } ?: emptyList()
+
+        constructor(settingsBuilder: ConnectivityDataSettingsBuilder) : this(settingsBuilder.build())
+
+        override fun getEnforcedSettings(): List<DataObject> = enforcedSettings
+
         override val moduleType: String = Modules.Types.CONNECTIVITY_DATA
 
-        override fun create(moduleId: String, context: TealiumContext, configuration: DataObject): Module {
+        override fun create(
+            moduleId: String,
+            context: TealiumContext,
+            configuration: DataObject
+        ): Module {
             return ConnectivityDataModule(context.network.connectionStatus)
         }
     }

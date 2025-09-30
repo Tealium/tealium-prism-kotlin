@@ -32,7 +32,7 @@ class DataLayerModuleTests {
 
     @Test
     fun id_Matches_Factory_ModuleType() {
-        assertEquals(DataLayerModule.moduleType, dataLayer.id)
+        assertEquals(DataLayerModule.Factory().moduleType, dataLayer.id)
     }
 
     @Test
@@ -57,8 +57,9 @@ class DataLayerModuleTests {
         every { context.storageProvider } returns storageProvider
         every { storageProvider.getModuleStore(any<String>()) } returns dataStore
 
-        val dataLayer1 = DataLayerModule.create(Modules.Types.DATA_LAYER, context, DataObject.EMPTY_OBJECT)
-        val dataLayer2 = DataLayerModule.create(Modules.Types.DATA_LAYER, context, DataObject.EMPTY_OBJECT)
+        val factory = DataLayerModule.Factory()
+        val dataLayer1 = factory.create(Modules.Types.DATA_LAYER, context, DataObject.EMPTY_OBJECT)
+        val dataLayer2 = factory.create(Modules.Types.DATA_LAYER, context, DataObject.EMPTY_OBJECT)
 
         assertNotSame(dataLayer1, dataLayer2)
     }

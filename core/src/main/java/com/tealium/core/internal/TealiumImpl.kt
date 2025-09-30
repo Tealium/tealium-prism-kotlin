@@ -1,5 +1,6 @@
 package com.tealium.core.internal
 
+import com.tealium.core.api.Modules
 import com.tealium.core.api.TealiumConfig
 import com.tealium.core.api.logger.LogLevel
 import com.tealium.core.api.logger.Logger
@@ -215,7 +216,7 @@ class TealiumImpl(
         )
         subscribeIdentityUpdates(
             settings.map(SdkSettings::core),
-            storage.getModuleStore(DataLayerModule.moduleType),
+            storage.getModuleStore(Modules.Types.DATA_LAYER),
             visitorIdProvider,
         ).addTo(disposables)
 
@@ -330,8 +331,8 @@ class TealiumImpl(
 
         private fun getDefaultModules(): List<ModuleFactory> {
             return listOf(
-                DataLayerModule,
-                TealiumDataModule.Factory,
+                DataLayerModule.Factory(),
+                TealiumDataModule.Factory(),
             )
         }
 

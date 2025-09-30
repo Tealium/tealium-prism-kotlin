@@ -176,15 +176,17 @@ class TealiumDataModuleTests {
 
     @Test
     fun factory_ModuleType_Matches_Module_Id() {
-        val tealiumDataModule = TealiumDataModule.Factory.create(Modules.Types.TEALIUM_DATA, mockContext, mockk())!!
+        val tealiumDataModule = TealiumDataModule.Factory()
+            .create(Modules.Types.TEALIUM_DATA, mockContext, mockk())!!
 
-        assertEquals(TealiumDataModule.Factory.moduleType, tealiumDataModule.id)
+        assertEquals(TealiumDataModule.Factory().moduleType, tealiumDataModule.id)
     }
 
     @Test
     fun factory_Creates_New_Instances() {
-        val instance1 = TealiumDataModule.Factory.create(Modules.Types.TEALIUM_DATA, mockContext, mockk())
-        val instance2 = TealiumDataModule.Factory.create(Modules.Types.TEALIUM_DATA, mockContext, mockk())
+        val factory = TealiumDataModule.Factory()
+        val instance1 = factory.create(Modules.Types.TEALIUM_DATA, mockContext, mockk())
+        val instance2 = factory.create(Modules.Types.TEALIUM_DATA, mockContext, mockk())
 
         assertNotSame(instance1, instance2)
     }

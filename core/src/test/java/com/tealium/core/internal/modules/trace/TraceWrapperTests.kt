@@ -1,5 +1,6 @@
 package com.tealium.core.internal.modules.trace
 
+import com.tealium.core.api.Modules
 import com.tealium.core.api.Tealium
 import com.tealium.core.api.misc.TealiumResult
 import com.tealium.core.api.modules.Module
@@ -46,7 +47,7 @@ class TraceWrapperTests {
     fun setUp() {
         MockKAnnotations.init(this)
 
-        every { traceModule.id } returns TraceModule.Factory.moduleType
+        every { traceModule.id } returns Modules.Types.TRACE
         modules = Observables.stateSubject(listOf(traceModule))
         moduleManager = ModuleManagerImpl(scheduler, modules)
         onModuleManager = Observables.replaySubject(1)

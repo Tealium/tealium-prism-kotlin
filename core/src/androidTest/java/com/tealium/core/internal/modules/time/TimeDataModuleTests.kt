@@ -1,5 +1,6 @@
 package com.tealium.core.internal.modules.time
 
+import com.tealium.core.api.Modules
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
@@ -129,15 +130,16 @@ class TimeDataModuleTests {
 
     @Test
     fun factory_ModuleType_Matches_Module_Id() {
-        val timeDataModule = TimeDataModule.Factory.create(TimeDataModule.Factory.moduleType, mockk(), mockk())!!
+        val timeDataModule = TimeDataModule.Factory().create(Modules.Types.TIME_DATA, mockk(), mockk())!!
 
-        assertEquals(TimeDataModule.Factory.moduleType, timeDataModule.id)
+        assertEquals(Modules.Types.TIME_DATA, timeDataModule.id)
     }
 
     @Test
     fun factory_Creates_New_Instances() {
-        val instance1 = TimeDataModule.Factory.create("1", mockk(), mockk())
-        val instance2 = TimeDataModule.Factory.create("1", mockk(), mockk())
+        val factory = TimeDataModule.Factory()
+        val instance1 = factory.create("1", mockk(), mockk())
+        val instance2 = factory.create("1", mockk(), mockk())
 
         assertNotSame(instance1, instance2)
     }

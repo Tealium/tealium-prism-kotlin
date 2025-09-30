@@ -1,8 +1,15 @@
 package com.tealium.core.api
 
 import com.tealium.core.api.modules.ModuleFactory
+import com.tealium.core.api.settings.AppDataSettingsBuilder
 import com.tealium.core.api.settings.CollectSettingsBuilder
+import com.tealium.core.api.settings.ConnectivityDataSettingsBuilder
+import com.tealium.core.api.settings.DataLayerSettingsBuilder
 import com.tealium.core.api.settings.DeepLinkSettingsBuilder
+import com.tealium.core.api.settings.DeviceDataSettingsBuilder
+import com.tealium.core.api.settings.TealiumDataSettingsBuilder
+import com.tealium.core.api.settings.TimeDataSettingsBuilder
+import com.tealium.core.api.settings.TraceSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.internal.modules.AppDataModule
 import com.tealium.core.internal.modules.ConnectivityDataModule
@@ -98,21 +105,59 @@ object Modules {
      */
     @JvmStatic
     fun connectivityData(): ModuleFactory =
-        ConnectivityDataModule.Factory
+        ConnectivityDataModule.Factory()
+
+    /**
+     * Collects data related to the current connectivity type of the device.
+     *
+     * @param enforcedSettings ConnectivityData settings that should override any from any other settings source
+     *
+     * @see Dispatch.Keys.CONNECTION_TYPE
+     */
+    @JvmStatic
+    fun connectivityData(enforcedSettings: (ConnectivityDataSettingsBuilder) -> ConnectivityDataSettingsBuilder): ModuleFactory {
+        val builder = ConnectivityDataSettingsBuilder()
+        enforcedSettings.invoke(builder)
+        return ConnectivityDataModule.Factory(builder)
+    }
 
     /**
      * Collects data related to the user's device.
      */
     @JvmStatic
     fun deviceData(): ModuleFactory =
-        DeviceDataModule.Factory
+        DeviceDataModule.Factory()
+
+    /**
+     * Collects data related to the user's device.
+     *
+     * @param enforcedSettings DeviceData settings that should override any from any other settings source
+     */
+    @JvmStatic
+    fun deviceData(enforcedSettings: (DeviceDataSettingsBuilder) -> DeviceDataSettingsBuilder): ModuleFactory {
+        val builder = DeviceDataSettingsBuilder()
+        enforcedSettings.invoke(builder)
+        return DeviceDataModule.Factory(builder)
+    }
 
     /**
      * Collects data related to the app package.
      */
     @JvmStatic
     fun appData(): ModuleFactory =
-        AppDataModule.Factory
+        AppDataModule.Factory()
+
+    /**
+     * Collects data related to the app package.
+     *
+     * @param enforcedSettings AppData settings that should override any from any other settings source
+     */
+    @JvmStatic
+    fun appData(enforcedSettings: (AppDataSettingsBuilder) -> AppDataSettingsBuilder): ModuleFactory {
+        val builder = AppDataSettingsBuilder()
+        enforcedSettings.invoke(builder)
+        return AppDataModule.Factory(builder)
+    }
 
     /**
      * Collects data that has been persisted into the Tealium data layer
@@ -124,7 +169,24 @@ object Modules {
      */
     @JvmStatic
     fun dataLayer(): ModuleFactory =
-        DataLayerModule
+        DataLayerModule.Factory()
+
+    /**
+     * Collects data that has been persisted into the Tealium data layer
+     *
+     * **Note.** This module is automatically added. This method is provided to allow customizing ordering of
+     * modules if required.
+     *
+     * @param enforcedSettings DataLayer settings that should override any from any other settings source
+     *
+     * @see Tealium.dataLayer
+     */
+    @JvmStatic
+    fun dataLayer(enforcedSettings: (DataLayerSettingsBuilder) -> DataLayerSettingsBuilder): ModuleFactory {
+        val builder = DataLayerSettingsBuilder()
+        enforcedSettings.invoke(builder)
+        return DataLayerModule.Factory(builder)
+    }
 
     /**
      * Collects the Trace Id to support Tealium Trace
@@ -134,7 +196,22 @@ object Modules {
      */
     @JvmStatic
     fun trace(): ModuleFactory =
-        TraceModule.Factory
+        TraceModule.Factory()
+
+    /**
+     * Collects the Trace Id to support Tealium Trace
+     *
+     * @param enforcedSettings Trace settings that should override any from any other settings source
+     *
+     * @see Dispatch.Keys.TEALIUM_TRACE_ID
+     * @see Tealium.trace
+     */
+    @JvmStatic
+    fun trace(enforcedSettings: (TraceSettingsBuilder) -> TraceSettingsBuilder): ModuleFactory {
+        val builder = TraceSettingsBuilder()
+        enforcedSettings.invoke(builder)
+        return TraceModule.Factory(builder)
+    }
 
     /**
      * Collects the Tealium required data (Account, profile etc)
@@ -144,7 +221,22 @@ object Modules {
      */
     @JvmStatic
     fun tealiumData(): ModuleFactory =
-        TealiumDataModule.Factory
+        TealiumDataModule.Factory()
+
+    /**
+     * Collects the Tealium required data (Account, profile etc)
+     *
+     * **Note.** This module is automatically added. This method is provided to allow customizing ordering of
+     * modules if required.
+     *
+     * @param enforcedSettings TealiumData settings that should override any from any other settings source
+     */
+    @JvmStatic
+    fun tealiumData(enforcedSettings: (TealiumDataSettingsBuilder) -> TealiumDataSettingsBuilder): ModuleFactory {
+        val builder = TealiumDataSettingsBuilder()
+        enforcedSettings.invoke(builder)
+        return TealiumDataModule.Factory(builder)
+    }
 
     /**
      * Returns a configured [ModuleFactory] for enabling the DeepLink Module.
@@ -173,6 +265,19 @@ object Modules {
      */
     @JvmStatic
     fun timeData() : ModuleFactory =
-        TimeDataModule.Factory
+        TimeDataModule.Factory()
+
+    /**
+     * Returns a factory for creating the TimeData module, used to add a variety of additional
+     * time-based data to each [Dispatch]
+     *
+     * @param enforcedSettings TimeData settings that should override any from any other settings source
+     */
+    @JvmStatic
+    fun timeData(enforcedSettings: (TimeDataSettingsBuilder) -> TimeDataSettingsBuilder): ModuleFactory {
+        val builder = TimeDataSettingsBuilder()
+        enforcedSettings.invoke(builder)
+        return TimeDataModule.Factory(builder)
+    }
 
 }

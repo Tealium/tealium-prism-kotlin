@@ -9,6 +9,7 @@ import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.Expiry
+import com.tealium.core.api.settings.DataLayerSettingsBuilder
 import com.tealium.core.api.tracking.DispatchContext
 
 class DataLayerModule(
@@ -24,9 +25,22 @@ class DataLayerModule(
         return dataStore.getAll()
     }
 
-    companion object : ModuleFactory {
+    companion object {
         val DEFAULT_EXPIRY = Expiry.FOREVER
+    }
 
+    class Factory(
+        settings: DataObject? = null
+    ) : ModuleFactory {
+
+        override fun canBeDisabled(): Boolean = false
+
+        private val enforcedSettings: List<DataObject> =
+            settings?.let { listOf(it) } ?: emptyList()
+
+        constructor(settingsBuilder: DataLayerSettingsBuilder) : this(settingsBuilder.build())
+
+        override fun getEnforcedSettings(): List<DataObject> = enforcedSettings
         override val moduleType: String = Modules.Types.DATA_LAYER
 
         override fun create(moduleId: String, context: TealiumContext, configuration: DataObject): Module? {

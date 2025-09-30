@@ -1,5 +1,6 @@
 package com.tealium.core.internal.modules.datalayer
 
+import com.tealium.core.api.Modules
 import com.tealium.core.api.data.DataItem
 import com.tealium.core.api.data.DataItemConverter
 import com.tealium.core.api.data.DataItemUtils.asDataItem
@@ -682,7 +683,7 @@ class DataLayerWrapperTests {
      */
     private class MockDataLayerFactory(private val module: DataLayerModule) : ModuleFactory {
         override val moduleType: String
-            get() = DataLayerModule.moduleType
+            get() = Modules.Types.DATA_LAYER
 
         override fun create(moduleId: String, context: TealiumContext, configuration: DataObject): Module? {
             return module

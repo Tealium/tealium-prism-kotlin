@@ -2,6 +2,7 @@ package com.tealium.core.internal.modules.trace
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.tealium.core.api.Modules
 import com.tealium.core.api.data.DataObject
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.Expiry
@@ -35,7 +36,7 @@ class TraceModuleTests {
 
         val dbProvider = InMemoryDatabaseProvider(getDefaultConfig(app))
         val modulesRepository = SQLModulesRepository(dbProvider)
-        val id = modulesRepository.registerModule(TraceModule.Factory.moduleType)
+        val id = modulesRepository.registerModule(Modules.Types.TRACE)
         val repository = SQLKeyValueRepository(dbProvider, id)
 
         dataStore = ModuleStore(repository)

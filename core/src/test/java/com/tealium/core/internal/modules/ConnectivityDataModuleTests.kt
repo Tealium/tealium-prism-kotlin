@@ -52,7 +52,7 @@ open class ConnectivityDataModuleTests {
             every { network.connectionStatus } returns Observables.stateSubject(Status.Unknown)
 
             assertNotNull(
-                ConnectivityDataModule.Factory.create(
+                ConnectivityDataModule.Factory().create(
                     Modules.Types.CONNECTIVITY_DATA, context, DataObject.EMPTY_OBJECT
                 )
             )
@@ -60,7 +60,7 @@ open class ConnectivityDataModuleTests {
 
         @Test
         fun name_Matches_Factory() {
-            assertEquals(ConnectivityDataModule.Factory.moduleType, connectivityDataModule.id)
+            assertEquals(ConnectivityDataModule.Factory().moduleType, connectivityDataModule.id)
         }
 
         @Test

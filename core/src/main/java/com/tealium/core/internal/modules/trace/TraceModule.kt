@@ -10,6 +10,7 @@ import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.TealiumContext
 import com.tealium.core.api.persistence.DataStore
 import com.tealium.core.api.persistence.Expiry
+import com.tealium.core.api.settings.TraceSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
 import com.tealium.core.api.tracking.TrackResultListener
@@ -64,7 +65,17 @@ class TraceModule(
         }
     }
 
-    object Factory : ModuleFactory {
+    class Factory(
+        settings: DataObject? = null
+    ) : ModuleFactory {
+
+        private val enforcedSettings: List<DataObject> =
+            settings?.let { listOf(it) } ?: emptyList()
+
+        constructor(settingsBuilder: TraceSettingsBuilder) : this(settingsBuilder.build())
+
+        override fun getEnforcedSettings(): List<DataObject> = enforcedSettings
+
         override val moduleType: String = Modules.Types.TRACE
 
         override fun create(moduleId: String, context: TealiumContext, configuration: DataObject): Module? {

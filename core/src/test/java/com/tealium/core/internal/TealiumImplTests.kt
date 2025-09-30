@@ -187,7 +187,7 @@ class TealiumImplTests {
         TealiumImpl.loadModuleFactories(listOf(), moduleManager, SystemLogger)
 
         verify {
-            moduleManager.addModuleFactory(match { it is DataLayerModule.Companion })
+            moduleManager.addModuleFactory(match { it is DataLayerModule.Factory })
             moduleManager.addModuleFactory(match { it is TealiumDataModule.Factory })
         }
     }

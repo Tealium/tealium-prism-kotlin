@@ -7,6 +7,7 @@ import com.tealium.core.api.modules.Collector
 import com.tealium.core.api.modules.Module
 import com.tealium.core.api.modules.ModuleFactory
 import com.tealium.core.api.modules.TealiumContext
+import com.tealium.core.api.settings.TimeDataSettingsBuilder
 import com.tealium.core.api.tracking.Dispatch
 import com.tealium.core.api.tracking.DispatchContext
 
@@ -26,7 +27,16 @@ class TimeDataModule(
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
 
-    object Factory : ModuleFactory {
+    class Factory(
+        settings: DataObject? = null
+    ) : ModuleFactory {
+
+        private val enforcedSettings: List<DataObject> =
+            settings?.let { listOf(it) } ?: emptyList()
+
+        constructor(settingsBuilder: TimeDataSettingsBuilder) : this(settingsBuilder.build())
+
+        override fun getEnforcedSettings(): List<DataObject> = enforcedSettings
         override val moduleType: String = Modules.Types.TIME_DATA
 
         override fun create(moduleId: String, context: TealiumContext, configuration: DataObject): Module? {
