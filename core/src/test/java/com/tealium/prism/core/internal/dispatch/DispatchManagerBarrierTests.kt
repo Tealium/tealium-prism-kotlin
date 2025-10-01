@@ -1,0 +1,122 @@
+package com.tealium.prism.core.internal.dispatch
+
+import com.tealium.prism.core.api.barriers.BarrierState
+import com.tealium.prism.core.api.misc.TimeFrame
+import com.tealium.prism.core.api.pubsub.Observables
+import com.tealium.tests.common.TestDispatcher
+import io.mockk.every
+import io.mockk.spyk
+import io.mockk.verify
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import java.util.concurrent.TimeUnit
+
+@RunWith(RobolectricTestRunner::class)
+class DispatchManagerBarrierTests : DispatchManagerTestsBase() {
+
+    @Test
+    fun dispatchManager_SendsDispatchesToDispatcher_WhenBarriersAreOpen() {
+        dispatchManager.startDispatchLoop()
+
+        dispatchManager.track(dispatch1)
+
+        verify(timeout = 5000) {
+            dispatcher1.dispatch(listOf(dispatch1), any())
+            queueManager.deleteDispatches(listOf(dispatch1), any())
+        }
+    }
+
+    @Test
+    fun dispatchManager_DoesNotSendDispatchesToDispatcher_WhenBarriersAreClosed() {
+        barrierFlow.onNext(BarrierState.Closed)
+
+        dispatchManager.startDispatchLoop()
+
+        dispatchManager.track(dispatch1)
+
+        verify(timeout = 5000, inverse = true) {
+            dispatcher1.dispatch(listOf(dispatch1), any())
+            queueManager.deleteDispatches(listOf(dispatch1), any())
+        }
+    }
+
+    @Test
+    fun dispatchManager_SendQueuedDispatchesToDispatcher_WhenBarriersAreOpened() {
+        barrierFlow.onNext(BarrierState.Closed)
+        dispatchManager.startDispatchLoop()
+
+        queue[dispatcher1.id] = mutableSetOf(dispatch1, dispatch2)
+
+        barrierFlow.onNext(BarrierState.Open)
+
+        verify(timeout = 5000) {
+            dispatcher1.dispatch(listOf(dispatch1), any())
+            dispatcher1.dispatch(listOf(dispatch2), any())
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
+        }
+    }
+
+    @Test
+    fun dispatchManager_StopsSendingDispatchesToDispatcher_WhenBarriersGetClosed() {
+        dispatcher1 = spyk(TestDispatcher("dispatcher_1"))
+        modules.onNext(listOf(dispatcher1))
+
+        dispatchManager.startDispatchLoop()
+        dispatchManager.track(dispatch1) // closes after first dispatch
+
+        barrierFlow.onNext(BarrierState.Closed)
+        dispatchManager.track(dispatch2)
+
+        verify {
+            dispatcher1.dispatch(listOf(dispatch1), any())
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+        }
+        verify(inverse = true) {
+            dispatcher1.dispatch(listOf(dispatch2), any())
+            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
+        }
+    }
+
+    @Test
+    fun dispatchManager_DoesNotCancelInflight_WhenBarriersGetClosed() {
+        dispatcher1 = spyk(TestDispatcher("dispatcher_1") { dispatches, callback ->
+            barrierFlow.onNext(BarrierState.Closed)
+
+            scheduler.schedule(TimeFrame(2000, TimeUnit.MILLISECONDS)) {
+                callback.onComplete(dispatches)
+            }
+        })
+        modules.onNext(listOf(dispatcher1))
+
+        dispatchManager.startDispatchLoop()
+        dispatchManager.track(dispatch1)
+
+        verify(timeout = 5000) {
+            dispatcher1.dispatch(listOf(dispatch1), any())
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+        }
+    }
+
+    @Test
+    fun dispatchManager_ClosedBarriers_DoNotInterfere_WithOtherDispatchers() {
+        val dispatcher2 = spyk(TestDispatcher("dispatcher_2"))
+        every { barrierCoordinator.onBarriersState("dispatcher_2") } returns Observables.stateSubject(
+            BarrierState.Closed
+        )
+        modules.onNext(listOf(dispatcher1, dispatcher2))
+
+        dispatchManager.startDispatchLoop()
+        dispatchManager.track(dispatch1)
+
+        verify(timeout = 5000) {
+            dispatcher1.dispatch(listOf(dispatch1), any())
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+        }
+        verify(timeout = 5000, inverse = true) {
+            dispatcher2.dispatch(listOf(dispatch2), any())
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher2Name)
+        }
+    }
+}

@@ -1,0 +1,76 @@
+package com.tealium.prism.core.internal.network
+
+import com.tealium.prism.core.api.Modules
+import com.tealium.prism.core.api.barriers.BarrierFactory
+import com.tealium.prism.core.api.barriers.BarrierScope
+import com.tealium.prism.core.api.barriers.BarrierState
+import com.tealium.prism.core.api.barriers.ConfigurableBarrier
+import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.modules.TealiumContext
+import com.tealium.prism.core.api.network.Connectivity
+import com.tealium.prism.core.api.pubsub.Observable
+import com.tealium.prism.core.api.pubsub.Observables
+import com.tealium.prism.core.api.pubsub.StateSubject
+
+class ConnectivityBarrier(
+    private val connectivityStatus: Observable<Connectivity.Status>,
+    private val wifiOnly: StateSubject<Boolean> = Observables.stateSubject(false)
+) : ConfigurableBarrier {
+
+    constructor(
+        context: TealiumContext,
+        configuration: DataObject
+    ) : this(
+        context.network.connectionStatus,
+        Observables.stateSubject(configuration.wifiOnly)
+    )
+
+    override val id: String = BARRIER_ID
+    override fun onState(dispatcherId: String): Observable<BarrierState> =
+        connectivityStatus.combine(wifiOnly) { status, wifiOnly ->
+            connectionSatisfied(status, wifiOnly)
+        }.distinct()
+
+    private fun connectionSatisfied(status: Connectivity.Status, wifiOnly: Boolean): BarrierState {
+        return if (status is Connectivity.Status.Connected && satisfiesWifi(status.connectivityType, wifiOnly)) {
+            BarrierState.Open
+        } else {
+            BarrierState.Closed
+        }
+    }
+
+    override val isFlushable: Observable<Boolean>
+        get() = connectivityStatus.map { status -> status is Connectivity.Status.Connected }
+
+    override fun updateConfiguration(configuration: DataObject) {
+        wifiOnly.onNext(configuration.wifiOnly)
+    }
+
+    private fun satisfiesWifi(connectionType: Connectivity.ConnectivityType, wifiOnly: Boolean): Boolean {
+        return !wifiOnly
+                || connectionType == Connectivity.ConnectivityType.WIFI
+                || connectionType == Connectivity.ConnectivityType.ETHERNET
+    }
+
+    companion object {
+        const val BARRIER_ID = "ConnectivityBarrier"
+        const val KEY_WIFI_ONLY = "wifi_only"
+
+        private val DataObject.wifiOnly: Boolean
+            get() = this.getBoolean(KEY_WIFI_ONLY) ?: false
+    }
+
+    class Factory(
+        private val defaultScope: Set<BarrierScope> = setOf(
+            BarrierScope.Dispatcher(Modules.Types.COLLECT)
+        )
+    ) : BarrierFactory {
+        override val id: String = BARRIER_ID
+        override fun defaultScope(): Set<BarrierScope> = defaultScope
+        override fun create(
+            context: TealiumContext,
+            configuration: DataObject
+        ): ConfigurableBarrier =
+            ConnectivityBarrier(context, configuration)
+    }
+}

@@ -2,23 +2,22 @@ plugins {
     alias(libs.plugins.tealium.library)
 }
 
-version = "2.0.1"
+version = "0.1.0"
 
 tealiumLibrary {
-    groupId = "com.tealium"
-    artifactId = "kotlin-core"
+    groupId = "com.tealium.prism"
+    artifactId = "prism-core"
 }
 
 android {
-    namespace = "com.tealium.core"
-    compileSdk = 33
+    namespace = "com.tealium.prism.core"
+    compileSdk = 35
 
     defaultConfig {
         minSdk = 23
-        targetSdk = 33
 
-        buildConfigField("String", "TAG", "\"Tealium\"")
-        buildConfigField("String", "TEALIUM_LIBRARY_NAME", "\"android-kotlin\"")
+        buildConfigField("String", "TAG", "\"TealiumPrism\"")
+        buildConfigField("String", "TEALIUM_LIBRARY_NAME", "\"prism-kotlin\"")
         buildConfigField("String", "TEALIUM_LIBRARY_VERSION", "\"$version\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

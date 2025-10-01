@@ -1,0 +1,60 @@
+package com.tealium.prism.core.internal.persistence
+
+import com.tealium.prism.core.api.persistence.DataStore
+import com.tealium.prism.core.api.persistence.ModuleStoreProvider
+import com.tealium.prism.core.api.modules.Module
+import com.tealium.prism.core.api.modules.ModuleFactory
+import com.tealium.prism.core.internal.persistence.database.DatabaseProvider
+import com.tealium.prism.core.internal.persistence.repositories.KeyValueRepository
+import com.tealium.prism.core.internal.persistence.repositories.ModulesRepository
+import com.tealium.prism.core.internal.persistence.repositories.SQLKeyValueRepository
+import com.tealium.prism.core.internal.persistence.stores.ModuleStore
+
+/**
+ * This is the default implementation of [ModuleStoreProvider] for registering and returning
+ * storage to be used by individual modules.
+ *
+ * @param dbProvider Database provider instance to provide a valid instance of a [android.database.sqlite.SQLiteDatabase]
+ * @param moduleRepository The [ModulesRepository] to use to register the module for storage
+ */
+class ModuleStoreProviderImpl(
+    private val dbProvider: DatabaseProvider,
+    private val moduleRepository: ModulesRepository,
+    // TODO - perhaps reconsider switching to a single `KeyValueRepository` instance with id's required on each method
+    private val keyValueRepositoryCreator: (DatabaseProvider, Long) -> KeyValueRepository = { provider, moduleId ->
+        SQLKeyValueRepository(provider, moduleId)
+    },
+    private val stores: MutableMap<Long, DataStore> = mutableMapOf()
+) : ModuleStoreProvider {
+
+    override fun getModuleStore(moduleId: String): DataStore {
+        return getModuleStoreForName(moduleId)
+    }
+
+    override fun getModuleStore(module: Module): DataStore {
+        return getModuleStoreForName(module.id)
+    }
+
+    override fun getSharedDataStore(): DataStore {
+        return getModuleStoreForName(SHARED_STORE_NAME)
+    }
+
+    private fun getModuleStoreForName(name: String): DataStore {
+        val moduleId =
+            moduleRepository.modules[name] ?: moduleRepository.registerModule(name)
+        if (moduleId < 0)
+            throw Exception("Could not register module $name for storage")
+
+        return stores[moduleId] ?: ModuleStore(
+            keyValueRepository = keyValueRepositoryCreator.invoke(dbProvider, moduleId),
+            onDataExpired = moduleRepository.onDataExpired
+                .mapNotNull { it[moduleId] }
+        ).also {
+            stores[moduleId] = it
+        }
+    }
+
+    companion object {
+        const val SHARED_STORE_NAME = "shared"
+    }
+}

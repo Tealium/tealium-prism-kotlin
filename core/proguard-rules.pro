@@ -27,26 +27,21 @@
 -keep class kotlin.Metadata { *; }
 
 # Keep all public interfaces
--keep public interface com.tealium.core.* { *; }
--keep public class com.tealium.core.* { *; }
+-keep public interface com.tealium.prism.core.* { *; }
+-keep public class com.tealium.prism.core.* { *; }
 
--keep public interface com.tealium.core.api.** { *; }
--keep public class com.tealium.core.api.** { *; }
+-keep public interface com.tealium.prism.core.api.** { *; }
+-keep public class com.tealium.prism.core.api.** { *; }
 
--keep public class com.tealium.**$DefaultImpls { *; }
+-keep public class com.tealium.prism.**$DefaultImpls { *; }
 
 # Keep public extension points
--keep public class com.tealium.core.api.Modules {
+-keep public class com.tealium.prism.core.api.Modules {
     public protected *;
 }
 
 -keep public enum com.tealium.** {
     public protected *;
-}
-
-# Keep observables public for external module use, but remain in internal package.
--keep public class com.tealium.core.internal.pubsub.* {
-    *;
 }
 
 # OpenForTesting Annotation

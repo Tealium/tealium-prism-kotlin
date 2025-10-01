@@ -1,0 +1,554 @@
+package com.tealium.prism.core.internal.modules.deeplink
+
+import android.app.Activity
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import com.tealium.prism.core.api.Modules
+import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.misc.ActivityManager
+import com.tealium.prism.core.api.modules.Module
+import com.tealium.prism.core.api.modules.ModuleManager
+import com.tealium.prism.core.api.modules.ModuleNotEnabledException
+import com.tealium.prism.core.api.modules.TealiumContext
+import com.tealium.prism.core.api.persistence.DataStore
+import com.tealium.prism.core.api.persistence.Expiry
+import com.tealium.prism.core.api.persistence.ModuleStoreProvider
+import com.tealium.prism.core.api.persistence.PersistenceException
+import com.tealium.prism.core.api.pubsub.Disposable
+import com.tealium.prism.core.api.pubsub.Observables
+import com.tealium.prism.core.api.pubsub.ReplaySubject
+import com.tealium.prism.core.api.pubsub.StateSubject
+import com.tealium.prism.core.api.settings.modules.DeepLinkSettingsBuilder
+import com.tealium.prism.core.api.tracking.Dispatch
+import com.tealium.prism.core.api.tracking.DispatchContext
+import com.tealium.prism.core.api.tracking.TrackResult
+import com.tealium.prism.core.api.tracking.TrackResultListener
+import com.tealium.prism.core.api.tracking.Tracker
+import com.tealium.prism.core.internal.modules.ModuleManagerImpl
+import com.tealium.prism.core.internal.modules.trace.TraceModule
+import com.tealium.tests.common.SynchronousScheduler
+import com.tealium.tests.common.SystemLogger
+import com.tealium.tests.common.buildConfiguration
+import com.tealium.tests.common.mockkEditor
+import io.mockk.MockKAnnotations
+import io.mockk.every
+import io.mockk.impl.annotations.RelaxedMockK
+import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
+import io.mockk.verifyOrder
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
+@RunWith(RobolectricTestRunner::class)
+class DeepLinkModuleTests {
+
+    @RelaxedMockK
+    lateinit var dataStore: DataStore
+
+    @RelaxedMockK
+    lateinit var tracker: Tracker
+
+    @RelaxedMockK
+    lateinit var traceModule: TraceModule
+
+    @RelaxedMockK
+    lateinit var dataStoreEditor: DataStore.Editor
+
+    private lateinit var moduleManager: ModuleManager
+    private lateinit var modules: StateSubject<List<Module>>
+    private lateinit var activities: ReplaySubject<ActivityManager.ActivityStatus>
+    private lateinit var uri: Uri
+    private lateinit var configuration: DeepLinkModuleConfiguration
+    private lateinit var deepLinkModule: DeepLinkModule
+
+    @Before
+    fun setUp() {
+        MockKAnnotations.init(this)
+
+        configuration = DeepLinkModuleConfiguration(
+            automaticDeepLinkTracking = true,
+            sendDeepLinkEvent = true,
+            deepLinkTraceEnabled = true
+        )
+        modules = Observables.stateSubject(listOf(traceModule))
+        moduleManager = ModuleManagerImpl(SynchronousScheduler(), modules)
+
+        dataStoreEditor = mockkEditor()
+        every { dataStore.edit() } returns dataStoreEditor
+
+        activities = Observables.replaySubject(1)
+
+        uri = Uri.parse("https://example.com/path?param1=value1&param2=value2")
+
+        deepLinkModule = DeepLinkModule(
+            dataStore,
+            tracker,
+            moduleManager,
+            activities,
+            configuration,
+            SystemLogger
+        )
+    }
+
+    @Test
+    fun collect_Returns_Empty_Object_When_Source_Is_From_Module() {
+        val dispatchContext = DispatchContext(
+            DispatchContext.Source.module(DeepLinkModule::class.java),
+            DataObject.EMPTY_OBJECT
+        )
+
+        val result = deepLinkModule.collect(dispatchContext)
+
+        assertEquals(DataObject.EMPTY_OBJECT, result)
+    }
+
+    @Test
+    fun collect_Returns_DataStore_Contents_When_Source_Is_Not_From_Module() {
+        val dispatchContext = DispatchContext(
+            DispatchContext.Source.application(),
+            DataObject.EMPTY_OBJECT
+        )
+        val dataObject = DataObject.create { put("key", "value") }
+        every { dataStore.getAll() } returns dataObject
+
+        val result = deepLinkModule.collect(dispatchContext)
+
+        assertEquals(dataObject, result)
+    }
+
+    @Test
+    fun handle_Does_Nothing_When_Uri_Is_Opaque() {
+        uri = Uri.parse("mailto:someone@test.com")
+
+        deepLinkModule.handle(uri)
+
+        verify(exactly = 0) {
+            dataStore.edit()
+            tracker.track(any(), any())
+        }
+    }
+
+    @Test
+    fun handle_Removes_Existing_Data_And_Stores_DeepLink_Data_When_Uri_Is_Valid() {
+        deepLinkModule.handle(uri)
+
+        val expected = DataObject.create {
+            put(Dispatch.Keys.DEEP_LINK_URL, uri.toString())
+            put("${Dispatch.Keys.DEEP_LINK_QUERY_PREFIX}_param1", "value1")
+            put("${Dispatch.Keys.DEEP_LINK_QUERY_PREFIX}_param2", "value2")
+        }
+        verify {
+            dataStoreEditor.clear()
+            dataStoreEditor.putAll(match { it == expected }, Expiry.SESSION)
+            dataStoreEditor.commit()
+        }
+    }
+
+    @Test
+    fun handle_Tracks_Event_When_SendDeepLinkEvent_Is_Enabled() {
+        deepLinkModule.handle(uri)
+
+        verify {
+            tracker.track(match {
+                it.tealiumEvent == DeepLinkModule.DEEP_LINK_EVENT
+            }, any(), any())
+        }
+    }
+
+    @Test
+    fun handle_Does_Not_Track_Event_When_SendDeepLinkEvent_Is_Disabled() {
+        val configuration = DeepLinkSettingsBuilder()
+            .setSendDeepLinkEventEnabled(false)
+            .buildConfiguration()
+        deepLinkModule.updateConfiguration(configuration)
+
+        deepLinkModule.handle(uri)
+
+        verify(exactly = 0) {
+            tracker.track(any(), any())
+        }
+    }
+
+    @Test
+    fun handle_Includes_DeepLink_Url_In_DataObject() {
+        deepLinkModule.handle(uri)
+
+        verify {
+            dataStoreEditor.putAll(match {
+                it.getString(Dispatch.Keys.DEEP_LINK_URL) == uri.toString()
+            }, Expiry.SESSION)
+        }
+    }
+
+    @Test
+    fun handle_Still_Includes_DeepLink_Url_In_DataObject_When_Automatic_Tracking_Disabled() {
+        val configuration = DeepLinkSettingsBuilder()
+            .setAutomaticDeepLinkTrackingEnabled(false)
+            .buildConfiguration()
+        deepLinkModule.updateConfiguration(configuration)
+
+        deepLinkModule.handle(uri)
+
+        verify {
+            dataStoreEditor.putAll(match {
+                it.getString(Dispatch.Keys.DEEP_LINK_URL) == uri.toString()
+            }, Expiry.SESSION)
+        }
+    }
+
+    @Test
+    fun handle_Includes_Query_Parameters_In_DataObject() {
+        deepLinkModule.handle(uri)
+
+        verify {
+            dataStoreEditor.putAll(match {
+                it.getString("${Dispatch.Keys.DEEP_LINK_QUERY_PREFIX}_param1") == "value1"
+            }, Expiry.SESSION)
+            dataStoreEditor.putAll(match {
+                it.getString("${Dispatch.Keys.DEEP_LINK_QUERY_PREFIX}_param2") == "value2"
+            }, Expiry.SESSION)
+        }
+    }
+
+    @Test
+    fun handle_Includes_Referrer_Url_In_DataObject_When_Provided() {
+        val referrer = Uri.parse("http://referrer.com")
+
+        deepLinkModule.handle(uri, referrer)
+
+        verify {
+            dataStoreEditor.putAll(match {
+                it.getString(Dispatch.Keys.DEEP_LINK_REFERRER_URL) == "http://referrer.com"
+            }, Expiry.SESSION)
+        }
+    }
+
+    @Test
+    fun handle_Calls_TraceModule_Join_When_TraceId_Present() {
+        val traceId = "test_trace_id"
+        uri = uri.buildUpon()
+            .appendQueryParameter(DeepLinkModule.TRACE_ID_QUERY_PARAM, traceId)
+            .build()
+
+        deepLinkModule.handle(uri)
+
+        verify {
+            traceModule.join(traceId)
+        }
+    }
+
+    @Test
+    fun handle_Does_Not_Call_TraceModule_Join_When_TraceId_Present() {
+        val configuration = DeepLinkSettingsBuilder()
+            .setDeepLinkTraceEnabled(false)
+            .buildConfiguration()
+        deepLinkModule.updateConfiguration(configuration)
+        uri = uri.buildUpon()
+            .appendQueryParameter(DeepLinkModule.TRACE_ID_QUERY_PARAM, "traceId")
+            .build()
+
+        deepLinkModule.handle(uri)
+
+        verify(exactly = 0) {
+            traceModule.join("traceId")
+        }
+    }
+
+    @Test
+    fun handle_Calls_TraceModule_Leave_When_LeaveTrace_Present() {
+        val traceId = "test_trace_id"
+        uri = uri.buildUpon()
+            .appendQueryParameter(DeepLinkModule.TRACE_ID_QUERY_PARAM, traceId)
+            .appendQueryParameter(DeepLinkModule.LEAVE_TRACE_QUERY_PARAM, "true")
+            .build()
+
+        deepLinkModule.handle(uri)
+
+        verify {
+            traceModule.leave()
+        }
+    }
+
+    @Test
+    fun handle_Calls_TraceModule_KillVisitorSession_When_KillVisitorSession_Present() {
+        val traceId = "test_trace_id"
+        uri = uri.buildUpon()
+            .appendQueryParameter(DeepLinkModule.TRACE_ID_QUERY_PARAM, traceId)
+            .appendQueryParameter(DeepLinkModule.KILL_VISITOR_SESSION, "true")
+            .build()
+
+        deepLinkModule.handle(uri)
+
+        verify {
+            traceModule.killVisitorSession(any())
+        }
+    }
+
+    @Test(expected = ModuleNotEnabledException::class)
+    fun handle_Trace_Throws_ModuleNotEnabledException_When_TraceModule_Not_Available() {
+        modules.onNext(emptyList()) // disable trace
+        val traceId = "test_trace_id"
+        uri = uri.buildUpon()
+            .appendQueryParameter(DeepLinkModule.TRACE_ID_QUERY_PARAM, traceId)
+            .appendQueryParameter(DeepLinkModule.KILL_VISITOR_SESSION, "true")
+            .build()
+
+        deepLinkModule.handle(uri)
+    }
+
+    @Test
+    fun handle_Trace_Throws_Exception_When_KillVisitorSession_Fails() {
+        val callback = slot<TrackResultListener>()
+        every { traceModule.killVisitorSession(capture(callback)) } answers {
+            callback.captured.onTrackResultReady(TrackResult.dropped(mockk(), ""))
+        }
+        uri = uri.buildUpon()
+            .appendQueryParameter(DeepLinkModule.TRACE_ID_QUERY_PARAM, "test_trace_id")
+            .appendQueryParameter(DeepLinkModule.KILL_VISITOR_SESSION, "true")
+            .build()
+
+        deepLinkModule.handle(uri)
+    }
+
+    @Test(expected = PersistenceException::class)
+    fun handle_DeepLink_Throws_Exception_When_Persistence_Fails() {
+        every { dataStoreEditor.commit() } throws PersistenceException("", mockk())
+
+        deepLinkModule.handle(uri)
+    }
+
+    @Test
+    fun onActivityStatus_Handles_DeepLink_When_Activity_Created_With_ViewIntent() {
+        val activity = mockActivity(Intent.ACTION_VIEW)
+        val activityStatus = ActivityManager.ActivityStatus(
+            activity = activity,
+            type = ActivityManager.ActivityLifecycleType.Created
+        )
+
+        activities.onNext(activityStatus)
+
+        verify {
+            dataStoreEditor.putAll(any(), Expiry.SESSION)
+            dataStoreEditor.commit()
+        }
+    }
+
+    @Test
+    fun onActivityStatus_Adds_Referrer_When_Referrer_Available() {
+        val activity = mockActivity(referrer = Uri.parse("com.example.referrer"))
+        val activityStatus = ActivityManager.ActivityStatus(
+            activity = activity,
+            type = ActivityManager.ActivityLifecycleType.Created
+        )
+
+        activities.onNext(activityStatus)
+
+        verify {
+            dataStoreEditor.putAll(
+                match { it.getString(Dispatch.Keys.DEEP_LINK_REFERRER_URL) == "com.example.referrer" },
+                Expiry.SESSION
+            )
+            dataStoreEditor.commit()
+        }
+    }
+
+    @Test
+    fun onActivityStatus_Does_Not_Add_Referrer_When_No_Referrer_Info() {
+        val activity = mockActivity(referrer = null)
+        val activityStatus = ActivityManager.ActivityStatus(
+            activity = activity,
+            type = ActivityManager.ActivityLifecycleType.Created
+        )
+
+        activities.onNext(activityStatus)
+
+        verify {
+            dataStoreEditor.putAll(
+                match { it.getString(Dispatch.Keys.DEEP_LINK_REFERRER_URL) == null },
+                Expiry.SESSION
+            )
+            dataStoreEditor.commit()
+        }
+    }
+
+    @Test
+    fun onActivityStatus_Does_Nothing_When_Activity_Not_Created() {
+        val activity = mockActivity(Intent.ACTION_VIEW)
+        val activityStatus = ActivityManager.ActivityStatus(
+            activity = activity,
+            type = ActivityManager.ActivityLifecycleType.Resumed
+        )
+
+        activities.onNext(activityStatus)
+
+        verify(inverse = true) {
+            dataStoreEditor.putAll(any(), Expiry.SESSION)
+            dataStoreEditor.commit()
+        }
+    }
+
+    @Test
+    fun onActivityStatus_Does_Nothing_When_Intent_Not_ViewAction() {
+        val activity = mockActivity(Intent.ACTION_DIAL)
+        val activityStatus = ActivityManager.ActivityStatus(
+            activity = activity,
+            type = ActivityManager.ActivityLifecycleType.Created
+        )
+
+        activities.onNext(activityStatus)
+
+        verify(inverse = true) {
+            dataStoreEditor.putAll(any(), Expiry.SESSION)
+            dataStoreEditor.commit()
+        }
+    }
+
+    @Test
+    fun updateConfiguration_Updates_Configuration_And_Subscription() {
+        val disposable = mockk<Disposable>(relaxed = true)
+        activities = mockk()
+        every { activities.subscribe(any()) } returns disposable
+
+        // Start with automatic tracking enabled
+        deepLinkModule = DeepLinkModule(
+            dataStore,
+            tracker,
+            moduleManager,
+            activities,
+            DeepLinkModuleConfiguration(automaticDeepLinkTracking = true),
+            SystemLogger
+        )
+
+        // Update to disable automatic tracking
+        val newConfig = DeepLinkSettingsBuilder()
+            .setAutomaticDeepLinkTrackingEnabled(false)
+            .buildConfiguration()
+
+        deepLinkModule.updateConfiguration(newConfig)
+
+        // Should dispose the subscription
+        verify {
+            disposable.dispose()
+        }
+
+        // Update to re-enable automatic tracking
+        val enabledConfig = DeepLinkSettingsBuilder()
+            .setAutomaticDeepLinkTrackingEnabled(true)
+            .buildConfiguration()
+
+        deepLinkModule.updateConfiguration(enabledConfig)
+
+        // Should create a new subscription
+        verify(exactly = 2) {
+            activities.subscribe(any())
+        }
+    }
+
+    @Test
+    fun onShutdown_Disposes_Activity_Subscription() {
+        val disposable = mockk<Disposable>(relaxed = true)
+        activities = mockk()
+        every { activities.subscribe(any()) } returns disposable
+
+        deepLinkModule = DeepLinkModule(
+            dataStore,
+            tracker,
+            moduleManager,
+            activities,
+            DeepLinkModuleConfiguration(automaticDeepLinkTracking = true),
+            SystemLogger
+        )
+
+        deepLinkModule.onShutdown()
+
+        // Should dispose the subscription
+        verifyOrder {
+            activities.subscribe(any())
+            disposable.dispose()
+        }
+    }
+
+    @Test
+    fun factory_ModuleType_Returns_Expected_Module_Id() {
+        val factory = DeepLinkModule.Factory(DataObject.EMPTY_OBJECT)
+
+        assertEquals(Modules.Types.DEEP_LINK, factory.moduleType)
+    }
+
+    @Test
+    fun factory_GetEnforcedSettings_Returns_Provided_Settings() {
+        val enforcedSettings = DataObject.create {
+            put(DeepLinkModuleConfiguration.KEY_AUTOMATIC_DEEPLINK_TRACKING, false)
+            put(DeepLinkModuleConfiguration.KEY_SEND_DEEPLINK_EVENT, true)
+        }
+
+        val factory = DeepLinkModule.Factory(enforcedSettings)
+
+        assertEquals(listOf(enforcedSettings), factory.getEnforcedSettings())
+    }
+
+    @Test
+    fun factory_Constructor_With_DeepLinkSettingsBuilder_Creates_Factory_With_Builder_Settings() {
+        val settingsBuilder = DeepLinkSettingsBuilder()
+            .setAutomaticDeepLinkTrackingEnabled(false)
+        val expected = settingsBuilder.build()
+
+        val factory = DeepLinkModule.Factory(settingsBuilder)
+
+        assertEquals(listOf(expected), factory.getEnforcedSettings())
+    }
+
+    @Test
+    fun factory_Create_Returns_DeepLinkHandlerModule_With_Configuration() {
+        val factory = DeepLinkModule.Factory(DataObject.EMPTY_OBJECT)
+        val tealiumContext = mockk<TealiumContext>()
+        val storageProvider = mockk<ModuleStoreProvider>()
+
+        every { tealiumContext.storageProvider } returns storageProvider
+        every { tealiumContext.tracker } returns tracker
+        every { tealiumContext.moduleManager } returns moduleManager
+        every { tealiumContext.activityManager.activities } returns activities
+        every { tealiumContext.logger } returns SystemLogger
+        every { storageProvider.getModuleStore(factory.moduleType) } returns dataStore
+
+        val configuration = DeepLinkSettingsBuilder()
+            .setAutomaticDeepLinkTrackingEnabled(true)
+            .buildConfiguration()
+
+        val module = factory.create(Modules.Types.DEEP_LINK, tealiumContext, configuration)
+
+        assertNotNull(module)
+        assertTrue(module is DeepLinkModule)
+        assertEquals(Modules.Types.DEEP_LINK, module?.id)
+    }
+
+    private fun mockActivity(
+        action: String = Intent.ACTION_VIEW,
+        uri: Uri = this.uri,
+        referrer: Uri? = null
+    ): Activity {
+        val activity = mockk<Activity>()
+        val intent = mockk<Intent>()
+
+        every { activity.intent } returns intent
+        every { activity.referrer } returns referrer
+        every { intent.action } returns action
+        every { intent.data } returns uri
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            every {
+                intent.getParcelableExtra(Intent.EXTRA_REFERRER, Uri::class.java)
+            } returns referrer
+        }
+        every { intent.getParcelableExtra<Uri>(Intent.EXTRA_REFERRER) } returns referrer
+        every { intent.getStringExtra(Intent.EXTRA_REFERRER_NAME) } returns referrer?.toString()
+
+        return activity
+    }
+}

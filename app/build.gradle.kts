@@ -4,13 +4,13 @@ plugins {
 }
 
 android {
-    namespace = "com.tealium.mobile"
-    compileSdk = 33
+    namespace = "com.tealium.prism.mobile"
+    compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.tealium.mobile"
+        applicationId = "com.tealium.prism.mobile"
         minSdk = 23
-        targetSdk = 33
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 

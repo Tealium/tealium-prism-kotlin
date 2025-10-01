@@ -1,10 +1,10 @@
 package com.tealium.tests.common
 
 import android.app.Application
-import com.tealium.core.api.TealiumConfig
-import com.tealium.core.api.misc.Environment
-import com.tealium.core.api.modules.ModuleFactory
-import com.tealium.core.api.settings.CoreSettingsBuilder
+import com.tealium.prism.core.api.TealiumConfig
+import com.tealium.prism.core.api.misc.Environment
+import com.tealium.prism.core.api.modules.ModuleFactory
+import com.tealium.prism.core.api.settings.CoreSettingsBuilder
 
 fun getDefaultConfig(
     app: Application,

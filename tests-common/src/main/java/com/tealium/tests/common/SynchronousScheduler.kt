@@ -1,9 +1,9 @@
 package com.tealium.tests.common
 
-import com.tealium.core.api.misc.Scheduler
-import com.tealium.core.api.pubsub.Disposable
-import com.tealium.core.internal.pubsub.Subscription
-import com.tealium.core.api.misc.TimeFrame
+import com.tealium.prism.core.api.misc.Scheduler
+import com.tealium.prism.core.api.pubsub.Disposable
+import com.tealium.prism.core.internal.pubsub.Subscription
+import com.tealium.prism.core.api.misc.TimeFrame
 
 /**
  * Scheduler that executes the given [Runnable] in a synchronous manner in the caller thread.

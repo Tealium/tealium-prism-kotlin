@@ -1,8 +1,8 @@
 package com.tealium.tests.common
 
-import com.tealium.core.api.data.DataObject
-import com.tealium.core.api.settings.modules.ModuleSettingsBuilder
-import com.tealium.core.internal.settings.ModuleSettings
+import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.settings.modules.ModuleSettingsBuilder
+import com.tealium.prism.core.internal.settings.ModuleSettings
 
 /**
  * Utility that builds the modules settings object, and returns only the module configuration DataObject.

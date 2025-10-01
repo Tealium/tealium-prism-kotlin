@@ -1,8 +1,8 @@
 package com.tealium.tests.common
 
-import com.tealium.core.api.modules.Collector
-import com.tealium.core.api.data.DataObject
-import com.tealium.core.api.tracking.DispatchContext
+import com.tealium.prism.core.api.modules.Collector
+import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.tracking.DispatchContext
 import io.mockk.spyk
 
 class TestCollector(

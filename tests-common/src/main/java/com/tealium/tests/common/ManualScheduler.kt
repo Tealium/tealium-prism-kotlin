@@ -1,10 +1,10 @@
 package com.tealium.tests.common
 
-import com.tealium.core.api.misc.Scheduler
-import com.tealium.core.api.misc.TimeFrame
-import com.tealium.core.api.misc.TimeFrameUtils.milliseconds
-import com.tealium.core.api.pubsub.Disposable
-import com.tealium.core.internal.pubsub.DisposableRunnable
+import com.tealium.prism.core.api.misc.Scheduler
+import com.tealium.prism.core.api.misc.TimeFrame
+import com.tealium.prism.core.api.misc.TimeFrameUtils.milliseconds
+import com.tealium.prism.core.api.pubsub.Disposable
+import com.tealium.prism.core.internal.pubsub.DisposableRunnable
 import java.util.PriorityQueue
 import java.util.Queue
 

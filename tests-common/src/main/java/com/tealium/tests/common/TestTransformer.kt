@@ -1,9 +1,9 @@
 package com.tealium.tests.common
 
-import com.tealium.core.api.tracking.Dispatch
-import com.tealium.core.api.transform.DispatchScope
-import com.tealium.core.api.transform.TransformationSettings
-import com.tealium.core.api.transform.Transformer
+import com.tealium.prism.core.api.tracking.Dispatch
+import com.tealium.prism.core.api.transform.DispatchScope
+import com.tealium.prism.core.api.transform.TransformationSettings
+import com.tealium.prism.core.api.transform.Transformer
 import io.mockk.spyk
 
 class TestTransformer(

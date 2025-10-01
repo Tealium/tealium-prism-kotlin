@@ -1,9 +1,9 @@
 package com.tealium.tests.common
 
-import com.tealium.core.api.data.DataObject
-import com.tealium.core.api.modules.Module
-import com.tealium.core.api.modules.ModuleFactory
-import com.tealium.core.api.modules.TealiumContext
+import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.modules.Module
+import com.tealium.prism.core.api.modules.ModuleFactory
+import com.tealium.prism.core.api.modules.TealiumContext
 
 class TestModuleFactory(
     override val moduleType: String,

@@ -26,7 +26,7 @@
 #-renamesourcefileattribute SourceFile
 -keep class kotlin.Metadata { *; }
 
--keep public interface com.tealium.lifecycle.* { *; }
--keep public class com.tealium.lifecycle.* { *; }
+-keep public interface com.tealium.prism.lifecycle.* { *; }
+-keep public class com.tealium.prism.lifecycle.* { *; }
 
--keep public class com.tealium.**$DefaultImpls { *; }
+-keep public class com.tealium.prism.**$DefaultImpls { *; }

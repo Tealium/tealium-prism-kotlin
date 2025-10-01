@@ -12,7 +12,7 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "com.tealium.core"
+rootProject.name = "com.tealium.prism"
 include(":app")
 include(":core")
 include(":lifecycle")

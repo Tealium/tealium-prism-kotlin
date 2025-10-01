@@ -1,10 +1,10 @@
 package com.tealium.tests.common
 
-import com.tealium.core.api.tracking.Dispatch
-import com.tealium.core.api.modules.Dispatcher
-import com.tealium.core.api.pubsub.Disposable
-import com.tealium.core.api.misc.TealiumCallback
-import com.tealium.core.internal.pubsub.CompletedDisposable
+import com.tealium.prism.core.api.tracking.Dispatch
+import com.tealium.prism.core.api.modules.Dispatcher
+import com.tealium.prism.core.api.pubsub.Disposable
+import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.internal.pubsub.CompletedDisposable
 import io.mockk.spyk
 
 class TestDispatcher(

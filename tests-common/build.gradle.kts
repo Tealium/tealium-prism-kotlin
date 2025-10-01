@@ -5,11 +5,10 @@ plugins {
 
 android {
     namespace = "com.tealium.tests.common"
-    compileSdk = 33
+    compileSdk = 35
 
     defaultConfig {
         minSdk = 23
-        targetSdk = 33
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles.add(file("consumer-rules.pro"))

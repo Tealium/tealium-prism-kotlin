@@ -6,7 +6,7 @@
 
     <application>
         <provider
-            android:name="com.tealium.core.internal.misc.TealiumAutoInitContentProvider"
+            android:name="com.tealium.prism.core.internal.misc.TealiumAutoInitContentProvider"
             android:authorities="${applicationId}.tealiumautoinitprovider"
             android:exported="false"
             android:initOrder="100" />

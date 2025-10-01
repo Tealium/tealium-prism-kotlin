@@ -82,7 +82,7 @@ class AndroidLogUsageVisitor(private val context: JavaContext) : UElementHandler
     }
 
     private val UClass?.isTealiumLogger: Boolean
-        get() = (this?.qualifiedName ?: "") == "com.tealium.core.internal.LoggerImpl"
+        get() = (this?.qualifiedName ?: "") == "com.tealium.prism.core.internal.LoggerImpl"
 
     private val UCallExpression.isAndroidLog: Boolean
         get() = (resolve()?.containingClass?.qualifiedName ?: "") == androidLogger

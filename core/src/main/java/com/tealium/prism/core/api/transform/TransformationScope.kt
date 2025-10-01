@@ -1,0 +1,36 @@
+package com.tealium.prism.core.api.transform
+
+import com.tealium.prism.core.api.modules.Collector
+import com.tealium.prism.core.api.tracking.Dispatch
+import com.tealium.prism.core.api.data.DataItemConvertible
+import com.tealium.prism.core.api.data.DataItem
+
+/**
+ * Sets out the available extension points during the [Dispatch] lifecycle.
+ */
+sealed class TransformationScope(val value: String): DataItemConvertible {
+
+    /**
+     * This scope happens directly after all data collection has been completed from any [Collector]
+     * implementations in the system, but before the [Dispatch] has been queued.
+     */
+    object AfterCollectors : TransformationScope("aftercollectors")
+
+    /**
+     * This scope happens during the process of sending [Dispatch]es to individual [Dispatcher]s but
+     * this scope will be run for all [Dispatcher]s in the system.
+     *
+     * @see Dispatcher
+     */
+    object AllDispatchers : TransformationScope("alldispatchers")
+
+    /**
+     * This scope happens during the process of sending [Dispatch]es to an individual [Dispatcher] as
+     * identified by the [dispatcher] id given.
+     */
+    data class Dispatcher(val dispatcher: String) : TransformationScope(dispatcher)
+
+    override fun asDataItem(): DataItem {
+        return DataItem.string(value)
+    }
+}

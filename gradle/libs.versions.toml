@@ -1,6 +1,6 @@
 [versions]
 agp = "8.6.1"
-kotlin = "1.8.22"
+kotlin = "2.0.21"
 lint = "27.2.2" # NOTE - this is quite old - need Kotlin version updated to 1.9 though to use later versions
 mockk = "1.13.13"
 

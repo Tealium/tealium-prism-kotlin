@@ -20,8 +20,8 @@ import org.jetbrains.uast.UVariable
 import org.jetbrains.uast.getContainingUClass
 
 /**
- * This issue looks for usage of classes from `com.tealium.core.internal` in any package that isn't
- * `com.tealium.core.internal` and flags a lint warning.
+ * This issue looks for usage of classes from `com.tealium.prism.core.internal` in any package that isn't
+ * `com.tealium.prism.core.internal` and flags a lint warning.
  * There may be some cases where a class in that package should remain un-obfuscated, and in which case
  * this issue implementation will need to be amended to consider that.
  */

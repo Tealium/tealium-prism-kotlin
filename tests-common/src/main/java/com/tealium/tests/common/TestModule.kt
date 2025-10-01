@@ -1,6 +1,6 @@
 package com.tealium.tests.common
 
-import com.tealium.core.api.modules.Module
+import com.tealium.prism.core.api.modules.Module
 import io.mockk.spyk
 
 class TestModule(

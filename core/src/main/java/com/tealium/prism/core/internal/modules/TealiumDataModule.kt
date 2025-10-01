@@ -1,0 +1,84 @@
+package com.tealium.prism.core.internal.modules
+
+import com.tealium.prism.core.BuildConfig
+import com.tealium.prism.core.api.Modules
+import com.tealium.prism.core.api.TealiumConfig
+import com.tealium.prism.core.api.data.DataItemUtils.asDataList
+import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.modules.Collector
+import com.tealium.prism.core.api.modules.Module
+import com.tealium.prism.core.api.modules.ModuleFactory
+import com.tealium.prism.core.api.modules.ModuleManager
+import com.tealium.prism.core.api.modules.TealiumContext
+import com.tealium.prism.core.api.pubsub.ObservableState
+import com.tealium.prism.core.api.settings.modules.TealiumDataSettingsBuilder
+import com.tealium.prism.core.api.tracking.Dispatch
+import com.tealium.prism.core.api.tracking.DispatchContext
+import java.security.SecureRandom
+import java.util.Locale
+import kotlin.math.abs
+
+class TealiumDataModule(
+    private val config: TealiumConfig,
+    private val visitorId: ObservableState<String>,
+    private val moduleManager: ModuleManager
+) : Module, Collector {
+
+    constructor(
+        context: TealiumContext,
+    ) : this(context.config, context.visitorId, context.moduleManager)
+
+    private val secureRandom = SecureRandom()
+    private val random: String
+        get() {
+            val rand = secureRandom.nextLong() % 10000000000000000L
+            return String.format(Locale.ROOT, "%016d", abs(rand));
+        }
+
+    private val baseData = DataObject.create {
+        put(Dispatch.Keys.TEALIUM_ACCOUNT, config.accountName)
+        put(Dispatch.Keys.TEALIUM_PROFILE, config.profileName)
+        put(Dispatch.Keys.TEALIUM_ENVIRONMENT, config.environment)
+        config.datasource?.let {
+            put(Dispatch.Keys.TEALIUM_DATASOURCE_ID, it)
+        }
+        put(Dispatch.Keys.TEALIUM_LIBRARY_NAME, BuildConfig.TEALIUM_LIBRARY_NAME)
+        put(Dispatch.Keys.TEALIUM_LIBRARY_VERSION, BuildConfig.TEALIUM_LIBRARY_VERSION)
+    }
+
+    override fun collect(dispatchContext: DispatchContext): DataObject {
+        return baseData.copy {
+            put(Dispatch.Keys.TEALIUM_RANDOM, random)
+            put(Dispatch.Keys.TEALIUM_VISITOR_ID, visitorId.value)
+
+            val modules = moduleManager.modules.value
+            put(Dispatch.Keys.ENABLED_MODULES, modules.map(Module::id).asDataList())
+            put(Dispatch.Keys.ENABLED_MODULES_VERSIONS, modules.map(Module::version).asDataList())
+        }
+    }
+
+
+    override val id: String = Modules.Types.TEALIUM_DATA
+    override val version: String
+        get() = BuildConfig.TEALIUM_LIBRARY_VERSION
+
+    class Factory(
+        settings: DataObject? = null
+    ) : ModuleFactory {
+
+        private val enforcedSettings: List<DataObject> =
+            settings?.let { listOf(it) } ?: emptyList()
+
+        constructor(settingsBuilder: TealiumDataSettingsBuilder) : this(settingsBuilder.build())
+
+        override fun getEnforcedSettings(): List<DataObject> = enforcedSettings
+
+        override val moduleType = Modules.Types.TEALIUM_DATA
+
+        override fun canBeDisabled(): Boolean = false
+
+        override fun create(moduleId: String, context: TealiumContext, configuration: DataObject): Module? {
+            return TealiumDataModule(context)
+        }
+    }
+}

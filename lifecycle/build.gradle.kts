@@ -2,11 +2,16 @@ plugins {
     alias(libs.plugins.tealium.library)
 }
 
-version = "2.0.0"
+version = "0.1.0"
+
+tealiumLibrary {
+    groupId = "com.tealium.prism"
+    artifactId = "prism-lifecycle"
+}
 
 android {
-    namespace = "com.tealium.lifecycle"
-    compileSdk = 34
+    namespace = "com.tealium.prism.lifecycle"
+    compileSdk = 35
 
     defaultConfig {
         minSdk = 23
