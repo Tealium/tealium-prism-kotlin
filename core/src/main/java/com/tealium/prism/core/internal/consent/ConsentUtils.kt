@@ -34,11 +34,17 @@ fun Dispatch.applyDecision(decision: ConsentDecision): Dispatch? {
 fun Dispatch.matchesConfiguration(configuration: ConsentConfiguration, dispatcherId: String): Boolean {
     val consentedPurposes = payload().getDataList(Dispatch.Keys.ALL_CONSENTED_PURPOSES)
         ?.mapNotNull(DataItem::getString)
-        ?: return false
+
+    if (consentedPurposes.isNullOrEmpty())
+        return false
 
     val requiredPurposes = configuration.purposes.values
         .filter { it.dispatcherIds.contains(dispatcherId) }
-        .map(ConsentPurpose::purposeId)
 
-    return requiredPurposes.all { consentedPurposes.contains(it) }
+    if (requiredPurposes.isEmpty())
+        return false
+
+    return requiredPurposes
+        .map(ConsentPurpose::purposeId)
+        .all { consentedPurposes.contains(it) }
 }
