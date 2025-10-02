@@ -12,6 +12,7 @@ import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchContext
 import com.tealium.tests.common.TestModule
+import com.tealium.tests.common.getDefaultConfig
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
@@ -39,7 +40,9 @@ class TealiumDataModuleTests {
         mockModuleManager = mockk()
         mockContext = mockk(relaxed = true)
 
-        config = TealiumConfig(mockk(), "test-account", "test-profile", Environment.DEV, listOf(), "test-datasource")
+        config = TealiumConfig.Builder(mockk(), "test-account", "test-profile", Environment.DEV, listOf())
+            .setDataSource("test-datasource")
+            .build()
 
         every { mockContext.config } returns config
         every { mockContext.visitorId } returns visitorId
@@ -85,7 +88,7 @@ class TealiumDataModuleTests {
 
     @Test
     fun collect_Does_Not_Include_DataSource_When_Not_Configured() {
-        val config = TealiumConfig(mockk(), "", "", Environment.DEV, listOf(), datasource = null)
+        val config = getDefaultConfig(mockk())
         tealiumDataModule = TealiumDataModule(config, visitorId, mockModuleManager)
 
         val result = tealiumDataModule.collect(dispatchContext)

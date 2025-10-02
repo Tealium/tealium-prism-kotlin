@@ -13,13 +13,27 @@ fun getDefaultConfig(
     environment: Environment = Environment.DEV,
     modules: List<ModuleFactory> = listOf(),
     coreSettings: ((CoreSettingsBuilder) -> CoreSettingsBuilder)? = null
-): TealiumConfig {
-    return TealiumConfig(
+): TealiumConfig =
+    getDefaultConfigBuilder(app, accountName, profileName, environment, modules, coreSettings)
+        .build()
+
+fun getDefaultConfigBuilder(
+    app: Application,
+    accountName: String = "test",
+    profileName: String = "test",
+    environment: Environment = Environment.DEV,
+    modules: List<ModuleFactory> = listOf(),
+    coreSettings: ((CoreSettingsBuilder) -> CoreSettingsBuilder)? = null
+): TealiumConfig.Builder {
+    return TealiumConfig.Builder(
         application = app,
         accountName = accountName,
         profileName = profileName,
         environment = environment,
-        modules = modules,
-        enforcingCoreSettings = coreSettings
-    )
+        modules = modules
+    ).apply {
+        coreSettings?.let {
+            configureCoreSettings(it)
+        }
+    }
 }

@@ -22,6 +22,7 @@ import com.tealium.prism.core.internal.settings.consent.ConsentPurpose
 import com.tealium.prism.core.internal.settings.consent.ConsentSettings
 import com.tealium.tests.common.TestModuleFactory
 import com.tealium.tests.common.getDefaultConfig
+import com.tealium.tests.common.getDefaultConfigBuilder
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
@@ -41,9 +42,10 @@ class TealiumConfigTests {
         val loadRule1 = LoadRule("rule-1", Rule.just(isEqual(true, null, "key", "value")))
         val loadRule2 = LoadRule("rule-2", Rule.just(isDefined(null, "key")))
 
-        val config = getDefaultConfig(app = mockk())
-        config.addLoadRule(loadRule1.id, loadRule1.conditions)
-        config.addLoadRule(loadRule2.id, loadRule2.conditions)
+        val config = getDefaultConfigBuilder(app = mockk())
+            .addLoadRule(loadRule1.id, loadRule1.conditions)
+            .addLoadRule(loadRule2.id, loadRule2.conditions)
+            .build()
 
         val loadRules = config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_LOAD_RULES)!!
         assertEquals(loadRule1, loadRules.get("rule-1", LoadRule.Converter))
@@ -65,9 +67,10 @@ class TealiumConfigTests {
             configuration = DataObject.create { put("key", "value") }
         )
 
-        val config = getDefaultConfig(app = mockk())
-        config.addTransformation(transformation1)
-        config.addTransformation(transformation2)
+        val config = getDefaultConfigBuilder(app = mockk())
+            .addTransformation(transformation1)
+            .addTransformation(transformation2)
+            .build()
 
         val transformations =
             config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_TRANSFORMATIONS)!!
@@ -87,8 +90,9 @@ class TealiumConfigTests {
         val barrierFactory = barrierFactory(barrier)
         val scopes = setOf(BarrierScope.All, BarrierScope.Dispatcher("dispatcher"))
 
-        val config = getDefaultConfig(app = mockk())
-        config.addBarrier(barrierFactory, scopes)
+        val config = getDefaultConfigBuilder(app = mockk())
+            .addBarrier(barrierFactory, scopes)
+            .build()
 
         val barriers = config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_BARRIERS)!!
         val barrierSettings = barriers.get(barrier.id, BarrierSettings.Converter)!!
@@ -102,8 +106,9 @@ class TealiumConfigTests {
         val barrier = barrier("test-barrier", Observables.just(BarrierState.Open))
         val barrierFactory = barrierFactory(barrier)
 
-        val config = getDefaultConfig(app = mockk())
-        config.addBarrier(barrierFactory)
+        val config = getDefaultConfigBuilder(app = mockk())
+            .addBarrier(barrierFactory)
+            .build()
 
         val barrierSettings = config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_BARRIERS)
             ?.get(barrier.id, BarrierSettings.Converter)
@@ -139,10 +144,10 @@ class TealiumConfigTests {
     fun enableConsentIntegration_Adds_Consent_To_Enforced_Settings_Under_Consent_Key_When_Enforced_Settings_Set() {
         val cmpAdapter = mockCmpAdapter()
 
-        val config = getDefaultConfig(app = mockk())
-        config.enableConsentIntegration(cmpAdapter) { settings ->
-            settings.addPurpose("purpose1", setOf("dispatcher1"))
-        }
+        val config = getDefaultConfigBuilder(app = mockk())
+            .enableConsentIntegration(cmpAdapter) { settings ->
+                settings.addPurpose("purpose1", setOf("dispatcher1"))
+            }.build()
 
         val consent = config.enforcedSdkSettings.get(SdkSettings.KEY_CONSENT)
         assertNotNull(consent)
@@ -152,8 +157,9 @@ class TealiumConfigTests {
     fun enableConsentIntegration_Does_Not_Add_Consent_To_Enforced_Settings_When_Enforced_Settings_Omitted() {
         val cmpAdapter = mockCmpAdapter()
 
-        val config = getDefaultConfig(app = mockk())
-        config.enableConsentIntegration(cmpAdapter)
+        val config = getDefaultConfigBuilder(app = mockk())
+            .enableConsentIntegration(cmpAdapter)
+            .build()
 
         val consent = config.enforcedSdkSettings.get(SdkSettings.KEY_CONSENT)
         assertNull(consent)
@@ -163,12 +169,12 @@ class TealiumConfigTests {
     fun enableConsentIntegration_Adds_Correctly_Serialized_Consent_Settings_To_Enforced_Settings() {
         val cmpAdapter = mockCmpAdapter("cmp1")
 
-        val config = getDefaultConfig(app = mockk())
-        config.enableConsentIntegration(cmpAdapter) { settings ->
-            settings.addPurpose("purpose1", setOf("dispatcher1"))
-                .setRefireDispatcherIds(setOf("dispatcher2"))
-                .setTealiumPurposeId("tealium_purpose")
-        }
+        val config = getDefaultConfigBuilder(app = mockk())
+            .enableConsentIntegration(cmpAdapter) { settings ->
+                settings.addPurpose("purpose1", setOf("dispatcher1"))
+                    .setRefireDispatcherIds(setOf("dispatcher2"))
+                    .setTealiumPurposeId("tealium_purpose")
+            }.build()
 
         val consent =
             config.enforcedSdkSettings.get(SdkSettings.KEY_CONSENT, ConsentSettings.Converter)!!
@@ -189,9 +195,10 @@ class TealiumConfigTests {
                     .setTealiumPurposeId("tealium_purpose")
             }
 
-        val config = getDefaultConfig(app = mockk())
-        config.enableConsentIntegration(cmp1, settingsBlock)
-        config.enableConsentIntegration(cmp2, settingsBlock)
+        val config = getDefaultConfigBuilder(app = mockk())
+            .enableConsentIntegration(cmp1, settingsBlock)
+            .enableConsentIntegration(cmp2, settingsBlock)
+            .build()
 
         val consent =
             config.enforcedSdkSettings.get(SdkSettings.KEY_CONSENT, ConsentSettings.Converter)!!

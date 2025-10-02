@@ -37,6 +37,7 @@ import com.tealium.prism.core.api.tracking.TealiumDispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.internal.logger.logDescriptions
 import com.tealium.prism.core.internal.pubsub.CompletedDisposable
+import com.tealium.prism.lifecycle.LifecycleDataTarget
 import com.tealium.prism.lifecycle.lifecycle
 import com.tealium.prism.mobile.ExampleCmpAdapter.Purposes
 
@@ -51,67 +52,43 @@ object TealiumHelper {
 
     val isEnabled: Boolean get() = shared != null
 
-    private fun onDataUpdated(dataObject: DataObject) {
-        for (entry in dataObject) {
-            onDataUpdated(entry.key, entry.value)
-        }
-    }
-
-    private fun onDataUpdated(key: String, value: Any) {
-        Log.d("Helper", "DataUpdated $key : $value")
-    }
-
-    private fun onDataRemoved(keys: List<String>) {
-        Log.d("Helper", "DataRemoved ${keys.joinToString(", ")}")
-    }
-
     fun init(application: Application, onReady: ((TealiumResult<Tealium>) -> Unit)? = null) {
         // Initialize and store the CmpAdapter
         cmp = ExampleCmpAdapter(application.applicationContext)
 
-        val config = TealiumConfig(
+        val config = TealiumConfig.Builder(
             application = application,
             modules = configureModules(),
             accountName = "tealiummobile",
             profileName = "android",
             environment = Environment.DEV
-        ) { settings ->
+        ).configureCoreSettings { settings ->
             settings
                 .setLogLevel(LogLevel.TRACE)
-        }
-        config.apply {
-            useRemoteSettings = false
-            localSdkSettingsFileName = "tealium-settings.jsonc"
-
-            // Enable consent integration
-            enableConsentIntegration(cmp) { settings ->
+        }.setSettingsFile("tealium-settings.jsonc")
+            .enableConsentIntegration(cmp) { settings ->
                 settings
                     .setTealiumPurposeId(Purposes.TEALIUM)
                     .addPurpose(Purposes.TRACKING, setOf(Modules.Types.COLLECT))
                     .setRefireDispatcherIds(setOf(Modules.Types.COLLECT))
             }
 
-//            addBarrier(Barriers.connectivity(),
+//            .addBarrier(Barriers.connectivity(),
 //                setOf(
-//                    BarrierScope.Dispatcher(Modules.Ids.COLLECT),
+//                    BarrierScope.Dispatcher(Modules.Types.COLLECT),
 //                    BarrierScope.Dispatcher("logger")
 //                )
 //            )
-//            addBarrier(Barriers.batching(),
+//            .addBarrier(Barriers.batching(),
 //                setOf(
-//                    BarrierScope.Dispatcher(Modules.Ids.COLLECT),
+//                    BarrierScope.Dispatcher(Modules.Types.COLLECT),
 //                    BarrierScope.Dispatcher("logger")
 //                )
 //            )
-        }
 
-        shared = Tealium.create(config) { result ->
+        shared = Tealium.create(config.build()) { result ->
             val tealium = result.getOrNull() ?: return@create
 
-//            it.events.subscribe(this)
-//            it.track("", TealiumDispatchType.Event) {
-//                put
-//            }
             tealium.dataLayer.onDataUpdated.subscribe(::onDataUpdated)
             tealium.dataLayer.onDataRemoved.subscribe(::onDataRemoved)
             tealium.dataLayer.onDataRemoved.subscribe {
@@ -128,34 +105,8 @@ object TealiumHelper {
             }.onFailure {
                 Log.d("DataLayer", "Transactional update failed: ${it.message}")
             }
-            tealium.dataLayer.get("key").onSuccess {
-                Log.d("DataLayer", "Retrieved key with value: $it")
-            }
 
-//            tealium.trace.killVisitorSession()
-//                .subscribe {
-//                    try {
-//                        it.getOrThrow()
-//                        Log.d(TAG, "Visitor Session Killed")
-//                    } catch (e: TealiumException) {
-//                        Log.d(TAG, "Error killing visitor session: ${e.message}")
-//                    }
-//                }
-
-            // do onReady
             Log.d(TAG, "Tealium is ready")
-//            it.consent.consentStatus = ConsentStatus.Consented
-//            it.consent.consentStatus = ConsentStatus.NotConsented
-//
-//            it.track(Dispatch("testEvent", TealiumDispatchType.Event))
-//            it.track(
-//                Dispatches.event("testEvent")
-//                    .putContextData(DataObject.create {
-//                        put("key", "value")
-//                    })
-//                    .build()
-//            )
-
             onReady?.invoke(result)
         }
     }
@@ -183,13 +134,6 @@ object TealiumHelper {
 
     fun flush() {
         shared?.flushEventQueue()
-    }
-
-    private fun onTracked(status: TrackResult) {
-        Log.d(
-            TAG,
-            "ProcessingStatus: ${status.description}"
-        )
     }
 
     private fun configureModules(): List<ModuleFactory> {
@@ -250,6 +194,24 @@ object TealiumHelper {
                 }
             }
         }
+    }
+
+    private fun onTracked(status: TrackResult) {
+        Log.d(TAG, "ProcessingStatus: ${status.description}")
+    }
+
+    private fun onDataUpdated(dataObject: DataObject) {
+        for (entry in dataObject) {
+            onDataUpdated(entry.key, entry.value)
+        }
+    }
+
+    private fun onDataUpdated(key: String, value: Any) {
+        Log.d("Helper", "DataUpdated $key : $value")
+    }
+
+    private fun onDataRemoved(keys: List<String>) {
+        Log.d("Helper", "DataRemoved ${keys.joinToString(", ")}")
     }
 }
 

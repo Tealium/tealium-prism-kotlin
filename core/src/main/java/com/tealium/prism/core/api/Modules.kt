@@ -37,11 +37,11 @@ import com.tealium.prism.core.internal.modules.trace.TraceModule
  *
  * Example usage:
  * ```kotlin
- * val config = TealiumConfig(app, modules = listOf(
+ * val config = TealiumConfig.Builder(app, ..., modules = listOf(
  *        Modules.collect(),
  *        // other optional modules
  *    )
- * )
+ * ).build()
  * ```
  */
 object Modules {

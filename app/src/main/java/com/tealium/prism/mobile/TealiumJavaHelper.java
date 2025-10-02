@@ -36,18 +36,18 @@ public class TealiumJavaHelper {
     }
 
     public static void init(Application app) {
-        TealiumConfig config = new TealiumConfig(app, "tealiummobile", "android", Environment.DEV,
+        TealiumConfig.Builder config = new TealiumConfig.Builder(app, "tealiummobile", "android", Environment.DEV,
                 configureModules());
 
 //        config.enableConsentIntegration(new ExampleCmpAdapter(app.getApplicationContext()), (settings) -> {
 //            settings
 //                    .setTealiumPurposeId(Purposes.TEALIUM)
-//                    .addPurpose(Purposes.TRACKING, SetsKt.setOf(Modules.Ids.COLLECT))
-//                    .setRefireDispatcherIds(SetsKt.setOf(Modules.Ids.COLLECT));
+//                    .addPurpose(Purposes.TRACKING, SetsKt.setOf(Modules.Types.COLLECT))
+//                    .setRefireDispatcherIds(SetsKt.setOf(Modules.Types.COLLECT));
 //            return settings;
 //        });
 
-        Tealium teal = Tealium.create(config, (result) -> {
+        Tealium teal = Tealium.create(config.build(), (result) -> {
             if (result.isSuccess()) {
                 Log.d("", "Ready");
             } else {

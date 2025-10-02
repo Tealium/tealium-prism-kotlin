@@ -12,6 +12,7 @@ import com.tealium.prism.core.internal.persistence.database.DatabaseProvider
 import com.tealium.prism.core.internal.persistence.database.InMemoryDatabaseProvider
 import com.tealium.prism.core.internal.persistence.database.getTimestamp
 import com.tealium.tests.common.TestModule
+import com.tealium.tests.common.getDefaultConfig
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -44,13 +45,7 @@ class SQLKeyValueRepositoryTests {
     @Before
     fun setUp() {
         app = ApplicationProvider.getApplicationContext() as Application
-        val config = TealiumConfig(
-            application = app,
-            "test",
-            "test",
-            Environment.DEV,
-            listOf()
-        )
+        val config = getDefaultConfig(app)
 
         // use-in-memory DB
         dbProvider = InMemoryDatabaseProvider(config)

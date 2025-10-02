@@ -26,7 +26,7 @@ import com.tealium.prism.core.api.transform.TransformationSettings
 import com.tealium.prism.core.internal.network.mockGetDataItemConvertibleSuccess
 import com.tealium.prism.core.internal.rules.LoadRule
 import com.tealium.tests.common.SystemLogger
-import com.tealium.tests.common.getDefaultConfig
+import com.tealium.tests.common.getDefaultConfigBuilder
 import io.mockk.Called
 import io.mockk.MockKAnnotations
 import io.mockk.every
@@ -59,7 +59,7 @@ class SettingsManagerTests {
     lateinit var mockCache: ResourceCache<DataObject>
 
     private lateinit var logger: Logger
-    private lateinit var config: TealiumConfig
+    private lateinit var config: TealiumConfig.Builder
     private lateinit var settingsManager: SettingsManager
     private lateinit var settingsSubject: StateSubject<SdkSettings>
 
@@ -69,7 +69,7 @@ class SettingsManagerTests {
 
         logger = SystemLogger
         app = RuntimeEnvironment.getApplication()
-        config = getDefaultConfig(app)
+        config = getDefaultConfigBuilder(app)
         every {
             mockCache.resource
         } returns null
@@ -94,55 +94,42 @@ class SettingsManagerTests {
     }
 
     @Test
-    fun init_Does_Not_Load_From_Cache_When_UseRemoteSettings_Is_False() {
-        config.useRemoteSettings = false
+    fun init_Does_Not_Load_From_Cache_When_SettingsUrl_Not_Provided() {
         mockAssetResponse()
         createSettingsManager()
 
-        verify { SettingsManager.loadFromAsset(config) }
+        verify { SettingsManager.loadFromAsset(config.build()) }
         verify(inverse = true) {
             mockCache.resource
         }
     }
 
     @Test
-    fun init_Does_Create_From_Cache_When_UseRemoteSettings_Is_True() {
-        config.useRemoteSettings = true
+    fun init_Does_Create_From_Cache_When_SettingsUrl_Provided() {
+        config.setSettingsUrl("https://localhost/")
         mockAssetResponse()
         createSettingsManager()
 
         verify {
-            SettingsManager.loadFromAsset(config)
+            SettingsManager.loadFromAsset(config.build())
             mockCache.resource
         }
     }
 
     @Test
-    fun init_Does_Create_ResourceRefresher_When_RemoteSettings_Enabled_And_Url_Provided() {
-        config.useRemoteSettings = false
-        config.sdkSettingsUrl = "https://localhost/"
+    fun init_Does_Create_ResourceRefresher_When_SettingsUrl_Provided() {
+        config.setSettingsUrl("https://localhost/")
         val refresher = SettingsManager.createResourceRefresher(
-            config, mockNetworkHelper, 10.minutes, mockCache, logger
+            config.build(), mockNetworkHelper, 10.minutes, mockCache, logger
         )
 
         assertNotNull(refresher)
     }
 
     @Test
-    fun init_Does_Not_Create_ResourceRefresher_When_RemoteSettings_Disabled() {
-        config.useRemoteSettings = false
+    fun init_Does_Not_Create_ResourceRefresher_When_SettingsUrl_Not_Provided() {
         val refresher = SettingsManager.createResourceRefresher(
-            config, mockNetworkHelper, 10.minutes, mockCache, logger
-        )
-
-        assertNull(refresher)
-    }
-
-    @Test
-    fun init_Does_Not_Create_ResourceRefresher_When_Missing_Url() {
-        config.sdkSettingsUrl = null
-        val refresher = SettingsManager.createResourceRefresher(
-            config, mockNetworkHelper, 10.minutes, mockCache, logger
+            config.build(), mockNetworkHelper, 10.minutes, mockCache, logger
         )
 
         assertNull(refresher)
@@ -150,7 +137,6 @@ class SettingsManagerTests {
 
     @Test
     fun subscribeToActivityUpdates_Returns_Disposed_When_Url_Not_Provided() {
-        config.sdkSettingsUrl = null
         createSettingsManager()
         val activities = Observables.publishSubject<ActivityManager.ApplicationStatus>()
 
@@ -164,8 +150,7 @@ class SettingsManagerTests {
 
     @Test
     fun subscribeToActivityUpdates_Starts_Emitting_Updated_Remote_Settings() {
-        config.sdkSettingsUrl = "https://localhost/"
-        config.useRemoteSettings = true
+        config.setSettingsUrl("https://localhost/")
         val observer = mockk<(SdkSettings) -> Unit>(relaxed = true)
         mockRemoteResponse(
             configureCoreSettingsDataObject {
@@ -187,8 +172,7 @@ class SettingsManagerTests {
 
     @Test
     fun subscribeToActivityUpdates_Stops_Refreshing_After_Dispose() {
-        config.sdkSettingsUrl = "https://localhost/"
-        config.useRemoteSettings = true
+        config.setSettingsUrl("https://localhost/")
         val observer = mockk<(SdkSettings) -> Unit>(relaxed = true)
         mockRemoteResponse(
             configureCoreSettingsDataObject {
@@ -210,8 +194,7 @@ class SettingsManagerTests {
 
     @Test
     fun subscribeToActivityUpdates_Emits_Merged_Settings() {
-        config.sdkSettingsUrl = "https://localhost/"
-        config.useRemoteSettings = true
+        config.setSettingsUrl("https://localhost/")
         val observer = mockk<(SdkSettings) -> Unit>(relaxed = true)
         mockAssetResponse(
             configureCoreSettingsDataObject {
@@ -686,9 +669,9 @@ class SettingsManagerTests {
 
     @Test
     fun loadFromAsset_ReturnsDataObject_When_ValidFile() {
-        config.localSdkSettingsFileName = "validSettings.json"
+        config.setSettingsFile("validSettings.json")
 
-        val result = SettingsManager.loadFromAsset(config)
+        val result = SettingsManager.loadFromAsset(config.build())
 
         assertNotNull(result)
         assertEquals(
@@ -699,9 +682,9 @@ class SettingsManagerTests {
 
     @Test
     fun loadFromAsset_ReturnsNull_When_InvalidFile() {
-        config.localSdkSettingsFileName = "invalidSettings.json"
+        config.setSettingsFile("invalidSettings.json")
 
-        val result = SettingsManager.loadFromAsset(config)
+        val result = SettingsManager.loadFromAsset(config.build())
 
         assertNull(result)
     }
@@ -811,7 +794,7 @@ class SettingsManagerTests {
     }
 
     private fun createSettingsManager(
-        config: TealiumConfig = this.config,
+        config: TealiumConfig = this.config.build(),
         mockNetworkHelper: NetworkHelper = this.mockNetworkHelper,
         mockCache: ResourceCache<DataObject> = this.mockCache,
         mockLogger: Logger = this.logger,

@@ -106,7 +106,7 @@ class SettingsManager(
     }
 
     private fun loadCachedSettings(): DataObject? {
-        if (!config.useRemoteSettings) return null
+        if (config.settingsUrl == null) return null
 
         val cachedSettings = cache.resource
 
@@ -183,7 +183,7 @@ class SettingsManager(
         }
 
         internal fun loadFromAsset(config: TealiumConfig): DataObject? {
-            val fileName = config.localSdkSettingsFileName ?: return null
+            val fileName = config.settingsFile ?: return null
 
             return try {
                 config.application.assets.open(fileName).bufferedReader().use {
@@ -220,10 +220,10 @@ class SettingsManager(
             cache: ResourceCache<DataObject>,
             logger: Logger
         ): ResourceRefresher<DataObject>? {
-            if (config.useRemoteSettings && config.sdkSettingsUrl == null) return null
+            if (config.settingsUrl == null) return null
 
             return try {
-                val url = URL(config.sdkSettingsUrl)
+                val url = URL(config.settingsUrl)
                 ResourceRefresherImpl(
                     networkHelper,
                     DataObject.Converter,
