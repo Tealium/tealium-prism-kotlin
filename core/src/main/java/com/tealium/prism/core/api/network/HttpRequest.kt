@@ -1,7 +1,6 @@
 package com.tealium.prism.core.api.network
 
 import com.tealium.prism.core.api.data.DataObject
-import java.lang.StringBuilder
 import java.net.MalformedURLException
 import java.net.URL
 

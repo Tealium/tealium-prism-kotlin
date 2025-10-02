@@ -24,7 +24,7 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.verify
-import org.junit.Assert.*
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -181,19 +181,38 @@ class ResourceRefresherTests {
 
     @Test
     fun requestRefresh_Always_Refreshes_When_Last_Refresh_Is_Null() {
-        every { networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any()) } returns mockk()
+        every {
+            networkHelper.getDataItemConvertible(
+                any<URL>(),
+                any(),
+                TestDataObjectConvertible.Converter,
+                any()
+            )
+        } returns mockk()
         val refresher = createRefresher(lastRefresh = null)
 
         refresher.requestRefresh()
 
         verify {
-            networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any())
+            networkHelper.getDataItemConvertible(
+                any<URL>(),
+                any(),
+                TestDataObjectConvertible.Converter,
+                any()
+            )
         }
     }
 
     @Test
     fun requestRefresh_Does_Not_Refresh_When_Already_Refreshing() {
-        every { networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any()) } returns mockk()
+        every {
+            networkHelper.getDataItemConvertible(
+                any<URL>(),
+                any(),
+                TestDataObjectConvertible.Converter,
+                any()
+            )
+        } returns mockk()
         val refresher = createRefresher()
 
         refresher.requestRefresh()
@@ -201,13 +220,25 @@ class ResourceRefresherTests {
         refresher.requestRefresh()
 
         verify(exactly = 1) {
-            networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any())
+            networkHelper.getDataItemConvertible(
+                any<URL>(),
+                any(),
+                TestDataObjectConvertible.Converter,
+                any()
+            )
         }
     }
 
     @Test
     fun requestRefresh_Does_Not_Refresh_When_In_Cooldown_And_Not_Cached() {
-        every { networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any()) } returns mockk()
+        every {
+            networkHelper.getDataItemConvertible(
+                any<URL>(),
+                any(),
+                TestDataObjectConvertible.Converter,
+                any()
+            )
+        } returns mockk()
         val cooldownHelper = CooldownHelper.create(10.minutes, 2.minutes)!!
         val refresher =
             createRefresher(cooldownHelper = cooldownHelper, lastRefresh = getTimestamp())
@@ -216,14 +247,26 @@ class ResourceRefresherTests {
         refresher.requestRefresh()
 
         verify(exactly = 0) {
-            networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any())
+            networkHelper.getDataItemConvertible(
+                any<URL>(),
+                any(),
+                TestDataObjectConvertible.Converter,
+                any()
+            )
         }
     }
 
     @Test
     fun requestRefresh_Ignores_Cooldown_When_Already_Cached() {
         dataObjectCacher.saveResource(exampleResource, null)
-        every { networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any()) } returns mockk()
+        every {
+            networkHelper.getDataItemConvertible(
+                any<URL>(),
+                any(),
+                TestDataObjectConvertible.Converter,
+                any()
+            )
+        } returns mockk()
         val cooldownHelper = mockk<CooldownHelper>()
         val refresher = createRefresher(cooldownHelper = cooldownHelper, lastRefresh = 0)
 
@@ -236,7 +279,14 @@ class ResourceRefresherTests {
 
     @Test
     fun requestRefresh_Does_Not_Refresh_When_Refresh_Interval_Not_Elapsed() {
-        every { networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any()) } returns mockk()
+        every {
+            networkHelper.getDataItemConvertible(
+                any<URL>(),
+                any(),
+                TestDataObjectConvertible.Converter,
+                any()
+            )
+        } returns mockk()
         val timingProvider = mockk<() -> Long>()
         every { timingProvider.invoke() } returnsMany listOf(0, 60, 120)
 
@@ -253,20 +303,37 @@ class ResourceRefresherTests {
         refresher.requestRefresh() // success
 
         verify(exactly = 1) {
-            networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any())
+            networkHelper.getDataItemConvertible(
+                any<URL>(),
+                any(),
+                TestDataObjectConvertible.Converter,
+                any()
+            )
         }
     }
 
     @Test
     fun requestRefresh_Uses_Previous_Etag() {
         dataObjectCacher.saveResource(exampleResource, "abcd1234")
-        every { networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any()) } returns mockk()
+        every {
+            networkHelper.getDataItemConvertible(
+                any<URL>(),
+                any(),
+                TestDataObjectConvertible.Converter,
+                any()
+            )
+        } returns mockk()
         val refresher = createRefresher(lastRefresh = null)
 
         refresher.requestRefresh()
 
         verify(exactly = 1) {
-            networkHelper.getDataItemConvertible(any<URL>(), "abcd1234", TestDataObjectConvertible.Converter, any())
+            networkHelper.getDataItemConvertible(
+                any<URL>(),
+                "abcd1234",
+                TestDataObjectConvertible.Converter,
+                any()
+            )
         }
     }
 
@@ -352,7 +419,14 @@ class ResourceRefresherTests {
 
     @Test
     fun setRefreshInterval_Updates_RefreshInterval() {
-        every { networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any()) } returns mockk()
+        every {
+            networkHelper.getDataItemConvertible(
+                any<URL>(),
+                any(),
+                TestDataObjectConvertible.Converter,
+                any()
+            )
+        } returns mockk()
         val timingProvider = mockk<() -> Long>()
         every { timingProvider.invoke() } returns 60
 
@@ -369,7 +443,12 @@ class ResourceRefresherTests {
         refresher.requestRefresh() // success
 
         verify(exactly = 1) {
-            networkHelper.getDataItemConvertible(any<URL>(), any(), TestDataObjectConvertible.Converter, any())
+            networkHelper.getDataItemConvertible(
+                any<URL>(),
+                any(),
+                TestDataObjectConvertible.Converter,
+                any()
+            )
         }
     }
 
@@ -393,7 +472,13 @@ class ResourceRefresherTests {
             TealiumResult.success(
                 NetworkHelper.HttpValue(
                     value,
-                    HttpResponse(com.tealium.prism.core.internal.network.localhost, statusCode, "", headers, value.asDataItem().toString())
+                    HttpResponse(
+                        com.tealium.prism.core.internal.network.localhost,
+                        statusCode,
+                        "",
+                        headers,
+                        value.asDataItem().toString().toByteArray(Charsets.UTF_8)
+                    )
                 )
             ),
             TestDataObjectConvertible.Converter

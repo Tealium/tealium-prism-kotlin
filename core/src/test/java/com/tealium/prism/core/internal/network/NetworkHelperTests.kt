@@ -15,7 +15,10 @@ import com.tealium.prism.core.api.network.NetworkResult.Failure
 import com.tealium.prism.core.api.network.NetworkResult.Success
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.tests.common.SystemLogger
-import io.mockk.*
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
 import org.json.JSONObject
 import org.junit.Before
 import org.junit.Test
@@ -61,7 +64,7 @@ class NetworkHelperTests {
         verify(exactly = 2) {
             callback.onComplete(match { result ->
                 result is Success
-                        && result.httpResponse.body == "result"
+                        && result.httpResponse.bodyText() == "result"
             })
         }
     }
@@ -111,7 +114,7 @@ class NetworkHelperTests {
         verify(exactly = 2) {
             callback.onComplete(match { result ->
                 result is Success
-                        && result.httpResponse.body == "result"
+                        && result.httpResponse.bodyText() == "result"
             })
         }
     }
@@ -405,7 +408,7 @@ class NetworkHelperTests {
             statusCode = status,
             message = msg,
             headers = headers,
-            body = body
+            body = body?.toByteArray(Charsets.UTF_8)
         )
     )
 

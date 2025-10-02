@@ -177,18 +177,15 @@ class NetworkHelperImpl(
         var error: Throwable? = null
         if (result is Success && result.httpResponse.body != null) {
             try {
-                val deserialized = deserializer.deserialize(result.httpResponse.body)
+                val deserialized = result.httpResponse.bodyText()?.let {
+                    deserializer.deserialize(it)
+                }
                 if (deserialized != null) {
                     return TealiumResult.success(
-                        NetworkHelper.HttpValue(
-                            deserialized,
-                            result.httpResponse
-                        )
+                        NetworkHelper.HttpValue(deserialized, result.httpResponse)
                     )
                 }
             } catch (e: Exception) {
-                // TODO - this log seems useless; remove or update to correct statement
-                logger.debug("NetworkHelper", "Invalid")
                 error = e
             }
         }

@@ -15,7 +15,7 @@ import java.net.URL
 
 val localhost = URL("https://localhost/")
 
-fun <T: DataItemConvertible> NetworkHelper.mockGetDataItemConvertibleSuccess(
+fun <T : DataItemConvertible> NetworkHelper.mockGetDataItemConvertibleSuccess(
     value: T,
     converter: DataItemConverter<T>,
     headers: Map<String, List<String>> = mapOf(),
@@ -26,7 +26,13 @@ fun <T: DataItemConvertible> NetworkHelper.mockGetDataItemConvertibleSuccess(
         TealiumResult.success(
             NetworkHelper.HttpValue(
                 value,
-                HttpResponse(url, statusCode, "", headers, value.asDataItem().toString())
+                HttpResponse(
+                    url,
+                    statusCode,
+                    "",
+                    headers,
+                    value.asDataItem().toString().toByteArray(Charsets.UTF_8)
+                )
             )
         ),
         converter

@@ -25,11 +25,12 @@ import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.internal.logger.LogCategory
 import com.tealium.prism.core.internal.pubsub.AsyncDisposableContainer
 import com.tealium.prism.core.internal.pubsub.addTo
+import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.io.IOException
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.util.concurrent.TimeUnit
-import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 
 /**
@@ -188,40 +189,34 @@ class HttpClient(
             return try {
                 connection = request.url.openConnection() as HttpURLConnection
                 with(connection) {
-                    try {
-                        requestMethod = request.method.value
-                        request.headers.forEach { (key, value) ->
-                            setRequestProperty(key, value)
+                    requestMethod = request.method.value
+                    request.headers.forEach { (key, value) ->
+                        setRequestProperty(key, value)
+                    }
+
+                    if (!requestProperties.containsKey(Headers.ACCEPT_ENCODING)) {
+                        setRequestProperty(Headers.ACCEPT_ENCODING, "gzip")
+                    }
+
+                    if (request.body != null) {
+                        doOutput = true
+
+                        if (!requestProperties.containsKey(Headers.CONTENT_TYPE)) {
+                            setRequestProperty(Headers.CONTENT_TYPE, "application/json")
                         }
 
-                        if (!requestProperties.containsKey(Headers.ACCEPT_ENCODING)) {
-                            setRequestProperty(Headers.ACCEPT_ENCODING, "gzip")
-                        }
-
-                        if (request.body != null) {
-                            doOutput = true
-
-                            if (!requestProperties.containsKey(Headers.CONTENT_TYPE)) {
-                                setRequestProperty(Headers.CONTENT_TYPE, "application/json")
+                        val dataOutputStream = when (request.isGzip) {
+                            true -> {
+                                DataOutputStream(GZIPOutputStream(outputStream))
                             }
 
-                            val dataOutputStream = when (request.isGzip) {
-                                true -> {
-                                    DataOutputStream(GZIPOutputStream(outputStream))
-                                }
-
-                                false -> {
-                                    DataOutputStream(outputStream)
-                                }
+                            false -> {
+                                DataOutputStream(outputStream)
                             }
-                            dataOutputStream.write(request.body.toByteArray(Charsets.UTF_8))
-                            dataOutputStream.flush()
-                            dataOutputStream.close()
                         }
-
-
-                    } catch (e: Exception) {
-                        return@with Failure(UnexpectedException(e))
+                        dataOutputStream.write(request.body.toByteArray(Charsets.UTF_8))
+                        dataOutputStream.flush()
+                        dataOutputStream.close()
                     }
 
                     if (HttpURLConnection.HTTP_MOVED_PERM == responseCode
@@ -237,12 +232,7 @@ class HttpClient(
                     }
 
                     if (responseCode >= HttpURLConnection.HTTP_OK && responseCode < HttpURLConnection.HTTP_MULT_CHOICE) {
-                        val contentEncoding = contentEncoding
-                        val body: String = if (contentEncoding == "gzip") {
-                            GZIPInputStream(inputStream).bufferedReader().readText()
-                        } else {
-                            inputStream.bufferedReader().readText()
-                        }
+                        val body: ByteArray = inputStream.use(::readAllBytes)
 
                         return@with Success(
                             HttpResponse(url, responseCode, responseMessage, headerFields, body)
@@ -251,7 +241,6 @@ class HttpClient(
                         // Non200Status Error
                         return@with Failure(Non200Exception(responseCode))
                     }
-
                 }
             } catch (e: IOException) {
                 Failure(NetworkException.NetworkIOException(e))
@@ -260,6 +249,16 @@ class HttpClient(
             } finally {
                 connection?.disconnect()
             }
+        }
+
+        fun readAllBytes(inputStream: InputStream): ByteArray {
+            val buffer = ByteArray(8192)
+            val output = ByteArrayOutputStream()
+            var bytesRead: Int
+            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                output.write(buffer, 0, bytesRead)
+            }
+            return output.toByteArray()
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.tealium.prism.core.internal.network
 
 import com.tealium.prism.core.api.logger.Logger
+import com.tealium.prism.core.api.misc.TealiumCallback
 import com.tealium.prism.core.api.network.HttpRequest
 import com.tealium.prism.core.api.network.Interceptor
 import com.tealium.prism.core.api.network.NetworkException.CancelledException
@@ -16,15 +17,27 @@ import com.tealium.prism.core.api.network.RetryPolicy.RetryAfterEvent
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.tests.common.testNetworkScheduler
 import com.tealium.tests.common.testTealiumScheduler
-import io.mockk.*
+import io.mockk.Runs
+import io.mockk.confirmVerified
+import io.mockk.every
+import io.mockk.just
+import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
+import io.mockk.verifyOrder
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okio.Buffer
 import org.junit.After
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.ByteArrayOutputStream
+import java.nio.charset.Charset
+import java.util.zip.GZIPOutputStream
 
 @RunWith(RobolectricTestRunner::class)
 class HttpClientTests {
@@ -76,7 +89,7 @@ class HttpClientTests {
             when (val result = networkResult) {
                 is Success -> {
                     status = result.httpResponse.statusCode
-                    response = result.httpResponse.body
+                    response = result.httpResponse.bodyText()
                 }
 
                 is Failure -> {
@@ -351,7 +364,7 @@ class HttpClientTests {
         verify(timeout = 1000) {
             completion(match { result ->
                 result is Success
-                        && "Successful POST" == result.httpResponse.body
+                        && "Successful POST" == result.httpResponse.bodyText()
             })
         }
     }
@@ -527,5 +540,110 @@ class HttpClientTests {
         verify(timeout = 1000) { completion(true) }
 
         confirmVerified(mockInterceptor1, mockInterceptor2, mockInterceptor3)
+    }
+
+    @Test
+    fun httpResponse_Returns_Body_As_Raw_Bytes() {
+        val bytes = "Some String".toByteArray()
+
+        val response = MockResponse()
+            .setResponseCode(200)
+            .setHeader(HttpRequest.Headers.CONTENT_TYPE, "application/json; charset=UTF-8")
+            .setBody(Buffer().write(bytes))
+        startMockWebServer(response)
+
+        val callback = mockk<TealiumCallback<NetworkResult>>()
+        val request = HttpRequest.get(urlString).build()
+        httpClient.sendRequest(request, callback)
+
+        verify(timeout = 1000) {
+            callback.onComplete(match {
+                it is Success
+                        && it.httpResponse.body.contentEquals(bytes)
+            })
+        }
+    }
+
+    @Test
+    fun httpResponse_BodyText_Decompresses_GZipped_Bytes() {
+        val charset = Charsets.UTF_8
+        val text = "Some text"
+        val gzipped = gzipBytes(text, charset)
+
+        val response = MockResponse()
+            .setResponseCode(200)
+            .setHeader(HttpRequest.Headers.CONTENT_TYPE, "application/json; charset=${charset.name()}")
+            .setHeader(HttpRequest.Headers.CONTENT_ENCODING, "gzip")
+            .setBody(Buffer().write(gzipped))
+        startMockWebServer(response)
+
+        val callback = mockk<TealiumCallback<NetworkResult>>()
+        val request = HttpRequest.get(urlString).build()
+        httpClient.sendRequest(request, callback)
+
+        verify(timeout = 1000) {
+            callback.onComplete(match {
+                it is Success
+                        && it.httpResponse.bodyText() == text
+            })
+        }
+    }
+
+    @Test
+    fun httpResponse_BodyText_Reads_Body_Using_ContentType_Charset() {
+        val charset = Charsets.ISO_8859_1
+        val text = "Some text"
+        val bytes = text.toByteArray(charset)
+
+        val response = MockResponse()
+            .setResponseCode(200)
+            .setHeader(HttpRequest.Headers.CONTENT_TYPE, "application/json; charset=${charset.name()}")
+            .setBody(Buffer().write(bytes))
+        startMockWebServer(response)
+
+        val callback = mockk<TealiumCallback<NetworkResult>>()
+        val request = HttpRequest.get(urlString).build()
+        httpClient.sendRequest(request, callback)
+
+        verify(timeout = 1000) {
+            callback.onComplete(match {
+                it is Success
+                        && it.httpResponse.body.contentEquals(bytes)
+                        && it.httpResponse.bodyText() == text
+            })
+        }
+    }
+
+    @Test
+    fun httpResponse_BodyText_Reads_Body_Using_UTF8_When_No_Charset_Specified() {
+        val charset = Charsets.UTF_8
+        val text = "Some text"
+        val bytes = text.toByteArray(charset)
+
+        val response = MockResponse()
+            .setResponseCode(200)
+            .setBody(Buffer().write(bytes))
+        startMockWebServer(response)
+
+        val callback = mockk<TealiumCallback<NetworkResult>>()
+        val request = HttpRequest.get(urlString).build()
+        httpClient.sendRequest(request, callback)
+
+        verify(timeout = 1000) {
+            callback.onComplete(match {
+                it is Success
+                        && it.httpResponse.body.contentEquals(bytes)
+                        && it.httpResponse.bodyText() == text
+            })
+        }
+    }
+
+    private fun gzipBytes(text: String, charset: Charset = Charsets.UTF_8): ByteArray {
+        val byteStream = ByteArrayOutputStream()
+        GZIPOutputStream(byteStream).use { gzip ->
+            gzip.write(text.toByteArray(charset))
+        }
+
+        return byteStream.toByteArray()
     }
 }
