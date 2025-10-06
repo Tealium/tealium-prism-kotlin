@@ -1,0 +1,31 @@
+name: "Publish Snapshot"
+
+on:
+  workflow_dispatch:
+    inputs:
+      accessKey:
+        description: "ACCESS_KEY"
+        required: true
+      secretKey:
+        description: "SECRET_KEY"
+        required: true
+      token:
+        description: "SESSION_TOKEN"
+        required: true
+
+jobs:
+  publish:
+    name: Publish Snapshot
+    runs-on: ubuntu-latest
+    env:
+      CI_TASKS_ENABLED: true
+      AWS_ACCESS_KEY: ${{ inputs.accessKey }}
+      AWS_SECRET_KEY: ${{ inputs.secretKey }}
+      AWS_SESSION_TOKEN: ${{ inputs.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/android-setup
+
+      - name: Publish
+        run: ./gradlew publishReleasePublicationToSnapshotRepository -PSNAPSHOT=true

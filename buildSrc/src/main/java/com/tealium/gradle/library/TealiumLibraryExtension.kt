@@ -9,8 +9,10 @@ open class TealiumLibraryExtension(
 ) {
     val groupId: Property<String> = project.objects.property(String::class.java)
     val artifactId: Property<String> = project.objects.property(String::class.java)
+    val version: Property<String> = project.objects.property(String::class.java)
     init {
         groupId.set(DefaultProvider { project.group.toString() })
         artifactId.set(DefaultProvider { project.name })
+        version.set(DefaultProvider { project.version.toString() })
     }
 }

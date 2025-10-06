@@ -6,6 +6,7 @@ import com.tealium.gradle.getPropertyOrEnvironmentVariable
 import com.tealium.gradle.tests.JacocoCoverageType
 import com.tealium.gradle.tests.JacocoVerifyType
 import com.tealium.gradle.tests.TestType
+import org.gradle.api.Action
 import org.gradle.api.JavaVersion
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -237,20 +238,38 @@ class TealiumLibraryPlugin : Plugin<Project> {
     private fun Project.configurePublishing(tealiumLibraryExtension: TealiumLibraryExtension) {
         apply<MavenPublishPlugin>()
 
+        val isSnapshot = getPropertyOrEnvironmentVariable("SNAPSHOT").toBoolean()
+
+        val credentials = Action<AwsCredentials> {
+            accessKey = getPropertyOrEnvironmentVariable("AWS_ACCESS_KEY")
+            secretKey = getPropertyOrEnvironmentVariable("AWS_SECRET_KEY")
+            sessionToken = getPropertyOrEnvironmentVariable("AWS_SESSION_TOKEN")
+        }
+
         extensions.configure<PublishingExtension> {
-            repositories.maven {
-                url = URI("s3://maven.tealiumiq.com/android/releases/")
-                name = "Release"
-                credentials(AwsCredentials::class.java) {
-                    accessKey = getPropertyOrEnvironmentVariable("AWS_ACCESS_KEY")
-                    secretKey = getPropertyOrEnvironmentVariable("AWS_SECRET_KEY")
-                    sessionToken = getPropertyOrEnvironmentVariable("AWS_SESSION_TOKEN")
+            repositories {
+                maven {
+                    url = URI("s3://maven.tealiumiq.com/android/releases/")
+                    name = "Release"
+                    credentials(AwsCredentials::class.java, credentials)
+                }
+                maven {
+                    url = URI("s3://maven.tealiumiq.com/android/snapshots/")
+                    name = "Snapshot"
+                    credentials(AwsCredentials::class.java, credentials)
                 }
             }
-            publications.create<MavenPublication>("mavenAar") {
+            publications.create<MavenPublication>("Release") {
                 afterEvaluate {
+                    val versionName = if (isSnapshot) {
+                        "${tealiumLibraryExtension.version.get()}-SNAPSHOT"
+                    } else {
+                        tealiumLibraryExtension.version.get()
+                    }
+
                     groupId = tealiumLibraryExtension.groupId.get()
                     artifactId = tealiumLibraryExtension.artifactId.get()
+                    version = versionName
                     from(components.findByName("release"))
                 }
             }

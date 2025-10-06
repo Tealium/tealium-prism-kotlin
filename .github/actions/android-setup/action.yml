@@ -1,0 +1,22 @@
+name: "Setup Android Env"
+description: "Checkout, install Java and Gradle"
+
+inputs:
+  java-version:
+    required: true
+    default: '17'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up JDK
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: ${{ inputs.java-version }}
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v4
+      with:
+        cache-read-only: false
+        cache-write-only: true
