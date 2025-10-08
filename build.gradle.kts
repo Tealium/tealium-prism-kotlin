@@ -2,7 +2,3 @@
 plugins {
     alias(libs.plugins.tealium.gradle)
 }
-
-tasks.register<Delete>("clean") {
-    delete.add(rootProject.layout.buildDirectory)
-}

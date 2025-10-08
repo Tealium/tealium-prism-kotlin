@@ -1,5 +1,6 @@
 [versions]
 agp = "8.6.1"
+dokkaGradlePlugin = "2.0.0"
 kotlin = "2.0.21"
 lint = "27.2.2" # NOTE - this is quite old - need Kotlin version updated to 1.9 though to use later versions
 mockk = "1.13.13"
@@ -13,6 +14,7 @@ app-androidx-constraintlayout = "androidx.constraintlayout:constraintlayout:2.1.
 app-androidx-fragment = "androidx.fragment:fragment-ktx:1.6.0"
 app-androidx-lifecycle-viewmodel = "androidx.lifecycle:lifecycle-viewmodel-ktx:2.2.0"
 app-material = "com.google.android.material:material:1.7.0"
+dokka-gradle-plugin = { module = "org.jetbrains.dokka:dokka-gradle-plugin", version.ref = "dokkaGradlePlugin" }
 eclipse-jgit = "org.eclipse.jgit:org.eclipse.jgit:6.10.0.202406032230-r"
 kotlin-gradle-jvm = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 lint-api = { module = "com.android.tools.lint:lint-api", version.ref = "lint" }
@@ -36,3 +38,5 @@ kotlin-android = { id = "org.jetbrains.kotlin.android" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm" }
 tealium-gradle = { id = "tealium-plugin" }
 tealium-library = { id = "tealium-library" }
+tealium-dokka-root = { id = "dokka-root" }
+tealium-dokka-library = { id = "dokka-library" }
