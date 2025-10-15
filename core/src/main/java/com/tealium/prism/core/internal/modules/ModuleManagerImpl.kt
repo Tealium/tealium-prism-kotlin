@@ -118,23 +118,13 @@ class ModuleManagerImpl(
     }
 
     /**
-     * Returns a list of all [ModuleSettings] from the given [SdkSettings], joined with additional
-     * default [ModuleSettings] for any [ModuleFactory] that was added but does not have any settings
-     * available.
+     * Returns a list of all [ModuleSettings] from the given [SdkSettings]
      *
      * The returned list is sorted by [ModuleSettings.order], and deduplicated by [ModuleSettings.moduleId].
      */
     private fun prepareModuleSettings(settings: SdkSettings): List<ModuleSettings> {
-        val sortedModuleSettings = settings.modules.values.sortedBy { it.order }
-
-        val missingModuleSettings = moduleFactories.filterValues { factory ->
-            settings.modules.values.find { it.moduleType == factory.moduleType } == null
-        }.map { ModuleSettings(it.value.moduleType, order = Int.MAX_VALUE) }
-
-        val deduplicatedModuleSettings = (sortedModuleSettings + missingModuleSettings)
+        return settings.modules.values.sortedBy { it.order }
             .distinctBy { it.moduleId }
-
-        return deduplicatedModuleSettings
     }
 
     private fun updateOrDisableModule(

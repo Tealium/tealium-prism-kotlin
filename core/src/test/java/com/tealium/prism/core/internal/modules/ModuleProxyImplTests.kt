@@ -13,6 +13,7 @@ import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.Observer
 import com.tealium.prism.core.api.pubsub.Subject
+import com.tealium.prism.core.internal.settings.ModuleSettings
 import com.tealium.prism.core.internal.settings.SdkSettings
 import com.tealium.tests.common.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
@@ -33,6 +34,9 @@ class ModuleProxyImplTests {
         TestModuleFactory.forModule(dispatcher),
         TestModuleFactory.forModule(module)
     )
+    private val defaultSettings = moduleFactories.map { moduleFactory ->
+        ModuleSettings(moduleFactory.moduleType)
+    }.associateBy(ModuleSettings::moduleType)
     private lateinit var context: TealiumContext
     private lateinit var moduleManager: ModuleManagerImpl
     private lateinit var moduleManagerSubject: Subject<ModuleManager?>
@@ -44,7 +48,7 @@ class ModuleProxyImplTests {
         every { context.logger } returns SystemLogger
         moduleManager = ModuleManagerImpl(SynchronousScheduler())
         moduleFactories.forEach(moduleManager::addModuleFactory)
-        moduleManager.updateModuleSettings(context, SdkSettings()) // all enabled
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = defaultSettings)) // all enabled
         moduleManagerSubject = Observables.replaySubject(1)
 
         dispatcherProxy = createProxy(TestDispatcher::class.java)

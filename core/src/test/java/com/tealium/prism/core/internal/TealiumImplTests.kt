@@ -9,6 +9,7 @@ import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observer
+import com.tealium.prism.core.api.settings.modules.ModuleSettingsBuilder
 import com.tealium.prism.core.internal.misc.ActivityManagerImpl
 import com.tealium.prism.core.internal.modules.InternalModuleManager
 import com.tealium.prism.core.internal.modules.ModuleManagerImpl
@@ -61,7 +62,10 @@ class TealiumImplTests {
     @Test
     fun tealium_Notifies_ApplicationSubscriberModules_IfSubscribed_AtLaunch() {
         val appObserver = mockk<Observer<ActivityManager.ApplicationStatus>>(relaxed = true)
-        val appAwareModuleFactory = TestModuleFactory("app-aware-module") { _, ctx, _ ->
+        val appAwareModuleFactory = TestModuleFactory(
+            "app-aware-module",
+            config = listOf(ModuleSettingsBuilder("app-aware-module").build())
+        ) { _, ctx, _ ->
             ObserverModule(
                 ctx.activityManager.applicationStatus,
                 appObserver
@@ -99,7 +103,10 @@ class TealiumImplTests {
     @Test
     fun tealium_Notifies_ActivitySubscriberModules_IfSubscribed_AtLaunch() {
         val appObserver = mockk<Observer<ActivityManager.ActivityStatus>>(relaxed = true)
-        val appAwareModuleFactory = TestModuleFactory("activity-aware-module") { _, ctx, _ ->
+        val appAwareModuleFactory = TestModuleFactory(
+            "activity-aware-module",
+            config = listOf(ModuleSettingsBuilder("activity-aware-module").build())
+        ) { _, ctx, _ ->
             ObserverModule(
                 ctx.activityManager.activities,
                 appObserver

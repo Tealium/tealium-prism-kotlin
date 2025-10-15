@@ -10,5 +10,8 @@
             android:authorities="${applicationId}.tealiumautoinitprovider"
             android:exported="false"
             android:initOrder="100" />
+
+        <service android:name="com.tealium.prism.core.internal.modules.ModuleDiscoveryService"
+            android:exported="false" />
     </application>
 </manifest>

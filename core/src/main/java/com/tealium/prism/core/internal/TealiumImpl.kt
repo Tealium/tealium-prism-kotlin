@@ -241,6 +241,7 @@ class TealiumImpl(
                 sessionRegistry = SessionRegistryImpl(sessionManager)
             )
 
+        // TODO - ModulesFactory's are now deduped in [TealiumConfig] - can inject these directly into ModuleManager instead
         loadModuleFactories(config.modules, moduleManager, logger)
 
         barrierManager.initializeBarriers(config.barriers, tealiumContext)
@@ -329,13 +330,6 @@ class TealiumImpl(
 
     companion object {
 
-        private fun getDefaultModules(): List<ModuleFactory> {
-            return listOf(
-                DataLayerModule.Factory(),
-                TealiumDataModule.Factory(),
-            )
-        }
-
         /**
          * Loads the given [factories] into the given [moduleManager].
          *
@@ -353,9 +347,7 @@ class TealiumImpl(
             moduleManager: InternalModuleManager,
             logger: Logger
         ) {
-            val defaults = getDefaultModules()
-
-            for (validatedFactory in addAndValidateDefaultFactories(factories, defaults, logger)) {
+            for (validatedFactory in addAndValidateDefaultFactories(factories, Modules.defaultModules, logger)) {
                 if (!moduleManager.addModuleFactory(validatedFactory)) {
                     logger.logIfWarnEnabled(LogCategory.TEALIUM) {
                         "Duplicate Module Factory with moduleType \"${validatedFactory.moduleType}\" was found. It will not be used."

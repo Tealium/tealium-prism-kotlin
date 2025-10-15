@@ -7,21 +7,26 @@ import android.database.Cursor
 import android.net.Uri
 import android.util.Log
 import com.tealium.prism.core.BuildConfig
+import com.tealium.prism.core.api.Modules
+import com.tealium.prism.core.internal.modules.ModuleDiscoveryService
 
 class TealiumAutoInitContentProvider: ContentProvider() {
 
     override fun onCreate(): Boolean {
-        try {
-            Log.d(BuildConfig.TAG, "Auto-initializing Tealium")
-            val app = context!!.applicationContext as? Application
-            if (app != null) {
-                ActivityManagerImpl.getInstance(app)
-                Log.d(BuildConfig.TAG, "Auto-init successful")
-            } else {
-                Log.d(BuildConfig.TAG, "Auto-init failed.")
-            }
-        } catch (ignore: NullPointerException) {
+        val app = context?.applicationContext as? Application
+        if (app == null) {
+            Log.d(BuildConfig.TAG, "Auto-init failed.")
+            return false
         }
+
+        Log.d(BuildConfig.TAG, "Auto-initializing Tealium")
+
+        ActivityManagerImpl.getInstance(app)
+
+        val modules = ModuleDiscoveryService.discover(app)
+        Modules.addDefaultModules(modules)
+
+        Log.d(BuildConfig.TAG, "Auto-init successful")
 
         return false
     }

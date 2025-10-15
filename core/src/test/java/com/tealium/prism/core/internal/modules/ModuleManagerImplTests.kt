@@ -50,6 +50,9 @@ class ModuleManagerImplTests {
         moduleWithObservable
     )
     private val defaultFactories = modules.map { TestModuleFactory.forModule(it) }
+    private val defaultSettings = modules.mapIndexed { idx, module ->
+        ModuleSettings(module.id, order = idx)
+    }.associateBy(ModuleSettings::moduleType)
 
     private lateinit var moduleManager: InternalModuleManager
     private lateinit var modulesSubject: StateSubject<List<Module>>
@@ -66,7 +69,7 @@ class ModuleManagerImplTests {
 
         context = mockk<TealiumContext>()
         every { context.logger } returns SystemLogger
-        moduleManager.updateModuleSettings(context, SdkSettings())
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = defaultSettings))
     }
 
     @Test
@@ -266,7 +269,7 @@ class ModuleManagerImplTests {
 
     @Test
     fun updateModuleSettings_Updates_Existing_Modules() {
-        moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf()))
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = defaultSettings))
 
         verify {
             testCollector.updateConfiguration(any())
@@ -278,7 +281,7 @@ class ModuleManagerImplTests {
     @Test
     fun updateModuleSettings_Removes_Modules_That_Return_Null_From_UpdateConfiguration() {
         every { testModule.updateConfiguration(any()) } returns null
-        moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf()))
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = defaultSettings))
 
         assertFalse(modulesSubject.value.contains(testModule))
 
@@ -289,7 +292,7 @@ class ModuleManagerImplTests {
     @Test
     fun updateModuleSettings_Calls_OnShutdown_When_UpdateConfiguration_ReturnsNull() {
         every { testModule.updateConfiguration(any()) } returns null
-        moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf()))
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = defaultSettings))
 
         verify { testModule.onShutdown() }
     }
@@ -489,11 +492,16 @@ class ModuleManagerImplTests {
             "1" to ModuleSettings(moduleType = multiFactory.moduleType, "1", order = 1)
         )))
 
-        // todo - revisit if we don't add using default settings
-        // modules from settings first, then additional defaults from Factories that had no settings
-        (listOf("1", "2") + modules.map(Module::id)).forEachIndexed { idx, id ->
+        listOf("1", "2").forEachIndexed { idx, id ->
             assertEquals(id, moduleManager.modules.value[idx].id)
         }
+    }
+
+    @Test
+    fun updateModuleSettings_Does_Not_Create_Modules_With_No_Settings() {
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = emptyMap()))
+
+        assertTrue(moduleManager.modules.value.isEmpty())
     }
 
     @Test
@@ -523,7 +531,9 @@ class ModuleManagerImplTests {
         val newModuleFactory = TestModuleFactory.forModule(newModule)
 
         moduleManager.addModuleFactory(newModuleFactory)
-        moduleManager.updateModuleSettings(context, SdkSettings())
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf(
+            newModuleFactory.moduleType to ModuleSettings(newModuleFactory.moduleType)
+        )))
 
         assertTrue(moduleManager.modules.value.contains(newModule))
     }

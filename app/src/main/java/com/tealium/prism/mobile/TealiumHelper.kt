@@ -32,6 +32,7 @@ import com.tealium.prism.core.api.persistence.Expiry
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.onFailure
 import com.tealium.prism.core.api.pubsub.onSuccess
+import com.tealium.prism.core.api.settings.modules.ModuleSettingsBuilder
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.TealiumDispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
@@ -58,7 +59,9 @@ object TealiumHelper {
 
         val config = TealiumConfig.Builder(
             application = application,
-            modules = configureModules(),
+            modules = listOf(
+                configureLoggingDispatcher("logger")
+            ),
             accountName = "tealiummobile",
             profileName = "android",
             environment = Environment.DEV
@@ -70,6 +73,7 @@ object TealiumHelper {
                 settings
                     .setTealiumPurposeId(Purposes.TEALIUM)
                     .addPurpose(Purposes.TRACKING, setOf(Modules.Types.COLLECT))
+                    .addPurpose(Purposes.FUNCTIONAL, setOf("logger"))
                     .setRefireDispatcherIds(setOf(Modules.Types.COLLECT))
             }
 
@@ -169,6 +173,9 @@ object TealiumHelper {
         return object : ModuleFactory {
             override val moduleType: String
                 get() = id
+
+            override fun getEnforcedSettings(): List<DataObject> =
+                listOf(ModuleSettingsBuilder(id).build())
 
             override fun create(
                 moduleId: String,

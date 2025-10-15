@@ -27,6 +27,7 @@ import com.tealium.prism.core.internal.persistence.stores.ModuleStore
 import com.tealium.prism.core.internal.settings.SdkSettings
 import com.tealium.tests.common.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
+import com.tealium.tests.common.getDefaultConfig
 import com.tealium.tests.common.mockkEditor
 import io.mockk.Called
 import io.mockk.MockKAnnotations
@@ -81,7 +82,8 @@ class DataLayerWrapperTests {
             SynchronousScheduler()
         )
         moduleManager.addModuleFactory(MockDataLayerFactory(dataLayerModule))
-        moduleManager.updateModuleSettings(context, SdkSettings())
+        val config = getDefaultConfig(mockk())
+        moduleManager.updateModuleSettings(context, SdkSettings.fromDataObject(config.enforcedSdkSettings))
 
         // default to pre-enabled
         moduleManagerSubject = Observables.replaySubject()

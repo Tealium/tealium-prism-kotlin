@@ -1,6 +1,7 @@
 package com.tealium.prism.core.internal.settings
 
 import android.app.Application
+import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.TealiumConfig
 import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataItemUtils.asDataObject
@@ -83,14 +84,16 @@ class SettingsManagerTests {
     }
 
     @Test
-    fun init_Creates_Empty_Settings_When_No_Local_Or_Remote_Or_Programmatic() {
+    fun init_Creates_Settings_Containing_Only_Default_Settings_When_No_Local_Or_Remote_Or_Programmatic() {
         mockAssetResponse(null)
         createSettingsManager()
 
         val settings = settingsManager.sdkSettings.value
 
         assertEquals(CoreSettingsImpl(), settings.core)
-        assertTrue(settings.modules.isEmpty())
+        assertEquals(2, settings.modules.size) // datalayer + tealiumdata
+        assertTrue(settings.modules.containsKey(Modules.Types.DATA_LAYER))
+        assertTrue(settings.modules.containsKey(Modules.Types.TEALIUM_DATA))
     }
 
     @Test

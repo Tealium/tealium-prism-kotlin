@@ -247,14 +247,15 @@ class TealiumConfig private constructor(
             )
         }
 
-        private val enforcedSdkSettings: DataObject
-            get() = DataObject.create {
+        private fun enforcedSdkSettings(deduplicatedModules: List<ModuleFactory>): DataObject =
+            DataObject.create {
                 val coreSettings = enforcingCoreSettings?.invoke(CoreSettingsBuilder())
                 if (coreSettings != null) {
                     put(CoreSettingsImpl.MODULE_NAME, coreSettings.build())
                 }
+
                 val modulesObject = DataObject.create {
-                    modules.flatMap { factory ->
+                    deduplicatedModules.flatMap { factory ->
                         factory.getEnforcedSettings().map { settings ->
                             val moduleId = settings.getString(ModuleSettings.KEY_MODULE_ID)
                                 ?: factory.moduleType
@@ -293,12 +294,16 @@ class TealiumConfig private constructor(
          * Takes an immutable copy of any configured settings
          */
         fun build(): TealiumConfig {
+            // Add defaults and dedupe
+            val dedupedModules = (modules + Modules.defaultModules)
+                .distinctBy(ModuleFactory::moduleType)
+
             return TealiumConfig(
                 application,
                 accountName,
                 profileName,
                 environment,
-                modules.toList(),
+                dedupedModules,
                 barriers.toList(),
                 datasource,
                 settingsFile,
@@ -306,7 +311,7 @@ class TealiumConfig private constructor(
                 logHandler,
                 existingVisitorId,
                 cmpAdapter,
-                enforcedSdkSettings
+                enforcedSdkSettings(dedupedModules)
             )
         }
     }
