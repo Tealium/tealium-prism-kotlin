@@ -1,5 +1,6 @@
 package com.tealium.prism.core.internal.modules.collect
 
+import android.annotation.SuppressLint
 import android.net.Uri
 import com.tealium.prism.core.api.data.DataObject
 import java.net.MalformedURLException
@@ -22,24 +23,10 @@ data class CollectModuleConfiguration(
         const val DEFAULT_COLLECT_URL = "https://collect.tealiumiq.com/event"
         const val DEFAULT_COLLECT_BATCH_URL = "https://collect.tealiumiq.com/bulk-event"
 
-        /**
-         * Current module configuration from Mobile Data Source front-end.
-         * TODO - Validate that these are final
-         *
-         * "collect": {
-         *   "enabled": true,
-         *   "configuration": {
-         *      "dispatch_profile": "...",
-         *      "single_dispatch_url": "https://collect.tealiumiq.com/event/",
-         *      "batch_dispatch_url": "https://collect.tealiumiq.com/bulk-event/",
-         *      "dispatch_domain": "collect.tealiumiq.com"
-         *   }
-         * }
-         */
-        const val KEY_COLLECT_DOMAIN = "dispatch_domain"
-        const val KEY_COLLECT_URL = "single_dispatch_url"
-        const val KEY_COLLECT_BATCH_URL = "batch_dispatch_url"
-        const val KEY_COLLECT_PROFILE = "dispatch_profile"
+        const val KEY_COLLECT_URL = "url"
+        const val KEY_COLLECT_BATCH_URL = "batch_url"
+        const val KEY_COLLECT_DOMAIN = "override_domain"
+        const val KEY_COLLECT_PROFILE = "override_profile"
 
         fun fromDataObject(configuration: DataObject): CollectModuleConfiguration? {
             val profile = configuration.getString(KEY_COLLECT_PROFILE)
@@ -58,6 +45,7 @@ data class CollectModuleConfiguration(
                 return url.parseUrl()
             }
 
+            @SuppressLint("UseKtx")
             return Uri.parse(url).buildUpon()
                 .authority(domain)
                 .build()

@@ -223,22 +223,22 @@ class Dispatch private constructor(
         /**
          * The type of consent decision that has been made; "implicit" or "explicit"
          */
-        const val CONSENT_TYPE = "consent_type"
+        const val CONSENT_TYPE = "tci.consent_type"
 
         /**
          * A list of all consented purposes, both processed and unprocessed.
          */
-        const val ALL_CONSENTED_PURPOSES = "purposes_with_consent_all"
+        const val ALL_CONSENTED_PURPOSES = "tci.purposes_with_consent_all"
 
         /**
          * A list of consented purposes that have already been processed.
          */
-        const val PROCESSED_PURPOSES = "purposes_with_consent_processed"
+        const val PROCESSED_PURPOSES = "tci.purposes_with_consent_processed"
 
         /**
          * A list of consented purposes that are yet to be processed.
          */
-        const val UNPROCESSED_PURPOSES = "purposes_with_consent_unprocessed"
+        const val UNPROCESSED_PURPOSES = "tci.purposes_with_consent_unprocessed"
 
         // TimedEvents
         const val TIMED_EVENT_NAME = "timed_event_name"
