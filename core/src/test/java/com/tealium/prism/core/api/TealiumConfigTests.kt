@@ -48,8 +48,8 @@ class TealiumConfigTests {
 
     @Test
     fun init_Adds_LoadRules_To_Enforced_Settings_Under_LoadRules_Key() {
-        val loadRule1 = LoadRule("rule-1", Rule.just(isEqual(true, null, "key", "value")))
-        val loadRule2 = LoadRule("rule-2", Rule.just(isDefined(null, "key")))
+        val loadRule1 = LoadRule("rule-1", Rule.just(isEqual(true, "key", "value")))
+        val loadRule2 = LoadRule("rule-2", Rule.just(isDefined("key")))
 
         val config = getDefaultConfigBuilder(app = mockk())
             .addLoadRule(loadRule1.id, loadRule1.conditions)

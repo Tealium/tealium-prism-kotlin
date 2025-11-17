@@ -9,7 +9,7 @@ import kotlin.reflect.KClass
 inline fun <reified T : Throwable> assertThrows(
     cause: KClass<out Throwable>? = null,
     block: () -> Unit
-) {
+): T {
     try {
         block.invoke()
     } catch (e: Exception) {
@@ -19,8 +19,8 @@ inline fun <reified T : Throwable> assertThrows(
         if (cause != null && !cause.java.isInstance(e.cause)) {
             fail("Expected cause of type ${cause.qualifiedName}, but got ${e.cause?.let { it::class.qualifiedName } ?: "null"}")
         }
-        return
+        return e as T
     }
 
-    fail("Expected exception of type ${T::class.qualifiedName}, but nothing was thrown")
+    throw AssertionError("Expected exception of type ${T::class.qualifiedName}, but nothing was thrown")
 }

@@ -1,5 +1,7 @@
 package com.tealium.prism.core.api.rules
 
+import com.tealium.prism.core.api.data.JsonPath
+import com.tealium.prism.core.api.data.get
 import com.tealium.prism.core.internal.rules.Operators
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -22,10 +24,9 @@ class ConditionTests {
     @Test
     fun isEqual_Returns_Condition_With_Provided_Parameters() {
         val condition =
-            Condition.isEqual(true, listOf("obj1", "obj2"), "key", "target")
-        assertEquals(listOf("obj1", "obj2"), condition.path)
-        assertEquals("key", condition.variable)
-        assertEquals("target", condition.filter)
+            Condition.isEqual(true, JsonPath["obj1"]["obj2"]["key"], "target")
+        assertEquals(JsonPath["obj1"]["obj2"]["key"], condition.variable.path)
+        assertEquals("target", condition.filter?.value)
     }
 
     @Test
@@ -43,10 +44,9 @@ class ConditionTests {
     @Test
     fun doesNotEqual_Returns_Condition_With_Provided_Parameters() {
         val condition =
-            Condition.doesNotEqual(true, listOf("obj1", "obj2"), "key", "target")
-        assertEquals(listOf("obj1", "obj2"), condition.path)
-        assertEquals("key", condition.variable)
-        assertEquals("target", condition.filter)
+            Condition.doesNotEqual(true, JsonPath["obj1"]["obj2"]["key"], "target")
+        assertEquals(JsonPath["obj1"]["obj2"]["key"], condition.variable.path)
+        assertEquals("target", condition.filter?.value)
     }
 
     @Test
@@ -64,10 +64,9 @@ class ConditionTests {
     @Test
     fun contains_Returns_Condition_With_Provided_Parameters() {
         val condition =
-            Condition.contains(true, listOf("obj1", "obj2"), "key", "target")
-        assertEquals(listOf("obj1", "obj2"), condition.path)
-        assertEquals("key", condition.variable)
-        assertEquals("target", condition.filter)
+            Condition.contains(true, JsonPath["obj1"]["obj2"]["key"], "target")
+        assertEquals(JsonPath["obj1"]["obj2"]["key"], condition.variable.path)
+        assertEquals("target", condition.filter?.value)
     }
 
     @Test
@@ -85,10 +84,9 @@ class ConditionTests {
     @Test
     fun doesNotContain_Returns_Condition_With_Provided_Parameters() {
         val condition =
-            Condition.doesNotContain(true, listOf("obj1", "obj2"), "key", "target")
-        assertEquals(listOf("obj1", "obj2"), condition.path)
-        assertEquals("key", condition.variable)
-        assertEquals("target", condition.filter)
+            Condition.doesNotContain(true, JsonPath["obj1"]["obj2"]["key"], "target")
+        assertEquals(JsonPath["obj1"]["obj2"]["key"], condition.variable.path)
+        assertEquals("target", condition.filter?.value)
     }
 
     @Test
@@ -106,10 +104,9 @@ class ConditionTests {
     @Test
     fun startsWith_Returns_Condition_With_Provided_Parameters() {
         val condition =
-            Condition.startsWith(true, listOf("obj1", "obj2"), "key", "target")
-        assertEquals(listOf("obj1", "obj2"), condition.path)
-        assertEquals("key", condition.variable)
-        assertEquals("target", condition.filter)
+            Condition.startsWith(true, JsonPath["obj1"]["obj2"]["key"], "target")
+        assertEquals(JsonPath["obj1"]["obj2"]["key"], condition.variable.path)
+        assertEquals("target", condition.filter?.value)
     }
 
     @Test
@@ -127,10 +124,9 @@ class ConditionTests {
     @Test
     fun doesNotStartWith_Returns_Condition_With_Provided_Parameters() {
         val condition =
-            Condition.doesNotStartWith(true, listOf("obj1", "obj2"), "key", "target")
-        assertEquals(listOf("obj1", "obj2"), condition.path)
-        assertEquals("key", condition.variable)
-        assertEquals("target", condition.filter)
+            Condition.doesNotStartWith(true, JsonPath["obj1"]["obj2"]["key"], "target")
+        assertEquals(JsonPath["obj1"]["obj2"]["key"], condition.variable.path)
+        assertEquals("target", condition.filter?.value)
     }
 
     @Test
@@ -148,10 +144,9 @@ class ConditionTests {
     @Test
     fun endsWith_Returns_Condition_With_Provided_Parameters() {
         val condition =
-            Condition.endsWith(true, listOf("obj1", "obj2"), "key", "target")
-        assertEquals(listOf("obj1", "obj2"), condition.path)
-        assertEquals("key", condition.variable)
-        assertEquals("target", condition.filter)
+            Condition.endsWith(true, JsonPath["obj1"]["obj2"]["key"], "target")
+        assertEquals(JsonPath["obj1"]["obj2"]["key"], condition.variable.path)
+        assertEquals("target", condition.filter?.value)
     }
 
     @Test
@@ -169,18 +164,16 @@ class ConditionTests {
     @Test
     fun doesNotEndWith_Returns_Condition_With_Provided_Parameters() {
         val condition =
-            Condition.doesNotEndWith(true, listOf("obj1", "obj2"), "key", "target")
-        assertEquals(listOf("obj1", "obj2"), condition.path)
-        assertEquals("key", condition.variable)
-        assertEquals("target", condition.filter)
+            Condition.doesNotEndWith(true, JsonPath["obj1"]["obj2"]["key"], "target")
+        assertEquals(JsonPath["obj1"]["obj2"]["key"], condition.variable.path)
+        assertEquals("target", condition.filter?.value)
     }
 
     @Test
     fun isDefined_Returns_Condition_With_Provided_Parameters() {
         val condition =
-            Condition.isDefined(listOf("obj1", "obj2"), "key")
-        assertEquals(listOf("obj1", "obj2"), condition.path)
-        assertEquals("key", condition.variable)
+            Condition.isDefined(JsonPath["obj1"]["obj2"]["key"])
+        assertEquals(JsonPath["obj1"]["obj2"]["key"], condition.variable.path)
         assertEquals(Operators.isDefined, condition.operator)
         assertNull(condition.filter)
     }
@@ -188,9 +181,8 @@ class ConditionTests {
     @Test
     fun isNotDefined_Returns_Condition_With_Provided_Parameters() {
         val condition =
-            Condition.isNotDefined(listOf("obj1", "obj2"), "key")
-        assertEquals(listOf("obj1", "obj2"), condition.path)
-        assertEquals("key", condition.variable)
+            Condition.isNotDefined(JsonPath["obj1"]["obj2"]["key"])
+        assertEquals(JsonPath["obj1"]["obj2"]["key"], condition.variable.path)
         assertEquals(Operators.isNotDefined, condition.operator)
         assertNull(condition.filter)
     }
@@ -198,9 +190,8 @@ class ConditionTests {
     @Test
     fun isNotEmpty_Returns_Condition_With_Provided_Parameters() {
         val condition =
-            Condition.isNotEmpty(listOf("obj1", "obj2"), "key")
-        assertEquals(listOf("obj1", "obj2"), condition.path)
-        assertEquals("key", condition.variable)
+            Condition.isNotEmpty(JsonPath["obj1"]["obj2"]["key"])
+        assertEquals(JsonPath["obj1"]["obj2"]["key"], condition.variable.path)
         assertEquals(Operators.isNotEmpty, condition.operator)
         assertNull(condition.filter)
     }
@@ -208,9 +199,8 @@ class ConditionTests {
     @Test
     fun isEmpty_Returns_Condition_With_Provided_Parameters() {
         val condition =
-            Condition.isEmpty(listOf("obj1", "obj2"), "key")
-        assertEquals(listOf("obj1", "obj2"), condition.path)
-        assertEquals("key", condition.variable)
+            Condition.isEmpty(JsonPath["obj1"]["obj2"]["key"])
+        assertEquals(JsonPath["obj1"]["obj2"]["key"], condition.variable.path)
         assertEquals(Operators.isEmpty, condition.operator)
         assertNull(condition.filter)
     }
@@ -230,10 +220,9 @@ class ConditionTests {
     @Test
     fun isGreaterThan_Returns_Condition_With_Provided_Parameters() {
         val condition =
-            Condition.isGreaterThan(true, listOf("obj1", "obj2"), "key", "target")
-        assertEquals(listOf("obj1", "obj2"), condition.path)
-        assertEquals("key", condition.variable)
-        assertEquals("target", condition.filter)
+            Condition.isGreaterThan(true, JsonPath["obj1"]["obj2"]["key"], "target")
+        assertEquals(JsonPath["obj1"]["obj2"]["key"], condition.variable.path)
+        assertEquals("target", condition.filter?.value)
     }
 
     @Test
@@ -251,19 +240,17 @@ class ConditionTests {
     @Test
     fun isLessThan_Returns_Condition_With_Provided_Parameters() {
         val condition =
-            Condition.isLessThan(true, listOf("obj1", "obj2"), "key", "target")
-        assertEquals(listOf("obj1", "obj2"), condition.path)
-        assertEquals("key", condition.variable)
-        assertEquals("target", condition.filter)
+            Condition.isLessThan(true, JsonPath["obj1"]["obj2"]["key"], "target")
+        assertEquals(JsonPath["obj1"]["obj2"]["key"], condition.variable.path)
+        assertEquals("target", condition.filter?.value)
     }
 
     @Test
     fun regularExpression_Returns_Condition_With_Provided_Parameters() {
         val condition =
-            Condition.regularExpression(listOf("obj1", "obj2"), "key", "target")
-        assertEquals(listOf("obj1", "obj2"), condition.path)
-        assertEquals("key", condition.variable)
+            Condition.regularExpression(JsonPath["obj1"]["obj2"]["key"], "target")
+        assertEquals(JsonPath["obj1"]["obj2"]["key"], condition.variable.path)
         assertEquals(Operators.regularExpression, condition.operator)
-        assertEquals("target", condition.filter)
+        assertEquals("target", condition.filter?.value)
     }
 }

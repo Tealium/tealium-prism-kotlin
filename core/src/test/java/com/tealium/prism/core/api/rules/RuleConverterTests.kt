@@ -22,9 +22,9 @@ class RuleConverterTests {
         val item = DataObject.fromString(
             """
             {
-                    "variable": "true",
+                    "variable": { "key": "true" },
                     "operator": "equals",
-                    "filter" : "true"
+                    "filter" : { "value": "true" }
             }
         """
         )!!.asDataItem()
@@ -32,7 +32,7 @@ class RuleConverterTests {
         val rule = converter.convert(item)!!
 
         assertEquals(
-            Rule.just(isEqual(false, null, "true", "true")),
+            Rule.just(isEqual(false, "true", "true")),
             rule
         )
     }
@@ -44,13 +44,13 @@ class RuleConverterTests {
             {
                 "operator": "and",
                 "children": [{
-                    "variable": "true",
+                    "variable": { "key": "true" },
                     "operator": "equals",
-                    "filter" : "true"
+                    "filter" : { "value": "true" }
                 },{
-                    "variable": "false",
+                    "variable": { "key": "false" },
                     "operator": "equals",
-                    "filter" : "false"
+                    "filter" : { "value": "false" }
                 }]
             }
         """
@@ -59,8 +59,8 @@ class RuleConverterTests {
         val rule = converter.convert(item)!!
         assertEquals(
             Rule.all(
-                Rule.just(isEqual(false, null, "true", "true")),
-                Rule.just(isEqual(false, null, "false", "false"))
+                Rule.just(isEqual(false, "true", "true")),
+                Rule.just(isEqual(false, "false", "false"))
             ),
             rule
         )
@@ -73,13 +73,13 @@ class RuleConverterTests {
             {
                 "operator": "or",
                 "children": [{
-                    "variable": "true",
+                    "variable": { "key": "true" },
                     "operator": "equals",
-                    "filter" : "true"
+                    "filter" : { "value": "true" }
                 },{
-                    "variable": "false",
+                    "variable": { "key": "false" },
                     "operator": "equals",
-                    "filter" : "false"
+                    "filter" : { "value": "false" }
                 }]
             }
         """
@@ -89,8 +89,8 @@ class RuleConverterTests {
 
         assertEquals(
             Rule.any(
-                Rule.just(isEqual(false, null, "true", "true")),
-                Rule.just(isEqual(false, null, "false", "false"))
+                Rule.just(isEqual(false, "true", "true")),
+                Rule.just(isEqual(false, "false", "false"))
             ),
             rule
         )
@@ -103,20 +103,20 @@ class RuleConverterTests {
             {
                 "operator": "and",
                 "children": [{
-                    "variable": "true",
+                    "variable": { "key": "true" },
                     "operator": "equals",
-                    "filter" : "true"
+                    "filter" : { "value": "true" }
                 },{
                     "operator": "or",
                     "children": [{
-                        "variable": "number",
+                        "variable": { "key": "number" },
                         "operator": "greater_than",
-                        "filter" : "10"
+                        "filter" : { "value": "10" }
                     },{
-                        "variable": "number",
+                        "variable": { "key": "number" },
                         "operator": "less_than",
-                        "filter" : "0"
-                    }]    
+                        "filter" : { "value": "0" }
+                    }]
                 }]
             }
         """
@@ -126,10 +126,10 @@ class RuleConverterTests {
 
         assertEquals(
             Rule.all(
-                Rule.just(isEqual(false, null, "true", "true")),
+                Rule.just(isEqual(false, "true", "true")),
                 Rule.any(
-                    Rule.just(isGreaterThan(false, null, "number", "10")),
-                    Rule.just(isLessThan(false, null, "number", "0"))
+                    Rule.just(isGreaterThan(false, "number", "10")),
+                    Rule.just(isLessThan(false, "number", "0"))
                 )
             ),
             rule,
@@ -143,20 +143,20 @@ class RuleConverterTests {
             {
                 "operator": "or",
                 "children": [{
-                    "variable": "true",
+                    "variable": { "key": "true" },
                     "operator": "equals",
-                    "filter" : "true"
+                    "filter" : { "value": "true" }
                 },{
                     "operator": "and",
                     "children": [{
-                        "variable": "number",
+                        "variable": { "key": "number" },
                         "operator": "greater_than",
-                        "filter" : "0"
+                        "filter" : { "value": "0" }
                     },{
-                        "variable": "false",
+                        "variable": { "key": "false" },
                         "operator": "equals",
-                        "filter" : "false"
-                    }]    
+                        "filter" : { "value": "false" }
+                    }]
                 }]
             }
         """
@@ -166,10 +166,10 @@ class RuleConverterTests {
 
         assertEquals(
             Rule.any(
-                Rule.just(isEqual(false, null, "true", "true")),
+                Rule.just(isEqual(false, "true", "true")),
                 Rule.all(
-                    Rule.just(isGreaterThan(false, null, "number", "0")),
-                    Rule.just(isEqual(false, null, "false", "false"))
+                    Rule.just(isGreaterThan(false, "number", "0")),
+                    Rule.just(isEqual(false, "false", "false"))
                 )
             ),
             rule
@@ -183,9 +183,9 @@ class RuleConverterTests {
             {
                 "operator": "not",
                 "children": [{
-                    "variable": "true",
+                    "variable": { "key": "true" },
                     "operator": "equals",
-                    "filter" : "true"
+                    "filter" : { "value": "true" }
                 }]
             }
         """
@@ -195,7 +195,7 @@ class RuleConverterTests {
 
         assertEquals(
             Rule.not(
-                Rule.just(isEqual(false, null, "true", "true"))
+                Rule.just(isEqual(false, "true", "true"))
             ),
             rule
         )
@@ -204,7 +204,7 @@ class RuleConverterTests {
     @Test
     fun asDataItem_Serializes_Rule_Using_Condition_Converter() {
         val rule = Rule.not(
-            Rule.just(isEqual(false, null, "true", "true"))
+            Rule.just(isEqual(false, "true", "true"))
         ).asDataItem()
 
         assertEquals(
@@ -212,9 +212,9 @@ class RuleConverterTests {
                 {
                     "operator": "not",
                     "children": [{
-                        "variable": "true",
+                        "variable": { "key": "true" },
                         "operator": "equals",
-                        "filter": "true"
+                        "filter" : { "value": "true" }
                     }]
                 }
             """.trimJson(),

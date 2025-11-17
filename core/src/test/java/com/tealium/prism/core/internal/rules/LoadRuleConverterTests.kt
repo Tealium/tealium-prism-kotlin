@@ -15,7 +15,7 @@ class LoadRuleConverterTests {
     @Test
     fun convert_Returns_Valid_Load_Rule_When_Both_Id_And_Conditions_Present() {
         val conditions = Rule.any(
-            Rule.just(isEqual(true, null, "key", "value"))
+            Rule.just(isEqual(true, "key", "value"))
         )
         val ruleItem = DataObject.create {
             put(Converter.KEY_ID, "rule-1")
@@ -48,7 +48,7 @@ class LoadRuleConverterTests {
     @Test
     fun convert_Converts_Condition_With_And() {
         val conditions = Rule.all(
-            Rule.just(isEqual(true, null, "key", "value"))
+            Rule.just(isEqual(true, "key", "value"))
         )
         val ruleItem = DataObject.create {
             put(Converter.KEY_ID, "rule-1")
@@ -64,7 +64,7 @@ class LoadRuleConverterTests {
     @Test
     fun convert_Converts_Condition_With_Or() {
         val conditions = Rule.any(
-            Rule.just(isEqual(true, null, "key", "value"))
+            Rule.just(isEqual(true, "key", "value"))
         )
         val ruleItem = DataObject.create {
             put(Converter.KEY_ID, "rule-1")
@@ -80,7 +80,7 @@ class LoadRuleConverterTests {
     @Test
     fun convert_Converts_Condition_With_Not() {
         val conditions = Rule.not(
-            Rule.just(isEqual(true, null, "key", "value"))
+            Rule.just(isEqual(true, "key", "value"))
         )
         val ruleItem = DataObject.create {
             put(Converter.KEY_ID, "rule-1")
@@ -96,7 +96,7 @@ class LoadRuleConverterTests {
     @Test
     fun convert_Converts_Condition_With_Just() {
         val conditions = Rule.just(
-            isEqual(true, null, "key", "value")
+            isEqual(true, "key", "value")
         )
         val ruleItem = DataObject.create {
             put(Converter.KEY_ID, "rule-1")

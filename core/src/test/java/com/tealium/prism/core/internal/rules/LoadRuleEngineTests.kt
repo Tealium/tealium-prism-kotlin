@@ -35,17 +35,17 @@ class LoadRuleEngineTests {
     val rules: Map<String, LoadRule> = mapOf(
         "1" to LoadRule(
             "1", Rule.all(
-                just(Condition.isEqual(false, null, "true", "true"))
+                just(Condition.isEqual(false, "true", "true"))
             )
         ),
         "2" to LoadRule(
             "2", Rule.all(
-                just(Condition.isEqual(false, null, "false", "false"))
+                just(Condition.isEqual(false, "false", "false"))
             )
         ),
         "throwing" to LoadRule(
             "throwing", Rule.all(
-                just(Condition.isGreaterThan(false, null, "number", "not-a-number"))
+                just(Condition.isGreaterThan(false, "number", "not-a-number"))
             )
         )
     )

@@ -30,8 +30,7 @@ open class DispatcherSettingsBuilder<T : DispatcherSettingsBuilder<T>>(moduleTyp
      * For more complex use cases you can leverage the optional methods on [Mappings.VariableOptions]
      * ```kotlin
      * setMappings {
-     *  from(VariableAccessor("input1", listOf("container")),
-     *        VariableAccessor("destination", listOf("otherContainer")))
+     *  from(JsonPath["container"]["input1"], JsonPath["otherContainer"]["destination"])
      *      .ifValueEquals("value")
      * }
      * ```

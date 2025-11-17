@@ -1,6 +1,8 @@
 package com.tealium.prism.core.api.data
 
-interface DataItemExtractor {
+import com.tealium.prism.core.internal.data.extract
+
+interface DataItemExtractor: JsonPathExtractable<JsonPath.Component.Key> {
 
     /**
      * Gets the [DataItem] stored at the given [key] if there is one
@@ -87,4 +89,8 @@ interface DataItemExtractor {
         converter.convert(item)
     }
 
+    override fun extract(jsonPath: JsonPath<JsonPath.Component.Key>): DataItem? {
+        val dataItem: DataItem? = get(jsonPath.firstComponent.key)
+        return dataItem?.extract(jsonPath.components)
+    }
 }

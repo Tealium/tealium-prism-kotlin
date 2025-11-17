@@ -9,6 +9,7 @@ import com.tealium.prism.core.api.rules.MissingDataItemException
 import com.tealium.prism.core.api.rules.MissingFilterException
 import com.tealium.prism.core.api.rules.NumberParseException
 import com.tealium.prism.core.api.rules.UnsupportedOperatorException
+import com.tealium.prism.core.api.data.ValueContainer
 import com.tealium.prism.core.internal.rules.Operators.isDefined
 import com.tealium.prism.core.internal.rules.Operators.isNotDefined
 import java.math.BigDecimal
@@ -332,8 +333,8 @@ class CustomOperator(
     override val id: String,
     private val predicate: (DataItem?, String?) -> Boolean
 ) : Operator {
-    override fun apply(dataItem: DataItem?, filter: String?): Boolean =
-        predicate.invoke(dataItem, filter)
+    override fun apply(dataItem: DataItem?, filter: ValueContainer?): Boolean =
+        predicate.invoke(dataItem, filter?.value)
 }
 
 /**
@@ -347,13 +348,13 @@ class StringsMatchOperator(
 ) : Operator {
 
     @Suppress("NAME_SHADOWING")
-    override fun apply(dataItem: DataItem?, filter: String?): Boolean {
+    override fun apply(dataItem: DataItem?, filter: ValueContainer?): Boolean {
         val dataItem = OperatorPreconditions.requireDataItem(dataItem)
         val filter = OperatorPreconditions.requireFilter(filter)
         if (dataItem.isDataObject())
             throw UnsupportedOperatorException(id, dataItem)
 
-        return not xor stringsMatch(dataItem, filter, ignoreCase, comparator)
+        return not xor stringsMatch(dataItem, filter.value, ignoreCase, comparator)
     }
 
     private fun stringsMatch(
@@ -414,17 +415,17 @@ class EqualsOperator(
     private val stringsEqual = StringsMatchOperator(id, ignoreCase, not, String::equals)
 
     @Suppress("NAME_SHADOWING")
-    override fun apply(dataItem: DataItem?, filter: String?): Boolean {
+    override fun apply(dataItem: DataItem?, filter: ValueContainer?): Boolean {
         val dataItem = OperatorPreconditions.requireDataItem(dataItem)
         val filter = OperatorPreconditions.requireFilter(filter)
 
         val doubleValue = dataItem.getDouble()
         if (doubleValue != null && doubleValue.isFinite()) {
             try {
-                val doubleFilter = OperatorPreconditions.parseDouble(filter)
+                val doubleFilter = OperatorPreconditions.parseDouble(filter.value)
 
                 return not xor (doubleValue == doubleFilter)
-            } catch (ignore: NumberParseException) { }
+            } catch (_: NumberParseException) { }
         }
 
         return stringsEqual.apply(dataItem, filter)
@@ -448,11 +449,11 @@ class NumericOperator(
 ) : Operator {
 
     @Suppress("NAME_SHADOWING")
-    override fun apply(dataItem: DataItem?, filter: String?): Boolean {
+    override fun apply(dataItem: DataItem?, filter: ValueContainer?): Boolean {
         val dataItem = OperatorPreconditions.requireDataItem(dataItem)
         val filter = OperatorPreconditions.requireFilter(filter)
 
-        val doubleFilter = OperatorPreconditions.parseDouble(filter)
+        val doubleFilter = OperatorPreconditions.parseDouble(filter.value)
         val number = dataItem.getDouble()
             ?: OperatorPreconditions.parseDouble(dataItem)
 

@@ -216,7 +216,7 @@ class TransformerCoordinatorTests {
             "conditioned",
             mockTransformer3.id,
             setOf(TransformationScope.AfterCollectors),
-            conditions = Rule.just(Condition.isDefined(null, "is_defined"))
+            conditions = Rule.just(Condition.isDefined("is_defined"))
         )
         transformationsSettings.onNext(transformationsSettings.value + settings)
 
@@ -238,7 +238,7 @@ class TransformerCoordinatorTests {
             "conditioned",
             mockTransformer3.id,
             setOf(TransformationScope.AllDispatchers),
-            conditions = Rule.just(Condition.isDefined(null, "is_defined"))
+            conditions = Rule.just(Condition.isDefined("is_defined"))
         )
         transformationsSettings.onNext(transformationsSettings.value + settings)
 
@@ -264,7 +264,7 @@ class TransformerCoordinatorTests {
             "conditioned",
             mockTransformer3.id,
             setOf(TransformationScope.AllDispatchers),
-            conditions = Rule.just(Condition.isDefined(null, "is_defined"))
+            conditions = Rule.just(Condition.isDefined("is_defined"))
         )
         transformationsSettings.onNext(transformationsSettings.value + settings)
 
@@ -288,7 +288,7 @@ class TransformerCoordinatorTests {
             "conditioned",
             mockTransformer3.id,
             setOf(TransformationScope.AllDispatchers),
-            conditions = Rule.just(Condition.isDefined(null, "is_defined"))
+            conditions = Rule.just(Condition.isDefined("is_defined"))
         )
         transformationsSettings.onNext(transformationsSettings.value + settings)
 
@@ -561,12 +561,7 @@ class TransformerCoordinatorTests {
         })
         val addedSettings = addTransformationWithConditions(
             conditions = Rule.just(
-                Condition.isGreaterThan(
-                    false,
-                    null,
-                    "number",
-                    "10"
-                )
+                Condition.isGreaterThan(false, "number", "10")
             )
         )
 
@@ -584,12 +579,7 @@ class TransformerCoordinatorTests {
         })
         val addedSettings = addTransformationWithConditions(
             conditions = Rule.just(
-                Condition.isGreaterThan(
-                    false,
-                    null,
-                    "number",
-                    "10"
-                )
+                Condition.isGreaterThan(false, "number", "10")
             )
         )
 
@@ -604,12 +594,7 @@ class TransformerCoordinatorTests {
     fun transform_Does_Not_Evaluate_Transformation_When_Invalid_Condition() {
         val addedSettings = addTransformationWithConditions(
             conditions = Rule.just(
-                Condition.isGreaterThan(
-                    false,
-                    null,
-                    "number",
-                    "not-a-number"
-                )
+                Condition.isGreaterThan(false, "number", "not-a-number")
             )
         )
 
@@ -624,12 +609,7 @@ class TransformerCoordinatorTests {
     fun transform_Does_Not_Throw_When_Invalid_Condition() {
         addTransformationWithConditions(
             conditions = Rule.just(
-                Condition.isGreaterThan(
-                    false,
-                    null,
-                    "number",
-                    "not-a-number"
-                )
+                Condition.isGreaterThan(false, "number", "not-a-number")
             )
         )
 

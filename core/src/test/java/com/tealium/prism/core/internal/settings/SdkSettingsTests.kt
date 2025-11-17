@@ -29,7 +29,7 @@ class SdkSettingsTests {
 
     @Test
     fun fromDataObject_With_LoadRules_Returns_SdkSettings_With_LoadRules() {
-        val conditions = Rule.all(Rule.just(isEqual(true, null, "key", "value")))
+        val conditions = Rule.all(Rule.just(isEqual(true, "key", "value")))
         val settingsObject = DataObject.create {
             put(SdkSettings.KEY_LOAD_RULES, DataObject.create {
                 put("rule-1", DataObject.create {

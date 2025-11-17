@@ -5,10 +5,10 @@ import com.tealium.prism.core.api.data.DataItemConverter
 import com.tealium.prism.core.api.data.DataItemConvertible
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.DataObjectConvertible
-import com.tealium.prism.core.api.settings.VariableAccessor
+import com.tealium.prism.core.api.data.ReferenceContainer
 
 data class TransformationOperation<T : DataItemConvertible>(
-    val destination: VariableAccessor,
+    val destination: ReferenceContainer,
     val parameters: T
 ) : DataObjectConvertible {
     override fun asDataObject(): DataObject =
@@ -29,8 +29,8 @@ data class TransformationOperation<T : DataItemConvertible>(
             val dataObject = dataItem.getDataObject()
                 ?: return null
 
-            val output = dataObject.get(KEY_DESTINATION, VariableAccessor.Converter)
-                ?: return null
+            val output = dataObject.get(KEY_DESTINATION, ReferenceContainer.Converter)
+                    ?: return null
 
             val parameters = dataObject.get(KEY_PARAMETERS, parameterConverter)
                 ?: return null

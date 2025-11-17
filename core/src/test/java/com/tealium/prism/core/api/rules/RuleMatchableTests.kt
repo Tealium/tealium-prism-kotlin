@@ -2,6 +2,8 @@ package com.tealium.prism.core.api.rules
 
 import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.data.JsonPath
+import com.tealium.prism.core.api.data.get
 import com.tealium.prism.core.api.rules.Condition.Companion.isDefined
 import com.tealium.prism.core.api.rules.Condition.Companion.isEqual
 import com.tealium.prism.core.api.rules.Condition.Companion.isGreaterThan
@@ -23,7 +25,7 @@ class RuleMatchableTests {
 
     @Test
     fun matches_Returns_Following_Single_Condition() {
-        val rule = Rule.just(isEqual(false, null, "true", "true"))
+        val rule = Rule.just(isEqual(false, "true", "true"))
 
         assertTrue(rule.matches(DataObject.create {
             put("true", true)
@@ -36,8 +38,8 @@ class RuleMatchableTests {
     @Test
     fun matches_Returns_Following_And_Conditions() {
         val rule = Rule.all(
-            Rule.just(isEqual(false, null, "true", "true")),
-            Rule.just(isEqual(false, null, "false", "false"))
+            Rule.just(isEqual(false, "true", "true")),
+            Rule.just(isEqual(false, "false", "false"))
         )
 
         assertTrue(rule.matches(DataObject.create {
@@ -53,8 +55,8 @@ class RuleMatchableTests {
     @Test
     fun matches_Returns_Following_Or_Conditions() {
         val rule = Rule.any(
-            Rule.just(isEqual(false, null, "true", "true")),
-            Rule.just(isEqual(false, null, "false", "false"))
+            Rule.just(isEqual(false, "true", "true")),
+            Rule.just(isEqual(false, "false", "false"))
         )
 
         assertTrue(rule.matches(DataObject.create {
@@ -78,10 +80,10 @@ class RuleMatchableTests {
     @Test
     fun matches_Returns_Following_And_And_Nested_Or_Conditions() {
         val rule = Rule.all(
-            Rule.just(isEqual(false, null, "true", "true")),
+            Rule.just(isEqual(false, "true", "true")),
             Rule.any(
-                Rule.just(isGreaterThan(false, null, "number", "10")),
-                Rule.just(isLessThan(false, null, "number", "0"))
+                Rule.just(isGreaterThan(false, "number", "10")),
+                Rule.just(isLessThan(false, "number", "0"))
             )
         )
         assertTrue(rule.matches(DataObject.create {
@@ -107,21 +109,21 @@ class RuleMatchableTests {
 
     private val complexRule: Rule<Condition> = Rule.all(
         // "populated" key need to be non-empty
-        just(isNotEmpty(null, "populated")),
+        just(isNotEmpty("populated")),
         // "true" key should be `true`
-        just(isEqual(false, null, "true", "true")),
+        just(isEqual(false, "true", "true")),
         Rule.all( // must contain `is_defined` and obj-1.key must start with "prefix"
-            just(isDefined(null, "is_defined")),
-            just(startsWith(true, listOf("obj-1"), "prefix", "PrEFiX")),
+            just(isDefined("is_defined")),
+            just(startsWith(true, JsonPath["obj-1"]["prefix"], "PrEFiX")),
             any( // either `obj-1.list-1` or `obj-1.list-2` need to be non-empty
-                just(isNotEmpty(listOf("obj-1"), "list-1")),
-                just(isNotEmpty(listOf("obj-1"), "list-2"))
+                just(isNotEmpty(JsonPath["obj-1"]["list-1"])),
+                just(isNotEmpty(JsonPath["obj-1"]["list-2"]))
             )
         ),
         Rule.not( // must be 1-9 inclusive
             any(
-                just(isGreaterThan(true, listOf("obj-1", "obj-2"), "number", "10")),
-                just(isLessThan(true, listOf("obj-1", "obj-2"), "number", "0"))
+                just(isGreaterThan(true, JsonPath["obj-1"]["obj-2"]["number"], "10")),
+                just(isLessThan(true, JsonPath["obj-1"]["obj-2"]["number"], "0"))
             )
         )
     )
@@ -227,9 +229,9 @@ class RuleMatchableTests {
     fun matches_Throws_When_And_Rule_Evaluates_Throwing_Condition() {
         val throwingRule = Rule.all(
             // true - continues evaluation
-            just(isNotDefined(null, "key")),
+            just(isNotDefined("key")),
             // throws
-            just(isGreaterThan(false, null,"some_key", "non-number"))
+            just(isGreaterThan(false,"some_key", "non-number"))
         )
 
         assertThrows<ConditionEvaluationException>(MissingDataItemException::class) {
@@ -241,9 +243,9 @@ class RuleMatchableTests {
     fun matches_Does_Not_Throw_When_And_Rule_Does_Not_Evaluate_Throwing_Condition() {
         val throwingRule = Rule.all(
             // false - returns early
-            just(isDefined(null, "key")),
+            just(isDefined("key")),
             // throws
-            just(isGreaterThan(false, null,"some_key", "non-number"))
+            just(isGreaterThan(false,"some_key", "non-number"))
         )
 
         assertFalse(throwingRule.matches(DataObject.EMPTY_OBJECT))
@@ -253,11 +255,11 @@ class RuleMatchableTests {
     fun matches_Throws_When_Or_Rule_Evaluates_Throwing_Condition() {
         val throwingRule = Rule.any(
             // false - continues evaluation
-            just(isDefined(null, "key")),
+            just(isDefined("key")),
             // throws
-            just(isGreaterThan(false, null,"some_key", "non-number")),
+            just(isGreaterThan(false,"some_key", "non-number")),
             // true - never evaluated
-            just(isNotDefined(null, "key")),
+            just(isNotDefined("key")),
         )
 
         assertThrows<ConditionEvaluationException>(MissingDataItemException::class) {
@@ -269,9 +271,9 @@ class RuleMatchableTests {
     fun matches_Does_Not_Throw_When_First_Or_Condition_Passes_But_Second_Throws() {
         val throwingRule = Rule.any(
             // true - does not continue evaluation
-            just(isNotDefined(null, "key")),
+            just(isNotDefined("key")),
             // throws
-            just(isGreaterThan(false, null,"some_key", "non-number"))
+            just(isGreaterThan(false,"some_key", "non-number"))
         )
 
         assertTrue(throwingRule.matches(DataObject.EMPTY_OBJECT))
@@ -280,7 +282,7 @@ class RuleMatchableTests {
     @Test
     fun matches_Throws_When_Just_Condition_Throws() {
         val throwingRule = Rule.just(
-            isGreaterThan(false, null,"some_key", "non-number")
+            isGreaterThan(false,"some_key", "non-number")
         )
 
         assertThrows<ConditionEvaluationException>(MissingDataItemException::class) {
@@ -291,7 +293,7 @@ class RuleMatchableTests {
     @Test
     fun matches_Throws_When_Not_Condition_Throws() {
         val throwingRule = Rule.not(
-            just(isGreaterThan(false, null,"some_key", "non-number"))
+            just(isGreaterThan(false,"some_key", "non-number"))
         )
 
         assertThrows<ConditionEvaluationException>(MissingDataItemException::class) {

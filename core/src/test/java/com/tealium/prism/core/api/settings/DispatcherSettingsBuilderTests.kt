@@ -1,6 +1,8 @@
 package com.tealium.prism.core.api.settings
 
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.data.JsonPath
+import com.tealium.prism.core.api.data.get
 import com.tealium.prism.core.api.rules.Rule
 import com.tealium.prism.core.api.settings.json.TransformationOperation
 import com.tealium.prism.core.api.settings.modules.DispatcherSettingsBuilder
@@ -62,15 +64,15 @@ class DispatcherSettingsBuilderTests {
         assertEquals(1, transformations.size)
 
         val transformation = transformations[0]
-        assertEquals("destination", transformation.destination.variable)
-        assertEquals("source", transformation.parameters.key?.variable)
+        assertEquals(JsonPath["destination"], transformation.destination.path)
+        assertEquals(JsonPath["source"], transformation.parameters.reference?.path)
     }
 
     @Test
     fun setMappings_Sets_Multiple_Mappings_When_Given_Complex_Mappings_Instance() {
         builder.setMappings {
             from("source1", "destination1")
-            from("source2", listOf("path", "to"), "destination2")
+            from(path("path")["to"]["source2"], "destination2")
             from("source3", "destination3").ifValueEquals("expected_value")
         }
 
@@ -81,17 +83,16 @@ class DispatcherSettingsBuilderTests {
         assertEquals(3, transformations.size)
 
         val transformation1 = transformations[0]
-        assertEquals("destination1", transformation1.destination.variable)
-        assertEquals("source1", transformation1.parameters.key?.variable)
+        assertEquals(JsonPath["destination1"], transformation1.destination.path)
+        assertEquals(JsonPath["source1"], transformation1.parameters.reference?.path)
 
         val transformation2 = transformations[1]
-        assertEquals("destination2", transformation2.destination.variable)
-        assertEquals("source2", transformation2.parameters.key?.variable)
-        assertEquals(listOf("path", "to"), transformation2.parameters.key?.path)
+        assertEquals(JsonPath["destination2"], transformation2.destination.path)
+        assertEquals(JsonPath["path"]["to"]["source2"], transformation2.parameters.reference?.path)
 
         val transformation3 = transformations[2]
-        assertEquals("destination3", transformation3.destination.variable)
-        assertEquals("source3", transformation3.parameters.key?.variable)
+        assertEquals(JsonPath["destination3"], transformation3.destination.path)
+        assertEquals(JsonPath["source3"], transformation3.parameters.reference?.path)
         assertEquals("expected_value", transformation3.parameters.filter!!.value)
     }
 

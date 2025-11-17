@@ -4,19 +4,19 @@ import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataItemConverter
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.DataObjectConvertible
-import com.tealium.prism.core.api.settings.ValueContainer
-import com.tealium.prism.core.api.settings.VariableAccessor
+import com.tealium.prism.core.api.data.ReferenceContainer
+import com.tealium.prism.core.api.data.ValueContainer
 
 data class MappingParameters(
-    val key: VariableAccessor?,
+    val reference: ReferenceContainer?,
     val filter: ValueContainer?,
     val mapTo: ValueContainer?
 ) : DataObjectConvertible {
 
     override fun asDataObject(): DataObject =
         DataObject.create {
-            if (key != null) {
-                put(Converter.KEY_KEY, key)
+            if (reference != null) {
+                put(Converter.KEY_REFERENCE, reference)
             }
             if (filter != null) {
                 put(Converter.KEY_FILTER, filter)
@@ -27,7 +27,7 @@ data class MappingParameters(
         }
 
     object Converter : DataItemConverter<MappingParameters> {
-        const val KEY_KEY = "key"
+        const val KEY_REFERENCE = "reference"
         const val KEY_FILTER = "filter"
         const val KEY_MAP_TO = "map_to"
 
@@ -35,13 +35,13 @@ data class MappingParameters(
             val dataObject = dataItem.getDataObject()
                 ?: return null
 
-            val key = dataObject.get(KEY_KEY, VariableAccessor.Converter)
+            val reference = dataObject.get(KEY_REFERENCE, ReferenceContainer.Converter)
             val filter = dataObject.get(KEY_FILTER, ValueContainer.Converter)
             val mapTo = dataObject.get(KEY_MAP_TO, ValueContainer.Converter)
 
-            if (key == null && mapTo == null) return null
+            if (reference == null && mapTo == null) return null
 
-            return MappingParameters(key, filter, mapTo)
+            return MappingParameters(reference, filter, mapTo)
         }
     }
 }

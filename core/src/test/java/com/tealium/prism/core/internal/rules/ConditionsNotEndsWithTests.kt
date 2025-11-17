@@ -3,11 +3,15 @@ package com.tealium.prism.core.internal.rules
 import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.data.JsonPath
+import com.tealium.prism.core.api.data.ReferenceContainer.Companion.key
+import com.tealium.prism.core.api.data.get
 import com.tealium.prism.core.api.rules.Condition
 import com.tealium.prism.core.api.rules.ConditionEvaluationException
 import com.tealium.prism.core.api.rules.MissingDataItemException
 import com.tealium.prism.core.api.rules.MissingFilterException
 import com.tealium.prism.core.api.rules.UnsupportedOperatorException
+import com.tealium.prism.core.api.data.ValueContainer
 import com.tealium.tests.common.assertThrows
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -144,8 +148,7 @@ class ConditionsNotEndsWithTests {
     fun doesNotEndWith_Does_Not_Match_Nested_Value() {
         val condition = Condition.doesNotEndWith(
             ignoreCase = false,
-            path = listOf("object"),
-            variable = "key",
+            variable = JsonPath["object"]["key"],
             suffix = "alue"
         )
         assertFalse(condition.matches(payload))
@@ -235,8 +238,7 @@ class ConditionsNotEndsWithTests {
     fun doesNotEndWithIgnoreCase_Does_Not_Match_Nested_Value_Ignoring_Case() {
         val condition = Condition.doesNotEndWith(
             ignoreCase = true,
-            path = listOf("object"),
-            variable = "key",
+            variable = JsonPath["object"]["key"],
             suffix = "ALUE"
         )
         assertFalse(condition.matches(payload))
@@ -245,9 +247,9 @@ class ConditionsNotEndsWithTests {
     @Test
     fun doesNotEndWith_Does_Not_Match_When_Filter_Is_Null_String() {
         val condition = Condition(
-            variable = "null",
+            variable = key("null"),
             operator = Operators.doesNotEndWith,
-            filter = "null"
+            filter = ValueContainer("null")
         )
         assertFalse(condition.matches(payload))
     }
@@ -255,7 +257,7 @@ class ConditionsNotEndsWithTests {
     @Test
     fun doesNotEndWith_Throws_When_Filter_Null() {
         val condition = Condition(
-            variable = "string",
+            variable = key("string"),
             operator = Operators.doesNotEndWith,
             filter = null
         )
@@ -268,8 +270,7 @@ class ConditionsNotEndsWithTests {
     fun doesNotEndWith_Throws_When_DataItem_Missing() {
         val condition = Condition.doesNotEndWith(
             ignoreCase = false,
-            path = listOf("object"),
-            variable = "missing",
+            variable = JsonPath["object"]["missing"],
             suffix = "value"
         )
         assertThrows<ConditionEvaluationException>(cause = MissingDataItemException::class) {
@@ -280,7 +281,7 @@ class ConditionsNotEndsWithTests {
     @Test
     fun doesNotEndWithIgnoreCase_Throws_When_Filter_Null() {
         val condition = Condition(
-            variable = "string",
+            variable = key("string"),
             operator = Operators.doesNotEndWithIgnoreCase,
             filter = null
         )
@@ -293,8 +294,7 @@ class ConditionsNotEndsWithTests {
     fun doesNotEndWithIgnoreCase_Does_Not_Match_When_DataItem_Missing() {
         val condition = Condition.doesNotEndWith(
             ignoreCase = true,
-            path = listOf("object"),
-            variable = "missing",
+            variable = JsonPath["object"]["missing"],
             suffix = "value"
         )
         assertThrows<ConditionEvaluationException>(cause = MissingDataItemException::class) {

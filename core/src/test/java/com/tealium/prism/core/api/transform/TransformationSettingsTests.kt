@@ -112,7 +112,7 @@ class TransformationSettingsTests {
 
     @Test
     fun convert_Creates_New_TransformationSettings() {
-        val conditions = Rule.just(Condition.isDefined(null, "key"))
+        val conditions = Rule.just(Condition.isDefined("key"))
         val dataObject = createTransformationDataObject(
             transformerId = "transformer",
             transformationId = "transformation",
@@ -141,7 +141,7 @@ class TransformationSettingsTests {
 
     @Test
     fun asDataItem_Returns_All_Fields_As_DataObject() {
-        val conditions = Rule.just(Condition.isDefined(null, "key"))
+        val conditions = Rule.just(Condition.isDefined("key"))
         val transformationSettings =
             TransformationSettings(
                 "transformation",

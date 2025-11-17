@@ -1,7 +1,8 @@
 package com.tealium.prism.core.api.data
 
+import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
+import com.tealium.prism.core.api.data.DataItemUtils.asDataList
 import com.tealium.prism.core.api.data.DataItemUtils.asDataObject
-import com.tealium.prism.core.api.settings.VariableAccessor
 import com.tealium.tests.common.trimJson
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -629,68 +630,81 @@ class DataObjectTests {
     }
 
     @Test
-    fun extract_Returns_Value_From_Top_Level_When_Path_Is_Null() {
-        val dataObject = DataObject.create {
-            put("key", "string")
-        }
-
-        val value = dataObject.extract(VariableAccessor("key"))!!.getString()
-        assertEquals("string", value)
-    }
-
-    @Test
-    fun extract_Returns_Value_From_Top_Level_When_Path_Is_Not_Null_But_Is_Empty() {
-        val dataObject = DataObject.create {
-            put("key", "string")
-            put("obj", DataObject.create {
-                put("key", "nested-string")
+    fun buildPath_Creates_Missing_Components() {
+        val dataObject = DataObject.EMPTY_OBJECT.buildPath(
+            JsonPath["obj"][0]["key"], "value".asDataItem()
+        )
+        val expected = DataObject.create {
+            put("obj", DataList.create {
+                add(DataObject.create {
+                    put("key", "value")
+                })
             })
         }
-
-        val value = dataObject.extract(VariableAccessor("key", emptyList()))!!.getString()
-        assertEquals("string", value)
+        assertEquals(expected, dataObject)
     }
 
     @Test
-    fun extract_Returns_Value_From_Nested_Level_When_Path_Is_Not_Null_And_Not_Empty() {
-        val dataObject = DataObject.create {
-            put("obj", DataObject.create {
-                put("key", "string")
+    fun buildPath_Pads_Lists_With_Null_When_Index_Is_Greater_Than_Size() {
+        val dataObject = DataObject.EMPTY_OBJECT.buildPath(
+            JsonPath["obj"][3], "value".asDataItem()
+        )
+        val expected = DataObject.create {
+            put("obj", DataList.create {
+                add(DataItem.NULL)
+                add(DataItem.NULL)
+                add(DataItem.NULL)
+                add("value")
             })
         }
-
-        val value = dataObject.extract(VariableAccessor("key", listOf("obj")))!!.getString()
-        assertEquals("string", value)
+        assertEquals(expected, dataObject)
     }
 
     @Test
-    fun extract_Returns_Null_When_Key_Not_Found() {
-        val dataObject = DataObject.create {
-            put("key", "string")
-        }
-
-        assertNull(dataObject.extract(VariableAccessor("missing")))
-    }
-
-    @Test
-    fun extract_Returns_Null_When_Nested_Key_Not_Found() {
+    fun buildPath_Merges_Into_Existing_DataObjects() {
         val dataObject = DataObject.create {
             put("obj", DataObject.create {
-                put("key", "string")
+                put("list", listOf(1, 2, 3).asDataList())
+            })
+        }.buildPath(
+            JsonPath["obj"]["key"], "value".asDataItem()
+        )
+        val expected = DataObject.create {
+            put("obj", DataObject.create {
+                put("list", listOf(1, 2, 3).asDataList())
+                put("key", "value")
             })
         }
-
-        assertNull(dataObject.extract(VariableAccessor("missing", listOf("obj"))))
+        assertEquals(expected, dataObject)
     }
 
     @Test
-    fun extract_Returns_Null_When_Invalid_Path_Found() {
+    fun buildPath_Merges_Into_Existing_DataLists() {
+        val dataObject = DataObject.create {
+            put("list", listOf(1, 2, 3).asDataList())
+        }.buildPath(
+            JsonPath["list"][5], "value".asDataItem()
+        )
+        val expected = DataObject.create {
+            put("list", listOf(1, 2, 3, null, null, "value").asDataList())
+        }
+        assertEquals(expected, dataObject)
+    }
+
+    @Test
+    fun buildPath_Replaces_DataObject_With_DataList_If_Required() {
         val dataObject = DataObject.create {
             put("obj", DataObject.create {
-                put("key", "string")
+                put("list", listOf(1, 2, 3).asDataList())
             })
+        }.buildPath(
+            JsonPath["obj"][0]["key"], "value".asDataItem()
+        )
+        val expected = DataObject.create {
+            put("obj", listOf(DataObject.create {
+                put("key", "value")
+            }).asDataList())
         }
-
-        assertNull(dataObject.extract(VariableAccessor("key", listOf("wrong_path"))))
+        assertEquals(expected, dataObject)
     }
 }

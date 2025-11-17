@@ -1,6 +1,8 @@
 package com.tealium.prism.core.api.data
 
-import com.tealium.prism.core.api.data.DataList.Builder
+import com.tealium.prism.core.api.data.DataList.Companion.EMPTY_LIST
+import com.tealium.prism.core.internal.data.buildPath
+import com.tealium.prism.core.internal.data.extract
 import com.tealium.prism.core.internal.misc.stringify
 import org.json.JSONArray
 import org.json.JSONException
@@ -26,7 +28,7 @@ import java.lang.reflect.Array
 class DataList private constructor(
     collection: List<DataItem>? = null,
     string: String? = null
-) : Iterable<DataItem>, DataItemConvertible {
+) : Iterable<DataItem>, DataItemConvertible, JsonPathExtractable<JsonPath.Component.Index> {
 
     private var _toString: String? = string
     private lateinit var _collection: List<DataItem>
@@ -161,6 +163,11 @@ class DataList private constructor(
      */
     fun contains(value: DataItem): Boolean = collection.contains(value)
 
+    override fun extract(jsonPath: JsonPath<JsonPath.Component.Index>): DataItem? {
+        val dataItem: DataItem? = get(jsonPath.firstComponent.index)
+        return dataItem?.extract(jsonPath.components)
+    }
+
     override fun iterator(): Iterator<DataItem> {
         return collection.iterator()
     }
@@ -176,6 +183,25 @@ class DataList private constructor(
         block.invoke(builder)
         return builder.build()
     }
+
+    /**
+     * Takes a copy of this [DataList] and builds the necessary path according to the given [path]
+     * in order to store the given [item].
+     *
+     * Where a [DataObject]/[DataList] already exists on the given path, the incoming items will be
+     * merged in. Where the [DataObject]/[DataList] does not exist yet in this [DataList] a new one
+     * will be created.
+     * Where a different type was specified on the [path] to what is currently in this [DataList],
+     * it will be overwritten.
+     *
+     * @param path the [JsonListPath] used to describe where to store [item]
+     * @param item the [DataItem] to add
+     * @return a new [DataList] with the [item] stored at the given path
+     */
+    fun buildPath(path: JsonListPath, item: DataItem): DataList =
+        buildUpon()
+            .buildPath(path, item)
+            .build()
 
     /**
      * Convenience method to create a new [Builder] containing all the values in this [DataList]
@@ -571,6 +597,23 @@ class DataList private constructor(
         }
 
         /**
+         * Takes a copy of this [DataList] and builds the necessary path according to the given [path]
+         * in order to store the given [item].
+         *
+         * Where a [DataObject]/[DataList] already exists on the given path, the incoming items will be
+         * merged in. Where the [DataObject]/[DataList] does not exist yet in this [DataList] a new one
+         * will be created.
+         * Where a different type was specified on the [path] to what is currently in this [DataList],
+         * it will be overwritten.
+         *
+         * @param path the [JsonObjectPath] used to describe where to store [item]
+         * @param item the [DataItem] to add
+         * @return The current [Builder] with the [item] stored at the given path
+         */
+        fun buildPath(path: JsonListPath, item: DataItem): Builder =
+            buildPath(path.firstComponent.index, path.components, item)
+
+        /**
          * Removes the item at the give [index].
          *
          * [IndexOutOfBoundsException]s are ignored.
@@ -592,6 +635,18 @@ class DataList private constructor(
         fun clear() = apply {
             list.clear()
         }
+
+        /**
+         * Returns the number of entries currently in this [DataList.Builder].
+         */
+        fun size() = list.size
+
+        /**
+         * Gets the [DataItem] at the given index, if there is one.
+         *
+         * @return the [DataItem] at the given index; or null
+         */
+        operator fun get(index: Int): DataItem? = list.elementAtOrNull(index)
 
         /**
          * Creates the new [DataList] based on the entries provided to this [Builder]

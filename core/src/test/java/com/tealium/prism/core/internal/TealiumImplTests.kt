@@ -2,6 +2,7 @@ package com.tealium.prism.core.internal
 
 import android.app.Activity
 import android.app.Application
+import com.tealium.prism.core.api.data.JsonPath
 import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.misc.ActivityManager
@@ -234,14 +235,14 @@ class TealiumImplTests {
         assertEquals(2, dispatcherMappings.size)
 
         val mapping1 = dispatcherMappings[0]
-        assertEquals("destination1", mapping1.destination.variable)
-        assertEquals("source1", mapping1.parameters.key?.variable)
+        assertEquals(JsonPath["destination1"], mapping1.destination.path)
+        assertEquals(JsonPath["source1"], mapping1.parameters.reference?.path)
         assertNull(mapping1.parameters.filter)
         assertNull(mapping1.parameters.mapTo)
 
         val mapping2 = dispatcherMappings[1]
-        assertEquals("destination2", mapping2.destination.variable)
-        assertEquals("source2", mapping2.parameters.key?.variable)
+        assertEquals(JsonPath["destination2"], mapping2.destination.path)
+        assertEquals(JsonPath["source2"], mapping2.parameters.reference?.path)
         assertEquals("expected", mapping2.parameters.filter?.value)
         assertEquals("value", mapping2.parameters.mapTo?.value)
     }

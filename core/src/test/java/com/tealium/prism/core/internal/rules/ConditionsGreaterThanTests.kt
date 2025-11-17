@@ -3,9 +3,11 @@ package com.tealium.prism.core.internal.rules
 import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.data.JsonPath
+import com.tealium.prism.core.api.data.ReferenceContainer.Companion.key
+import com.tealium.prism.core.api.data.get
 import com.tealium.prism.core.api.rules.Condition
 import com.tealium.prism.core.api.rules.ConditionEvaluationException
-import com.tealium.prism.core.api.rules.MissingDataItemException
 import com.tealium.prism.core.api.rules.MissingFilterException
 import com.tealium.prism.core.api.rules.NumberParseException
 import com.tealium.tests.common.assertThrows
@@ -132,7 +134,7 @@ class ConditionsGreaterThanTests {
     fun greaterThan_Throws_When_Filter_Is_Null() {
         val condition = Condition(
             operator = Operators.greaterThan,
-            variable = "int",
+            variable = key("int"),
             filter = null
         )
         assertThrows<ConditionEvaluationException>(cause = MissingFilterException::class) {
@@ -245,8 +247,7 @@ class ConditionsGreaterThanTests {
     fun greaterThan_Matches_If_Int_Greater_Than_Nested_Value() {
         val condition = Condition.isGreaterThan(
             orEqual = false,
-            path = listOf("object"),
-            variable = "int",
+            variable = JsonPath["object"]["int"],
             number = "344"
         )
         assertTrue(condition.matches(payload))

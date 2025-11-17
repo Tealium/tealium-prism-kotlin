@@ -3,12 +3,16 @@ package com.tealium.prism.core.internal.rules
 import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.data.JsonPath
+import com.tealium.prism.core.api.data.ReferenceContainer.Companion.key
+import com.tealium.prism.core.api.data.ReferenceContainer.Companion.path
+import com.tealium.prism.core.api.data.get
 import com.tealium.prism.core.api.rules.Condition
 import com.tealium.prism.core.api.rules.ConditionEvaluationException
-import com.tealium.prism.core.api.rules.InvalidMatchException
 import com.tealium.prism.core.api.rules.MissingDataItemException
 import com.tealium.prism.core.api.rules.MissingFilterException
 import com.tealium.prism.core.api.rules.UnsupportedOperatorException
+import com.tealium.prism.core.api.data.ValueContainer
 import com.tealium.tests.common.assertThrows
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -145,8 +149,7 @@ class ConditionsNotContainsTests {
     fun doesNotContain_Does_Not_Match_Contained_Nested_Value() {
         val condition = Condition.doesNotContain(
             ignoreCase = false,
-            path = listOf("object"),
-            variable = "key",
+            variable = JsonPath["object"]["key"],
             string = "al"
         )
         assertFalse(condition.matches(payload))
@@ -156,7 +159,6 @@ class ConditionsNotContainsTests {
     fun doesNotContain_Does_Not_Match_Stringified_Array_Containing_Value() {
         val condition = Condition.doesNotContain(
             ignoreCase = false,
-            null,
             variable = "list",
             string = "a"
         )
@@ -187,7 +189,6 @@ class ConditionsNotContainsTests {
     fun doesNotContain_Matches_Json_Stringified_Array() {
         val condition = Condition.doesNotContain(
             ignoreCase = false,
-            null,
             variable = "list",
             string = "[\"a\",1,false"
         )
@@ -198,8 +199,7 @@ class ConditionsNotContainsTests {
     fun doesNotContainIgnoreCase_Does_Not_Match_Contained_Nested_Value_Ignoring_Case() {
         val condition = Condition.doesNotContain(
             ignoreCase = true,
-            path = listOf("object"),
-            variable = "key",
+            variable = JsonPath["object"]["key"],
             string = "AL"
         )
         assertFalse(condition.matches(payload))
@@ -208,9 +208,9 @@ class ConditionsNotContainsTests {
     @Test
     fun doesNotContain_Does_Not_Match_When_Null_String() {
         val condition = Condition(
-            variable = "null",
+            variable = key("null"),
             operator = Operators.doesNotContain,
-            filter = "null"
+            filter = ValueContainer("null")
         )
         assertFalse(condition.matches(payload))
     }
@@ -218,8 +218,7 @@ class ConditionsNotContainsTests {
     @Test
     fun doesNotContain_Throws_When_Filter_Null() {
         val condition = Condition(
-            path = listOf("object"),
-            variable = "key",
+            variable = path(JsonPath["object"]["key"]),
             operator = Operators.doesNotContain,
             filter = null
         )
@@ -232,8 +231,7 @@ class ConditionsNotContainsTests {
     fun doesNotContain_Throws_When_DataItem_Missing() {
         val condition = Condition.doesNotContain(
             ignoreCase = false,
-            path = listOf("object"),
-            variable = "missing",
+            variable = JsonPath["object"]["missing"],
             string = "value"
         )
         assertThrows<ConditionEvaluationException>(cause = MissingDataItemException::class) {
@@ -244,9 +242,9 @@ class ConditionsNotContainsTests {
     @Test
     fun doesNotContainIgnoreCase_Does_Not_Match_When_Null_String() {
         val condition = Condition(
-            variable = "null",
+            variable = key("null"),
             operator = Operators.doesNotContainIgnoreCase,
-            filter = "null"
+            filter = ValueContainer("null")
         )
         assertFalse(condition.matches(payload))
     }
@@ -254,8 +252,7 @@ class ConditionsNotContainsTests {
     @Test
     fun doesNotContainIgnoreCase_Throws_When_Filter_Null() {
         val condition = Condition(
-            path = listOf("object"),
-            variable = "key",
+            variable = path(JsonPath["object"]["key"]),
             operator = Operators.doesNotContainIgnoreCase,
             filter = null
         )
@@ -268,8 +265,7 @@ class ConditionsNotContainsTests {
     fun doesNotContainIgnoreCase_Throws_When_DataItem_Missing() {
         val condition = Condition.doesNotContain(
             ignoreCase = true,
-            path = listOf("object"),
-            variable = "missing",
+            variable = JsonPath["object"]["missing"],
             string = "value"
         )
         assertThrows<ConditionEvaluationException>(cause = MissingDataItemException::class) {

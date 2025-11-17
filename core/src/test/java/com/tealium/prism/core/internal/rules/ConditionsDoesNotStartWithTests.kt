@@ -3,6 +3,9 @@ package com.tealium.prism.core.internal.rules
 import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.data.JsonPath
+import com.tealium.prism.core.api.data.ReferenceContainer.Companion.path
+import com.tealium.prism.core.api.data.get
 import com.tealium.prism.core.api.rules.Condition
 import com.tealium.prism.core.api.rules.ConditionEvaluationException
 import com.tealium.prism.core.api.rules.MissingDataItemException
@@ -144,8 +147,7 @@ class ConditionsDoesNotStartWithTests {
     fun doesNotStartWith_Does_Not_Match_Nested_Value() {
         val condition = Condition.doesNotStartWith(
             ignoreCase = false,
-            path = listOf("object"),
-            variable = "key",
+            variable = JsonPath["object"]["key"],
             prefix = "Val"
         )
         assertFalse(condition.matches(payload))
@@ -205,8 +207,7 @@ class ConditionsDoesNotStartWithTests {
     fun doesNotStartWith_Does_Not_Match_Nested_Value_Ignoring_Case() {
         val condition = Condition.doesNotStartWith(
             ignoreCase = true,
-            path = listOf("object"),
-            variable = "key",
+            variable = JsonPath["object"]["key"],
             prefix = "vAl"
         )
         assertFalse(condition.matches(payload))
@@ -215,8 +216,7 @@ class ConditionsDoesNotStartWithTests {
     @Test
     fun doesNotStartWith_Throws_When_Filter_Null() {
         val condition = Condition(
-            path = listOf("object"),
-            variable = "key",
+            variable = path(JsonPath["object"]["key"]),
             operator = Operators.doesNotStartWith,
             filter = null
         )
@@ -229,8 +229,7 @@ class ConditionsDoesNotStartWithTests {
     fun doesNotStartWith_Throws_When_DataItem_Missing() {
         val condition = Condition.doesNotStartWith(
             ignoreCase = false,
-            path = listOf("object"),
-            variable = "missing",
+            variable = JsonPath["object"]["missing"],
             prefix = "value"
         )
         assertThrows<ConditionEvaluationException>(cause = MissingDataItemException::class) {
@@ -241,8 +240,7 @@ class ConditionsDoesNotStartWithTests {
     @Test
     fun doesNotStartWithIgnoreCase_Throws_When_Filter_Null() {
         val condition = Condition(
-            path = listOf("object"),
-            variable = "key",
+            variable = path(JsonPath["object"]["key"]),
             operator = Operators.doesNotStartWithIgnoreCase,
             filter = null
         )
@@ -255,8 +253,7 @@ class ConditionsDoesNotStartWithTests {
     fun doesNotStartWithIgnoreCase_Throws_When_DataItem_Missing() {
         val condition = Condition.doesNotStartWith(
             ignoreCase = true,
-            path = listOf("object"),
-            variable = "missing",
+            variable = JsonPath["object"]["missing"],
             prefix = "value"
         )
         assertThrows<ConditionEvaluationException>(cause = MissingDataItemException::class) {

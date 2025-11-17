@@ -336,7 +336,7 @@ class SettingsManagerTests {
                             "sub-key-1": 1,
                             "sub-obj": {
                                 "sub-key-1": 1
-                            } 
+                            }
                         }
                     }
                 }
@@ -354,7 +354,7 @@ class SettingsManagerTests {
                             "sub-key-2": 2,
                             "sub-obj": {
                                 "sub-key-2": 2
-                            } 
+                            }
                         }
                     }
                 }
@@ -437,7 +437,7 @@ class SettingsManagerTests {
                             "sub-key-1": 1,
                             "sub-obj": {
                                 "sub-key-1": 1
-                            } 
+                            }
                         }
                     }
                 }
@@ -456,7 +456,7 @@ class SettingsManagerTests {
                             "sub-key-2": 2,
                             "sub-obj": {
                                 "sub-key-2": 2
-                            } 
+                            }
                         }
                     }
                 }
@@ -533,7 +533,7 @@ class SettingsManagerTests {
                             "sub-key-1": 1,
                             "sub-obj": {
                                 "sub-key-1": 1
-                            } 
+                            }
                         }
                     }
                 }
@@ -550,7 +550,7 @@ class SettingsManagerTests {
                             "sub-key-2": 2,
                             "sub-obj": {
                                 "sub-key-2": 2
-                            } 
+                            }
                         }
                     }
                 }
@@ -576,7 +576,7 @@ class SettingsManagerTests {
 
     @Test
     fun mergeSettings_Merges_All_LoadRules_From_All_Settings() {
-        val baseRule = LoadRule("0", Rule.just(isDefined(null, "var")))
+        val baseRule = LoadRule("0", Rule.just(isDefined("var")))
         val settings1 = DataObject.fromString(
             """
             {
@@ -627,7 +627,7 @@ class SettingsManagerTests {
                 "load_rules" : {
                     "load_rule1" : {
                         "conditions": {
-                            "variable": "var-1",
+                            "variable": { "key": "var-1" },
                             "operator": "defined"
                         },
                         "id": "load_rule1"
@@ -642,7 +642,7 @@ class SettingsManagerTests {
                 "load_rules" : {
                     "load_rule1" : {
                         "conditions": {
-                            "variable": "var-2",
+                            "variable": { "key": "var-2" },
                             "operator": "defined"
                         },
                         "id": "load_rule2"
