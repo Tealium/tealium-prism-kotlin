@@ -7,7 +7,7 @@ import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.logger.logIfTraceEnabled
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
@@ -19,7 +19,7 @@ import com.tealium.prism.core.internal.logger.LogCategory
 import com.tealium.prism.core.internal.logger.logDescriptions
 import com.tealium.prism.core.internal.pubsub.CompletedDisposable
 import com.tealium.prism.core.internal.pubsub.DisposableContainer
-import com.tealium.prism.core.internal.pubsub.addTo
+import com.tealium.prism.core.api.pubsub.addTo
 
 /**
  * The [CollectModule]
@@ -52,7 +52,7 @@ class CollectModule(
 
     override fun dispatch(
         dispatches: List<Dispatch>,
-        callback: TealiumCallback<List<Dispatch>>
+        callback: Callback<List<Dispatch>>
     ): Disposable {
         return if (dispatches.size == 1) {
             sendSingle(dispatches.first(), callback)
@@ -63,7 +63,7 @@ class CollectModule(
 
     private fun sendBatch(
         dispatches: List<Dispatch>,
-        onProcessed: TealiumCallback<List<Dispatch>>
+        onProcessed: Callback<List<Dispatch>>
     ): Disposable {
         val disposableContainer = DisposableContainer()
 
@@ -91,7 +91,7 @@ class CollectModule(
     private fun sendBatch(
         visitorId: String,
         batch: List<Dispatch>,
-        onProcessed: TealiumCallback<List<Dispatch>>
+        onProcessed: Callback<List<Dispatch>>
     ): Disposable {
         if (batch.count() == 1) {
             return sendSingle(batch.first(), onProcessed)
@@ -115,7 +115,7 @@ class CollectModule(
 
     private fun sendSingle(
         dispatch: Dispatch,
-        onProcessed: TealiumCallback<List<Dispatch>>
+        onProcessed: Callback<List<Dispatch>>
     ): Disposable {
         collectModuleConfiguration.profile?.let { profile ->
             dispatch.addAll(DataObject.create {

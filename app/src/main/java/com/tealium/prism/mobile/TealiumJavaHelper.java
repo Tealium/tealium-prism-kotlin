@@ -14,22 +14,17 @@ import com.tealium.prism.core.api.data.UnsupportedDataItemException;
 import com.tealium.prism.core.api.misc.Environment;
 import com.tealium.prism.core.api.misc.TealiumResult;
 import com.tealium.prism.core.api.modules.ModuleFactory;
-import com.tealium.prism.core.api.consent.CmpAdapter;
 import com.tealium.prism.core.api.pubsub.Single;
 import com.tealium.prism.core.api.pubsub.SingleUtils;
-import com.tealium.prism.core.api.tracking.Dispatch;
-import com.tealium.prism.core.api.tracking.TealiumDispatchType;
+import com.tealium.prism.core.api.tracking.DispatchType;
 import com.tealium.prism.core.api.tracking.TrackResult;
 import com.tealium.prism.lifecycle.Lifecycle;
 import com.tealium.prism.lifecycle.LifecycleDataTarget;
-import static com.tealium.prism.mobile.ExampleCmpAdapter.Purposes;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import kotlin.collections.SetsKt;
 
 public class TealiumJavaHelper {
     private TealiumJavaHelper() {
@@ -98,11 +93,11 @@ public class TealiumJavaHelper {
                     .build();
 
             tealium.track("",
-                    TealiumDispatchType.Event,
+                    DispatchType.Event,
                     DataObject.EMPTY_OBJECT);
 
             Single<TealiumResult<TrackResult>> result = tealium.track("",
-                    TealiumDispatchType.Event,
+                    DispatchType.Event,
                     DataObject.EMPTY_OBJECT);
             SingleUtils.onSuccess(result, (status) -> Log.d("TealiumJavaHelper", "Processing status: " + status.getDispatch().getTealiumEvent() + " - " + status));
         });

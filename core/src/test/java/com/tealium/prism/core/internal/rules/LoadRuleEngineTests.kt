@@ -1,7 +1,7 @@
 package com.tealium.prism.core.internal.rules
 
 import com.tealium.prism.core.api.data.DataObject
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.modules.Collector
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.pubsub.Disposable
@@ -12,7 +12,7 @@ import com.tealium.prism.core.api.rules.Rule
 import com.tealium.prism.core.api.rules.Rule.Companion.just
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchContext
-import com.tealium.prism.core.api.tracking.TealiumDispatchType
+import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.internal.dispatch.DispatchSplit
 import com.tealium.prism.core.internal.dispatch.successful
 import com.tealium.prism.core.internal.dispatch.unsuccessful
@@ -387,7 +387,7 @@ class LoadRuleEngineTests {
     }
 
     private fun createDispatch(payload: DataObject, eventName: String = "event"): Dispatch =
-        Dispatch.create(eventName, TealiumDispatchType.Event, payload)
+        Dispatch.create(eventName, DispatchType.Event, payload)
 
     private fun LoadRuleEngineImpl.evaluateLoadRules(
         dispatcher: Dispatcher,
@@ -401,7 +401,7 @@ class LoadRuleEngineTests {
 
         override fun dispatch(
             dispatches: List<Dispatch>,
-            callback: TealiumCallback<List<Dispatch>>
+            callback: Callback<List<Dispatch>>
         ): Disposable = CompletedDisposable
 
         override val version: String

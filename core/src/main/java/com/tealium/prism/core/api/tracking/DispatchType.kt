@@ -5,15 +5,15 @@ import com.tealium.prism.core.api.data.DataItemConverter
 import com.tealium.prism.core.api.data.DataItemConvertible
 import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 
-enum class TealiumDispatchType(val friendlyName: String): DataItemConvertible {
+enum class DispatchType(val friendlyName: String): DataItemConvertible {
     Event("event"),
     View("view");
 
     override fun asDataItem(): DataItem =
         friendlyName.asDataItem()
 
-    object Converter: DataItemConverter<TealiumDispatchType> {
-        override fun convert(dataItem: DataItem): TealiumDispatchType? {
+    object Converter: DataItemConverter<DispatchType> {
+        override fun convert(dataItem: DataItem): DispatchType? {
             val typeString = dataItem.getString()?.lowercase()
                 ?: return null
 

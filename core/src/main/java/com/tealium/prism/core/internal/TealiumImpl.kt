@@ -62,14 +62,13 @@ import com.tealium.prism.core.internal.persistence.repositories.QueueRepository
 import com.tealium.prism.core.internal.persistence.repositories.SQLModulesRepository
 import com.tealium.prism.core.internal.persistence.repositories.SQLQueueRepository
 import com.tealium.prism.core.internal.pubsub.DisposableContainer
-import com.tealium.prism.core.internal.pubsub.addTo
+import com.tealium.prism.core.api.pubsub.addTo
 import com.tealium.prism.core.internal.rules.LoadRuleEngineImpl
 import com.tealium.prism.core.internal.session.SessionManagerImpl
 import com.tealium.prism.core.internal.session.SessionRegistryImpl
 import com.tealium.prism.core.internal.settings.CoreSettingsImpl
 import com.tealium.prism.core.internal.settings.SdkSettings
 import com.tealium.prism.core.internal.settings.SettingsManager
-import java.io.File
 import java.io.IOException
 
 class TealiumImpl(
@@ -454,9 +453,7 @@ class TealiumImpl(
             }.toMap()
 
         fun makeTealiumDirectory(config: TealiumConfig) {
-            val pathName =
-                "${config.application.filesDir}${File.separatorChar}tealium${File.separatorChar}${config.accountName}${File.separatorChar}${config.profileName}${File.separatorChar}${config.environment.environment}"
-            val tealiumDirectory = File(pathName)
+            val tealiumDirectory = config.tealiumDirectory
             if (tealiumDirectory.exists()) return
 
             try {

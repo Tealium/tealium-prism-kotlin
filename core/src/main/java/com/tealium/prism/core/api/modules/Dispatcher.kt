@@ -2,7 +2,7 @@ package com.tealium.prism.core.api.modules
 
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.pubsub.Disposable
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 
 /**
  * A [Dispatcher] is a specialized [Module] that is the destination for any [Dispatch]es tracked
@@ -31,5 +31,5 @@ interface Dispatcher : Module {
      * @param callback The callback used to indicate that the dispatches are completed.
      * @return A disposable able to halt the processing of the given dispatches
      */
-    fun dispatch(dispatches: List<Dispatch>, callback: TealiumCallback<List<Dispatch>>): Disposable
+    fun dispatch(dispatches: List<Dispatch>, callback: Callback<List<Dispatch>>): Disposable
 }

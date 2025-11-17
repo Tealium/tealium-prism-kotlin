@@ -1,7 +1,8 @@
 package com.tealium.prism.core.internal.modules
 
 import com.tealium.prism.core.api.data.DataObject
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.modules.Collector
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.Module
@@ -13,7 +14,6 @@ import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.internal.modules.datalayer.DataLayerModule
 import com.tealium.prism.core.internal.settings.ModuleSettings
 import com.tealium.prism.core.internal.settings.SdkSettings
-import com.tealium.tests.common.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestCollector
 import com.tealium.tests.common.TestDispatcher
@@ -63,7 +63,7 @@ class ModuleManagerImplTests {
         modulesSubject = Observables.stateSubject(listOf())
 
         moduleManager = ModuleManagerImpl(
-            SynchronousScheduler(), modulesSubject
+            Scheduler.SYNCHRONOUS, modulesSubject
         )
         defaultFactories.forEach(moduleManager::addModuleFactory)
 
@@ -108,9 +108,9 @@ class ModuleManagerImplTests {
 
     @Test
     fun getModuleOfType_Returns_Same_Matching_Given_Specific_Class_On_Given_Scheduler() {
-        val onCollector = mockk<TealiumCallback<TestCollector?>>(relaxed = true)
-        val onDispatcher = mockk<TealiumCallback<TestDispatcher?>>(relaxed = true)
-        val onModule = mockk<TealiumCallback<TestModule?>>(relaxed = true)
+        val onCollector = mockk<Callback<TestCollector?>>(relaxed = true)
+        val onDispatcher = mockk<Callback<TestDispatcher?>>(relaxed = true)
+        val onModule = mockk<Callback<TestModule?>>(relaxed = true)
         moduleManager.getModuleOfType(TestCollector::class.java, onCollector)
         moduleManager.getModuleOfType(TestDispatcher::class.java, onDispatcher)
         moduleManager.getModuleOfType(TestModule::class.java, onModule)
@@ -124,8 +124,8 @@ class ModuleManagerImplTests {
 
     @Test
     fun getModuleOfType_Returns_Same_Matching_Given_Interface_On_Given_Scheduler() {
-        val onCollector = mockk<TealiumCallback<Collector?>>(relaxed = true)
-        val onDispatcher = mockk<TealiumCallback<Dispatcher?>>(relaxed = true)
+        val onCollector = mockk<Callback<Collector?>>(relaxed = true)
+        val onDispatcher = mockk<Callback<Dispatcher?>>(relaxed = true)
         moduleManager.getModuleOfType(Collector::class.java, onCollector)
         moduleManager.getModuleOfType(Dispatcher::class.java, onDispatcher)
 
@@ -137,7 +137,7 @@ class ModuleManagerImplTests {
 
     @Test
     fun getModuleOfType_Returns_First_When_Matching_Multiple_On_Given_Scheduler() {
-        val onModule = mockk<TealiumCallback<Module?>>(relaxed = true)
+        val onModule = mockk<Callback<Module?>>(relaxed = true)
         moduleManager.getModuleOfType(Module::class.java, onModule)
 
         verify(timeout = 1000) {
@@ -147,7 +147,7 @@ class ModuleManagerImplTests {
 
     @Test
     fun getModuleOfType_Returns_Null_When_Matching_None_On_Given_Scheduler() {
-        val onModule = mockk<TealiumCallback<DataLayerModule?>>(relaxed = true)
+        val onModule = mockk<Callback<DataLayerModule?>>(relaxed = true)
         moduleManager.getModuleOfType(DataLayerModule::class.java, onModule)
 
         verify(timeout = 1000) {

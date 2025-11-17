@@ -24,7 +24,7 @@ import com.tealium.prism.core.internal.logger.LogCategory
 import com.tealium.prism.core.internal.persistence.database.getTimestampMilliseconds
 import com.tealium.prism.core.internal.persistence.repositories.ModulesRepository
 import com.tealium.prism.core.internal.pubsub.DisposableContainer
-import com.tealium.prism.core.internal.pubsub.addTo
+import com.tealium.prism.core.api.pubsub.addTo
 import java.util.concurrent.TimeUnit
 
 /**

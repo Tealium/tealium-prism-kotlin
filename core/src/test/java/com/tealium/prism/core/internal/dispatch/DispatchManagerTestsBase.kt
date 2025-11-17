@@ -11,7 +11,7 @@ import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.pubsub.Subject
 import com.tealium.prism.core.api.settings.CoreSettings
 import com.tealium.prism.core.api.tracking.Dispatch
-import com.tealium.prism.core.api.tracking.TealiumDispatchType
+import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.transform.DispatchScope
 import com.tealium.prism.core.api.transform.TransformationScope
 import com.tealium.prism.core.api.transform.TransformationSettings
@@ -22,7 +22,7 @@ import com.tealium.prism.core.internal.persistence.repositories.QueueRepository
 import com.tealium.prism.core.internal.persistence.repositories.VolatileQueueRepository
 import com.tealium.prism.core.internal.rules.LoadRuleEngine
 import com.tealium.prism.core.internal.settings.CoreSettingsImpl
-import com.tealium.tests.common.SynchronousScheduler
+import com.tealium.prism.core.internal.misc.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestDispatcher
 import com.tealium.tests.common.TestTransformer
@@ -72,9 +72,9 @@ open class DispatchManagerTestsBase {
     protected lateinit var mappingsEngine: MappingsEngine
 
     protected val dispatch1: Dispatch =
-        Dispatch.create("test1", TealiumDispatchType.Event, DataObject.EMPTY_OBJECT)
+        Dispatch.create("test1", DispatchType.Event, DataObject.EMPTY_OBJECT)
     protected val dispatch2: Dispatch =
-        Dispatch.create("test2", TealiumDispatchType.Event, DataObject.EMPTY_OBJECT)
+        Dispatch.create("test2", DispatchType.Event, DataObject.EMPTY_OBJECT)
 
     @Before
     fun setUp() {
@@ -122,7 +122,7 @@ open class DispatchManagerTestsBase {
         transformers = Observables.stateSubject(emptyList())
         transformerCoordinator = spyk(
             TransformerCoordinatorImpl(
-                transformers, transformations, SynchronousScheduler(), SystemLogger
+                transformers, transformations, Scheduler.SYNCHRONOUS, SystemLogger
             )
         )
 
@@ -166,7 +166,7 @@ open class DispatchManagerTestsBase {
 
     protected fun testDispatch(
         event: String,
-        type: TealiumDispatchType = TealiumDispatchType.Event,
+        type: DispatchType = DispatchType.Event,
         data: DataObject = DataObject.EMPTY_OBJECT
     ): Dispatch =
         Dispatch.create(event, type, data)

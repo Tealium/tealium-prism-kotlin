@@ -13,8 +13,8 @@ class Dispatch private constructor(
     val tealiumEvent: String?
         get() = dataObject.getString(Keys.TEALIUM_EVENT)
 
-    val type: TealiumDispatchType?
-        get() = dataObject.get(Keys.TEALIUM_EVENT_TYPE, TealiumDispatchType.Converter)
+    val type: DispatchType?
+        get() = dataObject.get(Keys.TEALIUM_EVENT_TYPE, DispatchType.Converter)
 
     fun payload(): DataObject {
         return dataObject
@@ -49,7 +49,7 @@ class Dispatch private constructor(
         @JvmStatic
         fun create(
             eventName: String,
-            type: TealiumDispatchType = TealiumDispatchType.Event,
+            type: DispatchType = DispatchType.Event,
             dataObject: DataObject = DataObject.EMPTY_OBJECT
         ): Dispatch {
             val uuid = UUID.randomUUID().toString()

@@ -7,6 +7,7 @@ import android.os.Build
 import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.misc.ActivityManager
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleManager
 import com.tealium.prism.core.api.modules.ModuleNotEnabledException
@@ -27,7 +28,6 @@ import com.tealium.prism.core.api.tracking.TrackResultListener
 import com.tealium.prism.core.api.tracking.Tracker
 import com.tealium.prism.core.internal.modules.ModuleManagerImpl
 import com.tealium.prism.core.internal.modules.trace.TraceModule
-import com.tealium.tests.common.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.buildConfiguration
 import com.tealium.tests.common.mockkEditor
@@ -78,7 +78,7 @@ class DeepLinkModuleTests {
             deepLinkTraceEnabled = true
         )
         modules = Observables.stateSubject(listOf(traceModule))
-        moduleManager = ModuleManagerImpl(SynchronousScheduler(), modules)
+        moduleManager = ModuleManagerImpl(Scheduler.SYNCHRONOUS, modules)
 
         dataStoreEditor = mockkEditor()
         every { dataStore.edit() } returns dataStoreEditor

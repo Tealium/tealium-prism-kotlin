@@ -20,7 +20,7 @@ import com.tealium.prism.core.internal.network.ResourceCacheImpl
 import com.tealium.prism.core.internal.network.ResourceRefresherImpl
 import com.tealium.prism.core.internal.pubsub.CompletedDisposable
 import com.tealium.prism.core.internal.pubsub.DisposableContainer
-import com.tealium.prism.core.internal.pubsub.addTo
+import com.tealium.prism.core.api.pubsub.addTo
 import com.tealium.prism.core.internal.pubsub.asObservableState
 import java.io.IOException
 import java.net.MalformedURLException

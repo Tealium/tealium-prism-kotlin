@@ -2,7 +2,7 @@ package com.tealium.prism.core.internal.modules
 
 import com.tealium.prism.core.api.Tealium
 import com.tealium.prism.core.api.misc.Scheduler
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleManager
@@ -15,7 +15,7 @@ import com.tealium.prism.core.api.pubsub.Observer
 import com.tealium.prism.core.api.pubsub.Subject
 import com.tealium.prism.core.internal.settings.ModuleSettings
 import com.tealium.prism.core.internal.settings.SdkSettings
-import com.tealium.tests.common.SynchronousScheduler
+import com.tealium.prism.core.internal.misc.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestDispatcher
 import com.tealium.tests.common.TestModuleFactory
@@ -46,7 +46,7 @@ class ModuleProxyImplTests {
     fun setUp() {
         context = mockk<TealiumContext>()
         every { context.logger } returns SystemLogger
-        moduleManager = ModuleManagerImpl(SynchronousScheduler())
+        moduleManager = ModuleManagerImpl(Scheduler.SYNCHRONOUS)
         moduleFactories.forEach(moduleManager::addModuleFactory)
         moduleManager.updateModuleSettings(context, SdkSettings(modules = defaultSettings)) // all enabled
         moduleManagerSubject = Observables.replaySubject(1)
@@ -56,7 +56,7 @@ class ModuleProxyImplTests {
 
     @Test
     fun getModule_Queues_When_No_ModuleManager_Emitted() {
-        val listener = mockk<TealiumCallback<TestDispatcher?>>(relaxed = true)
+        val listener = mockk<Callback<TestDispatcher?>>(relaxed = true)
 
         dispatcherProxy.getModule(listener)
 
@@ -67,7 +67,7 @@ class ModuleProxyImplTests {
 
     @Test
     fun getModule_Returns_Module_When_ModuleManager_Emitted_And_Module_Available() {
-        val listener = mockk<TealiumCallback<TestDispatcher?>>(relaxed = true)
+        val listener = mockk<Callback<TestDispatcher?>>(relaxed = true)
 
         dispatcherProxy.getModule(listener)
         moduleManagerSubject.onNext(moduleManager)
@@ -80,7 +80,7 @@ class ModuleProxyImplTests {
 
     @Test
     fun getModule_Returns_Null_When_ModuleManager_Emitted_And_Module_Unavailable() {
-        val listener = mockk<TealiumCallback<TestDispatcher?>>(relaxed = true)
+        val listener = mockk<Callback<TestDispatcher?>>(relaxed = true)
         moduleManager.updateModuleSettings(context, disableModuleSettings(dispatcher.id))
 
         moduleManagerSubject.onNext(moduleManager)
@@ -355,7 +355,7 @@ class ModuleProxyImplTests {
         }
     }
 
-    private val callbackDispatcherTask: (TestDispatcher, TealiumCallback<TealiumResult<String>>) -> Unit =
+    private val callbackDispatcherTask: (TestDispatcher, Callback<TealiumResult<String>>) -> Unit =
         { dispatcher, callback ->
             callback.onComplete(TealiumResult.success(dispatcher.id))
         }
@@ -363,7 +363,7 @@ class ModuleProxyImplTests {
     private fun <T : Module> createProxy(
         clazz: Class<T>,
         modules: Observable<ModuleManager?> = moduleManagerSubject,
-        scheduler: Scheduler = SynchronousScheduler(),
+        scheduler: Scheduler = Scheduler.SYNCHRONOUS,
     ): ModuleProxy<T> =
         ModuleProxyImpl(clazz, modules, scheduler)
 }

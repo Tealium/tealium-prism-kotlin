@@ -1,7 +1,7 @@
 package com.tealium.prism.core.api.modules
 
 import com.tealium.prism.core.api.Tealium
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.ObservableState
 
@@ -31,7 +31,7 @@ interface ModuleManager {
      * @param clazz The Class or Interface to match against
      * @param callback The block of code to receive the [Module]
      */
-    fun <T: Module> getModuleOfType(clazz: Class<T>, callback: TealiumCallback<T?>)
+    fun <T: Module> getModuleOfType(clazz: Class<T>, callback: Callback<T?>)
 
     /**
      * Observe an observable of the [Module] regardless of if the [Module] is currently enabled or not.

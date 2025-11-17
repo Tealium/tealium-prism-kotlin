@@ -19,9 +19,9 @@ import com.tealium.prism.core.internal.logger.LogCategory
 import com.tealium.prism.core.internal.logger.logDescriptions
 import com.tealium.prism.core.internal.persistence.database.getTimestampMilliseconds
 import com.tealium.prism.core.internal.pubsub.DisposableContainer
-import com.tealium.prism.core.internal.pubsub.addTo
+import com.tealium.prism.core.api.pubsub.addTo
 import com.tealium.prism.core.internal.pubsub.asObservableState
-import com.tealium.prism.core.internal.pubsub.filterNotNull
+import com.tealium.prism.core.api.pubsub.filterNotNull
 import com.tealium.prism.core.internal.settings.consent.ConsentConfiguration
 import com.tealium.prism.core.internal.settings.consent.ConsentSettings
 

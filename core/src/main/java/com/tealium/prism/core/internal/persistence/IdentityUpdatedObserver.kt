@@ -5,7 +5,7 @@ import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.settings.CoreSettings
-import com.tealium.prism.core.internal.pubsub.filterNotNull
+import com.tealium.prism.core.api.pubsub.filterNotNull
 
 object IdentityUpdatedObserver {
 

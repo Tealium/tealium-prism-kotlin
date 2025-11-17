@@ -2,7 +2,7 @@ package com.tealium.prism.core.api
 
 import com.tealium.prism.core.api.barriers.Barrier
 import com.tealium.prism.core.api.data.DataObject
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumException
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.modules.DataLayer
@@ -12,7 +12,7 @@ import com.tealium.prism.core.api.modules.ModuleProxy
 import com.tealium.prism.core.api.modules.Trace
 import com.tealium.prism.core.api.pubsub.Single
 import com.tealium.prism.core.api.pubsub.SingleResult
-import com.tealium.prism.core.api.tracking.TealiumDispatchType
+import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.internal.TealiumInstanceManager
 
@@ -35,7 +35,7 @@ interface Tealium {
     fun <T : Module> createModuleProxy(clazz: Class<T>): ModuleProxy<T>
 
     /**
-     * Tracks an event with the specified name, and data. The event type will be [TealiumDispatchType.Event]
+     * Tracks an event with the specified name, and data. The event type will be [DispatchType.Event]
      *
      * @param name The name of the event to track.
      * @param data Additional data to include with the event (optional).
@@ -60,7 +60,7 @@ interface Tealium {
      */
     fun track(
         name: String,
-        type: TealiumDispatchType,
+        type: DispatchType,
         data: DataObject
     ): SingleResult<TrackResult>
 
@@ -114,7 +114,7 @@ interface Tealium {
         @JvmStatic
         override fun create(
             config: TealiumConfig,
-            onReady: TealiumCallback<TealiumResult<Tealium>>?
+            onReady: Callback<TealiumResult<Tealium>>?
         ): Tealium =
             instanceManager.create(config, onReady)
 
@@ -123,7 +123,7 @@ interface Tealium {
             instanceManager.shutdown(instanceKey)
 
         @JvmStatic
-        override fun get(instanceKey: String, callback: TealiumCallback<Tealium?>) =
+        override fun get(instanceKey: String, callback: Callback<Tealium?>) =
             instanceManager.get(instanceKey, callback)
     }
 }

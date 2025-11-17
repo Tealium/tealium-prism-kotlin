@@ -13,7 +13,7 @@ import com.tealium.prism.core.api.pubsub.Subject
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.api.tracking.TrackResultListener
-import com.tealium.tests.common.SynchronousScheduler
+import com.tealium.prism.core.internal.misc.SynchronousScheduler
 import io.mockk.MockKAnnotations
 import io.mockk.Runs
 import io.mockk.every
@@ -53,7 +53,7 @@ class TealiumProxyTests {
 
         app = RuntimeEnvironment.getApplication()
         // will run all async methods synchronously, making it simpler to test
-        scheduler = SynchronousScheduler()
+        scheduler = Scheduler.SYNCHRONOUS
         dispatch = Dispatch.create("Test")
         onTealiumImplReady = Observables.replaySubject(1)
         every { tealiumImpl.track(any(), any()) } answers {

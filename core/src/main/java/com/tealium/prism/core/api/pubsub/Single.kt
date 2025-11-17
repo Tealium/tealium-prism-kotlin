@@ -2,7 +2,7 @@
 
 package com.tealium.prism.core.api.pubsub
 
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
 
 /**
@@ -49,7 +49,7 @@ typealias SingleResult<T> = Single<TealiumResult<T>>
  *
  * No errors will be made available to the subscribed [handler]
  */
-fun <T, R> Single<T>.onSuccess(handler: TealiumCallback<R>): Disposable where T : TealiumResult<R> {
+fun <T, R> Single<T>.onSuccess(handler: Callback<R>): Disposable where T : TealiumResult<R> {
     return subscribe { result ->
         try {
             val value = result.getOrThrow()
@@ -62,7 +62,7 @@ fun <T, R> Single<T>.onSuccess(handler: TealiumCallback<R>): Disposable where T 
 /**
  * Subscribes a handler for handling only the failure element of this [Single].
  */
-fun <T, R> Single<T>.onFailure(handler: TealiumCallback<Exception>): Disposable where T : TealiumResult<R> {
+fun <T, R> Single<T>.onFailure(handler: Callback<Exception>): Disposable where T : TealiumResult<R> {
     return subscribe { result ->
         try {
             result.getOrThrow()

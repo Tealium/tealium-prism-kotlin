@@ -1,6 +1,6 @@
 package com.tealium.prism.core.api
 
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
 
 interface InstanceManager {
@@ -36,7 +36,7 @@ interface InstanceManager {
      */
     fun create(
         config: TealiumConfig,
-        onReady: TealiumCallback<TealiumResult<Tealium>>? = null
+        onReady: Callback<TealiumResult<Tealium>>? = null
     ): Tealium
 
     /**
@@ -68,7 +68,7 @@ interface InstanceManager {
      * @param config The config that was used to create the instance
      * @param callback The block to receive the [Tealium] instance on, if found.
      */
-    fun get(config: TealiumConfig, callback: TealiumCallback<Tealium?>) = get(config.key, callback)
+    fun get(config: TealiumConfig, callback: Callback<Tealium?>) = get(config.key, callback)
 
     /**
      * Retrieves an existing [Tealium] instance, if one has already been created, using the given [instanceKey]
@@ -76,5 +76,5 @@ interface InstanceManager {
      * @param instanceKey The key that identifies the [Tealium] instance
      * @param callback The block to receive the [Tealium] instance on, if found.
      */
-    fun get(instanceKey: String, callback: TealiumCallback<Tealium?>)
+    fun get(instanceKey: String, callback: Callback<Tealium?>)
 }

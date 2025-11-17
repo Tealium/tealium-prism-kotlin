@@ -7,7 +7,6 @@ import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.LogHandler
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.pubsub.Observable
-import com.tealium.prism.core.internal.pubsub.subscribeOnce
 
 /**
  * A central utility class for processing log statements at various log levels.

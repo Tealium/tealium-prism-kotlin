@@ -20,7 +20,7 @@ import com.tealium.prism.core.internal.logger.logDescriptions
 import com.tealium.prism.core.internal.modules.InternalModuleManager
 import com.tealium.prism.core.internal.pubsub.CompletedDisposable
 import com.tealium.prism.core.internal.pubsub.DisposableContainer
-import com.tealium.prism.core.internal.pubsub.addTo
+import com.tealium.prism.core.api.pubsub.addTo
 import com.tealium.prism.core.internal.rules.LoadRuleEngine
 
 

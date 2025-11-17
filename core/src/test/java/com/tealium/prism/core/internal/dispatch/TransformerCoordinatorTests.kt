@@ -1,6 +1,7 @@
 package com.tealium.prism.core.internal.dispatch
 
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.rules.Condition
@@ -10,7 +11,6 @@ import com.tealium.prism.core.api.transform.DispatchScope
 import com.tealium.prism.core.api.transform.TransformationScope
 import com.tealium.prism.core.api.transform.TransformationSettings
 import com.tealium.prism.core.api.transform.Transformer
-import com.tealium.tests.common.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestTransformer
 import io.mockk.MockKAnnotations
@@ -94,7 +94,7 @@ class TransformerCoordinatorTests {
             TransformerCoordinatorImpl(
                 registeredTransformers,
                 transformationsSettings,
-                SynchronousScheduler(),
+                Scheduler.SYNCHRONOUS,
                 SystemLogger
             )
     }

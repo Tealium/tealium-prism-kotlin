@@ -2,6 +2,7 @@ package com.tealium.prism.core.internal.modules.trace
 
 import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.Tealium
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleManager
@@ -15,7 +16,6 @@ import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.api.tracking.TrackResultListener
 import com.tealium.prism.core.internal.modules.ModuleManagerImpl
 import com.tealium.prism.core.internal.modules.ModuleProxyImpl
-import com.tealium.tests.common.SynchronousScheduler
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
@@ -41,7 +41,7 @@ class TraceWrapperTests {
     private lateinit var proxy: ModuleProxy<TraceModule>
 
     private lateinit var traceManagerWrapper: TraceWrapper
-    private val scheduler = SynchronousScheduler()
+    private val scheduler = Scheduler.SYNCHRONOUS
 
     @Before
     fun setUp() {

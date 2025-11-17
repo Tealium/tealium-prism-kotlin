@@ -6,7 +6,7 @@ import androidx.lifecycle.ViewModel
 import com.tealium.prism.core.api.consent.ConsentDecision
 import com.tealium.prism.core.api.pubsub.CompositeDisposable
 import com.tealium.prism.core.internal.pubsub.DisposableContainer
-import com.tealium.prism.core.internal.pubsub.addTo
+import com.tealium.prism.core.api.pubsub.addTo
 import com.tealium.prism.mobile.TealiumHelper
 
 class ConsentFragmentViewModel : ViewModel() {

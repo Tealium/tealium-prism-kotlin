@@ -5,8 +5,7 @@ import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observer
 import com.tealium.prism.core.internal.pubsub.DisposableContainer
-import com.tealium.prism.core.internal.pubsub.addTo
-import com.tealium.prism.core.internal.pubsub.subscribeOnce
+import com.tealium.prism.core.api.pubsub.addTo
 
 class ResubscribingObservable<T>(
     private val source: Observable<T>,

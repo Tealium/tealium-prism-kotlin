@@ -2,7 +2,7 @@ package com.tealium.prism.core.internal.modules
 
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.misc.Scheduler
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
 import com.tealium.prism.core.api.modules.TealiumContext
@@ -47,7 +47,7 @@ class ModuleManagerImpl(
         return null
     }
 
-    override fun <T : Module> getModuleOfType(clazz: Class<T>, callback: TealiumCallback<T?>) {
+    override fun <T : Module> getModuleOfType(clazz: Class<T>, callback: Callback<T?>) {
         scheduler.execute {
             callback.onComplete(getModuleOfType(clazz))
         }

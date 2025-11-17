@@ -1,8 +1,8 @@
 package com.tealium.prism.core.api.pubsub
 
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.misc.TealiumResult
-import com.tealium.tests.common.SynchronousScheduler
 import io.mockk.Called
 import io.mockk.mockk
 import io.mockk.verify
@@ -18,12 +18,12 @@ class SingleTests {
     @Before
     fun setUp() {
         subject = Observables.replaySubject(1)
-        single = subject.asSingle(SynchronousScheduler())
+        single = subject.asSingle(Scheduler.SYNCHRONOUS)
     }
 
     @Test
     fun subscribe_Self_Disposes_After_Emission() {
-        val verifier = mockk<TealiumCallback<Boolean>>(relaxed = true)
+        val verifier = mockk<Callback<Boolean>>(relaxed = true)
         subject.onNext(TealiumResult.success(true))
 
         single.onSuccess(verifier)
@@ -63,7 +63,7 @@ class SingleTests {
 
     @Test
     fun onSuccess_Receives_Result_When_Successful() {
-        val verifier = mockk<TealiumCallback<Boolean>>(relaxed = true)
+        val verifier = mockk<Callback<Boolean>>(relaxed = true)
         subject.onNext(TealiumResult.success(true))
 
         single.onSuccess(verifier)
@@ -75,7 +75,7 @@ class SingleTests {
 
     @Test
     fun onSuccess_Receives_Nothing_When_Failed() {
-        val verifier = mockk<TealiumCallback<Boolean>>(relaxed = true)
+        val verifier = mockk<Callback<Boolean>>(relaxed = true)
         subject.onNext(TealiumResult.failure(Exception()))
 
         single.onSuccess(verifier)
@@ -87,7 +87,7 @@ class SingleTests {
 
     @Test
     fun onFailure_Receives_Exception_When_Failure() {
-        val verifier = mockk<TealiumCallback<Exception>>(relaxed = true)
+        val verifier = mockk<Callback<Exception>>(relaxed = true)
         val ex = Exception()
         subject.onNext(TealiumResult.failure(ex))
 
@@ -100,7 +100,7 @@ class SingleTests {
 
     @Test
     fun onFailure_Receives_Nothing_When_Success() {
-        val verifier = mockk<TealiumCallback<Exception>>(relaxed = true)
+        val verifier = mockk<Callback<Exception>>(relaxed = true)
         subject.onNext(TealiumResult.success(true))
 
         single.onFailure(verifier)

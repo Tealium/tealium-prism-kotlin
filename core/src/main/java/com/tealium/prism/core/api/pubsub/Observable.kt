@@ -263,4 +263,12 @@ interface Observable<T> : Subscribable<T> {
     fun share(replay: Int) : Observable<T> {
         return MulticastObservable(this, Observables.replaySubject(replay))
     }
+
+    /**
+     * Subscribes the given [observer] to a single emission of the source.
+     */
+    fun subscribeOnce(observer: Observer<T>): Disposable {
+        return take(1)
+            .subscribe(observer)
+    }
 }

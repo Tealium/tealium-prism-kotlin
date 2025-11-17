@@ -21,7 +21,7 @@ import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.Subject
 import com.tealium.prism.core.internal.logger.LogCategory
 import com.tealium.prism.core.internal.persistence.database.getTimestamp
-import com.tealium.prism.core.internal.pubsub.filterNotNull
+import com.tealium.prism.core.api.pubsub.filterNotNull
 
 class ResourceRefresherImpl<T : DataItemConvertible> internal constructor(
     private val networkHelper: NetworkHelper,

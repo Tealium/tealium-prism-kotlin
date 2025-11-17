@@ -4,13 +4,13 @@ import com.tealium.prism.core.api.data.Deserializer
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.DataItemConverter
 import com.tealium.prism.core.api.data.DataItem
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.pubsub.Disposable
 import org.json.JSONObject
 import java.net.URL
 
-typealias NetworkCallback<T> = TealiumCallback<T>
+typealias NetworkCallback<T> = Callback<T>
 typealias DeserializedNetworkCallback<T> = NetworkCallback<TealiumResult<NetworkHelper.HttpValue<T>>>
 
 /**

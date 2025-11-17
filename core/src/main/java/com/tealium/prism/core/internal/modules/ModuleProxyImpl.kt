@@ -2,7 +2,7 @@ package com.tealium.prism.core.internal.modules
 
 import com.tealium.prism.core.api.Tealium
 import com.tealium.prism.core.api.misc.Scheduler
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleManager
@@ -33,7 +33,7 @@ class ModuleProxyImpl<T : Module>(
 
     private val asyncProxy: AsyncProxy<T> = AsyncProxyImpl(scheduler, observeEnabledModule())
 
-    override fun getModule(callback: TealiumCallback<T?>) =
+    override fun getModule(callback: Callback<T?>) =
         asyncProxy.getProxiedObject(callback)
 
     override fun observeModule(): Subscribable<T?> =
@@ -51,7 +51,7 @@ class ModuleProxyImpl<T : Module>(
     override fun <R> executeModuleTask(task: (T) -> R): Single<TealiumResult<R>> =
         asyncProxy.executeTask(task)
 
-    override fun <R> executeAsyncModuleTask(task: (T, TealiumCallback<TealiumResult<R>>) -> Unit): Single<TealiumResult<R>>  =
+    override fun <R> executeAsyncModuleTask(task: (T, Callback<TealiumResult<R>>) -> Unit): Single<TealiumResult<R>>  =
         asyncProxy.executeAsyncTask(task)
 
     /**

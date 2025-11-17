@@ -1,12 +1,12 @@
 package com.tealium.prism.core.internal.consent
 
 import com.tealium.prism.core.api.consent.ConsentDecision
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.Observer
 import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.internal.settings.consent.ConsentConfiguration
 import com.tealium.prism.core.internal.settings.consent.ConsentSettings
-import com.tealium.tests.common.SynchronousScheduler
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.Assert.assertEquals
@@ -27,7 +27,7 @@ class CmpConfigurationSelectorTests {
         cmpAdapter = MockCmpAdapter()
         consentSettings = Observables.stateSubject(null)
 
-        selector = CmpConfigurationSelector(consentSettings, cmpAdapter, SynchronousScheduler())
+        selector = CmpConfigurationSelector(consentSettings, cmpAdapter, Scheduler.SYNCHRONOUS)
     }
 
     @Test

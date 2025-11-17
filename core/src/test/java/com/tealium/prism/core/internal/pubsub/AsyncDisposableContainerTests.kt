@@ -2,7 +2,7 @@ package com.tealium.prism.core.internal.pubsub
 
 import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.pubsub.Disposable
-import com.tealium.tests.common.SynchronousScheduler
+import com.tealium.prism.core.internal.misc.SynchronousScheduler
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
@@ -28,7 +28,7 @@ class AsyncDisposableContainerTests {
         MockKAnnotations.init(this)
 
         disposables = mutableListOf()
-        scheduler = spyk(SynchronousScheduler())
+        scheduler = spyk(Scheduler.SYNCHRONOUS)
         container = AsyncDisposableContainer(scheduler, disposables)
     }
 

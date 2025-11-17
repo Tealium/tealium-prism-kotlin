@@ -2,7 +2,7 @@ package com.tealium.prism.core.internal.dispatch
 
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.tracking.Dispatch
-import com.tealium.prism.core.api.tracking.TealiumDispatchType
+import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.Ordering
@@ -13,11 +13,11 @@ import org.junit.Test
 class DispatchManagerQueueTests : DispatchManagerTestsBase() {
 
     private val dispatch3: Dispatch =
-        Dispatch.create("test3", TealiumDispatchType.Event, DataObject.EMPTY_OBJECT)
+        Dispatch.create("test3", DispatchType.Event, DataObject.EMPTY_OBJECT)
     private val dispatch4: Dispatch =
-        Dispatch.create("test4", TealiumDispatchType.Event, DataObject.EMPTY_OBJECT)
+        Dispatch.create("test4", DispatchType.Event, DataObject.EMPTY_OBJECT)
     private val dispatch5: Dispatch =
-        Dispatch.create("test5", TealiumDispatchType.Event, DataObject.EMPTY_OBJECT)
+        Dispatch.create("test5", DispatchType.Event, DataObject.EMPTY_OBJECT)
 
     @Test
     fun dispatchManager_SendsIndividualDispatches_ToAllDispatcher() {

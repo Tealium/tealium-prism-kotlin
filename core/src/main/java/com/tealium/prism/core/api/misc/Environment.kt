@@ -1,27 +1,29 @@
 package com.tealium.prism.core.api.misc
 
-import com.tealium.prism.core.api.data.DataItemConverter
-import com.tealium.prism.core.api.data.DataItemConvertible
-import com.tealium.prism.core.api.data.DataItem
+/**
+ * Constants for the environments defined by a standard Tealium profile. Used predominantly to
+ * differentiate between settings that are not yet ready for a production app, and those which are.
+ */
+object Environment {
 
-enum class Environment(val environment: String) : DataItemConvertible,
-    DataItemConverter<Environment> {
-    DEV("dev"),
-    QA("qa"),
-    PROD("prod");
+    /**
+     * Typically used during development when testing out iterative settings updates.
+     *
+     * Not intended for use in production applications.
+     */
+    const val DEV = "dev"
 
-    override fun asDataItem(): DataItem {
-        return DataItem.string(this.environment)
-    }
+    /**
+     * Typically used during testing to validate that the deployment is functioning correctly ahead
+     * of release to production.
+     *
+     * Not intended for use in production applications.
+     */
+    const val QA = "qa"
 
-    override fun convert(dataItem: DataItem): Environment? {
-        return dataItem.getString()?.let { str ->
-            when (str) {
-                DEV.environment -> DEV
-                QA.environment -> QA
-                PROD.environment -> PROD
-                else -> null
-            }
-        }
-    }
+    /**
+     * Typically used for production applications, where any configured settings are confirmed to be
+     * correct at the time of publication.
+     */
+    const val PROD = "prod"
 }

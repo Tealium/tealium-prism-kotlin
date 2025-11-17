@@ -10,7 +10,7 @@ fun getDefaultConfig(
     app: Application,
     accountName: String = "test",
     profileName: String = "test",
-    environment: Environment = Environment.DEV,
+    environment: String = Environment.DEV,
     modules: List<ModuleFactory> = listOf(),
     coreSettings: ((CoreSettingsBuilder) -> CoreSettingsBuilder)? = null
 ): TealiumConfig =
@@ -21,7 +21,7 @@ fun getDefaultConfigBuilder(
     app: Application,
     accountName: String = "test",
     profileName: String = "test",
-    environment: Environment = Environment.DEV,
+    environment: String = Environment.DEV,
     modules: List<ModuleFactory> = listOf(),
     coreSettings: ((CoreSettingsBuilder) -> CoreSettingsBuilder)? = null
 ): TealiumConfig.Builder {

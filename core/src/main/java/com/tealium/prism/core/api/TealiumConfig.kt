@@ -9,7 +9,6 @@ import com.tealium.prism.core.api.consent.CmpAdapter
 import com.tealium.prism.core.api.consent.ConsentDecision
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.logger.LogHandler
-import com.tealium.prism.core.api.misc.Environment
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
@@ -49,7 +48,7 @@ class TealiumConfig private constructor(
     val application: Application,
     val accountName: String,
     val profileName: String,
-    val environment: Environment,
+    val environment: String,
     val modules: List<ModuleFactory>,
     val barriers: List<BarrierFactory>,
     val datasource: String?,
@@ -72,7 +71,7 @@ class TealiumConfig private constructor(
             "tealium",
             accountName,
             profileName,
-            environment.environment
+            environment
         ).joinToString(File.separator)
 
     val tealiumDirectory: File
@@ -91,7 +90,7 @@ class TealiumConfig private constructor(
         val application: Application,
         val accountName: String,
         val profileName: String,
-        val environment: Environment,
+        val environment: String,
         modules: List<ModuleFactory>
     ) {
         private val modules = modules.toMutableList()

@@ -1,6 +1,6 @@
 package com.tealium.prism.core.api.network
 
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.pubsub.Disposable
 
 interface NetworkClient {
@@ -13,7 +13,7 @@ interface NetworkClient {
      * on Tealium's background thread.
      * @return A [Disposable] that can be used to cancel the request.
      */
-    fun sendRequest(request: HttpRequest, completion: TealiumCallback<NetworkResult>): Disposable
+    fun sendRequest(request: HttpRequest, completion: Callback<NetworkResult>): Disposable
 
     /**
      * Adds an interceptor to the client's list of interceptors.

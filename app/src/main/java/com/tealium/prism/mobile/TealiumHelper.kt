@@ -10,7 +10,7 @@ import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.logIfInfoEnabled
 import com.tealium.prism.core.api.misc.Environment
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.Module
@@ -30,15 +30,13 @@ import com.tealium.prism.core.api.network.RetryPolicy.DoNotRetry
 import com.tealium.prism.core.api.network.RetryPolicy.RetryAfterDelay
 import com.tealium.prism.core.api.persistence.Expiry
 import com.tealium.prism.core.api.pubsub.Disposable
+import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.onFailure
 import com.tealium.prism.core.api.pubsub.onSuccess
 import com.tealium.prism.core.api.settings.modules.ModuleSettingsBuilder
 import com.tealium.prism.core.api.tracking.Dispatch
-import com.tealium.prism.core.api.tracking.TealiumDispatchType
+import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
-import com.tealium.prism.core.internal.logger.logDescriptions
-import com.tealium.prism.core.internal.pubsub.CompletedDisposable
-import com.tealium.prism.lifecycle.LifecycleDataTarget
 import com.tealium.prism.lifecycle.lifecycle
 import com.tealium.prism.mobile.ExampleCmpAdapter.Purposes
 
@@ -122,7 +120,7 @@ object TealiumHelper {
 
     fun track(
         event: String,
-        type: TealiumDispatchType = TealiumDispatchType.Event,
+        type: DispatchType = DispatchType.Event,
         data: DataObject = DataObject.EMPTY_OBJECT
     ) {
         shared?.apply {
@@ -185,13 +183,13 @@ object TealiumHelper {
                 return object : Dispatcher {
                     override fun dispatch(
                         dispatches: List<Dispatch>,
-                        callback: TealiumCallback<List<Dispatch>>
+                        callback: Callback<List<Dispatch>>
                     ): Disposable {
                         context.logger.logIfInfoEnabled(id) {
-                            "Audit: Dispatched ${dispatches.logDescriptions()}"
+                            "Audit: Dispatched ${dispatches.map(Dispatch::logDescription)}"
                         }
                         callback.onComplete(dispatches)
-                        return CompletedDisposable
+                        return Disposables.disposed()
                     }
 
                     override val id: String

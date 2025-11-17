@@ -3,12 +3,12 @@ package com.tealium.prism.core.internal
 import androidx.test.core.app.ApplicationProvider
 import com.tealium.prism.core.api.Tealium
 import com.tealium.prism.core.api.TealiumConfig
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.misc.Schedulers
 import com.tealium.prism.core.api.misc.TealiumException
 import com.tealium.prism.core.api.pubsub.Disposable
+import com.tealium.prism.core.api.pubsub.addTo
 import com.tealium.prism.core.internal.misc.SchedulersImpl
-import com.tealium.prism.core.internal.pubsub.addTo
-import com.tealium.tests.common.SynchronousScheduler
 import com.tealium.tests.common.getDefaultConfig
 import io.mockk.MockKAnnotations
 import io.mockk.every
@@ -42,7 +42,7 @@ class TealiumInstanceManagerTests {
         MockKAnnotations.init(this)
 
         config = account1()
-        schedulers = SchedulersImpl(tealium = SynchronousScheduler(), io = SynchronousScheduler())
+        schedulers = SchedulersImpl(tealium = Scheduler.SYNCHRONOUS, io = Scheduler.SYNCHRONOUS)
         instances = mutableMapOf()
 
         every { tealiumSupplier.invoke(any(), any()) } answers {

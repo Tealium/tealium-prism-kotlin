@@ -1,7 +1,7 @@
 package com.tealium.prism.core.api.modules
 
 import com.tealium.prism.core.api.Tealium
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Single
@@ -21,7 +21,7 @@ interface ModuleProxy<T: Module> {
      *
      * @param callback: The block of code to receive the [Module] in, if present, or `null`
      */
-    fun getModule(callback: TealiumCallback<T?>)
+    fun getModule(callback: Callback<T?>)
 
     /**
      * Observe an observable of the [Module] regardless of if the [Module] is currently enabled or not.
@@ -55,5 +55,5 @@ interface ModuleProxy<T: Module> {
      *
      * @return [Single] containing either the result of the task, or the failing exception
      */
-    fun <R> executeAsyncModuleTask(task: (T, TealiumCallback<TealiumResult<R>>) -> Unit): Single<TealiumResult<R>>
+    fun <R> executeAsyncModuleTask(task: (T, Callback<TealiumResult<R>>) -> Unit): Single<TealiumResult<R>>
 }
