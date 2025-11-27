@@ -1,6 +1,7 @@
 package com.tealium.prism.core.internal.modules.trace
 
 import com.tealium.prism.core.BuildConfig
+import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.misc.TealiumException
 import com.tealium.prism.core.api.persistence.DataStore
@@ -78,7 +79,8 @@ class TraceModuleTests {
 
         verify {
             tracker.track(match {
-                it.payload().getString(Dispatch.Keys.TEALIUM_TRACE_ID) == "12345"
+                it.payload().getString(Dispatch.Keys.TEALIUM_TRACE_ID) == "12345" &&
+                it.payload().getString(Dispatch.Keys.CP_TRACE_ID) == "12345"
             }, any(), any())
         }
     }
@@ -143,20 +145,20 @@ class TraceModuleTests {
 
     @Test
     fun collect_Returns_Trace_Id_In_DataObject_When_Trace_Joined() {
-        every { dataStore.getAll() } returns DataObject.create {
-            put(Dispatch.Keys.TEALIUM_TRACE_ID, "12345")
-        }
+        every { dataStore.get(Dispatch.Keys.TEALIUM_TRACE_ID) } returns DataItem.string("12345")
         val dispatchContext =
             DispatchContext(DispatchContext.Source.application(), DataObject.EMPTY_OBJECT)
 
         val data = trace.collect(dispatchContext)
 
         assertEquals("12345", data.getString(Dispatch.Keys.TEALIUM_TRACE_ID))
+        assertEquals("12345", data.getString(Dispatch.Keys.CP_TRACE_ID))
     }
 
     @Test
     fun collect_Returns_Empty_Object_When_Trace_Not_Joined() {
-        every { dataStore.getAll() } returns DataObject.EMPTY_OBJECT
+        every { dataStore.get(Dispatch.Keys.TEALIUM_TRACE_ID) } returns null
+
         val dispatchContext =
             DispatchContext(DispatchContext.Source.application(), DataObject.EMPTY_OBJECT)
 
@@ -166,10 +168,9 @@ class TraceModuleTests {
     }
 
     @Test
-    fun collect_Returns_Empty_Object_When_Source_Is_Trace_Module() {
-        every { dataStore.getAll() } returns DataObject.create {
-            put(Dispatch.Keys.TEALIUM_TRACE_ID, "12345")
-        }
+    fun collect_Returns_Trace_Data_When_Source_Is_Trace_Module() {
+        every { dataStore.get(Dispatch.Keys.TEALIUM_TRACE_ID) } returns DataItem.string("12345")
+
         val dispatchContext =
             DispatchContext(
                 DispatchContext.Source.module(TraceModule::class.java),
@@ -178,7 +179,8 @@ class TraceModuleTests {
 
         val data = trace.collect(dispatchContext)
 
-        assertEquals(DataObject.EMPTY_OBJECT, data)
+        assertEquals("12345", data.getString(Dispatch.Keys.TEALIUM_TRACE_ID))
+        assertEquals("12345", data.getString(Dispatch.Keys.CP_TRACE_ID))
     }
 
     @Test

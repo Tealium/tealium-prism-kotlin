@@ -42,10 +42,13 @@ class TraceModule(
     }
 
     override fun collect(dispatchContext: DispatchContext): DataObject {
-        if (dispatchContext.source.isFromModule(this::class.java))
-            return DataObject.EMPTY_OBJECT
+        val traceId = dataStore.get(Dispatch.Keys.TEALIUM_TRACE_ID)
+            ?: return DataObject.EMPTY_OBJECT
 
-        return dataStore.getAll()
+        return DataObject.create {
+            put(Dispatch.Keys.TEALIUM_TRACE_ID, traceId)
+            put(Dispatch.Keys.CP_TRACE_ID, traceId)
+        }
     }
 
     override val id: String = Modules.Types.TRACE
@@ -60,6 +63,7 @@ class TraceModule(
                 dataObject = DataObject.create {
                     put(Dispatch.Keys.EVENT, KILL_VISITOR_SESSION_EVENT)
                     put(Dispatch.Keys.TEALIUM_TRACE_ID, traceId)
+                    put(Dispatch.Keys.CP_TRACE_ID, traceId)
                 }
             )
         }

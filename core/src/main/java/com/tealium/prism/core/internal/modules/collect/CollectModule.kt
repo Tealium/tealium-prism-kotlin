@@ -1,5 +1,6 @@
 package com.tealium.prism.core.internal.modules.collect
 
+import android.net.Uri
 import com.tealium.prism.core.BuildConfig
 import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.TealiumConfig
@@ -20,6 +21,7 @@ import com.tealium.prism.core.internal.logger.logDescriptions
 import com.tealium.prism.core.internal.pubsub.CompletedDisposable
 import com.tealium.prism.core.internal.pubsub.DisposableContainer
 import com.tealium.prism.core.api.pubsub.addTo
+import java.net.URL
 
 /**
  * The [CollectModule]
@@ -108,7 +110,9 @@ class CollectModule(
             return CompletedDisposable
         }
 
-        return networkHelper.post(collectModuleConfiguration.batchUrl, compressed) {
+        val url = appendTraceIdToUrl(collectModuleConfiguration.batchUrl, batch)
+
+        return networkHelper.post(url, compressed) {
             onProcessed.onComplete(batch)
         }
     }
@@ -123,7 +127,9 @@ class CollectModule(
             })
         }
 
-        return networkHelper.post(collectModuleConfiguration.url, dispatch.payload()) {
+        val url = appendTraceIdToUrl(collectModuleConfiguration.url, listOf(dispatch))
+
+        return networkHelper.post(url, dispatch.payload()) {
             onProcessed.onComplete(listOf(dispatch))
         }
     }
@@ -133,6 +139,25 @@ class CollectModule(
 
         collectModuleConfiguration = newConfiguration
         return this
+    }
+
+    private fun appendTraceIdToUrl(url: URL, dispatches: List<Dispatch>): URL {
+        val traceId = dispatches.firstNotNullOfOrNull {
+            it.payload().getString(Dispatch.Keys.TEALIUM_TRACE_ID)
+                ?.takeIf { id -> id.isNotEmpty() }
+        }
+
+        if (traceId == null) {
+            return url
+        }
+
+        val urlString =
+            Uri.parse(url.toString()).buildUpon()
+                .appendQueryParameter(Dispatch.Keys.TEALIUM_TRACE_ID, traceId)
+                .build()
+                .toString()
+
+        return URL(urlString)
     }
 
     companion object {
