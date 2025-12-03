@@ -3,16 +3,16 @@ package com.tealium.prism.core.internal.rules
 import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.data.ValueContainer
 import com.tealium.prism.core.api.rules.Condition
 import com.tealium.prism.core.api.rules.Condition.Operator
 import com.tealium.prism.core.api.rules.MissingDataItemException
 import com.tealium.prism.core.api.rules.MissingFilterException
 import com.tealium.prism.core.api.rules.NumberParseException
 import com.tealium.prism.core.api.rules.UnsupportedOperatorException
-import com.tealium.prism.core.api.data.ValueContainer
 import com.tealium.prism.core.internal.rules.Operators.isDefined
 import com.tealium.prism.core.internal.rules.Operators.isNotDefined
-import java.math.BigDecimal
+import com.tealium.prism.core.internal.utils.humanReadable
 
 /**
  * Object for looking up standard Tealium [Condition.Operator] implementations.
@@ -376,7 +376,7 @@ class StringsMatchOperator(
     private fun stringify(dataItem: DataItem): String {
         return when (val value = dataItem.value) {
             null -> "null"
-            is Double -> formatDouble(value)
+            is Double -> value.humanReadable()
             is DataList -> value.joinToString(separator = ",") { innerItem ->
                 try {
                     stringify(innerItem)
@@ -387,16 +387,6 @@ class StringsMatchOperator(
             is DataObject -> throw UnsupportedOperatorException(id, dataItem)
             else -> value.toString()
         }
-    }
-
-    /**
-     * Returns a formatted string representation of a [Double] that removes all training decimal
-     * places, and never uses scientific notation.
-     */
-    private fun formatDouble(double: Double): String {
-        return BigDecimal.valueOf(double)
-            .stripTrailingZeros()
-            .toPlainString()
     }
 }
 
