@@ -31,8 +31,7 @@ class BarrierManager(
     private var defaultBarrierScopes: Map<String, Set<BarrierScope>> = emptyMap()
 
     constructor(settings: ObservableState<SdkSettings>) : this(
-        sdkBarrierSettings = settings.map(SdkSettings::barriers)
-            .withState { settings.value.barriers }
+        sdkBarrierSettings = settings.mapState(SdkSettings::barriers)
     )
 
     init {

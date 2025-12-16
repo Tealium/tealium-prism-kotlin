@@ -21,10 +21,12 @@ class CmpConfigurationSelectorTests {
     private lateinit var consentSettings: StateSubject<ConsentSettings?>
     private lateinit var cmpAdapter: MockCmpAdapter
     private lateinit var selector: CmpConfigurationSelector
+    private lateinit var decision: StateSubject<ConsentDecision?>
 
     @Before
     fun setUp() {
-        cmpAdapter = MockCmpAdapter()
+        decision = Observables.stateSubject(null)
+        cmpAdapter = MockCmpAdapter(_consentDecision = decision)
         consentSettings = Observables.stateSubject(null)
 
         selector = CmpConfigurationSelector(consentSettings, cmpAdapter, Scheduler.SYNCHRONOUS)
@@ -75,5 +77,16 @@ class CmpConfigurationSelectorTests {
                         && it.decision == ConsentDecision(ConsentDecision.DecisionType.Explicit, setOf("purpose_1"))
             })
         }
+    }
+
+    @Test
+    fun init_Subscribes_To_CmpAdapter() {
+        assertEquals(1, decision.count)
+    }
+
+    @Test
+    fun init_Disposes_Subscription_To_CmpAdapter_On_Dispose() {
+        selector.dispose()
+        assertEquals(0, decision.count)
     }
 }

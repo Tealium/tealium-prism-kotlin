@@ -10,8 +10,11 @@ import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.pubsub.CompositeDisposable
+import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.ObservableState
+import com.tealium.prism.core.api.pubsub.addTo
+import com.tealium.prism.core.api.pubsub.filterNotNull
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.internal.dispatch.QueueManager
@@ -19,9 +22,7 @@ import com.tealium.prism.core.internal.logger.LogCategory
 import com.tealium.prism.core.internal.logger.logDescriptions
 import com.tealium.prism.core.internal.persistence.database.getTimestampMilliseconds
 import com.tealium.prism.core.internal.pubsub.DisposableContainer
-import com.tealium.prism.core.api.pubsub.addTo
 import com.tealium.prism.core.internal.pubsub.asObservableState
-import com.tealium.prism.core.api.pubsub.filterNotNull
 import com.tealium.prism.core.internal.settings.consent.ConsentConfiguration
 import com.tealium.prism.core.internal.settings.consent.ConsentSettings
 
@@ -29,17 +30,16 @@ class ConsentIntegrationManager(
     private val modules: ObservableState<List<Module>>,
     private val queueManager: QueueManager,
     private val cmpConfigurationSelector: CmpConfigurationSelector,
-    private val logger: Logger
-) : ConsentManager {
-
+    private val logger: Logger,
     private val subscriptions: CompositeDisposable = DisposableContainer()
+) : ConsentManager, Disposable by subscriptions {
 
     private val dispatchers: ObservableState<Set<String>>
-        get() = modules.map(::mapDispatcherIdsToSet)
-            .withState { mapDispatcherIdsToSet(modules.value) }
-
-    private fun mapDispatcherIdsToSet(modules: List<Module>): Set<String> =
-        modules.filterIsInstance<Dispatcher>().map(Dispatcher::id).toSet()
+        get() = modules.mapState { modules ->
+            modules.filterIsInstance<Dispatcher>()
+                .map(Dispatcher::id)
+                .toSet()
+        }
 
     override val configuration: Observable<ConsentConfiguration?> =
         cmpConfigurationSelector.configuration.asObservableState() // TODO - add `asObservable()`
@@ -55,6 +55,8 @@ class ConsentIntegrationManager(
             .filterNotNull()
             .subscribe(::handleConsentChange)
             .addTo(subscriptions)
+
+        cmpConfigurationSelector.addTo(subscriptions)
     }
 
     private fun logConfigurationErrors() {

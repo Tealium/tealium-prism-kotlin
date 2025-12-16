@@ -2,11 +2,13 @@ package com.tealium.prism.core.internal.consent
 
 import com.tealium.prism.core.api.consent.CmpAdapter
 import com.tealium.prism.core.api.misc.Scheduler
+import com.tealium.prism.core.api.pubsub.CompositeDisposable
+import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.StateSubject
-import com.tealium.prism.core.internal.pubsub.DisposableContainer
 import com.tealium.prism.core.api.pubsub.addTo
+import com.tealium.prism.core.internal.pubsub.DisposableContainer
 import com.tealium.prism.core.internal.settings.consent.ConsentConfiguration
 import com.tealium.prism.core.internal.settings.consent.ConsentSettings
 
@@ -17,19 +19,17 @@ import com.tealium.prism.core.internal.settings.consent.ConsentSettings
 class CmpConfigurationSelector(
     private val consentSettings: ObservableState<ConsentSettings?>,
     val cmpAdapter: CmpAdapter,
-    scheduler: Scheduler
-) {
+    scheduler: Scheduler,
+    private val disposables: CompositeDisposable = DisposableContainer()
+): Disposable by disposables {
     private val _consentInspector: StateSubject<ConsentInspector?> = Observables.stateSubject(null)
 
     val configuration: ObservableState<ConsentConfiguration?>
     val consentInspector: ObservableState<ConsentInspector?>
         get() = _consentInspector.asObservableState()
 
-    private val disposables = DisposableContainer()
-
     init {
-        configuration = consentSettings.map(::extractConsentConfiguration)
-            .withState { extractConsentConfiguration(consentSettings.value) }
+        configuration = consentSettings.mapState(::extractConsentConfiguration)
 
         val consentDecisions = cmpAdapter.consentDecision
             .distinct()

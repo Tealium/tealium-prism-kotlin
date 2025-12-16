@@ -22,7 +22,6 @@ import com.tealium.prism.core.internal.persistence.repositories.QueueRepository
 import com.tealium.prism.core.internal.persistence.repositories.VolatileQueueRepository
 import com.tealium.prism.core.internal.rules.LoadRuleEngine
 import com.tealium.prism.core.internal.settings.CoreSettingsImpl
-import com.tealium.prism.core.internal.misc.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestDispatcher
 import com.tealium.tests.common.TestTransformer
@@ -94,7 +93,7 @@ open class DispatchManagerTestsBase {
         every { moduleManager.getModulesOfType(Dispatcher::class.java) } answers { modules.value.filterIsInstance<Dispatcher>() }
 
         every { loadRuleEngine.evaluateLoadRules(any(), any()) } answers {
-            DispatchSplit(args[1] as List<Dispatch>, emptyList())
+            DispatchSplit(arg(1), emptyList())
         }
 
         // Queue defaulted to empty

@@ -1,5 +1,6 @@
 package com.tealium.prism.core.internal.pubsub
 
+import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.Observer
 import com.tealium.prism.core.api.pubsub.StateSubject
@@ -60,5 +61,39 @@ class ObservableStateTests {
         val observableState = Observables.stateSubject("test").asObservableState()
 
         observableState as StateSubject<String>
+    }
+
+    @Test
+    fun mapState_Transforms_Emissions_To_New_Value() {
+        val observer = mockk<Observer<Int>>(relaxed = true)
+        val subject = Observables.stateSubject(listOf(1, 2, 3))
+
+        val listSize: ObservableState<Int> = subject.mapState(List<Int>::size)
+        listSize.subscribe(observer)
+        subject.onNext(listOf(1))
+
+        verify {
+            observer.onNext(3)
+            observer.onNext(1)
+        }
+    }
+
+    @Test
+    fun mapState_Value_Is_Transformed() {
+        val subject = Observables.stateSubject(listOf(1, 2, 3))
+
+        val listSize: ObservableState<Int> = subject.mapState(List<Int>::size)
+
+        assertEquals(3, listSize.value)
+    }
+
+    @Test
+    fun mapState_Value_Is_Up_To_Date_When_Not_Subscribed() {
+        val subject = Observables.stateSubject(listOf(1, 2, 3))
+
+        val listSize: ObservableState<Int> = subject.mapState(List<Int>::size)
+        subject.onNext(listOf(1))
+
+        assertEquals(1, listSize.value)
     }
 }

@@ -130,6 +130,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
     @Test
     fun startDispatchLoop_Does_Not_Dequeue_Events_When_Consent_Enabled_And_No_Decision() {
         val cmpSelector = mockk<CmpConfigurationSelector>()
+        every { cmpSelector.isDisposed } returns false
         every { cmpSelector.cmpAdapter } returns MockCmpAdapter()
         every { cmpSelector.consentInspector } returns Observables.stateSubject(null)
         every { cmpSelector.configuration } returns Observables.stateSubject(null)
@@ -160,6 +161,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
             setOf("purpose1")
         )
         val cmpSelector = mockk<CmpConfigurationSelector>()
+        every { cmpSelector.isDisposed } returns false
         every { cmpSelector.consentInspector } returns Observables.stateSubject(consentInspector)
         every { cmpSelector.configuration } returns Observables.stateSubject(consentInspector.configuration)
         enableConsent(ConsentIntegrationManager(modules, queueManager, cmpSelector, SystemLogger))
@@ -190,6 +192,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
             emptySet()
         )
         val cmpSelector = mockk<CmpConfigurationSelector>()
+        every { cmpSelector.isDisposed } returns false
         every { cmpSelector.consentInspector } returns Observables.stateSubject(consentInspector)
         every { cmpSelector.configuration } returns Observables.stateSubject(consentInspector.configuration)
         enableConsent(ConsentIntegrationManager(modules, queueManager, cmpSelector, SystemLogger))

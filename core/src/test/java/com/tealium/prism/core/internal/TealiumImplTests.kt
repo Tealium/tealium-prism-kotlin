@@ -2,15 +2,20 @@ package com.tealium.prism.core.internal
 
 import android.app.Activity
 import android.app.Application
+import com.tealium.prism.core.api.consent.ConsentDecision
 import com.tealium.prism.core.api.data.JsonPath
 import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.misc.ActivityManager
+import com.tealium.prism.core.api.misc.TealiumException
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
+import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.Observable
+import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.Observer
 import com.tealium.prism.core.api.settings.modules.ModuleSettingsBuilder
+import com.tealium.prism.core.internal.consent.MockCmpAdapter
 import com.tealium.prism.core.internal.misc.ActivityManagerImpl
 import com.tealium.prism.core.internal.modules.InternalModuleManager
 import com.tealium.prism.core.internal.modules.ModuleManagerImpl
@@ -22,7 +27,9 @@ import com.tealium.prism.core.internal.settings.SdkSettings
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestModule
 import com.tealium.tests.common.TestModuleFactory
+import com.tealium.tests.common.assertThrows
 import com.tealium.tests.common.getDefaultConfig
+import com.tealium.tests.common.getDefaultConfigBuilder
 import com.tealium.tests.common.testSchedulers
 import io.mockk.Ordering
 import io.mockk.every
@@ -47,6 +54,53 @@ class TealiumImplTests {
     @Before
     fun setUp() {
         app = RuntimeEnvironment.getApplication()
+    }
+
+    @Test
+    fun isShutdown_Returns_False_When_Not_Shutdown() {
+        val tealium =
+            TealiumImpl(getDefaultConfig(app), testSchedulers)
+
+        assertFalse(tealium.isShutdown)
+    }
+
+    @Test
+    fun isShutdown_Returns_True_After_Shutdown_Called() {
+        val tealium =
+            TealiumImpl(getDefaultConfig(app), testSchedulers)
+
+        tealium.shutdown()
+
+        assertTrue(tealium.isShutdown)
+    }
+
+    @Test
+    fun init_Throws_Tealium_Exception_And_Shuts_Down_When_Exception_During_Init() {
+        val enabledSettings = ModuleSettingsBuilder("type").setEnabled(true).build()
+        val config = getDefaultConfigBuilder(app)
+            .addModule(TestModuleFactory.singleInstance("type", enabledSettings) { _, _, _ ->
+                throw StackOverflowError()
+            }).build()
+        val disposables = Disposables.composite()
+
+        assertThrows<TealiumException>(cause = StackOverflowError::class) {
+            TealiumImpl(config, testSchedulers, disposables = disposables)
+        }
+        assertTrue(disposables.isDisposed)
+    }
+
+    @Test
+    fun init_Subscribes_Consent_To_CmpAdapter_And_Disposes_On_Shutdown() {
+        val decision = Observables.stateSubject<ConsentDecision?>(null)
+        val config = getDefaultConfigBuilder(app)
+            .enableConsentIntegration(MockCmpAdapter(_consentDecision = decision))
+            .build()
+        val tealium = TealiumImpl(config, testSchedulers)
+
+        assertEquals(1, decision.count)
+
+        tealium.shutdown()
+        assertEquals(0, decision.count)
     }
 
     @Test
