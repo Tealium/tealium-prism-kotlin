@@ -54,7 +54,7 @@ class SetDataValuesSettingsBuilder(transformationId: String) :
         destination: ReferenceContainer
     ): SetDataValuesSettingsBuilder = apply {
         operations.add(
-            TransformationOperation(destination, SetDataValuesInput(ValueSource.Left(input)))
+            TransformationOperation(destination, SetDataValuesInput(ValueSource.Reference(input)))
         )
     }
 
@@ -65,7 +65,7 @@ class SetDataValuesSettingsBuilder(transformationId: String) :
         operations.add(
             TransformationOperation(
                 destination,
-                SetDataValuesInput(ValueSource.Right(ValueContainer(input)))
+                SetDataValuesInput(ValueSource.Constant(ValueContainer(input)))
             )
         )
     }
