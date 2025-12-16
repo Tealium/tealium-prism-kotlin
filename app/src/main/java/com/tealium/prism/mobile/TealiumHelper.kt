@@ -7,10 +7,11 @@ import com.tealium.prism.core.api.Tealium
 import com.tealium.prism.core.api.TealiumConfig
 import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.data.ReferenceContainer.Companion.key
 import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.logIfInfoEnabled
-import com.tealium.prism.core.api.misc.Environment
 import com.tealium.prism.core.api.misc.Callback
+import com.tealium.prism.core.api.misc.Environment
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.Module
@@ -37,6 +38,8 @@ import com.tealium.prism.core.api.settings.modules.ModuleSettingsBuilder
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
+import com.tealium.prism.core.api.transform.TransformationScope
+import com.tealium.prism.extensions.SetDataValuesSettingsBuilder
 import com.tealium.prism.lifecycle.lifecycle
 import com.tealium.prism.mobile.ExampleCmpAdapter.Purposes
 
@@ -74,6 +77,12 @@ object TealiumHelper {
                     .addPurpose(Purposes.FUNCTIONAL, setOf("logger"))
                     .setRefireDispatcherIds(setOf(Modules.Types.COLLECT))
             }
+            .addTransformation(SetDataValuesSettingsBuilder("sdv_1")
+                .addScope(TransformationScope.AfterCollectors)
+                .addOperation("some_value", key("some_key"))
+                .addOperation(key("some_key"), key("other_key"))
+                .build()
+            )
 
 //            .addBarrier(Barriers.connectivity(),
 //                setOf(
