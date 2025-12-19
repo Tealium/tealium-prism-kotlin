@@ -39,6 +39,7 @@ import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.api.transform.TransformationScope
+import com.tealium.prism.extensions.LowerCaseSettingsBuilder
 import com.tealium.prism.extensions.SetDataValuesSettingsBuilder
 import com.tealium.prism.lifecycle.lifecycle
 import com.tealium.prism.mobile.ExampleCmpAdapter.Purposes
@@ -81,6 +82,14 @@ object TealiumHelper {
                 .addScope(TransformationScope.AfterCollectors)
                 .addOperation("some_value", key("some_key"))
                 .addOperation(key("some_key"), key("other_key"))
+                .build()
+            )
+            .addTransformation(LowerCaseSettingsBuilder("lowercase-specific")
+                .addScope(TransformationScope.AllDispatchers)
+                .setAllVariables(false)
+                .addVariable(key("event_category"))
+                .addVariable(key("event_label"))
+                .addVariable(key("user_id"))
                 .build()
             )
 
