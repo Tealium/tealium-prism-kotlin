@@ -38,7 +38,7 @@ class DeepLinkSettingsBuilder: CollectorSettingsBuilder<DeepLinkSettingsBuilder>
      * Sets whether or not to look for Trace-specific Uri Parameters on any opened Deep Links.
      *
      * If the relevant Trace parameters are found then all trace features can be controlled via a
-     * Deep Link - join, leave, kill session etc.
+     * Deep Link - join, leave, force end of visit etc.
      *
      * This setting is required to be `true` for the QR Trace Tealium Tool to function.
      *

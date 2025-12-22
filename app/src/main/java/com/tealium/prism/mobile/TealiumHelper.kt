@@ -8,6 +8,7 @@ import com.tealium.prism.core.api.TealiumConfig
 import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.logger.LogLevel
+import com.tealium.prism.core.api.logger.logIfErrorEnabled
 import com.tealium.prism.core.api.logger.logIfInfoEnabled
 import com.tealium.prism.core.api.misc.Environment
 import com.tealium.prism.core.api.misc.Callback
@@ -57,9 +58,7 @@ object TealiumHelper {
 
         val config = TealiumConfig.Builder(
             application = application,
-            modules = listOf(
-                configureLoggingDispatcher("logger")
-            ),
+            modules = configureModules(),
             accountName = "tealiummobile",
             profileName = "android",
             environment = Environment.DEV
@@ -113,6 +112,18 @@ object TealiumHelper {
         }
     }
 
+    fun joinTrace(traceId: String) {
+        shared?.trace?.join(traceId)
+    }
+
+    fun leaveTrace() {
+        shared?.trace?.leave()
+    }
+
+    fun endVisitorSession() {
+        shared?.trace?.forceEndOfVisit()
+    }
+
     fun shutdown() {
         shared?.shutdown()
         shared = null
@@ -145,10 +156,17 @@ object TealiumHelper {
             Modules.appData(),
             Modules.deviceData(),
             Modules.deepLink(),
-            Modules.trace(),
+            configureTrace(),
             configureLifecycle(),
             configureLoggingDispatcher("logger")
         )
+    }
+
+    private fun configureTrace(): ModuleFactory {
+        return Modules.trace()
+//        return Modules.trace { settings ->
+//            settings.setTrackErrors(true)
+//        }
     }
 
     private fun configureCollect(): ModuleFactory {

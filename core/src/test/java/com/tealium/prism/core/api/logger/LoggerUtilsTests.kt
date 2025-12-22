@@ -1,5 +1,6 @@
 package com.tealium.prism.core.api.logger
 
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.Subject
 import com.tealium.prism.core.internal.logger.LoggerImpl
@@ -18,6 +19,7 @@ class LoggerUtilsTests {
     private lateinit var handler: LogHandler
     private lateinit var onLogLevel: Subject<LogLevel>
     private lateinit var supplier: () -> String
+    private val scheduler: Scheduler = Scheduler.SYNCHRONOUS
 
     @Before
     fun setUp() {
@@ -37,7 +39,7 @@ class LoggerUtilsTests {
             LogLevel.ERROR,
             LogLevel.SILENT
         ).forEach { logLevel ->
-            val logger = spyk(LoggerImpl(handler, onLogLevel, logLevel))
+            val logger = spyk(LoggerImpl(scheduler, handler, onLogLevel, logLevel))
 
             logger.logIfTraceEnabled(category, supplier)
 
@@ -49,7 +51,7 @@ class LoggerUtilsTests {
 
     @Test
     fun logIfTraceEnabled_Does_Call_Logger_When_LogLevel_Is_Trace() {
-        val logger = spyk(LoggerImpl(handler, onLogLevel, LogLevel.TRACE))
+        val logger = spyk(LoggerImpl(scheduler, handler, onLogLevel, LogLevel.TRACE))
 
         logger.logIfTraceEnabled(category, supplier)
 
@@ -61,7 +63,7 @@ class LoggerUtilsTests {
     @Test
     fun logIfDebugEnabled_Does_Not_Call_Logger_When_LogLevel_Is_Too_High() {
         listOf(LogLevel.INFO, LogLevel.WARN, LogLevel.ERROR, LogLevel.SILENT).forEach { logLevel ->
-            val logger = spyk(LoggerImpl(handler, onLogLevel, logLevel))
+            val logger = spyk(LoggerImpl(scheduler, handler, onLogLevel, logLevel))
 
             logger.logIfDebugEnabled(category, supplier)
 
@@ -74,7 +76,7 @@ class LoggerUtilsTests {
     @Test
     fun logIfDebugEnabled_Does_Call_Logger_When_LogLevel_Is_Debug_Or_Lower() {
         listOf(LogLevel.TRACE, LogLevel.DEBUG).forEach { logLevel ->
-            val logger = spyk(LoggerImpl(handler, onLogLevel, logLevel))
+            val logger = spyk(LoggerImpl(scheduler, handler, onLogLevel, logLevel))
 
             logger.logIfDebugEnabled(category, supplier)
 
@@ -87,7 +89,7 @@ class LoggerUtilsTests {
     @Test
     fun logIfInfoEnabled_Does_Not_Call_Logger_When_LogLevel_Too_High() {
         listOf(LogLevel.WARN, LogLevel.ERROR, LogLevel.SILENT).forEach { logLevel ->
-            val logger = spyk(LoggerImpl(handler, onLogLevel, logLevel))
+            val logger = spyk(LoggerImpl(scheduler, handler, onLogLevel, logLevel))
 
             logger.logIfInfoEnabled(category, supplier)
 
@@ -100,7 +102,7 @@ class LoggerUtilsTests {
     @Test
     fun logIfInfoEnabled_Does_Call_Logger_When_LogLevel_Is_Info_Or_Lower() {
         listOf(LogLevel.TRACE, LogLevel.DEBUG, LogLevel.INFO).forEach { logLevel ->
-            val logger = spyk(LoggerImpl(handler, onLogLevel, logLevel))
+            val logger = spyk(LoggerImpl(scheduler, handler, onLogLevel, logLevel))
 
             logger.logIfInfoEnabled(category, supplier)
 
@@ -113,7 +115,7 @@ class LoggerUtilsTests {
     @Test
     fun logIfWarnEnabled_Does_Not_Call_Logger_When_LogLevel_Too_High() {
         listOf(LogLevel.ERROR, LogLevel.SILENT).forEach { logLevel ->
-            val logger = spyk(LoggerImpl(handler, onLogLevel, logLevel))
+            val logger = spyk(LoggerImpl(scheduler, handler, onLogLevel, logLevel))
 
             logger.logIfWarnEnabled(category, supplier)
 
@@ -126,7 +128,7 @@ class LoggerUtilsTests {
     @Test
     fun logIfWarnEnabled_Does_Call_Logger_When_LogLevel_Is_Info_Or_Lower() {
         listOf(LogLevel.TRACE, LogLevel.DEBUG, LogLevel.INFO, LogLevel.WARN).forEach { logLevel ->
-            val logger = spyk(LoggerImpl(handler, onLogLevel, logLevel))
+            val logger = spyk(LoggerImpl(scheduler, handler, onLogLevel, logLevel))
 
             logger.logIfWarnEnabled(category, supplier)
 
@@ -139,7 +141,7 @@ class LoggerUtilsTests {
     @Test
     fun logIfErrorEnabled_Does_Not_Call_Logger_When_LogLevel_Too_High() {
         listOf(LogLevel.SILENT).forEach { logLevel ->
-            val logger = spyk(LoggerImpl(handler, onLogLevel, logLevel))
+            val logger = spyk(LoggerImpl(scheduler, handler, onLogLevel, logLevel))
 
             logger.logIfErrorEnabled(category, supplier)
 
@@ -152,7 +154,7 @@ class LoggerUtilsTests {
     @Test
     fun logIfErrorEnabled_Does_Call_Logger_When_LogLevel_Is_Info_Or_Lower() {
         listOf(LogLevel.TRACE, LogLevel.DEBUG, LogLevel.INFO, LogLevel.WARN).forEach { logLevel ->
-            val logger = spyk(LoggerImpl(handler, onLogLevel, logLevel))
+            val logger = spyk(LoggerImpl(scheduler, handler, onLogLevel, logLevel))
 
             logger.logIfErrorEnabled(category, supplier)
 
@@ -164,7 +166,7 @@ class LoggerUtilsTests {
 
     @Test
     fun isTraceLogging_True_When_LogLevel_Is_Trace() {
-        val logger = LoggerImpl(mockk(), onLogLevel)
+        val logger = LoggerImpl(mockk(), mockk(), onLogLevel)
         onLogLevel.onNext(LogLevel.TRACE)
 
         assertTrue(logger.isTraceLogging)
@@ -172,7 +174,7 @@ class LoggerUtilsTests {
 
     @Test
     fun isTraceLogging_False_When_LogLevel_Too_High() {
-        val logger = LoggerImpl(mockk(), onLogLevel)
+        val logger = LoggerImpl(mockk(), mockk(), onLogLevel)
 
         onLogLevel.onNext(LogLevel.DEBUG)
         assertFalse(logger.isTraceLogging)
@@ -188,7 +190,7 @@ class LoggerUtilsTests {
 
     @Test
     fun isDebugLogging_True_When_LogLevel_Is_Debug_Or_Lower() {
-        val logger = LoggerImpl(mockk(), onLogLevel)
+        val logger = LoggerImpl(mockk(), mockk(), onLogLevel)
 
         onLogLevel.onNext(LogLevel.TRACE)
         assertTrue(logger.isDebugLogging)
@@ -198,7 +200,7 @@ class LoggerUtilsTests {
 
     @Test
     fun isDebugLogging_True_When_LogLevel_Is_Too_High() {
-        val logger = LoggerImpl(mockk(), onLogLevel)
+        val logger = LoggerImpl(mockk(), mockk(), onLogLevel)
 
         onLogLevel.onNext(LogLevel.INFO)
         assertFalse(logger.isDebugLogging)
@@ -212,7 +214,7 @@ class LoggerUtilsTests {
 
     @Test
     fun isInfoLogging_True_When_LogLevel_Is_Info_Or_Lower() {
-        val logger = LoggerImpl(mockk(), onLogLevel)
+        val logger = LoggerImpl(mockk(), mockk(), onLogLevel)
 
         onLogLevel.onNext(LogLevel.TRACE)
         assertTrue(logger.isInfoLogging)
@@ -224,7 +226,7 @@ class LoggerUtilsTests {
 
     @Test
     fun isInfoLogging_True_When_LogLevel_Is_Too_High() {
-        val logger = LoggerImpl(mockk(), onLogLevel)
+        val logger = LoggerImpl(mockk(), mockk(), onLogLevel)
 
         onLogLevel.onNext(LogLevel.WARN)
         assertFalse(logger.isInfoLogging)
@@ -236,7 +238,7 @@ class LoggerUtilsTests {
 
     @Test
     fun isWarnLogging_True_When_LogLevel_Is_Warn_Or_Lower() {
-        val logger = LoggerImpl(mockk(), onLogLevel)
+        val logger = LoggerImpl(mockk(), mockk(), onLogLevel)
 
         onLogLevel.onNext(LogLevel.TRACE)
         assertTrue(logger.isWarnLogging)
@@ -250,7 +252,7 @@ class LoggerUtilsTests {
 
     @Test
     fun isWarnLogging_True_When_LogLevel_Is_Too_High() {
-        val logger = LoggerImpl(mockk(), onLogLevel)
+        val logger = LoggerImpl(mockk(), mockk(), onLogLevel)
 
         onLogLevel.onNext(LogLevel.ERROR)
         assertFalse(logger.isWarnLogging)
@@ -260,7 +262,7 @@ class LoggerUtilsTests {
 
     @Test
     fun isErrorLogging_True_When_LogLevel_Is_Error_Or_Lower() {
-        val logger = LoggerImpl(mockk(), onLogLevel)
+        val logger = LoggerImpl(mockk(), mockk(), onLogLevel)
 
         onLogLevel.onNext(LogLevel.TRACE)
         assertTrue(logger.isErrorLogging)
@@ -276,7 +278,7 @@ class LoggerUtilsTests {
 
     @Test
     fun isErrorLogging_True_When_LogLevel_Is_Too_High() {
-        val logger = LoggerImpl(mockk(), onLogLevel)
+        val logger = LoggerImpl(mockk(), mockk(), onLogLevel)
 
         onLogLevel.onNext(LogLevel.SILENT)
         assertFalse(logger.isErrorLogging)

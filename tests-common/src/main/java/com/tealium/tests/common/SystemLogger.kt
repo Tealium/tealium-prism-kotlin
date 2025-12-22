@@ -2,10 +2,11 @@ package com.tealium.tests.common
 
 import com.tealium.prism.core.api.logger.LogHandler
 import com.tealium.prism.core.api.logger.LogLevel
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.internal.logger.LoggerImpl
 
-val SystemLogger = LoggerImpl(object : LogHandler {
+val SystemLogger = LoggerImpl(Scheduler.SYNCHRONOUS, object : LogHandler {
     override fun log(category: String, message: String, logLevel: LogLevel) {
         println("$category - $message")
     }

@@ -83,6 +83,7 @@ class TealiumImpl(
     private val sdkSettingsSubject: ReplaySubject<SdkSettings> = Observables.replaySubject(1)
     private val logLevel: Observable<LogLevel> = sdkSettingsSubject.map { it.core.logLevel }
     val logger: Logger = LoggerImpl(
+        schedulers.tealium,
         config.logHandler,
         logLevel,
         config.enforcedSdkSettings.getDataObject(CoreSettingsImpl.MODULE_NAME)

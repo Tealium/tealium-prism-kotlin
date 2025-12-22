@@ -13,13 +13,13 @@ import com.tealium.prism.core.api.tracking.TrackResult
 interface Trace {
 
     /**
-     * Attempts to kill the visitor session for the current trace.
+     * Attempts to force end of visit for the current trace.
      *
      * The Trace will remain active until [leave] is called.
      *
      * @return An async result for optional error handling
      */
-    fun killVisitorSession() : Single<TealiumResult<TrackResult>>
+    fun forceEndOfVisit() : Single<TealiumResult<TrackResult>>
 
     /**
      * Joins a Trace for the given [id]. The trace id will be added to all future
