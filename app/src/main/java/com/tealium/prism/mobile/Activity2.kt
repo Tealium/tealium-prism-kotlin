@@ -15,6 +15,7 @@ class Activity2 : AppCompatActivity() {
                 put("event_category", "EXAMPLE")
                 put("event_action", "tap")
                 put("event_label", "Track Event from Activity2")
+                put("persisted_value", "someTESTVAlUE!!")
             })
         }
 

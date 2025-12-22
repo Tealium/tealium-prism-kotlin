@@ -3,6 +3,7 @@ package com.tealium.prism.core.internal.persistence.stores
 import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataItemUtils.asDataObject
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.data.JsonObjectPath
 import com.tealium.prism.core.api.persistence.DataStore
 import com.tealium.prism.core.api.persistence.Expiry
 import com.tealium.prism.core.api.persistence.PersistenceException
@@ -54,6 +55,12 @@ class ModuleStore(
             }
         }
 
+    override fun buildPath(path: JsonObjectPath, value: DataItem, expiry: Expiry) {
+        edit()
+            .buildPath(path, value, expiry)
+            .commit()
+    }
+
     override fun get(key: String): DataItem? =
         keyValueRepository.get(key)
 
@@ -94,6 +101,28 @@ class ModuleStore(
                     edits.add(Edit.Put(key, value, expiry))
                 }
             }
+        }
+
+        override fun buildPath(path: JsonObjectPath, value: DataItem, expiry: Expiry) = apply {
+            ensureNotClosed()
+
+            if (path.components.isEmpty()) {
+                edits.add(Edit.Put(path.firstComponent.key, value, expiry))
+                return@apply
+            }
+
+            // wrap existing value in a [DataObject] to save reimplementation
+            val dataObjectBuilder = DataObject.Builder()
+            val existingItem = get(path.firstComponent.key)
+            if (existingItem != null) {
+                dataObjectBuilder
+                    .put(path.firstComponent.key, existingItem)
+            }
+
+            val updated = dataObjectBuilder.buildPath(path, value)
+                .build()
+
+            putAll(updated, expiry)
         }
 
         override fun remove(key: String): DataStore.Editor = apply {

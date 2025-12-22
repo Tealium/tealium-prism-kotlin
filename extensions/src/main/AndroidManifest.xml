@@ -10,6 +10,9 @@
             <meta-data
                 android:name="com.tealium.prism.core.modules:com.tealium.prism.extensions.LowerCaseFactory"
                 android:value="com.tealium.prism.core.api.ModuleFactory" />
+            <meta-data
+                android:name="com.tealium.prism.core.modules:com.tealium.prism.extensions.PersistDataValuesFactory"
+                android:value="com.tealium.prism.core.api.ModuleFactory" />
         </service>
     </application>
 

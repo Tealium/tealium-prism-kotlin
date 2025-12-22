@@ -4,6 +4,7 @@ import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataItemConvertible
 import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.data.JsonObjectPath
 import com.tealium.prism.core.api.misc.TealiumException
 import com.tealium.prism.core.api.persistence.DataStore.Editor.EditorClosedException
 import com.tealium.prism.core.api.pubsub.Observable
@@ -148,6 +149,23 @@ interface DataStore : ReadableDataStore, Iterable<Map.Entry<String, DataItem>> {
             put(key, value.asDataItem(), expiry)
 
         /**
+         * Builds the necessary path according to the given [path] in order to store the given [value].
+         *
+         * Where a [DataObject]/[DataList] already exists on the given path, the incoming items will be
+         * merged in. Where the [DataObject]/[DataList] does not exist yet in this [DataObject] a new one
+         * will be created.
+         * Where a different type was specified on the [path] to what is currently in this [DataStore],
+         * it will be overwritten.
+         *
+         * @param path the [JsonObjectPath] used to describe where to store [value]
+         * @param value the [DataItem] to add
+         * @param expiry The time frame for this data to remain stored
+         *
+         * @return Editor to continue editing this storage
+         */
+        fun buildPath(path: JsonObjectPath, value: DataItem, expiry: Expiry) : Editor
+
+        /**
          * Removes and individual key from storage
          *
          * @param key the key to remove from storage
@@ -194,6 +212,22 @@ interface DataStore : ReadableDataStore, Iterable<Map.Entry<String, DataItem>> {
      * @return Editor to update the stored data
      */
     fun edit(): Editor
+
+    /**
+     * Edits the [DataStore] and builds the necessary path according to the given [path] in order to
+     * store the given [value].
+     *
+     * Where a [DataObject]/[DataList] already exists on the given path, the incoming items will be
+     * merged in. Where the [DataObject]/[DataList] does not exist yet in this [DataObject] a new one
+     * will be created.
+     * Where a different type was specified on the [path] to what is currently in this [DataStore],
+     * it will be overwritten.
+     *
+     * @param path the [JsonObjectPath] used to describe where to store [value]
+     * @param value the [DataItem] to add
+     * @param expiry The time frame for this data to remain stored
+     */
+    fun buildPath(path: JsonObjectPath, value: DataItem, expiry: Expiry)
 
     /**
      * Flow of key-value pairs from this [DataStore] that have been updated.

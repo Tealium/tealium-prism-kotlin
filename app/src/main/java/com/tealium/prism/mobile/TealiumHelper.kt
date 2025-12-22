@@ -7,7 +7,10 @@ import com.tealium.prism.core.api.Tealium
 import com.tealium.prism.core.api.TealiumConfig
 import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.data.JsonPath
 import com.tealium.prism.core.api.data.ReferenceContainer.Companion.key
+import com.tealium.prism.core.api.data.ReferenceContainer.Companion.path
+import com.tealium.prism.core.api.data.get
 import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.logIfInfoEnabled
 import com.tealium.prism.core.api.misc.Callback
@@ -40,7 +43,9 @@ import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.api.transform.TransformationScope
 import com.tealium.prism.extensions.LowerCaseSettingsBuilder
+import com.tealium.prism.extensions.PersistDataValuesSettingsBuilder
 import com.tealium.prism.extensions.SetDataValuesSettingsBuilder
+import com.tealium.prism.extensions.internal.persistdatavalue.PersistValuesUpdateType
 import com.tealium.prism.lifecycle.lifecycle
 import com.tealium.prism.mobile.ExampleCmpAdapter.Purposes
 
@@ -90,6 +95,22 @@ object TealiumHelper {
                 .addVariable(key("event_category"))
                 .addVariable(key("event_label"))
                 .addVariable(key("user_id"))
+                .build()
+            )
+
+//            .addTransformation(PersistDataValuesSettingsBuilder("pdv_1")
+//                .addScope(TransformationScope.AfterCollectors)
+//                .persistValue("persisted_value", path(JsonPath["persist_object"]["persist_key"]))
+//                .setExpiry(Expiry.SESSION)
+//                .setUpdateType(PersistValuesUpdateType.ALLOW_UPDATE)
+//                .build()
+//            )
+
+            .addTransformation(PersistDataValuesSettingsBuilder("pdv_2")
+                .addScope(TransformationScope.AfterCollectors)
+                .persistValue(key("persisted_value"), key("first_persisted_value"))
+                .setExpiry(Expiry.FOREVER)
+                .setUpdateType(PersistValuesUpdateType.KEEP_FIRST_VALUE)
                 .build()
             )
 

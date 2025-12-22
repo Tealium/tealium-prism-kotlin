@@ -10,9 +10,9 @@ import com.tealium.prism.core.api.rules.Rule
 import com.tealium.prism.core.api.settings.json.TransformationOperation
 import com.tealium.prism.core.api.transform.TransformationScope
 import com.tealium.prism.core.api.transform.TransformationSettings
-import com.tealium.prism.extensions.internal.ValueSource
 import com.tealium.prism.extensions.internal.SET_DATA_VALUES
 import com.tealium.prism.extensions.internal.SetDataValuesInput
+import com.tealium.prism.extensions.internal.ValueSource
 
 abstract class TransformationSettingsBuilder<T : TransformationSettingsBuilder<T>>(
     private val transformationId: String,
