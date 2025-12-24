@@ -16,11 +16,44 @@ import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.internal.TealiumInstanceManager
 
+/**
+ * The main class for the Tealium SDK.
+ *
+ * This class provides the primary interface for interacting with the Tealium SDK.
+ * It handles initialization, tracking events, managing visitor IDs, and accessing
+ * various modules like data layer, deep linking, and tracing.
+ */
 interface Tealium {
 
+    /**
+     * The identifying [key] for this instance.
+     */
     val key: String
+
+    /**
+     * Returns an object for managing traces. The [Trace] module is responsible for handling Tealium
+     * trace registration.
+     *
+     * Joining a trace will add the trace id to each event for filtering server side. Users can leave
+     * the trace when finished.
+     */
     val trace: Trace
+
+    /**
+     * The [DeepLinkHandler] is responsible for tracking incoming deep links, managing attribution, and
+     * handling trace parameters when present in the URL.
+     *
+     * DeepLink handling is automatically called unless explicitly disabled.
+     */
     val deeplink: DeepLinkHandler
+
+    /**
+     * The [DataLayer] is available to store key-value data that should be present on every event
+     * tracked through the Tealium SDK.
+     *
+     * There are a variety of getter/setter methods to store/retrieve common data types. All methods operate
+     * on the Tealium thread.
+     */
     val dataLayer: DataLayer
 
     /**

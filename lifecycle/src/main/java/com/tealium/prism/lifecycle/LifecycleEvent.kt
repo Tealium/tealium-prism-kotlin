@@ -4,7 +4,7 @@ import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataItemConvertible
 
 /**
- * LifecycleEvent defines trackable events related to the application lifecycle.
+ * [LifecycleEvent] defines trackable events related to the application lifecycle.
  */
 enum class LifecycleEvent(val event: String) : DataItemConvertible {
     Launch("launch"),

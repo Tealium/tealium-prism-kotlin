@@ -2,6 +2,10 @@ package com.tealium.prism.core.api.session
 
 import com.tealium.prism.core.api.pubsub.Observable
 
+/**
+ * The [SessionRegistry] allows users to subscribe to [Session] update events. Updates occur whenever
+ * a new event has been submitted for tracking.
+ */
 interface SessionRegistry {
 
     /**

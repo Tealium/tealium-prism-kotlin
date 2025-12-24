@@ -1,6 +1,9 @@
 package com.tealium.prism.core.api.data
 
-
+/**
+ * A set of utility methods for conversions of common data types into their [DataItem]
+ * equivalent.
+ */
 object DataItemUtils {
 
     // Primitive conversions

@@ -102,7 +102,6 @@ data class Condition internal constructor(
 
     // todo - could be moved internal?
     object Converter : DataItemConverter<Condition> {
-        const val KEY_PATH = "path"
         const val KEY_VARIABLE = "variable"
         const val KEY_OPERATOR = "operator"
         const val KEY_FILTER = "filter"

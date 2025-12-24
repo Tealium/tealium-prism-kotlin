@@ -215,6 +215,11 @@ sealed class Rule<T> : DataItemConvertible {
     }
 }
 
+/**
+ * Convenience method to determine if a [Rule] is satisfied by the given [input].
+ *
+ * @param input The data used to match the rule
+ */
 @Throws(InvalidMatchException::class)
 fun <T, R> Rule<T>.matches(input: R): Boolean where T : Matchable<R> {
     return when (this) {
@@ -225,6 +230,9 @@ fun <T, R> Rule<T>.matches(input: R): Boolean where T : Matchable<R> {
     }
 }
 
+/**
+ * Convenience method to convert a [Rule<T>] to a [Matchable<R>]
+ */
 fun <T, R> Rule<T>.asMatchable(): Matchable<R> where T : Matchable<R> {
     return Matchable { input ->
         this.matches(input)

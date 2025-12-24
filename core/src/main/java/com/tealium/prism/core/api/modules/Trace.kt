@@ -5,7 +5,7 @@ import com.tealium.prism.core.api.pubsub.Single
 import com.tealium.prism.core.api.tracking.TrackResult
 
 /**
- * The [Trace] is responsible for handling Tealium trace registration.
+ * [Trace] is responsible for handling Tealium trace registration.
  *
  * Joining a trace will add the trace id to each event for filtering server side. Users can leave
  * the trace when finished.

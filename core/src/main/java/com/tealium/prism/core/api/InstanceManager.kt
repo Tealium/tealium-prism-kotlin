@@ -3,6 +3,13 @@ package com.tealium.prism.core.api
 import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
 
+/**
+ * An [InstanceManager] has methods to manage the starting and stopping of multiple [Tealium] instances
+ *
+ * Only a single instance per Tealium Account-Profile can be running at any given time. Therefore calling
+ * [create] with a [TealiumConfig] for the same account and profile combination will return a [Tealium]
+ * for interacting with an existing instance.
+ */
 interface InstanceManager {
 
     /**

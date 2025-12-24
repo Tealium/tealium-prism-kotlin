@@ -1,6 +1,8 @@
 package com.tealium.prism.core.api.tracking
 
 import com.tealium.prism.core.api.Tealium
+import com.tealium.prism.core.api.modules.Collector
+import com.tealium.prism.core.api.modules.Dispatcher
 
 /**
  * The [Tracker] is responsible for handling any [Dispatch] requests. That entails collecting all

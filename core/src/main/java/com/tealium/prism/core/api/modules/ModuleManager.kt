@@ -8,7 +8,9 @@ import com.tealium.prism.core.api.pubsub.ObservableState
 /**
  * The [ModuleManager] is responsible for managing [Module] implementations throughout the [Tealium]
  * instance lifecycle.
- * // TODO - complete
+ *
+ * This class provides properties for interacting with other [Module] implementations, either by
+ * fetching a specific [Module] implementation of by observing one of its properties.
  */
 interface ModuleManager {
 

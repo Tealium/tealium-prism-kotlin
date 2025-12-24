@@ -3,6 +3,9 @@ package com.tealium.prism.core.api.persistence
 import com.tealium.prism.core.api.data.DataItemExtractor
 import com.tealium.prism.core.api.data.DataObject
 
+/**
+ * Defines the read-only methods of a [DataStore].
+ */
 interface ReadableDataStore: DataItemExtractor {
 
     /**
