@@ -1,7 +1,7 @@
 package com.tealium.prism.core.internal.rules
 
 import com.tealium.prism.core.api.data.DataObject
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.modules.Collector
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.pubsub.Disposable
@@ -12,7 +12,7 @@ import com.tealium.prism.core.api.rules.Rule
 import com.tealium.prism.core.api.rules.Rule.Companion.just
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchContext
-import com.tealium.prism.core.api.tracking.TealiumDispatchType
+import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.internal.dispatch.DispatchSplit
 import com.tealium.prism.core.internal.dispatch.successful
 import com.tealium.prism.core.internal.dispatch.unsuccessful
@@ -35,17 +35,17 @@ class LoadRuleEngineTests {
     val rules: Map<String, LoadRule> = mapOf(
         "1" to LoadRule(
             "1", Rule.all(
-                just(Condition.isEqual(false, null, "true", "true"))
+                just(Condition.isEqual(false, "true", "true"))
             )
         ),
         "2" to LoadRule(
             "2", Rule.all(
-                just(Condition.isEqual(false, null, "false", "false"))
+                just(Condition.isEqual(false, "false", "false"))
             )
         ),
         "throwing" to LoadRule(
             "throwing", Rule.all(
-                just(Condition.isGreaterThan(false, null, "number", "not-a-number"))
+                just(Condition.isGreaterThan(false, "number", "not-a-number"))
             )
         )
     )
@@ -387,7 +387,7 @@ class LoadRuleEngineTests {
     }
 
     private fun createDispatch(payload: DataObject, eventName: String = "event"): Dispatch =
-        Dispatch.create(eventName, TealiumDispatchType.Event, payload)
+        Dispatch.create(eventName, DispatchType.Event, payload)
 
     private fun LoadRuleEngineImpl.evaluateLoadRules(
         dispatcher: Dispatcher,
@@ -401,7 +401,7 @@ class LoadRuleEngineTests {
 
         override fun dispatch(
             dispatches: List<Dispatch>,
-            callback: TealiumCallback<List<Dispatch>>
+            callback: Callback<List<Dispatch>>
         ): Disposable = CompletedDisposable
 
         override val version: String

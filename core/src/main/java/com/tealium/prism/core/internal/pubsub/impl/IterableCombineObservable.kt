@@ -4,7 +4,7 @@ import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observer
 import com.tealium.prism.core.internal.pubsub.DisposableContainer
-import com.tealium.prism.core.internal.pubsub.addTo
+import com.tealium.prism.core.api.pubsub.addTo
 
 /**
  * The [IterableCombineObservable] combines all the emissions from the given set of [sources].

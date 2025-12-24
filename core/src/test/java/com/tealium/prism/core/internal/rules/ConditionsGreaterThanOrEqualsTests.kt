@@ -3,9 +3,9 @@ package com.tealium.prism.core.internal.rules
 import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.data.ReferenceContainer.Companion.key
 import com.tealium.prism.core.api.rules.Condition
 import com.tealium.prism.core.api.rules.ConditionEvaluationException
-import com.tealium.prism.core.api.rules.MissingDataItemException
 import com.tealium.prism.core.api.rules.MissingFilterException
 import com.tealium.prism.core.api.rules.NumberParseException
 import com.tealium.tests.common.assertThrows
@@ -132,7 +132,7 @@ class ConditionsGreaterThanOrEqualsTests {
     fun greaterThan_Throws_When_Filter_Is_Null() {
         val condition = Condition(
             operator = Operators.greaterThanOrEquals,
-            variable = "int",
+            variable = key("int"),
             filter = null
         )
         assertThrows<ConditionEvaluationException>(cause = MissingFilterException::class) {

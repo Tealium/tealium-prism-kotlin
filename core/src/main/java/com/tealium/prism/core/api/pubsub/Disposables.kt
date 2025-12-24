@@ -66,5 +66,6 @@ object Disposables {
      *
      *  @return A disposed [Disposable]
      */
-    fun disposed() = CompletedDisposable
+    fun disposed(): Disposable =
+        CompletedDisposable
 }

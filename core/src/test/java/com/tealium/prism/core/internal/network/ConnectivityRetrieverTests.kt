@@ -11,7 +11,7 @@ import com.tealium.prism.core.api.network.Connectivity.ConnectivityType
 import com.tealium.prism.core.api.network.Connectivity.Status
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.StateSubject
-import com.tealium.tests.common.SynchronousScheduler
+import com.tealium.prism.core.internal.misc.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
 import io.mockk.MockKAnnotations
 import io.mockk.Runs
@@ -45,7 +45,7 @@ class ConnectivityRetrieverTests {
 
     private lateinit var connectionStatus: StateSubject<Connectivity.Status>
     private lateinit var connectivityRetriever: ConnectivityRetriever
-    private val synchronousScheduler: Scheduler = SynchronousScheduler()
+    private val synchronousScheduler: Scheduler = Scheduler.SYNCHRONOUS
 
     @Before
     fun setup() {

@@ -1,6 +1,7 @@
 package com.tealium.prism.core.internal.settings
 
 import android.app.Application
+import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.TealiumConfig
 import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataItemUtils.asDataObject
@@ -83,14 +84,16 @@ class SettingsManagerTests {
     }
 
     @Test
-    fun init_Creates_Empty_Settings_When_No_Local_Or_Remote_Or_Programmatic() {
+    fun init_Creates_Settings_Containing_Only_Default_Settings_When_No_Local_Or_Remote_Or_Programmatic() {
         mockAssetResponse(null)
         createSettingsManager()
 
         val settings = settingsManager.sdkSettings.value
 
         assertEquals(CoreSettingsImpl(), settings.core)
-        assertTrue(settings.modules.isEmpty())
+        assertEquals(2, settings.modules.size) // datalayer + tealiumdata
+        assertTrue(settings.modules.containsKey(Modules.Types.DATA_LAYER))
+        assertTrue(settings.modules.containsKey(Modules.Types.TEALIUM_DATA))
     }
 
     @Test
@@ -333,7 +336,7 @@ class SettingsManagerTests {
                             "sub-key-1": 1,
                             "sub-obj": {
                                 "sub-key-1": 1
-                            } 
+                            }
                         }
                     }
                 }
@@ -351,7 +354,7 @@ class SettingsManagerTests {
                             "sub-key-2": 2,
                             "sub-obj": {
                                 "sub-key-2": 2
-                            } 
+                            }
                         }
                     }
                 }
@@ -434,7 +437,7 @@ class SettingsManagerTests {
                             "sub-key-1": 1,
                             "sub-obj": {
                                 "sub-key-1": 1
-                            } 
+                            }
                         }
                     }
                 }
@@ -453,7 +456,7 @@ class SettingsManagerTests {
                             "sub-key-2": 2,
                             "sub-obj": {
                                 "sub-key-2": 2
-                            } 
+                            }
                         }
                     }
                 }
@@ -530,7 +533,7 @@ class SettingsManagerTests {
                             "sub-key-1": 1,
                             "sub-obj": {
                                 "sub-key-1": 1
-                            } 
+                            }
                         }
                     }
                 }
@@ -547,7 +550,7 @@ class SettingsManagerTests {
                             "sub-key-2": 2,
                             "sub-obj": {
                                 "sub-key-2": 2
-                            } 
+                            }
                         }
                     }
                 }
@@ -573,7 +576,7 @@ class SettingsManagerTests {
 
     @Test
     fun mergeSettings_Merges_All_LoadRules_From_All_Settings() {
-        val baseRule = LoadRule("0", Rule.just(isDefined(null, "var")))
+        val baseRule = LoadRule("0", Rule.just(isDefined("var")))
         val settings1 = DataObject.fromString(
             """
             {
@@ -624,7 +627,7 @@ class SettingsManagerTests {
                 "load_rules" : {
                     "load_rule1" : {
                         "conditions": {
-                            "variable": "var-1",
+                            "variable": { "key": "var-1" },
                             "operator": "defined"
                         },
                         "id": "load_rule1"
@@ -639,7 +642,7 @@ class SettingsManagerTests {
                 "load_rules" : {
                     "load_rule1" : {
                         "conditions": {
-                            "variable": "var-2",
+                            "variable": { "key": "var-2" },
                             "operator": "defined"
                         },
                         "id": "load_rule2"

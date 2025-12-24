@@ -7,7 +7,7 @@ import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.pubsub.Subject
 import com.tealium.prism.core.api.settings.CoreSettings
 import com.tealium.prism.core.api.tracking.Dispatch
-import com.tealium.prism.core.api.tracking.TealiumDispatchType
+import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.internal.persistence.repositories.QueueRepository
 import com.tealium.prism.core.internal.settings.CoreSettingsImpl
 import com.tealium.tests.common.SystemLogger
@@ -30,11 +30,11 @@ class QueueManagerTests {
     private val dispatcher3 = "dispatcher_3"
     private val allProcessors = setOf(dispatcher1, dispatcher2, dispatcher3)
     private val dispatch1: Dispatch =
-        Dispatch.create("test1", TealiumDispatchType.Event, DataObject.EMPTY_OBJECT)
+        Dispatch.create("test1", DispatchType.Event, DataObject.EMPTY_OBJECT)
     private val dispatch2: Dispatch =
-        Dispatch.create("test2", TealiumDispatchType.Event, DataObject.EMPTY_OBJECT)
+        Dispatch.create("test2", DispatchType.Event, DataObject.EMPTY_OBJECT)
     private val dispatch3: Dispatch =
-        Dispatch.create("test3", TealiumDispatchType.Event, DataObject.EMPTY_OBJECT)
+        Dispatch.create("test3", DispatchType.Event, DataObject.EMPTY_OBJECT)
 
     private lateinit var coreSettings: Subject<CoreSettings>
     private lateinit var processors: Subject<Set<String>>

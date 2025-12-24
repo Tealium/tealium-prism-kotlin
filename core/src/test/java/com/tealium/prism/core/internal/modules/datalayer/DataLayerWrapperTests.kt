@@ -7,7 +7,8 @@ import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.TestDataObjectConvertible
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.misc.TealiumException
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
@@ -25,8 +26,8 @@ import com.tealium.prism.core.internal.modules.ModuleManagerImpl
 import com.tealium.prism.core.internal.modules.ModuleProxyImpl
 import com.tealium.prism.core.internal.persistence.stores.ModuleStore
 import com.tealium.prism.core.internal.settings.SdkSettings
-import com.tealium.tests.common.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
+import com.tealium.tests.common.getDefaultConfig
 import com.tealium.tests.common.mockkEditor
 import io.mockk.Called
 import io.mockk.MockKAnnotations
@@ -78,10 +79,11 @@ class DataLayerWrapperTests {
 
         dataLayerModule = DataLayerModule(dataStore, defaultExpiry)
         moduleManager = ModuleManagerImpl(
-            SynchronousScheduler()
+            Scheduler.SYNCHRONOUS
         )
         moduleManager.addModuleFactory(MockDataLayerFactory(dataLayerModule))
-        moduleManager.updateModuleSettings(context, SdkSettings())
+        val config = getDefaultConfig(mockk())
+        moduleManager.updateModuleSettings(context, SdkSettings.fromDataObject(config.enforcedSdkSettings))
 
         // default to pre-enabled
         moduleManagerSubject = Observables.replaySubject()
@@ -90,7 +92,7 @@ class DataLayerWrapperTests {
         moduleProxy = ModuleProxyImpl(
             DataLayerModule::class.java,
             moduleManagerSubject,
-            SynchronousScheduler()
+            Scheduler.SYNCHRONOUS
         )
 
         dataLayerWrapper = DataLayerWrapper(moduleProxy)
@@ -148,7 +150,7 @@ class DataLayerWrapperTests {
 
     @Test
     fun transactionally_Does_Nothing_When_ModuleManager_Shutdown() {
-        val block = mockk<TealiumCallback<DataStore.Editor>>(relaxed = true)
+        val block = mockk<Callback<DataStore.Editor>>(relaxed = true)
 
         moduleManager.shutdown()
         dataLayerWrapper.transactionally(block)

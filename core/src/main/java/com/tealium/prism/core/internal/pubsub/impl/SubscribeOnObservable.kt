@@ -5,7 +5,7 @@ import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observer
 import com.tealium.prism.core.internal.pubsub.AsyncDisposableContainer
-import com.tealium.prism.core.internal.pubsub.addTo
+import com.tealium.prism.core.api.pubsub.addTo
 
 /**
  * The [SubscribeOnObservable] allows the subscription to upstream observables to take place on the

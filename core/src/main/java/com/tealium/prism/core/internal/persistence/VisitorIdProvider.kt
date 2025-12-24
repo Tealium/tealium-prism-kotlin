@@ -200,8 +200,8 @@ class VisitorIdProviderImpl(
      * Returns a new or existing visitor id in the following order of preference
      *  1. The existing visitor id from visitor storage
      *  2. A visitor id that is able to be migrated from a previous sdk version during an upgrade
-     *  3. The user configured [TealiumConfig.existingVisitorId]; only relevant on first launch when
-     *  there isn't any existing visitor id
+     *  3. The user configured [TealiumConfig.existingVisitorId] if it's not empty; only relevant on
+     *  first launch when there isn't any existing visitor id
      *  4. A brand new anonymous visitor id
      */
     private fun getOrCreateVisitorId(): String {
@@ -216,7 +216,11 @@ class VisitorIdProviderImpl(
             return migratedVisitorId
         }
 
-        return existingVisitorId ?: generateVisitorId()
+        if (!existingVisitorId.isNullOrBlank()) {
+            return existingVisitorId
+        }
+
+        return generateVisitorId()
     }
 
     private fun generateVisitorId(uuid: UUID = UUID.randomUUID()): String {

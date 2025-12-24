@@ -10,7 +10,8 @@ import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.internal.settings.MappingParameters
 
 typealias MappingOperation = TransformationOperation<MappingParameters>
-inline val MappingOperation.key get() = parameters.key
+
+inline val MappingOperation.path get() = parameters.reference?.path
 inline val MappingOperation.filter get() = parameters.filter
 inline val MappingOperation.mapTo get() = parameters.mapTo
 
@@ -77,11 +78,11 @@ class MappingsEngine(
          * destination in the [into] [DataObject].
          *
          * If the [MappingParameters.filter] parameter is not null, then it will be compared to the
-         * the value taken from the [payload] according to the [MappingParameters.key]. This comparison
+         * the value taken from the [payload] according to the [MappingParameters.reference]. This comparison
          * is a String comparison of the [DataItem.value].
          *
          * If the [MappingParameters.mapTo] parameter is not null, then that will be the value
-         * mapped. Otherwise the value from [payload] will be taken according to the [MappingParameters.key]
+         * mapped. Otherwise the value from [payload] will be taken according to the [MappingParameters.reference]
          *
          */
         private fun mapDataObject(
@@ -89,43 +90,31 @@ class MappingsEngine(
             payload: DataObject,
             mapping: MappingOperation
         ): DataObject {
-            val extracted = mapping.key?.let { payload.extract(it) }
+            val mapped = getMappedValue(payload, mapping)
+                ?: return into
+
+            val shouldCombine = mapping.mapTo != null
+            val incoming = if (shouldCombine) {
+                combine(into.extract(mapping.destination.path), mapped)
+            } else {
+                mapped
+            }
+
+            return into.buildPath(mapping.destination.path, incoming)
+        }
+
+        private fun getMappedValue(
+            payload: DataObject,
+            mapping: MappingOperation
+        ): DataItem? {
+            val extracted = mapping.path?.let { path -> payload.extract(path) }
             val filter = mapping.filter
             if (filter != null && extracted?.value.toString() != filter.value) {
-                return into
+                return null
             }
 
             val mapTo = mapping.mapTo?.value?.asDataItem()
-            val shouldCombine = mapTo != null
-            val input = mapTo ?: extracted
-                ?: return into
-
-            val (variable, path) = mapping.destination
-            return buildPathAndPut(into, path ?: emptyList(), variable, input, shouldCombine)
-        }
-
-        /**
-         * Recursively builds a "path" of [DataObject]s, if required, in order to store the [input]
-         */
-        private fun buildPathAndPut(
-            into: DataObject,
-            path: List<String>,
-            key: String,
-            input: DataItem,
-            shouldCombine: Boolean
-        ): DataObject {
-            if (path.isEmpty()) {
-                return into.copy {
-                    put(key, combine(into.get(key), input, shouldCombine))
-                }
-            }
-
-            val pathComponent = path.first()
-            val remainingPath = path.drop(1)
-            return into.copy {
-                val subObj = into.getDataObject(pathComponent) ?: DataObject.EMPTY_OBJECT
-                put(pathComponent, buildPathAndPut(subObj, remainingPath, key, input, shouldCombine))
-            }
+            return mapTo ?: extracted
         }
 
         /**
@@ -135,9 +124,9 @@ class MappingsEngine(
          *  - If the [existing] item is already a [DataList] then the [incoming] is appended, and the [DataList] is returned.
          *  - If the [existing] item is not `null` then a new [DataList] is returned containing both [existing] and [incoming]
          */
-        private fun combine(existing: DataItem?, incoming: DataItem, shouldCombine: Boolean): DataItem {
+        private fun combine(existing: DataItem?, incoming: DataItem): DataItem {
             // nothing mapped yet
-            if (existing == null || !shouldCombine) {
+            if (existing == null) {
                 return incoming
             }
 

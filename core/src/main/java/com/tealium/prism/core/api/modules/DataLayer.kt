@@ -5,7 +5,7 @@ import com.tealium.prism.core.api.data.DataItemConverter
 import com.tealium.prism.core.api.data.DataItemConvertible
 import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.persistence.DataStore
 import com.tealium.prism.core.api.persistence.Expiry
@@ -36,7 +36,7 @@ interface DataLayer {
      * @param block The block of code used to update the [DataLayer]
      * @return A Single which can be used to subscribe a block of code to receive any errors that occur
      */
-    fun transactionally(block: TealiumCallback<DataStore.Editor>): Single<TealiumResult<Unit>>
+    fun transactionally(block: Callback<DataStore.Editor>): Single<TealiumResult<Unit>>
 
     /**
      * Attempts to update all key-value pairs from the [data] and inserts them into the [DataStore].

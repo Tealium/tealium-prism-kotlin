@@ -14,9 +14,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: ./.github/actions/android-setup
+      - name: Setup Android
+        uses: ./.github/actions/android-setup
 
-      - uses: ./.github/actions/fetch-base
+      - name: Fetch base branch
+        uses: ./.github/actions/fetch-base
 
       - name: Build
         run: ./gradlew assembleDebug
@@ -31,7 +33,7 @@ jobs:
 
       - name: Unit tests
         if: ${{ steps.unit-test-modules.outputs.unit-tests != '' }}
-        run: ./gradlew testModifiedDebugUnitTest
+        run: ./gradlew testModifiedDebugUnitTest -PMODIFIED_PROJECTS=${{ steps.unit-test-modules.outputs.unit-tests }}
 
       - uses: ./.github/actions/upload-reports
         with:
@@ -87,7 +89,7 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: ./gradlew testModifiedDebugInstrumentedTest
+          script: ./gradlew testModifiedDebugInstrumentedTest -PMODIFIED_PROJECTS=${{ needs.unit-test.outputs.inst-tests }}
 
       - uses: ./.github/actions/upload-reports
         with:

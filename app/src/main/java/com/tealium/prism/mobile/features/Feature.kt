@@ -2,6 +2,7 @@ package com.tealium.prism.mobile.features
 
 import androidx.fragment.app.Fragment
 import com.tealium.prism.mobile.fragments.ConsentFragment
+import com.tealium.prism.mobile.fragments.TraceFragment
 import com.tealium.prism.mobile.fragments.VisitorFragment
 
 enum class Feature(
@@ -10,5 +11,6 @@ enum class Feature(
 ) {
     Consent("Consent", ConsentFragment::class.java),
     Visitor("Visitor", VisitorFragment::class.java),
+    Trace("Trace", TraceFragment::class.java)
     // TODO - add other features
 }

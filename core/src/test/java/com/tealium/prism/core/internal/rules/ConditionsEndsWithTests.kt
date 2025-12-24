@@ -3,6 +3,9 @@ package com.tealium.prism.core.internal.rules
 import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.data.JsonPath
+import com.tealium.prism.core.api.data.ReferenceContainer.Companion.path
+import com.tealium.prism.core.api.data.get
 import com.tealium.prism.core.api.rules.Condition
 import com.tealium.prism.core.api.rules.ConditionEvaluationException
 import com.tealium.prism.core.api.rules.MissingDataItemException
@@ -115,8 +118,7 @@ class ConditionsEndsWithTests {
     fun endsWith_Matches_Nested_Value() {
         val condition = Condition.endsWith(
             ignoreCase = false,
-            path = listOf("object"),
-            variable = "key",
+            variable = JsonPath["object"]["key"],
             suffix = "alue"
         )
         assertTrue(condition.matches(payload))
@@ -166,8 +168,7 @@ class ConditionsEndsWithTests {
     fun endsWith_Matches_Nested_Value_Ignoring_Case() {
         val condition = Condition.endsWith(
             ignoreCase = true,
-            path = listOf("object"),
-            variable = "key",
+            variable = JsonPath["object"]["key"],
             suffix = "ALUE"
         )
         assertTrue(condition.matches(payload))
@@ -176,8 +177,7 @@ class ConditionsEndsWithTests {
     @Test
     fun endsWith_Throws_When_Filter_Null() {
         val condition = Condition(
-            path = listOf("object"),
-            variable = "key",
+            variable = path(JsonPath["object"]["key"]),
             operator = Operators.endsWith,
             filter = null
         )
@@ -190,8 +190,7 @@ class ConditionsEndsWithTests {
     fun endsWith_Throws_When_DataItem_Missing() {
         val condition = Condition.endsWith(
             ignoreCase = false,
-            path = listOf("object"),
-            variable = "missing",
+            variable = JsonPath["object"]["missing"],
             suffix = "value"
         )
         assertThrows<ConditionEvaluationException>(cause = MissingDataItemException::class) {
@@ -202,8 +201,7 @@ class ConditionsEndsWithTests {
     @Test
     fun endsWithIgnoreCase_Throws_When_Filter_Null() {
         val condition = Condition(
-            path = listOf("object"),
-            variable = "key",
+            variable = path(JsonPath["object"]["key"]),
             operator = Operators.endsWithIgnoreCase,
             filter = null
         )
@@ -216,8 +214,7 @@ class ConditionsEndsWithTests {
     fun endsWithIgnoreCase_Throws_When_DataItem_Missing() {
         val condition = Condition.endsWith(
             ignoreCase = true,
-            path = listOf("object"),
-            variable = "missing",
+            variable = JsonPath["object"]["missing"],
             suffix = "value"
         )
         assertThrows<ConditionEvaluationException>(cause = MissingDataItemException::class) {

@@ -9,7 +9,6 @@ import com.tealium.prism.core.api.consent.CmpAdapter
 import com.tealium.prism.core.api.consent.ConsentDecision
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.logger.LogHandler
-import com.tealium.prism.core.api.misc.Environment
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
@@ -49,7 +48,7 @@ class TealiumConfig private constructor(
     val application: Application,
     val accountName: String,
     val profileName: String,
-    val environment: Environment,
+    val environment: String,
     val modules: List<ModuleFactory>,
     val barriers: List<BarrierFactory>,
     val datasource: String?,
@@ -72,7 +71,7 @@ class TealiumConfig private constructor(
             "tealium",
             accountName,
             profileName,
-            environment.environment
+            environment
         ).joinToString(File.separator)
 
     val tealiumDirectory: File
@@ -91,7 +90,7 @@ class TealiumConfig private constructor(
         val application: Application,
         val accountName: String,
         val profileName: String,
-        val environment: Environment,
+        val environment: String,
         modules: List<ModuleFactory>
     ) {
         private val modules = modules.toMutableList()
@@ -247,14 +246,15 @@ class TealiumConfig private constructor(
             )
         }
 
-        private val enforcedSdkSettings: DataObject
-            get() = DataObject.create {
+        private fun enforcedSdkSettings(deduplicatedModules: List<ModuleFactory>): DataObject =
+            DataObject.create {
                 val coreSettings = enforcingCoreSettings?.invoke(CoreSettingsBuilder())
                 if (coreSettings != null) {
                     put(CoreSettingsImpl.MODULE_NAME, coreSettings.build())
                 }
+
                 val modulesObject = DataObject.create {
-                    modules.flatMap { factory ->
+                    deduplicatedModules.flatMap { factory ->
                         factory.getEnforcedSettings().map { settings ->
                             val moduleId = settings.getString(ModuleSettings.KEY_MODULE_ID)
                                 ?: factory.moduleType
@@ -293,12 +293,16 @@ class TealiumConfig private constructor(
          * Takes an immutable copy of any configured settings
          */
         fun build(): TealiumConfig {
+            // Add defaults and dedupe
+            val dedupedModules = (modules + Modules.defaultModules)
+                .distinctBy(ModuleFactory::moduleType)
+
             return TealiumConfig(
                 application,
                 accountName,
                 profileName,
                 environment,
-                modules.toList(),
+                dedupedModules,
                 barriers.toList(),
                 datasource,
                 settingsFile,
@@ -306,7 +310,7 @@ class TealiumConfig private constructor(
                 logHandler,
                 existingVisitorId,
                 cmpAdapter,
-                enforcedSdkSettings
+                enforcedSdkSettings(dedupedModules)
             )
         }
     }

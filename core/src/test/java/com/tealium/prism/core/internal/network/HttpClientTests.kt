@@ -1,7 +1,7 @@
 package com.tealium.prism.core.internal.network
 
 import com.tealium.prism.core.api.logger.Logger
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.network.HttpRequest
 import com.tealium.prism.core.api.network.Interceptor
 import com.tealium.prism.core.api.network.NetworkException.CancelledException
@@ -552,7 +552,7 @@ class HttpClientTests {
             .setBody(Buffer().write(bytes))
         startMockWebServer(response)
 
-        val callback = mockk<TealiumCallback<NetworkResult>>()
+        val callback = mockk<Callback<NetworkResult>>()
         val request = HttpRequest.get(urlString).build()
         httpClient.sendRequest(request, callback)
 
@@ -577,7 +577,7 @@ class HttpClientTests {
             .setBody(Buffer().write(gzipped))
         startMockWebServer(response)
 
-        val callback = mockk<TealiumCallback<NetworkResult>>()
+        val callback = mockk<Callback<NetworkResult>>()
         val request = HttpRequest.get(urlString).build()
         httpClient.sendRequest(request, callback)
 
@@ -601,7 +601,7 @@ class HttpClientTests {
             .setBody(Buffer().write(bytes))
         startMockWebServer(response)
 
-        val callback = mockk<TealiumCallback<NetworkResult>>()
+        val callback = mockk<Callback<NetworkResult>>()
         val request = HttpRequest.get(urlString).build()
         httpClient.sendRequest(request, callback)
 
@@ -625,7 +625,7 @@ class HttpClientTests {
             .setBody(Buffer().write(bytes))
         startMockWebServer(response)
 
-        val callback = mockk<TealiumCallback<NetworkResult>>()
+        val callback = mockk<Callback<NetworkResult>>()
         val request = HttpRequest.get(urlString).build()
         httpClient.sendRequest(request, callback)
 

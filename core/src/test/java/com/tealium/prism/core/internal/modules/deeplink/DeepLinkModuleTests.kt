@@ -7,6 +7,7 @@ import android.os.Build
 import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.misc.ActivityManager
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleManager
 import com.tealium.prism.core.api.modules.ModuleNotEnabledException
@@ -27,7 +28,6 @@ import com.tealium.prism.core.api.tracking.TrackResultListener
 import com.tealium.prism.core.api.tracking.Tracker
 import com.tealium.prism.core.internal.modules.ModuleManagerImpl
 import com.tealium.prism.core.internal.modules.trace.TraceModule
-import com.tealium.tests.common.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.buildConfiguration
 import com.tealium.tests.common.mockkEditor
@@ -78,7 +78,7 @@ class DeepLinkModuleTests {
             deepLinkTraceEnabled = true
         )
         modules = Observables.stateSubject(listOf(traceModule))
-        moduleManager = ModuleManagerImpl(SynchronousScheduler(), modules)
+        moduleManager = ModuleManagerImpl(Scheduler.SYNCHRONOUS, modules)
 
         dataStoreEditor = mockkEditor()
         every { dataStore.edit() } returns dataStoreEditor
@@ -277,17 +277,17 @@ class DeepLinkModuleTests {
     }
 
     @Test
-    fun handle_Calls_TraceModule_KillVisitorSession_When_KillVisitorSession_Present() {
+    fun handle_Calls_TraceModule_ForceEndVisit_When_ForceEndVisit_Present() {
         val traceId = "test_trace_id"
         uri = uri.buildUpon()
             .appendQueryParameter(DeepLinkModule.TRACE_ID_QUERY_PARAM, traceId)
-            .appendQueryParameter(DeepLinkModule.KILL_VISITOR_SESSION, "true")
+            .appendQueryParameter(DeepLinkModule.FORCE_END_OF_VISIT, "true")
             .build()
 
         deepLinkModule.handle(uri)
 
         verify {
-            traceModule.killVisitorSession(any())
+            traceModule.forceEndOfVisit(any())
         }
     }
 
@@ -297,21 +297,21 @@ class DeepLinkModuleTests {
         val traceId = "test_trace_id"
         uri = uri.buildUpon()
             .appendQueryParameter(DeepLinkModule.TRACE_ID_QUERY_PARAM, traceId)
-            .appendQueryParameter(DeepLinkModule.KILL_VISITOR_SESSION, "true")
+            .appendQueryParameter(DeepLinkModule.FORCE_END_OF_VISIT, "true")
             .build()
 
         deepLinkModule.handle(uri)
     }
 
     @Test
-    fun handle_Trace_Throws_Exception_When_KillVisitorSession_Fails() {
+    fun handle_Trace_Throws_Exception_When_ForceEndVisit_Fails() {
         val callback = slot<TrackResultListener>()
-        every { traceModule.killVisitorSession(capture(callback)) } answers {
+        every { traceModule.forceEndOfVisit(capture(callback)) } answers {
             callback.captured.onTrackResultReady(TrackResult.dropped(mockk(), ""))
         }
         uri = uri.buildUpon()
             .appendQueryParameter(DeepLinkModule.TRACE_ID_QUERY_PARAM, "test_trace_id")
-            .appendQueryParameter(DeepLinkModule.KILL_VISITOR_SESSION, "true")
+            .appendQueryParameter(DeepLinkModule.FORCE_END_OF_VISIT, "true")
             .build()
 
         deepLinkModule.handle(uri)

@@ -1,8 +1,14 @@
 package com.tealium.prism.core.api.network
 
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.pubsub.Disposable
 
+/**
+ * Utility class for making asynchronous Http requests.
+ *
+ * Requests will be made on an IO thread, but any completions will be executed on the Tealium background
+ * thread.
+ */
 interface NetworkClient {
     /**
      * Sends an HTTP request asynchronously and returns the result to the provided [completion] block.
@@ -13,7 +19,7 @@ interface NetworkClient {
      * on Tealium's background thread.
      * @return A [Disposable] that can be used to cancel the request.
      */
-    fun sendRequest(request: HttpRequest, completion: TealiumCallback<NetworkResult>): Disposable
+    fun sendRequest(request: HttpRequest, completion: Callback<NetworkResult>): Disposable
 
     /**
      * Adds an interceptor to the client's list of interceptors.

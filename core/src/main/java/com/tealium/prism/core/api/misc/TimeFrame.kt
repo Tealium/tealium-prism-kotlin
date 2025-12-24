@@ -28,6 +28,9 @@ data class TimeFrame(
     }
 }
 
+/**
+ * Utility object for easily creating [TimeFrame] objects of different lengths and units.
+ */
 object TimeFrameUtils {
     /**
      * Returns a [TimeFrame] representing the number of nanoseconds given by the integer value

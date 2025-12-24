@@ -18,7 +18,7 @@ import com.tealium.prism.core.api.pubsub.ReplaySubject
 import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.pubsub.Subject
 import com.tealium.prism.core.internal.pubsub.DisposableContainer
-import com.tealium.prism.core.internal.pubsub.addTo
+import com.tealium.prism.core.api.pubsub.addTo
 import com.tealium.prism.core.internal.utils.Singleton
 import java.util.concurrent.TimeUnit
 
@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit
  */
 class ActivityManagerImpl(
     application: Application,
-    private val mainScheduler: Scheduler = LooperScheduler(),
+    private val mainScheduler: Scheduler = Scheduler.MAIN,
     timeoutSeconds: Long = 10L, //TODO - decide on buffer period
     launchStatus: ApplicationStatus = ApplicationStatus.Init(),
     private val _activities: ReplaySubject<ActivityStatus> =

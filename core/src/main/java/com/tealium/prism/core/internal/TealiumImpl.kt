@@ -7,6 +7,7 @@ import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.logger.logIfWarnEnabled
 import com.tealium.prism.core.api.misc.ActivityManager
 import com.tealium.prism.core.api.misc.Schedulers
+import com.tealium.prism.core.api.misc.TealiumException
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
@@ -19,6 +20,7 @@ import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.ReplaySubject
+import com.tealium.prism.core.api.pubsub.addTo
 import com.tealium.prism.core.api.settings.CoreSettings
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchContext
@@ -45,8 +47,6 @@ import com.tealium.prism.core.internal.misc.ActivityManagerProxy
 import com.tealium.prism.core.internal.misc.TrackerImpl
 import com.tealium.prism.core.internal.modules.InternalModuleManager
 import com.tealium.prism.core.internal.modules.ModuleManagerImpl
-import com.tealium.prism.core.internal.modules.TealiumDataModule
-import com.tealium.prism.core.internal.modules.datalayer.DataLayerModule
 import com.tealium.prism.core.internal.network.ConnectivityInterceptor
 import com.tealium.prism.core.internal.network.ConnectivityRetriever
 import com.tealium.prism.core.internal.network.HttpClient
@@ -62,14 +62,12 @@ import com.tealium.prism.core.internal.persistence.repositories.QueueRepository
 import com.tealium.prism.core.internal.persistence.repositories.SQLModulesRepository
 import com.tealium.prism.core.internal.persistence.repositories.SQLQueueRepository
 import com.tealium.prism.core.internal.pubsub.DisposableContainer
-import com.tealium.prism.core.internal.pubsub.addTo
 import com.tealium.prism.core.internal.rules.LoadRuleEngineImpl
 import com.tealium.prism.core.internal.session.SessionManagerImpl
 import com.tealium.prism.core.internal.session.SessionRegistryImpl
 import com.tealium.prism.core.internal.settings.CoreSettingsImpl
 import com.tealium.prism.core.internal.settings.SdkSettings
 import com.tealium.prism.core.internal.settings.SettingsManager
-import java.io.File
 import java.io.IOException
 
 class TealiumImpl(
@@ -80,29 +78,28 @@ class TealiumImpl(
         schedulers.tealium
     ),
     activityManager: ActivityManager = ActivityManagerImpl.getInstance(config.application),
+    private val disposables: CompositeDisposable = DisposableContainer()
 ) {
     private val sdkSettingsSubject: ReplaySubject<SdkSettings> = Observables.replaySubject(1)
     private val logLevel: Observable<LogLevel> = sdkSettingsSubject.map { it.core.logLevel }
     val logger: Logger = LoggerImpl(
+        schedulers.tealium,
         config.logHandler,
         logLevel,
         config.enforcedSdkSettings.getDataObject(CoreSettingsImpl.MODULE_NAME)
             ?.get(CoreSettingsImpl.KEY_LOG_LEVEL, LogLevel.Converter)
     )
-    private val instanceName: String = "${config.accountName}-${config.profileName}"
-    private val settings: ObservableState<SdkSettings>
-    private val coreSettings: ObservableState<CoreSettings>
-    private val networkUtilities: NetworkUtilities
     private val dispatchManager: DispatchManagerImpl
     private val barrierCoordinator: BarrierCoordinator
     private val tracker: TrackerImpl
-    private val tealiumContext: TealiumContext
-    private val disposables: CompositeDisposable = DisposableContainer()
     private val connectivityRetriever: ConnectivityRetriever
     private val visitorIdProvider: VisitorIdProvider
     private val onModulesReady: ReplaySubject<Unit> = Observables.replaySubject(1)
     private val activityManager: ActivityManager = subscribeActivityManager(activityManager)
     private val sessionManager: SessionManagerImpl
+
+    val isShutdown: Boolean
+        get() = disposables.isDisposed
 
     init {
         makeTealiumDirectory(config)
@@ -122,8 +119,7 @@ class TealiumImpl(
 
         connectivityRetriever =
             ConnectivityRetriever(config.application, schedulers.tealium, logger = logger)
-        connectivityRetriever.subscribe()
-        networkUtilities = createNetworkUtilities(logger, schedulers, connectivityRetriever)
+        val networkUtilities = createNetworkUtilities(logger, schedulers, connectivityRetriever)
 
         val settingsManager = SettingsManager(
             config,
@@ -132,17 +128,17 @@ class TealiumImpl(
             logger = logger
         )
 
-        settings = settingsManager.sdkSettings
+        val settings = settingsManager.sdkSettings
         settings.subscribe(sdkSettingsSubject)
+            .addTo(disposables)
 
-        coreSettings =
-            settings.map(SdkSettings::core).withState(settings.value::core)
+        val coreSettings =
+            settings.mapState(SdkSettings::core)
 
         sessionManager =
             SessionManagerImpl(
-                sessionTimeout = coreSettings.map { it.sessionTimeout }
-                    .withState { coreSettings.value.sessionTimeout },
-                dataStore = storage.getSharedDataStore(),
+                sessionTimeout = coreSettings.mapState(CoreSettings::sessionTimeout),
+                dataStore = sharedDataStore,
                 scheduler = schedulers.tealium,
                 modulesRepository = modulesRepository,
                 logger = logger
@@ -180,16 +176,16 @@ class TealiumImpl(
 
         val loadRuleEngine = LoadRuleEngineImpl(settings, logger)
         val mappingsEngine = MappingsEngine(
-            settings.map(::extractMappings)
-                .withState { extractMappings(settings.value) })
+            settings.mapState(::extractMappings)
+        )
         val consentManager = ConsentIntegrationManager.create(
             moduleManager.modules,
             queueManager,
             config.cmpAdapter,
-            settings.map { it.consent }.withState { settings.value.consent },
+            settings.mapState(SdkSettings::consent),
             schedulers.tealium,
             logger
-        )
+        )?.addTo(disposables)
 
         dispatchManager = DispatchManagerImpl(
             moduleManager = moduleManager,
@@ -209,26 +205,16 @@ class TealiumImpl(
             logger
         )
 
-        visitorIdProvider = VisitorIdProviderImpl(
-            config,
-            sharedDataStore,
-            logger
-        )
-        subscribeIdentityUpdates(
-            settings.map(SdkSettings::core),
-            storage.getModuleStore(Modules.Types.DATA_LAYER),
-            visitorIdProvider,
-        ).addTo(disposables)
+        visitorIdProvider =
+            VisitorIdProviderImpl(config, sharedDataStore, logger)
 
-        tealiumContext =
+        val tealiumContext =
             TealiumContext(
                 config.application,
                 config,
                 logger = logger,
                 visitorId = visitorIdProvider.visitorId,
-                storageProvider = ModuleStoreProviderImpl(
-                    dbProvider, modulesRepository
-                ),
+                storageProvider = storage,
                 network = networkUtilities,
                 coreSettings = coreSettings,
                 tracker = tracker,
@@ -241,20 +227,34 @@ class TealiumImpl(
                 sessionRegistry = SessionRegistryImpl(sessionManager)
             )
 
-        loadModuleFactories(config.modules, moduleManager, logger)
+        try {
+            // handle all subscriptions so that errors thrown can appropriately be disposed/shutdown
+            subscribeIdentityUpdates(
+                coreSettings,
+                storage.getModuleStore(Modules.Types.DATA_LAYER),
+                visitorIdProvider,
+            ).addTo(disposables)
 
-        barrierManager.initializeBarriers(config.barriers, tealiumContext)
-        settings.subscribe { newSettings ->
-            moduleManager.updateModuleSettings(tealiumContext, newSettings)
-        }.addTo(disposables)
-        onModulesReady.onNext(Unit)
+            connectivityRetriever.subscribe()
+            // TODO - ModulesFactory's are now deduped in [TealiumConfig] - can inject these directly into ModuleManager instead
+            loadModuleFactories(config.modules, moduleManager, logger)
 
-        settingsManager.subscribeToActivityUpdates(activityManager.applicationStatus)
-            .addTo(disposables)
+            barrierManager.initializeBarriers(config.barriers, tealiumContext)
+            settings.subscribe { newSettings ->
+                moduleManager.updateModuleSettings(tealiumContext, newSettings)
+            }.addTo(disposables)
+            onModulesReady.onNext(Unit)
 
-        dispatchManager.startDispatchLoop()
+            settingsManager.subscribeToActivityUpdates(activityManager.applicationStatus)
+                .addTo(disposables)
 
-        logger.info(LogCategory.TEALIUM, "Instance %s initialized.", instanceName)
+            dispatchManager.startDispatchLoop()
+        } catch (t: Throwable) {
+            shutdown()
+            throw TealiumException(cause = t)
+        }
+
+        logger.info(LogCategory.TEALIUM, "Instance %s initialized.", config.key)
     }
 
     /**
@@ -318,23 +318,17 @@ class TealiumImpl(
     fun clearStoredVisitorIds(): String = visitorIdProvider.clearStoredVisitorIds()
 
     fun shutdown() {
-        logger.info(LogCategory.TEALIUM, "Instance %s shutting down.", instanceName)
+        logger.info(LogCategory.TEALIUM, "Instance %s shutting down.", config.key)
 
         disposables.dispose()
         dispatchManager.stopDispatchLoop()
         moduleManager.shutdown()
         connectivityRetriever.unsubscribe()
         sessionManager.shutdown()
+        dbProvider.database.close()
     }
 
     companion object {
-
-        private fun getDefaultModules(): List<ModuleFactory> {
-            return listOf(
-                DataLayerModule.Factory(),
-                TealiumDataModule.Factory(),
-            )
-        }
 
         /**
          * Loads the given [factories] into the given [moduleManager].
@@ -353,9 +347,7 @@ class TealiumImpl(
             moduleManager: InternalModuleManager,
             logger: Logger
         ) {
-            val defaults = getDefaultModules()
-
-            for (validatedFactory in addAndValidateDefaultFactories(factories, defaults, logger)) {
+            for (validatedFactory in addAndValidateDefaultFactories(factories, Modules.defaultModules, logger)) {
                 if (!moduleManager.addModuleFactory(validatedFactory)) {
                     logger.logIfWarnEnabled(LogCategory.TEALIUM) {
                         "Duplicate Module Factory with moduleType \"${validatedFactory.moduleType}\" was found. It will not be used."
@@ -425,10 +417,12 @@ class TealiumImpl(
             logger: Logger
         ): TransformerCoordinator {
             return TransformerCoordinatorImpl(
-                modules.map { it.filterIsInstance<Transformer>() }
-                    .withState { modules.value.filterIsInstance<Transformer>() },
-                sdkSettings.map { it.transformations.values.toSet() }
-                    .withState { sdkSettings.value.transformations.values.toSet() },
+                modules.mapState { modules ->
+                    modules.filterIsInstance<Transformer>()
+                },
+                sdkSettings.mapState { settings ->
+                    settings.transformations.values.toSet()
+                },
                 schedulers.tealium,
                 logger
             )
@@ -462,9 +456,7 @@ class TealiumImpl(
             }.toMap()
 
         fun makeTealiumDirectory(config: TealiumConfig) {
-            val pathName =
-                "${config.application.filesDir}${File.separatorChar}tealium${File.separatorChar}${config.accountName}${File.separatorChar}${config.profileName}${File.separatorChar}${config.environment.environment}"
-            val tealiumDirectory = File(pathName)
+            val tealiumDirectory = config.tealiumDirectory
             if (tealiumDirectory.exists()) return
 
             try {

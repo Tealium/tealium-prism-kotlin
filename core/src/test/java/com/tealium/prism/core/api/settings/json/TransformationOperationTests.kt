@@ -4,7 +4,9 @@ import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataItemConverter
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.DataObjectConvertible
-import com.tealium.prism.core.api.settings.VariableAccessor
+import com.tealium.prism.core.api.data.JsonPath
+import com.tealium.prism.core.api.data.ReferenceContainer
+import com.tealium.prism.core.api.data.get
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
@@ -15,7 +17,7 @@ class TransformationOperationTests {
 
     @Test
     fun constructor_Sets_Properties_Correctly() {
-        val output = VariableAccessor("test_variable", listOf("path1"))
+        val output = ReferenceContainer.path(JsonPath["path1"]["test_variable"])
         val parameters = TestParameters("test_value")
 
         val operation = TransformationOperation(output, parameters)
@@ -26,14 +28,15 @@ class TransformationOperationTests {
 
     @Test
     fun asDataObject_Returns_Correct_DataObject() {
-        val output = VariableAccessor("test_variable", listOf("path1"))
+        val output = ReferenceContainer.path(JsonPath["path1"]["test_variable"])
         val parameters = TestParameters("test_value")
         val operation = TransformationOperation(output, parameters)
 
         val dataObject = operation.asDataObject()
 
         assertNotNull(dataObject)
-        val outputAccessor = dataObject.get(TransformationOperation.KEY_DESTINATION, VariableAccessor.Converter)
+        val outputAccessor = dataObject.get(TransformationOperation.KEY_DESTINATION,
+            ReferenceContainer.Converter)
         assertEquals(output, outputAccessor)
         
         val parametersDataObject = dataObject.getDataObject(TransformationOperation.KEY_PARAMETERS)
@@ -43,12 +46,12 @@ class TransformationOperationTests {
 
     @Test
     fun converter_Converts_DataObject_To_TransformationOperation_Correctly() {
-        val variable = "test_variable"
-        val path = listOf("path1")
+        val path = JsonPath["path1"]["test_variable"]
+        val reference = ReferenceContainer.path(path)
         val paramValue = "test_value"
 
         val dataObject = DataObject.create {
-            put(TransformationOperation.KEY_DESTINATION, VariableAccessor(variable, path))
+            put(TransformationOperation.KEY_DESTINATION, reference)
             put(TransformationOperation.KEY_PARAMETERS, TestParameters(paramValue))
         }
 
@@ -56,7 +59,7 @@ class TransformationOperationTests {
         val operation = converter.convert(dataObject.asDataItem())!!
 
         assertNotNull(operation)
-        assertEquals(variable, operation.destination.variable)
+        assertEquals(reference, operation.destination)
         assertEquals(path, operation.destination.path)
         assertEquals(paramValue, operation.parameters.value)
     }
@@ -84,7 +87,7 @@ class TransformationOperationTests {
     @Test
     fun converter_Returns_Null_When_Parameters_Is_Missing() {
         val dataObject = DataObject.create {
-            put(TransformationOperation.KEY_DESTINATION, VariableAccessor("test_variable", listOf("path1")))
+            put(TransformationOperation.KEY_DESTINATION, JsonPath["path1"]["test_variable"])
         }
 
         val converter = TransformationOperation.Converter(TestParameters.Converter)
@@ -95,8 +98,8 @@ class TransformationOperationTests {
 
     @Test
     fun equals_And_HashCode_Are_Correct() {
-        val output1 = VariableAccessor("variable1", listOf("path1"))
-        val output2 = VariableAccessor("variable2", listOf("path2"))
+        val output1 = ReferenceContainer.path(JsonPath["path1"]["variable1"])
+        val output2 = ReferenceContainer.path(JsonPath["path1"]["variable2"])
         val params1 = TestParameters("value1")
         val params2 = TestParameters("value2")
 

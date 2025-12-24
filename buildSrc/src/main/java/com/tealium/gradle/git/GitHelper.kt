@@ -1,6 +1,5 @@
 package com.tealium.gradle.git
 
-import com.tealium.gradle.getPropertyOrEnvironmentVariable
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.diff.DiffEntry
 import org.eclipse.jgit.lib.Ref
@@ -11,50 +10,51 @@ import org.eclipse.jgit.revwalk.RevWalk
 import org.eclipse.jgit.treewalk.AbstractTreeIterator
 import org.eclipse.jgit.treewalk.CanonicalTreeParser
 import org.eclipse.jgit.treewalk.filter.PathFilter
-import org.gradle.api.Project
+import org.gradle.api.logging.Logger
+import java.io.File
 import java.io.IOException
 
 object GitHelper {
 
     fun isModified(
-        project: Project,
-        baseBranch: String? = null,
-        incomingBranch: String? = null
+        rootDir: File,
+        projectName: String,
+        baseBranch: String,
+        incomingBranch: String,
+        logger: Logger
     ): Boolean {
-        val incoming = incomingBranch
-            ?: project.getPropertyOrEnvironmentVariable("GITHUB_HEAD_REF", "")
-        if (incoming.isEmpty()) {
-            throw IllegalStateException("No incoming branch found; using HEAD. Was GITHUB_HEAD_REF set?")
+        if (baseBranch.isEmpty()) {
+            logger.warn("No base branch found. Was GITHUB_BASE_REF set?")
+            return false
+        }
+        if (incomingBranch.isEmpty()) {
+            logger.warn("No incoming branch found; using HEAD. Was GITHUB_HEAD_REF set?")
+            return false
         }
 
-        val base = baseBranch
-            ?: project.getPropertyOrEnvironmentVariable("GITHUB_BASE_REF", "")
-        if (base.isEmpty()) {
-            throw IllegalStateException("No base branch found. Was GITHUB_BASE_REF set?")
-        }
+        logger.lifecycle("Comparing ($incomingBranch) with base ($baseBranch)")
 
-        val repo = Git.open(project.rootDir)
-        project.logger.lifecycle("Comparing ($incoming) with base ($base)")
+        val repo = Git.open(rootDir)
 
-        val old = prepareTreeParser(repo.repository, base)
-        val new = prepareTreeParser(repo.repository, incoming)
+        val old = prepareTreeParser(repo.repository, baseBranch)
+        val new = prepareTreeParser(repo.repository, incomingBranch)
 
         val diff = repo.diff()
             .setNewTree(new)
             .setOldTree(old)
-            .setPathFilter(PathFilter.create("${project.name}/"))
+            .setPathFilter(PathFilter.create("$projectName/"))
             .call()
 
         val changePaths = diff.flatMap(::getChangedPaths)
         changePaths.forEach {
-            project.logger.info("Changed: $it")
+            logger.info("Changed: $it")
         }
 
         return if (changePaths.isNotEmpty()) {
-            project.logger.lifecycle("Found changes for ${project.name}")
+            logger.lifecycle("Found changes for $projectName")
             true
         } else {
-            project.logger.lifecycle("No changes for ${project.name}; skipping.")
+            logger.lifecycle("No changes for $projectName; skipping.")
             false
         }
     }

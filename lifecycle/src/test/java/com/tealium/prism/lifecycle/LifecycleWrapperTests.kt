@@ -1,7 +1,8 @@
 package com.tealium.prism.lifecycle
 
 import com.tealium.prism.core.api.Tealium
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleManager
 import com.tealium.prism.core.api.modules.ModuleNotEnabledException
@@ -15,7 +16,6 @@ import com.tealium.prism.core.internal.modules.ModuleManagerImpl
 import com.tealium.prism.core.internal.modules.ModuleProxyImpl
 import com.tealium.prism.lifecycle.internal.LifecycleModule
 import com.tealium.prism.lifecycle.internal.LifecycleWrapper
-import com.tealium.tests.common.SynchronousScheduler
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
@@ -35,7 +35,7 @@ class LifecycleWrapperTests {
     private lateinit var proxy: ModuleProxy<LifecycleModule>
 
     private lateinit var lifecycleWrapper: LifecycleWrapper
-    private val scheduler = SynchronousScheduler()
+    private val scheduler = Scheduler.SYNCHRONOUS
 
     @Before
     fun setUp() {
@@ -54,7 +54,7 @@ class LifecycleWrapperTests {
     fun methods_Report_ModuleNotEnabled() {
         modules.onNext(emptyList())
 
-        val completion = mockk<TealiumCallback<Exception>>(relaxed = true)
+        val completion = mockk<Callback<Exception>>(relaxed = true)
         lifecycleWrapper.launch().onFailure(completion)
         lifecycleWrapper.wake().onFailure(completion)
         lifecycleWrapper.sleep().onFailure(completion)
@@ -66,7 +66,7 @@ class LifecycleWrapperTests {
     fun methods_Report_TealiumShutdown_WhenNoModuleManager() {
         onModuleManager.onNext(null)
 
-        val completion = mockk<TealiumCallback<Exception>>(relaxed = true)
+        val completion = mockk<Callback<Exception>>(relaxed = true)
         lifecycleWrapper.launch().onFailure(completion)
         lifecycleWrapper.wake().onFailure(completion)
         lifecycleWrapper.sleep().onFailure(completion)
@@ -76,7 +76,7 @@ class LifecycleWrapperTests {
 
     @Test
     fun launch_ReturnsSuccess_WhenModuleEnabled() {
-        val completion = mockk<TealiumCallback<Unit>>(relaxed = true)
+        val completion = mockk<Callback<Unit>>(relaxed = true)
         lifecycleWrapper.launch().onSuccess(completion)
 
         verify(exactly = 1) { completion.onComplete(Unit) }
@@ -84,7 +84,7 @@ class LifecycleWrapperTests {
 
     @Test
     fun wake_ReturnsSuccess_WhenModuleEnabled() {
-        val completion = mockk<TealiumCallback<Unit>>(relaxed = true)
+        val completion = mockk<Callback<Unit>>(relaxed = true)
         lifecycleWrapper.wake().onSuccess(completion)
 
         verify(exactly = 1) { completion.onComplete(Unit) }
@@ -92,7 +92,7 @@ class LifecycleWrapperTests {
 
     @Test
     fun sleep_Returns_Success_When_Module_Enabled() {
-        val completion = mockk<TealiumCallback<Unit>>(relaxed = true)
+        val completion = mockk<Callback<Unit>>(relaxed = true)
         lifecycleWrapper.sleep().onSuccess(completion)
 
         verify(exactly = 1) { completion.onComplete(Unit) }

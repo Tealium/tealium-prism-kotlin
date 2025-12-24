@@ -1,6 +1,7 @@
 package com.tealium.prism.core.internal.settings
 
-import com.tealium.prism.core.api.settings.VariableAccessor
+import com.tealium.prism.core.api.data.JsonPath
+import com.tealium.prism.core.api.data.get
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -25,50 +26,44 @@ class MappingsImplTests {
         assertEquals(1, transformations.size)
 
         val transformation = transformations[0]
-        assertEquals("destination", transformation.destination.variable)
-        assertNull(transformation.destination.path)
+        assertEquals(JsonPath["destination"], transformation.destination.path)
 
         val params = transformation.parameters
-        assertEquals("source", params.key?.variable)
-        assertNull(params.key?.path)
+        assertEquals(JsonPath["source"], params.reference?.path)
         assertNull(params.filter)
         assertNull(params.mapTo)
     }
 
     @Test
     fun from_Builds_Transformation_Operation_When_Using_Key_Path_And_Destination() {
-        val builder = mappings.from("source", listOf("path", "to"), "destination")
+        val builder = mappings.from(JsonPath["path"]["to"]["source"], "destination")
         assertNotNull(builder)
 
         val transformations = mappings.build()
         assertEquals(1, transformations.size)
 
         val transformation = transformations[0]
-        assertEquals("destination", transformation.destination.variable)
-        assertNull(transformation.destination.path)
+        assertEquals(JsonPath["destination"], transformation.destination.path)
 
         val params = transformation.parameters
-        assertEquals("source", params.key?.variable)
-        assertEquals(listOf("path", "to"), params.key?.path)
+        assertEquals(JsonPath["path"]["to"]["source"], params.reference?.path)
         assertNull(params.filter)
         assertNull(params.mapTo)
     }
 
     @Test
     fun from_Builds_Transformation_Operation_When_Using_Key_And_Destination_Path() {
-        val builder = mappings.from("source", "destination", listOf("path", "to"))
+        val builder = mappings.from("source", JsonPath["path"]["to"]["destination"])
         assertNotNull(builder)
 
         val transformations = mappings.build()
         assertEquals(1, transformations.size)
 
         val transformation = transformations[0]
-        assertEquals("destination", transformation.destination.variable)
-        assertEquals(listOf("path", "to"), transformation.destination.path)
+        assertEquals(JsonPath["path"]["to"]["destination"], transformation.destination.path)
 
         val params = transformation.parameters
-        assertEquals("source", params.key?.variable)
-        assertNull(params.key?.path)
+        assertEquals(JsonPath["source"], params.reference?.path)
         assertNull(params.filter)
         assertNull(params.mapTo)
     }
@@ -76,64 +71,33 @@ class MappingsImplTests {
     @Test
     fun from_Builds_Transformation_Operation_When_Using_Key_Path_And_Destination_Path() {
         val builder =
-            mappings.from("source", listOf("path", "to"), "destination", listOf("dest", "path"))
+            mappings.from(JsonPath["path"]["to"]["source"], JsonPath["dest"]["path"]["destination"])
         assertNotNull(builder)
 
         val transformations = mappings.build()
         assertEquals(1, transformations.size)
 
         val transformation = transformations[0]
-        assertEquals("destination", transformation.destination.variable)
-        assertEquals(listOf("dest", "path"), transformation.destination.path)
+        assertEquals(JsonPath["dest"]["path"]["destination"], transformation.destination.path)
 
         val params = transformation.parameters
-        assertEquals("source", params.key?.variable)
-        assertEquals(listOf("path", "to"), params.key?.path)
+        assertEquals(JsonPath["path"]["to"]["source"], params.reference?.path)
         assertNull(params.filter)
         assertNull(params.mapTo)
     }
 
     @Test
-    fun from_Builds_Transformation_Operation_When_Using_Variable_Accessor_Objects() {
-        val source = VariableAccessor("source", listOf("path", "to"))
-        val destination = VariableAccessor("destination", listOf("dest", "path"))
+    fun path_Creates_JsonPath_When_Using_Single_Path_Component() {
+        val path = mappings.path("key")
 
-        val builder = mappings.from(source, destination)
-        assertNotNull(builder)
-
-        val transformations = mappings.build()
-        assertEquals(1, transformations.size)
-
-        val transformation = transformations[0]
-        assertEquals("destination", transformation.destination.variable)
-        assertEquals(listOf("dest", "path"), transformation.destination.path)
-
-        val params = transformation.parameters
-        assertEquals("source", params.key?.variable)
-        assertEquals(listOf("path", "to"), params.key?.path)
-        assertNull(params.filter)
-        assertNull(params.mapTo)
+        assertEquals(JsonPath["key"], path)
     }
 
     @Test
-    fun variable_Creates_Accessor_When_Using_Single_Path_Component() {
-        val accessor = mappings.variable("key")
+    fun path_Creates_JsonPath_When_Using_Multiple_Path_Components() {
+        val path = mappings.path("obj")["sub"]["key"]
 
-        assertEquals("key", accessor.variable)
-        assertNull(accessor.path)
-    }
-
-    @Test
-    fun variable_Creates_Accessor_When_Using_Multiple_Path_Components() {
-        val accessor = mappings.variable("obj", "sub", "key")
-
-        assertEquals("key", accessor.variable)
-        assertEquals(listOf("obj", "sub"), accessor.path)
-    }
-
-    @Test(expected = IllegalArgumentException::class)
-    fun variable_Throws_Exception_When_Using_Empty_Path() {
-        mappings.variable()
+        assertEquals(JsonPath["obj"]["sub"]["key"], path)
     }
 
     @Test
@@ -160,20 +124,20 @@ class MappingsImplTests {
         assertEquals(3, transformations.size)
 
         val transformation1 = transformations[0]
-        assertEquals("destination1", transformation1.destination.variable)
-        assertEquals("source1", transformation1.parameters.key?.variable)
+        assertEquals(JsonPath["destination1"], transformation1.destination.path)
+        assertEquals(JsonPath["source1"], transformation1.parameters.reference?.path)
         assertNull(transformation1.parameters.filter)
         assertNull(transformation1.parameters.mapTo)
 
         val transformation2 = transformations[1]
-        assertEquals("destination2", transformation2.destination.variable)
-        assertEquals("source2", transformation2.parameters.key?.variable)
+        assertEquals(JsonPath["destination2"], transformation2.destination.path)
+        assertEquals(JsonPath["source2"], transformation2.parameters.reference?.path)
         assertEquals("value2", transformation2.parameters.filter?.value)
         assertNull(transformation2.parameters.mapTo)
 
         val transformation3 = transformations[2]
-        assertEquals("destination3", transformation3.destination.variable)
-        assertEquals("source3", transformation3.parameters.key?.variable)
+        assertEquals(JsonPath["destination3"], transformation3.destination.path)
+        assertEquals(JsonPath["source3"], transformation3.parameters.reference?.path)
         assertEquals("value3", transformation3.parameters.filter?.value)
         assertEquals("mapped3", transformation3.parameters.mapTo?.value)
     }
@@ -187,32 +151,15 @@ class MappingsImplTests {
         assertEquals(1, mappingsList.size)
 
         val mapping = mappingsList[0]
-        assertEquals("destination", mapping.destination.variable)
-        assertNull(mapping.destination.path)
-        assertNull(mapping.parameters.key)
+        assertEquals(JsonPath["destination"], mapping.destination.path)
+        assertNull(mapping.parameters.reference)
         assertNull(mapping.parameters.filter)
         assertEquals("constant_value", mapping.parameters.mapTo?.value)
     }
 
     @Test
     fun constant_Builds_Transformation_Operation_With_Destination_Path() {
-        val builder = mappings.constant("constant_value", "destination", listOf("path", "to"))
-        assertNotNull(builder)
-
-        val mappingsList = mappings.build()
-        assertEquals(1, mappingsList.size)
-
-        val mapping = mappingsList[0]
-        assertEquals("destination", mapping.destination.variable)
-        assertEquals(listOf("path", "to"), mapping.destination.path)
-        assertNull(mapping.parameters.key)
-        assertNull(mapping.parameters.filter)
-        assertEquals("constant_value", mapping.parameters.mapTo?.value)
-    }
-
-    @Test
-    fun constant_Builds_Transformation_Operation_With_VariableAccessor() {
-        val destination = VariableAccessor("destination", listOf("dest", "path"))
+        val destination = JsonPath["path"]["to"]["destination"]
         val builder = mappings.constant("constant_value", destination)
         assertNotNull(builder)
 
@@ -220,16 +167,15 @@ class MappingsImplTests {
         assertEquals(1, mappingsList.size)
 
         val mapping = mappingsList[0]
-        assertEquals("destination", mapping.destination.variable)
-        assertEquals(listOf("dest", "path"), mapping.destination.path)
-        assertNull(mapping.parameters.key)
+        assertEquals(destination, mapping.destination.path)
+        assertNull(mapping.parameters.reference)
         assertNull(mapping.parameters.filter)
         assertEquals("constant_value", mapping.parameters.mapTo?.value)
     }
 
     @Test
     fun constant_Builds_Transformation_Operation_With_Options() {
-        val destination = VariableAccessor("destination", listOf("dest", "path"))
+        val destination = JsonPath["dest"]["path"]["destination"]
         val builder = mappings.constant("constant_value", destination)
             .ifValueEquals("key", "expected")
         assertNotNull(builder)
@@ -238,8 +184,8 @@ class MappingsImplTests {
         assertEquals(1, mappingsList.size)
 
         val mapping = mappingsList[0]
-        assertEquals(destination, mapping.destination)
-        assertEquals("key", mapping.parameters.key?.variable)
+        assertEquals(destination, mapping.destination.path)
+        assertEquals(JsonPath["key"], mapping.parameters.reference?.path)
         assertEquals("expected", mapping.parameters.filter?.value)
         assertEquals("constant_value", mapping.parameters.mapTo?.value)
     }
@@ -253,51 +199,32 @@ class MappingsImplTests {
         assertEquals(1, mappingsList.size)
 
         val mapping = mappingsList[0]
-        assertEquals("key_to_keep", mapping.destination.variable)
-        assertNull(mapping.destination.path)
-        assertEquals("key_to_keep", mapping.parameters.key?.variable)
-        assertNull(mapping.parameters.key?.path)
+        assertEquals(JsonPath["key_to_keep"], mapping.destination.path)
+        assertEquals(JsonPath["key_to_keep"], mapping.parameters.reference?.path)
         assertNull(mapping.parameters.filter)
         assertNull(mapping.parameters.mapTo)
     }
 
     @Test
     fun keep_Builds_Transformation_Operation_With_Path() {
-        val builder = mappings.keep("key_to_keep", listOf("path", "to"))
+        val path = JsonPath["path"]["to"]["key_to_keep"]
+        val builder = mappings.keep(path)
         assertNotNull(builder)
 
         val mappingsList = mappings.build()
         assertEquals(1, mappingsList.size)
 
         val mapping = mappingsList[0]
-        assertEquals("key_to_keep", mapping.destination.variable)
-        assertEquals(listOf("path", "to"), mapping.destination.path)
-        assertEquals("key_to_keep", mapping.parameters.key?.variable)
-        assertEquals(listOf("path", "to"), mapping.parameters.key?.path)
-        assertNull(mapping.parameters.filter)
-        assertNull(mapping.parameters.mapTo)
-    }
-
-    @Test
-    fun keep_Builds_Transformation_Operation_With_VariableAccessor() {
-        val keyToKeep = VariableAccessor("key_to_keep", listOf("path", "to"))
-        val builder = mappings.keep(keyToKeep)
-        assertNotNull(builder)
-
-        val mappingsList = mappings.build()
-        assertEquals(1, mappingsList.size)
-
-        val mapping = mappingsList[0]
-        assertEquals(keyToKeep, mapping.destination)
-        assertEquals(keyToKeep, mapping.parameters.key)
+        assertEquals(path, mapping.destination.path)
+        assertEquals(path, mapping.parameters.reference?.path)
         assertNull(mapping.parameters.filter)
         assertNull(mapping.parameters.mapTo)
     }
 
     @Test
     fun keep_Builds_Transformation_Operation_With_Options() {
-        val keyToKeep = VariableAccessor("key_to_keep", listOf("path", "to"))
-        val builder = mappings.keep(keyToKeep)
+        val path = JsonPath["path"]["to"]["key_to_keep"]
+        val builder = mappings.keep(path)
             .ifValueEquals("expected")
         assertNotNull(builder)
 
@@ -305,8 +232,8 @@ class MappingsImplTests {
         assertEquals(1, mappingsList.size)
 
         val mapping = mappingsList[0]
-        assertEquals(keyToKeep, mapping.destination)
-        assertEquals(keyToKeep, mapping.parameters.key)
+        assertEquals(path, mapping.destination.path)
+        assertEquals(path, mapping.parameters.reference?.path)
         assertEquals("expected", mapping.parameters.filter?.value)
         assertNull(mapping.parameters.mapTo?.value)
     }

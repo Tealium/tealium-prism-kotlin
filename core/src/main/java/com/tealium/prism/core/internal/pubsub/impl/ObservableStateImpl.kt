@@ -1,50 +1,35 @@
 package com.tealium.prism.core.internal.pubsub.impl
 
 import com.tealium.prism.core.api.pubsub.Disposable
-import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.pubsub.Observer
 import com.tealium.prism.core.api.pubsub.StateSubject
+import com.tealium.prism.core.api.pubsub.Subscribable
 import com.tealium.prism.core.api.pubsub.SubscribableState
 
 /**
- * Default implementation of [ObservableState] that delegates all methods to the provided [StateSubject]
+ * Default implementation of [ObservableState].
+ *
+ * @param source The [Subscribable] source used to emit values downstream
+ * @param valueSupplier The block to provide an up-to-date value for [value]
  */
 class ObservableStateImpl<T>(
-    private val subscribableState: SubscribableState<T>
-) : ObservableState<T> {
-    override fun subscribe(observer: Observer<T>): Disposable =
-        subscribableState.subscribe(observer)
-
-    override val value: T
-        get() = subscribableState.value
-}
-
-class ObservableStateValue<T>(
-    private val source: Observable<T>,
+    private val source: Subscribable<T>,
     private val valueSupplier: () -> T
 ) : ObservableState<T> {
 
-    private var _value: T? = null
+    /**
+     * Convenience constructor to delegate all [ObservableState] methods, [subscribe] and [value]
+     * to the provided [source]. Typically this is useful for making [StateSubject]s read-only.
+     *
+     * @param source The [SubscribableState] to delegate all methods to.
+     */
+    constructor(source: SubscribableState<T>): this(source, source::value)
 
     override val value: T
-        get() = _value ?: valueSupplier()
+        get() = valueSupplier()
 
     override fun subscribe(observer: Observer<T>): Disposable {
-        val parent = ObservableStateValueObserver(observer) { newValue ->
-            _value = newValue
-        }
-
-        return source.subscribe(parent)
-    }
-
-    class ObservableStateValueObserver<T>(
-        private val observer: Observer<T>,
-        private val updateState: (T) -> Unit
-    ) : Observer<T> {
-        override fun onNext(value: T) {
-            updateState(value)
-            observer.onNext(value)
-        }
+        return source.subscribe(observer)
     }
 }

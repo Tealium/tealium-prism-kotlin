@@ -1,12 +1,12 @@
 package com.tealium.prism.core.internal.consent
 
 import com.tealium.prism.core.api.consent.ConsentDecision
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.Observer
 import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.internal.settings.consent.ConsentConfiguration
 import com.tealium.prism.core.internal.settings.consent.ConsentSettings
-import com.tealium.tests.common.SynchronousScheduler
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.Assert.assertEquals
@@ -21,13 +21,15 @@ class CmpConfigurationSelectorTests {
     private lateinit var consentSettings: StateSubject<ConsentSettings?>
     private lateinit var cmpAdapter: MockCmpAdapter
     private lateinit var selector: CmpConfigurationSelector
+    private lateinit var decision: StateSubject<ConsentDecision?>
 
     @Before
     fun setUp() {
-        cmpAdapter = MockCmpAdapter()
+        decision = Observables.stateSubject(null)
+        cmpAdapter = MockCmpAdapter(_consentDecision = decision)
         consentSettings = Observables.stateSubject(null)
 
-        selector = CmpConfigurationSelector(consentSettings, cmpAdapter, SynchronousScheduler())
+        selector = CmpConfigurationSelector(consentSettings, cmpAdapter, Scheduler.SYNCHRONOUS)
     }
 
     @Test
@@ -75,5 +77,16 @@ class CmpConfigurationSelectorTests {
                         && it.decision == ConsentDecision(ConsentDecision.DecisionType.Explicit, setOf("purpose_1"))
             })
         }
+    }
+
+    @Test
+    fun init_Subscribes_To_CmpAdapter() {
+        assertEquals(1, decision.count)
+    }
+
+    @Test
+    fun init_Disposes_Subscription_To_CmpAdapter_On_Dispose() {
+        selector.dispose()
+        assertEquals(0, decision.count)
     }
 }

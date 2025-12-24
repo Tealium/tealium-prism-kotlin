@@ -9,6 +9,7 @@ import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.Observer
+import com.tealium.prism.core.api.pubsub.addTo
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.api.tracking.TrackResultListener
@@ -20,7 +21,6 @@ import com.tealium.prism.core.internal.logger.logDescriptions
 import com.tealium.prism.core.internal.modules.InternalModuleManager
 import com.tealium.prism.core.internal.pubsub.CompletedDisposable
 import com.tealium.prism.core.internal.pubsub.DisposableContainer
-import com.tealium.prism.core.internal.pubsub.addTo
 import com.tealium.prism.core.internal.rules.LoadRuleEngine
 
 
@@ -37,8 +37,7 @@ class DispatchManagerImpl(
 ) : DispatchManager {
 
     private val dispatchers: ObservableState<Set<Dispatcher>>
-        get() = moduleManager.modules.map { it.filterIsInstance<Dispatcher>().toSet() }
-            .withState { moduleManager.getModulesOfType(Dispatcher::class.java).toSet() }
+        get() = moduleManager.modules.mapState { it.filterIsInstance<Dispatcher>().toSet() }
 
     private var dispatchLoop: Disposable? = null
 

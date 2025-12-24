@@ -5,7 +5,7 @@ import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataItemConverter
 import com.tealium.prism.core.api.data.DataItemConvertible
 import com.tealium.prism.core.api.data.DataObject
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.modules.DataLayer
 import com.tealium.prism.core.api.modules.ModuleProxy
 import com.tealium.prism.core.api.persistence.DataStore
@@ -19,7 +19,7 @@ class DataLayerWrapper(
         tealium: Tealium,
     ) : this(tealium.createModuleProxy(DataLayerModule::class.java))
 
-    override fun transactionally(block: TealiumCallback<DataStore.Editor>) =
+    override fun transactionally(block: Callback<DataStore.Editor>) =
         moduleProxy.executeModuleTask { dataLayer ->
             dataLayer.dataStore.edit().use { editor ->
                 editor.apply {

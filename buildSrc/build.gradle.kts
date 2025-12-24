@@ -13,6 +13,7 @@ dependencies {
     implementation(libs.android.gradle)
     implementation(libs.kotlin.gradle.jvm)
     implementation(libs.eclipse.jgit)
+    implementation(libs.dokka.gradle.plugin)
 }
 
 gradlePlugin {
@@ -24,6 +25,14 @@ gradlePlugin {
         register("tealiumLibraryPlugin") {
             id = "tealium-library"
             implementationClass = "com.tealium.gradle.library.TealiumLibraryPlugin"
+        }
+        register("dokkaRoot") {
+            id = "dokka-root"
+            implementationClass = "com.tealium.gradle.dokka.DokkaRootPlugin"
+        }
+        register("dokkaLibrary") {
+            id = "dokka-library"
+            implementationClass = "com.tealium.gradle.dokka.DokkaLibraryPlugin"
         }
     }
 }

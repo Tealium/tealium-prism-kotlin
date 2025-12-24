@@ -15,7 +15,6 @@ import com.tealium.prism.core.api.tracking.Tracker
 import com.tealium.prism.core.internal.dispatch.DispatchManager
 import com.tealium.prism.core.internal.session.SessionManager
 import com.tealium.prism.core.internal.logger.LogCategory
-import com.tealium.prism.core.internal.pubsub.subscribeOnce
 import com.tealium.prism.core.internal.rules.LoadRuleEngine
 
 class TrackerImpl(

@@ -3,11 +3,13 @@ package com.tealium.prism.core.internal.logger
 import android.annotation.SuppressLint
 import android.util.Log
 import com.tealium.prism.core.BuildConfig
-import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.LogHandler
+import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.Logger
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.pubsub.Observable
-import com.tealium.prism.core.internal.pubsub.subscribeOnce
+import com.tealium.prism.core.api.pubsub.Observables
+import com.tealium.prism.core.api.pubsub.Subject
 
 /**
  * A central utility class for processing log statements at various log levels.
@@ -20,10 +22,17 @@ import com.tealium.prism.core.internal.pubsub.subscribeOnce
  * @param logLevel An optional, fixed [LogLevel] to use for the lifetime of this object
  */
 class LoggerImpl(
+    private val scheduler: Scheduler,
     private val logHandler: LogHandler,
     private val onLogLevel: Observable<LogLevel>,
-    private var logLevel: LogLevel? = null
+    @Volatile private var logLevel: LogLevel? = null,
+    private val _onErrorEvent: Subject<ErrorEvent> = Observables.publishSubject(),
 ) : Logger {
+
+    private val isErrorTraceSubscribed: Boolean
+        get() = _onErrorEvent.count > 0
+
+    internal val errors: Observable<ErrorEvent> = _onErrorEvent.subscribeOn(scheduler)
 
     init {
         if (logLevel == null) {
@@ -40,11 +49,9 @@ class LoggerImpl(
         message: String,
         args: Array<out Any?>? = null
     ) {
-        if (args.isNullOrEmpty()) {
-            logHandler.log(category, message, level)
-        } else {
-            logHandler.log(category, message.format(*args), level)
-        }
+        val formattedMessage = if (args.isNullOrEmpty()) message else message.format(*args)
+
+        logHandler.log(category, formattedMessage, level)
     }
 
     private fun enqueueLog(
@@ -103,28 +110,45 @@ class LoggerImpl(
         enqueueLog(level, category, message)
     }
 
+    private fun emitErrorEvent(category: String, message: String, args: Array<out Any?>? = null) {
+        val formattedMessage = if (args.isNullOrEmpty()) message else message.format(*args)
+        scheduler.execute {
+            _onErrorEvent.onNext(ErrorEvent(category, formattedMessage))
+        }
+    }
+
     private fun shouldLog(logLevel: LogLevel, minimum: LogLevel): Boolean =
         logLevel >= minimum
 
     override fun shouldLog(level: LogLevel): Boolean {
+        if (level == LogLevel.ERROR && isErrorTraceSubscribed) {
+            return true
+        }
+
         val currentLogLevel = this.logLevel
         return level != LogLevel.SILENT &&
                 (currentLogLevel == null || shouldLog(level, currentLogLevel))
     }
 
     override fun log(level: LogLevel, category: String, message: String) {
+        checkErrorSubscription(level, category, message)
+
         if (level == LogLevel.SILENT) return
 
         logOrQueue(level, category, message)
     }
 
     override fun log(level: LogLevel, category: String, message: String, vararg args: Any?) {
+        checkErrorSubscription(level, category, message, args)
+
         if (level == LogLevel.SILENT) return
 
         logOrQueue(level, category, message, args)
     }
 
     override fun log(level: LogLevel, category: String, message: () -> String) {
+        checkErrorSubscription(level, category, message)
+
         if (level == LogLevel.SILENT) return
 
         logOrQueue(level, category, message)
@@ -166,14 +190,40 @@ class LoggerImpl(
     override fun warn(category: String, message: () -> String) =
         logOrQueue(LogLevel.WARN, category, message)
 
-    override fun error(category: String, message: String) =
-        logOrQueue(LogLevel.ERROR, category, message)
+    override fun error(category: String, message: String) {
+        checkErrorSubscription(LogLevel.ERROR, category, message)
 
-    override fun error(category: String, message: String, vararg args: Any?) =
+        logOrQueue(LogLevel.ERROR, category, message)
+    }
+
+    override fun error(category: String, message: String, vararg args: Any?) {
+        checkErrorSubscription(LogLevel.ERROR, category, message, args)
+
         logOrQueue(LogLevel.ERROR, category, message, args)
+    }
 
-    override fun error(category: String, message: () -> String) =
+    override fun error(category: String, message: () -> String) {
+        checkErrorSubscription(LogLevel.ERROR, category, message)
+
         logOrQueue(LogLevel.ERROR, category, message)
+    }
+
+    private fun checkErrorSubscription(
+        level: LogLevel,
+        category: String,
+        message: String,
+        args: Array<out Any?>? = null
+    ) {
+        if (level == LogLevel.ERROR && isErrorTraceSubscribed) {
+            emitErrorEvent(category, message, args)
+        }
+    }
+
+    private fun checkErrorSubscription(level: LogLevel, category: String, message: () -> String) {
+        if (level == LogLevel.ERROR && isErrorTraceSubscribed) {
+            emitErrorEvent(category, message.invoke())
+        }
+    }
 
     object ConsoleLogHandler : LogHandler {
         @SuppressLint("AndroidLogUsageIssue")

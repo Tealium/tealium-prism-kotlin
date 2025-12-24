@@ -3,7 +3,7 @@ package com.tealium.prism.core.internal.dispatch
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.misc.TimeFrame
 import com.tealium.prism.core.api.tracking.Dispatch
-import com.tealium.prism.core.api.tracking.TealiumDispatchType
+import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.coVerify
 import io.mockk.verify
@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit
 class DispatchManagerTrackTests : DispatchManagerTestsBase() {
 
     private val dispatch3: Dispatch =
-        Dispatch.create("test3", TealiumDispatchType.Event, DataObject.EMPTY_OBJECT)
+        Dispatch.create("test3", DispatchType.Event, DataObject.EMPTY_OBJECT)
 
     @Test
     fun dispatchManager_SlowDispatcher_DoesNotDelayOthers() {

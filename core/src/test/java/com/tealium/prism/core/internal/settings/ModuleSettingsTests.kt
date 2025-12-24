@@ -1,12 +1,12 @@
 package com.tealium.prism.core.internal.settings
 
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.data.ReferenceContainer
 import com.tealium.prism.core.api.rules.Rule
+import com.tealium.prism.core.api.data.ValueContainer
 import com.tealium.prism.core.api.settings.modules.CollectorSettingsBuilder
 import com.tealium.prism.core.api.settings.modules.DispatcherSettingsBuilder
 import com.tealium.prism.core.api.settings.modules.ModuleSettingsBuilder
-import com.tealium.prism.core.api.settings.ValueContainer
-import com.tealium.prism.core.api.settings.VariableAccessor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -113,7 +113,7 @@ class ModuleSettingsTests {
 
         val settings = ModuleSettings.Converter.convert(settingsObject)!!
         val expected1 =
-            MappingParameters(VariableAccessor("source"), ValueContainer("target"), null)
+            MappingParameters(ReferenceContainer.key("source"), ValueContainer("target"), null)
         val expected2 = expected1.copy(mapTo = ValueContainer("other"))
         assertEquals(expected1, settings.mappings!![0].parameters)
         assertEquals(expected2, settings.mappings!![1].parameters)

@@ -2,7 +2,7 @@ package com.tealium.prism.core.api
 
 import com.tealium.prism.core.api.barriers.Barrier
 import com.tealium.prism.core.api.data.DataObject
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumException
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.modules.DataLayer
@@ -12,15 +12,48 @@ import com.tealium.prism.core.api.modules.ModuleProxy
 import com.tealium.prism.core.api.modules.Trace
 import com.tealium.prism.core.api.pubsub.Single
 import com.tealium.prism.core.api.pubsub.SingleResult
-import com.tealium.prism.core.api.tracking.TealiumDispatchType
+import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.internal.TealiumInstanceManager
 
+/**
+ * The main class for the Tealium SDK.
+ *
+ * This class provides the primary interface for interacting with the Tealium SDK.
+ * It handles initialization, tracking events, managing visitor IDs, and accessing
+ * various modules like data layer, deep linking, and tracing.
+ */
 interface Tealium {
 
+    /**
+     * The identifying [key] for this instance.
+     */
     val key: String
+
+    /**
+     * Returns an object for managing traces. The [Trace] module is responsible for handling Tealium
+     * trace registration.
+     *
+     * Joining a trace will add the trace id to each event for filtering server side. Users can leave
+     * the trace when finished.
+     */
     val trace: Trace
+
+    /**
+     * The [DeepLinkHandler] is responsible for tracking incoming deep links, managing attribution, and
+     * handling trace parameters when present in the URL.
+     *
+     * DeepLink handling is automatically called unless explicitly disabled.
+     */
     val deeplink: DeepLinkHandler
+
+    /**
+     * The [DataLayer] is available to store key-value data that should be present on every event
+     * tracked through the Tealium SDK.
+     *
+     * There are a variety of getter/setter methods to store/retrieve common data types. All methods operate
+     * on the Tealium thread.
+     */
     val dataLayer: DataLayer
 
     /**
@@ -35,7 +68,7 @@ interface Tealium {
     fun <T : Module> createModuleProxy(clazz: Class<T>): ModuleProxy<T>
 
     /**
-     * Tracks an event with the specified name, and data. The event type will be [TealiumDispatchType.Event]
+     * Tracks an event with the specified name, and data. The event type will be [DispatchType.Event]
      *
      * @param name The name of the event to track.
      * @param data Additional data to include with the event (optional).
@@ -60,7 +93,7 @@ interface Tealium {
      */
     fun track(
         name: String,
-        type: TealiumDispatchType,
+        type: DispatchType,
         data: DataObject
     ): SingleResult<TrackResult>
 
@@ -114,7 +147,7 @@ interface Tealium {
         @JvmStatic
         override fun create(
             config: TealiumConfig,
-            onReady: TealiumCallback<TealiumResult<Tealium>>?
+            onReady: Callback<TealiumResult<Tealium>>?
         ): Tealium =
             instanceManager.create(config, onReady)
 
@@ -123,7 +156,7 @@ interface Tealium {
             instanceManager.shutdown(instanceKey)
 
         @JvmStatic
-        override fun get(instanceKey: String, callback: TealiumCallback<Tealium?>) =
+        override fun get(instanceKey: String, callback: Callback<Tealium?>) =
             instanceManager.get(instanceKey, callback)
     }
 }

@@ -18,7 +18,6 @@ jobs:
     name: Publish Snapshot
     runs-on: ubuntu-latest
     env:
-      CI_TASKS_ENABLED: true
       AWS_ACCESS_KEY: ${{ inputs.accessKey }}
       AWS_SECRET_KEY: ${{ inputs.secretKey }}
       AWS_SESSION_TOKEN: ${{ inputs.token }}

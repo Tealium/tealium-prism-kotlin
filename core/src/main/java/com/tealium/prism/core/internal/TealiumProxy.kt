@@ -13,7 +13,7 @@ import com.tealium.prism.core.api.modules.Trace
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.SingleResult
 import com.tealium.prism.core.api.tracking.Dispatch
-import com.tealium.prism.core.api.tracking.TealiumDispatchType
+import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.internal.misc.AsyncProxyImpl
 import com.tealium.prism.core.internal.modules.ModuleProxyImpl
@@ -63,11 +63,11 @@ class TealiumProxy(
     }
 
     override fun track(name: String, data: DataObject): SingleResult<TrackResult> =
-        track(name, TealiumDispatchType.Event, data)
+        track(name, DispatchType.Event, data)
 
     override fun track(
         name: String,
-        type: TealiumDispatchType,
+        type: DispatchType,
         data: DataObject
     ): SingleResult<TrackResult> {
         val dispatch = Dispatch.create(name, type, data)

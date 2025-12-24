@@ -1,9 +1,11 @@
 package com.tealium.prism.core.api.data
 
-import com.tealium.prism.core.api.data.DataObject.Builder
-import com.tealium.prism.core.api.settings.VariableAccessor
+import com.tealium.prism.core.internal.data.buildPath
 import com.tealium.prism.core.internal.misc.stringify
-import org.json.*
+import org.json.JSONException
+import org.json.JSONObject
+import org.json.JSONStringer
+import org.json.JSONTokener
 
 /**
  * The [DataObject] represents a map of restricted data types which are wrappable by
@@ -108,12 +110,36 @@ class DataObject private constructor(
         return map.hashCode()
     }
 
-    // Possibly for KTX separate library
+    /**
+     * Copies the existing [DataObject] into a new [Builder] instance that can be used to add/remove entries
+     * and create a new instance of the [DataObject]
+     *
+     * @param block Builder scope with which to add or remove entries in the existing [DataObject]
+     */
     inline fun copy(block: Builder.() -> Unit = {}): DataObject {
         val builder = buildUpon()
         block.invoke(builder)
         return builder.build()
     }
+
+    /**
+     * Takes a copy of this [DataObject] and builds the necessary path according to the given [path]
+     * in order to store the given [item].
+     *
+     * Where a [DataObject]/[DataList] already exists on the given path, the incoming items will be
+     * merged in. Where the [DataObject]/[DataList] does not exist yet in this [DataObject] a new one
+     * will be created.
+     * Where a different type was specified on the [path] to what is currently in this [DataObject],
+     * it will be overwritten.
+     *
+     * @param path the [JsonObjectPath] used to describe where to store [item]
+     * @param item the [DataItem] to add
+     * @return a new [DataObject] with the [item] stored at the given path
+     */
+    fun buildPath(path: JsonObjectPath, item: DataItem): DataObject =
+        buildUpon()
+            .buildPath(path, item)
+            .build()
 
     /**
      * Convenience method to create a new [Builder] containing all the values in this [DataObject]
@@ -124,28 +150,6 @@ class DataObject private constructor(
 
     override fun asDataItem(): DataItem {
         return DataItem.convert(this)
-    }
-
-    /**
-     * Extracts a nested [DataItem] according to the given [accessor].
-     *
-     * If the [VariableAccessor.variable] is not found at the [VariableAccessor.path], or any path
-     * component is not also a [DataObject] then `null` will be returned.
-     *
-     * @param accessor The [VariableAccessor] describing how to access the variable.
-     * @return The required [DataItem] if available; else null
-     */
-    fun extract(accessor: VariableAccessor): DataItem? {
-        val (variable, path) = accessor
-        var dataObject = this
-
-        if (path != null) {
-            for (pathComponent in path) {
-                dataObject = dataObject.getDataObject(pathComponent)
-                    ?: return null
-            }
-        }
-        return dataObject.get(variable)
     }
 
     /**
@@ -602,6 +606,23 @@ class DataObject private constructor(
             put(key, DataItem.NULL)
 
         /**
+         * Builds the necessary path according to the given [path] in order to store the given [item].
+         *
+         * Where a [DataObject]/[DataList] already exists on the given path, the incoming items will be
+         * merged in. Where the [DataObject]/[DataList] does not exist yet in this [DataObject] a new one
+         * will be created.
+         * Where a different type was specified on the [path] to what is currently in this [DataObject],
+         * it will be overwritten.
+         *
+         * @param path the [JsonObjectPath] used to describe where to store [item]
+         * @param item the [DataItem] to add
+         * @return a new [DataObject] with the [item] stored at the given path
+         */
+        fun buildPath(path: JsonObjectPath, item: DataItem): Builder = apply {
+            buildPath(path.firstComponent.key, path.components, item)
+        }
+
+        /**
          * Removes the entry currently stored at the current [key]. If the [key] does not exist,
          * then this is a no-operation.
          *
@@ -619,6 +640,13 @@ class DataObject private constructor(
         fun clear() = apply {
             data.clear()
         }
+
+        /**
+         * Gets the [DataItem] at the given key, if there is one.
+         *
+         * @return the [DataItem] at the given key; or null
+         */
+        operator fun get(key: String): DataItem? = data[key]
 
         /**
          * Creates an immutable [DataObject] using the values added to the builder.

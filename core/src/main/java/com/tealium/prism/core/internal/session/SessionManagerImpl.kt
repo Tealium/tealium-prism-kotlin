@@ -18,13 +18,13 @@ import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.ReplaySubject
+import com.tealium.prism.core.api.pubsub.addTo
 import com.tealium.prism.core.api.session.Session
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.internal.logger.LogCategory
 import com.tealium.prism.core.internal.persistence.database.getTimestampMilliseconds
 import com.tealium.prism.core.internal.persistence.repositories.ModulesRepository
 import com.tealium.prism.core.internal.pubsub.DisposableContainer
-import com.tealium.prism.core.internal.pubsub.addTo
 import java.util.concurrent.TimeUnit
 
 /**
@@ -50,8 +50,7 @@ class SessionManagerImpl(
     private val disposables = DisposableContainer()
     private var expirationTask: Disposable? = null
     private val sessionTimeout: ObservableState<TimeFrame> =
-        sessionTimeout.map(::coerceSessionTimeout)
-            .withState { coerceSessionTimeout(sessionTimeout.value) }
+        sessionTimeout.mapState(::coerceSessionTimeout)
 
     private val _session: ReplaySubject<Session> = Observables.replaySubject(1)
     override val session: Observable<Session> = _session.asObservable()

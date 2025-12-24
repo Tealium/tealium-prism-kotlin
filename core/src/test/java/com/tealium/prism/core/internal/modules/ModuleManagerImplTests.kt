@@ -1,7 +1,8 @@
 package com.tealium.prism.core.internal.modules
 
 import com.tealium.prism.core.api.data.DataObject
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.modules.Collector
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.Module
@@ -13,7 +14,6 @@ import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.internal.modules.datalayer.DataLayerModule
 import com.tealium.prism.core.internal.settings.ModuleSettings
 import com.tealium.prism.core.internal.settings.SdkSettings
-import com.tealium.tests.common.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestCollector
 import com.tealium.tests.common.TestDispatcher
@@ -50,6 +50,9 @@ class ModuleManagerImplTests {
         moduleWithObservable
     )
     private val defaultFactories = modules.map { TestModuleFactory.forModule(it) }
+    private val defaultSettings = modules.mapIndexed { idx, module ->
+        ModuleSettings(module.id, order = idx)
+    }.associateBy(ModuleSettings::moduleType)
 
     private lateinit var moduleManager: InternalModuleManager
     private lateinit var modulesSubject: StateSubject<List<Module>>
@@ -60,13 +63,13 @@ class ModuleManagerImplTests {
         modulesSubject = Observables.stateSubject(listOf())
 
         moduleManager = ModuleManagerImpl(
-            SynchronousScheduler(), modulesSubject
+            Scheduler.SYNCHRONOUS, modulesSubject
         )
         defaultFactories.forEach(moduleManager::addModuleFactory)
 
         context = mockk<TealiumContext>()
         every { context.logger } returns SystemLogger
-        moduleManager.updateModuleSettings(context, SdkSettings())
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = defaultSettings))
     }
 
     @Test
@@ -105,9 +108,9 @@ class ModuleManagerImplTests {
 
     @Test
     fun getModuleOfType_Returns_Same_Matching_Given_Specific_Class_On_Given_Scheduler() {
-        val onCollector = mockk<TealiumCallback<TestCollector?>>(relaxed = true)
-        val onDispatcher = mockk<TealiumCallback<TestDispatcher?>>(relaxed = true)
-        val onModule = mockk<TealiumCallback<TestModule?>>(relaxed = true)
+        val onCollector = mockk<Callback<TestCollector?>>(relaxed = true)
+        val onDispatcher = mockk<Callback<TestDispatcher?>>(relaxed = true)
+        val onModule = mockk<Callback<TestModule?>>(relaxed = true)
         moduleManager.getModuleOfType(TestCollector::class.java, onCollector)
         moduleManager.getModuleOfType(TestDispatcher::class.java, onDispatcher)
         moduleManager.getModuleOfType(TestModule::class.java, onModule)
@@ -121,8 +124,8 @@ class ModuleManagerImplTests {
 
     @Test
     fun getModuleOfType_Returns_Same_Matching_Given_Interface_On_Given_Scheduler() {
-        val onCollector = mockk<TealiumCallback<Collector?>>(relaxed = true)
-        val onDispatcher = mockk<TealiumCallback<Dispatcher?>>(relaxed = true)
+        val onCollector = mockk<Callback<Collector?>>(relaxed = true)
+        val onDispatcher = mockk<Callback<Dispatcher?>>(relaxed = true)
         moduleManager.getModuleOfType(Collector::class.java, onCollector)
         moduleManager.getModuleOfType(Dispatcher::class.java, onDispatcher)
 
@@ -134,7 +137,7 @@ class ModuleManagerImplTests {
 
     @Test
     fun getModuleOfType_Returns_First_When_Matching_Multiple_On_Given_Scheduler() {
-        val onModule = mockk<TealiumCallback<Module?>>(relaxed = true)
+        val onModule = mockk<Callback<Module?>>(relaxed = true)
         moduleManager.getModuleOfType(Module::class.java, onModule)
 
         verify(timeout = 1000) {
@@ -144,7 +147,7 @@ class ModuleManagerImplTests {
 
     @Test
     fun getModuleOfType_Returns_Null_When_Matching_None_On_Given_Scheduler() {
-        val onModule = mockk<TealiumCallback<DataLayerModule?>>(relaxed = true)
+        val onModule = mockk<Callback<DataLayerModule?>>(relaxed = true)
         moduleManager.getModuleOfType(DataLayerModule::class.java, onModule)
 
         verify(timeout = 1000) {
@@ -266,7 +269,7 @@ class ModuleManagerImplTests {
 
     @Test
     fun updateModuleSettings_Updates_Existing_Modules() {
-        moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf()))
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = defaultSettings))
 
         verify {
             testCollector.updateConfiguration(any())
@@ -278,7 +281,7 @@ class ModuleManagerImplTests {
     @Test
     fun updateModuleSettings_Removes_Modules_That_Return_Null_From_UpdateConfiguration() {
         every { testModule.updateConfiguration(any()) } returns null
-        moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf()))
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = defaultSettings))
 
         assertFalse(modulesSubject.value.contains(testModule))
 
@@ -289,7 +292,7 @@ class ModuleManagerImplTests {
     @Test
     fun updateModuleSettings_Calls_OnShutdown_When_UpdateConfiguration_ReturnsNull() {
         every { testModule.updateConfiguration(any()) } returns null
-        moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf()))
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = defaultSettings))
 
         verify { testModule.onShutdown() }
     }
@@ -489,11 +492,16 @@ class ModuleManagerImplTests {
             "1" to ModuleSettings(moduleType = multiFactory.moduleType, "1", order = 1)
         )))
 
-        // todo - revisit if we don't add using default settings
-        // modules from settings first, then additional defaults from Factories that had no settings
-        (listOf("1", "2") + modules.map(Module::id)).forEachIndexed { idx, id ->
+        listOf("1", "2").forEachIndexed { idx, id ->
             assertEquals(id, moduleManager.modules.value[idx].id)
         }
+    }
+
+    @Test
+    fun updateModuleSettings_Does_Not_Create_Modules_With_No_Settings() {
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = emptyMap()))
+
+        assertTrue(moduleManager.modules.value.isEmpty())
     }
 
     @Test
@@ -523,7 +531,9 @@ class ModuleManagerImplTests {
         val newModuleFactory = TestModuleFactory.forModule(newModule)
 
         moduleManager.addModuleFactory(newModuleFactory)
-        moduleManager.updateModuleSettings(context, SdkSettings())
+        moduleManager.updateModuleSettings(context, SdkSettings(modules = mapOf(
+            newModuleFactory.moduleType to ModuleSettings(newModuleFactory.moduleType)
+        )))
 
         assertTrue(moduleManager.modules.value.contains(newModule))
     }

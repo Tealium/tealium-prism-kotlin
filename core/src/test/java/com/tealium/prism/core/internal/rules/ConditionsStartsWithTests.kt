@@ -3,11 +3,15 @@ package com.tealium.prism.core.internal.rules
 import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.data.JsonPath
+import com.tealium.prism.core.api.data.ReferenceContainer.Companion.key
+import com.tealium.prism.core.api.data.get
 import com.tealium.prism.core.api.rules.Condition
 import com.tealium.prism.core.api.rules.ConditionEvaluationException
 import com.tealium.prism.core.api.rules.MissingDataItemException
 import com.tealium.prism.core.api.rules.MissingFilterException
 import com.tealium.prism.core.api.rules.UnsupportedOperatorException
+import com.tealium.prism.core.api.data.ValueContainer
 import com.tealium.tests.common.assertThrows
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -144,8 +148,7 @@ class ConditionsStartsWithTests {
     fun startsWith_Matches_Nested_Value() {
         val condition = Condition.startsWith(
             ignoreCase = false,
-            path = listOf("object"),
-            variable = "key",
+            variable = JsonPath["object"]["key"],
             prefix = "Val"
         )
         assertTrue(condition.matches(payload))
@@ -195,8 +198,7 @@ class ConditionsStartsWithTests {
     fun startsWithIgnoreCase_Matches_Nested_Value_Ignoring_Case() {
         val condition = Condition.startsWith(
             ignoreCase = true,
-            path = listOf("object"),
-            variable = "key",
+            variable = JsonPath["object"]["key"],
             prefix = "vAl"
         )
         assertTrue(condition.matches(payload))
@@ -205,9 +207,9 @@ class ConditionsStartsWithTests {
     @Test
     fun startsWith_Matches_When_Filter_Is_Null_String() {
         val condition = Condition(
-            variable = "null",
+            variable = key("null"),
             operator = Operators.startsWith,
-            filter = "null"
+            filter = ValueContainer("null")
         )
         assertTrue(condition.matches(payload))
     }
@@ -215,7 +217,7 @@ class ConditionsStartsWithTests {
     @Test
     fun startsWith_Throws_When_Filter_Null() {
         val condition = Condition(
-            variable = "string",
+            variable = key("string"),
             operator = Operators.startsWith,
             filter = null
         )
@@ -228,8 +230,7 @@ class ConditionsStartsWithTests {
     fun startsWith_Throws_When_DataItem_Missing() {
         val condition = Condition.startsWith(
             ignoreCase = false,
-            path = listOf("object"),
-            variable = "missing",
+            variable = JsonPath["object"]["missing"],
             prefix = "value"
         )
         assertThrows<ConditionEvaluationException>(cause = MissingDataItemException::class) {
@@ -240,9 +241,9 @@ class ConditionsStartsWithTests {
     @Test
     fun startsWithIgnoreCase_Matches_When_Filter_Is_Null_String() {
         val condition = Condition(
-            variable = "null",
+            variable = key("null"),
             operator = Operators.startsWithIgnoreCase,
-            filter = "null"
+            filter = ValueContainer("null")
         )
         assertTrue(condition.matches(payload))
     }
@@ -250,7 +251,7 @@ class ConditionsStartsWithTests {
     @Test
     fun startsWithIgnoreCase_Throws_When_Filter_Null() {
         val condition = Condition(
-            variable = "string",
+            variable = key("string"),
             operator = Operators.startsWithIgnoreCase,
             filter = null
         )
@@ -263,8 +264,7 @@ class ConditionsStartsWithTests {
     fun startsWithIgnoreCase_Throws_When_DataItem_Missing() {
         val condition = Condition.startsWith(
             ignoreCase = true,
-            path = listOf("object"),
-            variable = "missing",
+            variable = JsonPath["object"]["missing"],
             prefix = "value"
         )
         assertThrows<ConditionEvaluationException>(cause = MissingDataItemException::class) {

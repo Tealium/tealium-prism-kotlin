@@ -10,7 +10,6 @@ import com.tealium.prism.core.internal.pubsub.impl.FlatMapObservable
 import com.tealium.prism.core.internal.pubsub.impl.MapNotNullObservable
 import com.tealium.prism.core.internal.pubsub.impl.MapObservable
 import com.tealium.prism.core.internal.pubsub.impl.MulticastObservable
-import com.tealium.prism.core.internal.pubsub.impl.ObservableStateValue
 import com.tealium.prism.core.internal.pubsub.impl.ObserveOnObservable
 import com.tealium.prism.core.internal.pubsub.impl.ResubscribingObservable
 import com.tealium.prism.core.internal.pubsub.impl.StartWithObservable
@@ -213,26 +212,6 @@ interface Observable<T> : Subscribable<T> {
     }
 
     /**
-     * Converts a standard [Observable] into one that maintains the current value as state.
-     *
-     * The [ObservableState.value] of the returned [Observable] is derived from the given [observableState]
-     * until there have been emissions from the source.
-     */
-    fun withState(observableState: ObservableState<T>): ObservableState<T> {
-        return ObservableStateValue(this, observableState::value)
-    }
-
-    /**
-     * Converts a standard [Observable] into one that maintains the current value as state.
-     *
-     * The [ObservableState.value] of the returned [Observable] is derived from the given [valueSupplier]
-     * until there have been emissions from the source.
-     */
-    fun withState(valueSupplier: () -> T): ObservableState<T> {
-        return ObservableStateValue(this, valueSupplier)
-    }
-
-    /**
      * Converts this [Observable] to a [Single] subscribing on the given [Scheduler]
      *
      * A [take] and [subscribeOn] are applied to the source [Observable] automatically to
@@ -262,5 +241,13 @@ interface Observable<T> : Subscribable<T> {
      */
     fun share(replay: Int) : Observable<T> {
         return MulticastObservable(this, Observables.replaySubject(replay))
+    }
+
+    /**
+     * Subscribes the given [observer] to a single emission of the source.
+     */
+    fun subscribeOnce(observer: Observer<T>): Disposable {
+        return take(1)
+            .subscribe(observer)
     }
 }

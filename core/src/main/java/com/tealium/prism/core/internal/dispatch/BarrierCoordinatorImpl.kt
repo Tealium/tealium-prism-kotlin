@@ -8,7 +8,7 @@ import com.tealium.prism.core.api.misc.QueueMetrics
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.Subject
-import com.tealium.prism.core.internal.pubsub.mapToUnit
+import com.tealium.prism.core.api.pubsub.mapToUnit
 
 /**
  * Utility alias to link a [Barrier] implementation with its known scope.

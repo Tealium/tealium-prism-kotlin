@@ -1,0 +1,24 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <service android:name="com.tealium.prism.core.internal.modules.ModuleDiscoveryService"
+            android:exported="false">
+            <meta-data
+                android:name="com.tealium.prism.core.modules:com.tealium.prism.core.internal.modules.ConstructorModuleFactory"
+                android:value="com.tealium.prism.core.api.ModuleFactory" />
+            <meta-data
+                android:name="com.tealium.prism.core.modules:com.tealium.prism.core.internal.modules.ObjectModuleFactory"
+                android:value="com.tealium.prism.core.api.ModuleFactory" />
+            <meta-data
+                android:name="com.tealium.prism.core.modules:com.tealium.prism.core.internal.modules.CompanionModuleFactory"
+                android:value="com.tealium.prism.core.api.ModuleFactory" />
+            <meta-data
+                android:name="com.tealium.prism.core.modules:com.tealium.prism.core.internal.modules.FieldModuleFactory#FACTORY"
+                android:value="com.tealium.prism.core.api.ModuleFactory" />
+            <meta-data
+                android:name="com.tealium.prism.core.modules:com.tealium.prism.core.internal.modules.MissingModuleFactory"
+                android:value="com.tealium.prism.core.api.ModuleFactory" />
+        </service>
+    </application>
+
+</manifest>

@@ -4,7 +4,7 @@ import com.tealium.prism.core.api.InstanceManager
 import com.tealium.prism.core.api.Tealium
 import com.tealium.prism.core.api.TealiumConfig
 import com.tealium.prism.core.api.misc.Schedulers
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.pubsub.CompositeDisposable
 import com.tealium.prism.core.api.pubsub.Observables
@@ -15,7 +15,7 @@ import com.tealium.prism.core.internal.misc.SchedulersImpl
 import com.tealium.prism.core.internal.misc.SingleThreadedScheduler
 import com.tealium.prism.core.internal.misc.ThreadPoolScheduler
 import com.tealium.prism.core.internal.pubsub.DisposableContainer
-import com.tealium.prism.core.internal.pubsub.addTo
+import com.tealium.prism.core.api.pubsub.addTo
 
 class TealiumInstanceManager(
     private val schedulers: Schedulers = SchedulersImpl(
@@ -30,7 +30,7 @@ class TealiumInstanceManager(
 
     override fun create(
         config: TealiumConfig,
-        onReady: TealiumCallback<TealiumResult<Tealium>>?
+        onReady: Callback<TealiumResult<Tealium>>?
     ): Tealium {
         val tealiumReady = Observables.replaySubject<TealiumResult<TealiumImpl>>(1)
         val proxy = TealiumProxy(config.key, schedulers.tealium, tealiumReady, ::shutdown)
@@ -74,7 +74,7 @@ class TealiumInstanceManager(
         }
     }
 
-    override fun get(instanceKey: String, callback: TealiumCallback<Tealium?>) =
+    override fun get(instanceKey: String, callback: Callback<Tealium?>) =
         getExistingTealiumComponents(instanceKey) { components ->
             callback.onComplete(components?.proxy)
         }
@@ -87,7 +87,7 @@ class TealiumInstanceManager(
      */
     private fun getExistingTealiumComponents(
         key: String,
-        callback: TealiumCallback<TealiumComponents?>
+        callback: Callback<TealiumComponents?>
     ) {
         schedulers.tealium.execute {
             callback.onComplete(instances[key])
@@ -107,7 +107,7 @@ class TealiumInstanceManager(
         config: TealiumConfig,
         proxy: TealiumProxy,
         proxySubject: Subject<TealiumResult<TealiumImpl>>,
-        onReady: TealiumCallback<TealiumResult<Tealium>>?
+        onReady: Callback<TealiumResult<Tealium>>?
     ) {
         val instanceSubject = Observables.replaySubject<TealiumResult<TealiumImpl>>(1)
         try {

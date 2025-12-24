@@ -15,7 +15,7 @@ import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Single
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchContext
-import com.tealium.prism.core.api.tracking.TealiumDispatchType
+import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.Tracker
 import com.tealium.prism.lifecycle.BuildConfig
 import com.tealium.prism.lifecycle.InvalidEventOrderException
@@ -137,7 +137,7 @@ class LifecycleModule(
                 } ?: state
 
                 val dispatch =
-                    Dispatch.create(event.event, TealiumDispatchType.Event, eventData)
+                    Dispatch.create(event.event, DispatchType.Event, eventData)
                 tracker.track(dispatch, DispatchContext.Source.module(this::class.java))
             }
 

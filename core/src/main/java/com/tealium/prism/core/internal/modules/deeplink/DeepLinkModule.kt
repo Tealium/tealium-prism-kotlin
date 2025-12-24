@@ -72,15 +72,15 @@ class DeepLinkModule(
         val trace = getTrace()
             ?: throw ModuleNotEnabledException("Trace Module is not enabled.")
 
-        if (uri.getQueryParameter(KILL_VISITOR_SESSION) != null) {
-            trace.killVisitorSession { result ->
+        if (uri.getQueryParameter(FORCE_END_OF_VISIT) != null) {
+            trace.forceEndOfVisit { result ->
                 if (result.status == TrackResult.Status.Accepted) {
                     logger.logIfTraceEnabled(id) {
-                        "KillVisitorSession event accepted for dispatch."
+                        "ForceEndOfVisit event accepted for dispatch."
                     }
                 } else {
                     logger.logIfWarnEnabled(id) {
-                        "Failed to kill visitor session: dispatch was dropped"
+                        "Failed to force end of visit: dispatch was dropped"
                     }
                 }
             }
@@ -200,7 +200,7 @@ class DeepLinkModule(
     companion object {
         const val TRACE_ID_QUERY_PARAM = Dispatch.Keys.TEALIUM_TRACE_ID
         const val LEAVE_TRACE_QUERY_PARAM = "leave_trace"
-        const val KILL_VISITOR_SESSION = "kill_visitor_session"
+        const val FORCE_END_OF_VISIT = "kill_visitor_session"
         const val DEEP_LINK_EVENT = "deep_link"
     }
 

@@ -2,6 +2,7 @@ package com.tealium.prism.core.internal.modules.trace
 
 import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.Tealium
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleManager
@@ -15,7 +16,6 @@ import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.api.tracking.TrackResultListener
 import com.tealium.prism.core.internal.modules.ModuleManagerImpl
 import com.tealium.prism.core.internal.modules.ModuleProxyImpl
-import com.tealium.tests.common.SynchronousScheduler
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
@@ -33,7 +33,7 @@ class TraceWrapperTests {
     private lateinit var observer: Observer<TealiumResult<Unit>>
 
     @RelaxedMockK
-    private lateinit var killVisitorObserver: Observer<TealiumResult<TrackResult>>
+    private lateinit var forceEndVisitObserver: Observer<TealiumResult<TrackResult>>
 
     private lateinit var modules: StateSubject<List<Module>>
     private lateinit var moduleManager: ModuleManager
@@ -41,7 +41,7 @@ class TraceWrapperTests {
     private lateinit var proxy: ModuleProxy<TraceModule>
 
     private lateinit var traceManagerWrapper: TraceWrapper
-    private val scheduler = SynchronousScheduler()
+    private val scheduler = Scheduler.SYNCHRONOUS
 
     @Before
     fun setUp() {
@@ -63,12 +63,12 @@ class TraceWrapperTests {
 
         traceManagerWrapper.join("12345").subscribe(observer)
         traceManagerWrapper.leave().subscribe(observer)
-        traceManagerWrapper.killVisitorSession().subscribe(killVisitorObserver)
+        traceManagerWrapper.forceEndOfVisit().subscribe(forceEndVisitObserver)
 
         verify {
             observer.onNext(match { it.exceptionOrNull() is ModuleNotEnabledException })
             observer.onNext(match { it.exceptionOrNull() is ModuleNotEnabledException })
-            killVisitorObserver.onNext(match { it.exceptionOrNull() is ModuleNotEnabledException })
+            forceEndVisitObserver.onNext(match { it.exceptionOrNull() is ModuleNotEnabledException })
         }
     }
 
@@ -78,12 +78,12 @@ class TraceWrapperTests {
 
         traceManagerWrapper.join("12345").subscribe(observer)
         traceManagerWrapper.leave().subscribe(observer)
-        traceManagerWrapper.killVisitorSession().subscribe(killVisitorObserver)
+        traceManagerWrapper.forceEndOfVisit().subscribe(forceEndVisitObserver)
 
         verify {
             observer.onNext(match { it.exceptionOrNull() is Tealium.TealiumShutdownException })
             observer.onNext(match { it.exceptionOrNull() is Tealium.TealiumShutdownException })
-            killVisitorObserver.onNext(match { it.exceptionOrNull() is Tealium.TealiumShutdownException })
+            forceEndVisitObserver.onNext(match { it.exceptionOrNull() is Tealium.TealiumShutdownException })
         }
     }
 
@@ -126,35 +126,35 @@ class TraceWrapperTests {
     }
 
     @Test
-    fun killVisitorSession_Calls_Module_Implementation_When_Module_Enabled() {
-        traceManagerWrapper.killVisitorSession()
+    fun forceEndOfVisit_Calls_Module_Implementation_When_Module_Enabled() {
+        traceManagerWrapper.forceEndOfVisit()
 
         verify {
-            traceModule.killVisitorSession(any())
+            traceModule.forceEndOfVisit(any())
         }
     }
 
     @Test
-    fun killVisitorSession_Returns_Success_When_Dispatch_Accepted() {
+    fun forceEndOfVisit_Returns_Success_When_Dispatch_Accepted() {
         mockModuleCallback(TrackResult.accepted(mockk(), ""))
 
-        traceManagerWrapper.killVisitorSession()
-            .subscribe(killVisitorObserver)
+        traceManagerWrapper.forceEndOfVisit()
+            .subscribe(forceEndVisitObserver)
 
         verify {
-            killVisitorObserver.onNext(match { it.isSuccess })
+            forceEndVisitObserver.onNext(match { it.isSuccess })
         }
     }
 
     @Test
-    fun killVisitorSession_Returns_Success_Even_When_Dispatch_Dropped() {
+    fun forceEndOfVisit_Returns_Success_Even_When_Dispatch_Dropped() {
         mockModuleCallback(TrackResult.dropped(mockk(), ""))
 
-        traceManagerWrapper.killVisitorSession()
-            .subscribe(killVisitorObserver)
+        traceManagerWrapper.forceEndOfVisit()
+            .subscribe(forceEndVisitObserver)
 
         verify {
-            killVisitorObserver.onNext(match { it.isSuccess })
+            forceEndVisitObserver.onNext(match { it.isSuccess })
         }
     }
 
@@ -172,7 +172,7 @@ class TraceWrapperTests {
     }
 
     private fun mockModuleCallback(result: TrackResult) {
-        every { traceModule.killVisitorSession(any()) } answers {
+        every { traceModule.forceEndOfVisit(any()) } answers {
             arg<TrackResultListener>(0)
                 .onTrackResultReady(result)
         }

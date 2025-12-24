@@ -5,7 +5,7 @@ import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.Subject
 import com.tealium.prism.core.api.settings.CoreSettings
 import com.tealium.prism.core.api.tracking.Dispatch
-import com.tealium.prism.core.api.tracking.TealiumDispatchType
+import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.internal.persistence.repositories.VolatileQueueRepository
 import com.tealium.prism.core.internal.settings.CoreSettingsImpl
 import com.tealium.tests.common.SystemLogger
@@ -180,5 +180,5 @@ class QueueMetricsTests {
     }
 
     private fun createDispatch(eventName: String = "event"): Dispatch =
-        Dispatch.create(eventName, TealiumDispatchType.Event)
+        Dispatch.create(eventName, DispatchType.Event)
 }

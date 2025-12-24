@@ -88,6 +88,9 @@ interface DateFormatter {
     fun offsetInHours(date: Date, timeZone: TimeZone): Double
 }
 
+/**
+ * Utility object for consistent time and date formatting across the SDK.
+ */
 object DateUtils : DateFormatter {
 
     private val utcIso8601Format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ROOT)

@@ -3,6 +3,7 @@ package com.tealium.prism.core.internal.consent
 import com.tealium.prism.core.api.consent.ConsentDecision
 import com.tealium.prism.core.api.data.DataItemUtils.asDataList
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.StateSubject
@@ -12,7 +13,6 @@ import com.tealium.prism.core.internal.dispatch.QueueManager
 import com.tealium.prism.core.internal.settings.consent.ConsentConfiguration
 import com.tealium.prism.core.internal.settings.consent.ConsentPurpose
 import com.tealium.prism.core.internal.settings.consent.ConsentSettings
-import com.tealium.tests.common.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.every
@@ -54,7 +54,7 @@ class ConsentIntegrationManagerTests {
             )
         )
         cmpAdapter = MockCmpAdapter(id = "MockCmp", setOf("tealium", "1", "2", "3"))
-        cmpSelector = CmpConfigurationSelector(consentSettings, cmpAdapter, SynchronousScheduler())
+        cmpSelector = CmpConfigurationSelector(consentSettings, cmpAdapter, Scheduler.SYNCHRONOUS)
         queueManager = mockk(relaxed = true)
 
         consentManager = ConsentIntegrationManager(modules, queueManager, cmpSelector, SystemLogger)

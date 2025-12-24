@@ -8,7 +8,7 @@ import com.tealium.prism.core.api.misc.TimeFrameUtils.days
 import com.tealium.prism.core.api.misc.TimeFrameUtils.inMilliseconds
 import com.tealium.prism.core.api.misc.TimeFrameUtils.seconds
 import com.tealium.prism.core.api.tracking.Dispatch
-import com.tealium.prism.core.api.tracking.TealiumDispatchType
+import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.internal.persistence.database.DatabaseProvider
 import com.tealium.prism.core.internal.persistence.database.DatabaseTestUtils
 import com.tealium.prism.core.internal.persistence.database.DatabaseTestUtils.upgrade
@@ -54,14 +54,14 @@ class SQLQueueRepositoryTests {
 
         dispatch1 = Dispatch.create(
             eventName = "dispatch1",
-            type = TealiumDispatchType.Event,
+            type = DispatchType.Event,
             dataObject = DataObject.create {
                 put("key1", "string1")
             }
         )
         dispatch2 = Dispatch.create(
             eventName = "dispatch2",
-            type = TealiumDispatchType.View,
+            type = DispatchType.View,
             dataObject = DataObject.create {
                 put("key2", "string2")
             }
@@ -140,7 +140,7 @@ class SQLQueueRepositoryTests {
         queueRepository.resize(2)
         val dispatch3 = Dispatch.create(
             eventName = "dispatch3",
-            type = TealiumDispatchType.View,
+            type = DispatchType.View,
             dataObject = DataObject.create {
                 put("key3", "string3")
             }
@@ -412,7 +412,7 @@ class SQLQueueRepositoryTests {
         queueRepository.resize(2)
         val dispatch3 = Dispatch.create(
             eventName = "dispatch3",
-            type = TealiumDispatchType.Event,
+            type = DispatchType.Event,
             dataObject = DataObject.create {
                 put("key1", "string1")
             }

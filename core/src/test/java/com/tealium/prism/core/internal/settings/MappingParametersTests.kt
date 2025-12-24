@@ -2,8 +2,10 @@ package com.tealium.prism.core.internal.settings
 
 import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataObject
-import com.tealium.prism.core.api.settings.ValueContainer
-import com.tealium.prism.core.api.settings.VariableAccessor
+import com.tealium.prism.core.api.data.JsonPath
+import com.tealium.prism.core.api.data.ReferenceContainer
+import com.tealium.prism.core.api.data.get
+import com.tealium.prism.core.api.data.ValueContainer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
@@ -14,31 +16,31 @@ class MappingParametersTests {
 
     @Test
     fun constructor_Sets_Properties_Correctly() {
-        val key = VariableAccessor("test_variable", listOf("path1"))
+        val key = ReferenceContainer.path(JsonPath["path1"]["test_variable"])
         val filter = ValueContainer("test_filter")
         val mapTo = ValueContainer("test_map_to")
 
         val parameters = MappingParameters(key, filter, mapTo)
 
-        assertEquals(key, parameters.key)
+        assertEquals(key, parameters.reference)
         assertEquals(filter, parameters.filter)
         assertEquals(mapTo, parameters.mapTo)
     }
 
     @Test
     fun constructor_Accepts_Null_Filter_And_MapTo() {
-        val key = VariableAccessor("test_variable", null)
+        val key = ReferenceContainer.key("test_variable")
 
         val parameters = MappingParameters(key, null, null)
 
-        assertEquals(key, parameters.key)
+        assertEquals(key, parameters.reference)
         assertNull(parameters.filter)
         assertNull(parameters.mapTo)
     }
 
     @Test
     fun asDataObject_Returns_Correct_DataObject_With_All_Fields() {
-        val key = VariableAccessor("test_variable", listOf("path1"))
+        val key = ReferenceContainer.path(JsonPath["path1"]["test_variable"])
         val filter = ValueContainer("test_filter")
         val mapTo = ValueContainer("test_map_to")
         val parameters = MappingParameters(key, filter, mapTo)
@@ -46,21 +48,29 @@ class MappingParametersTests {
         val dataObject = parameters.asDataObject()
 
         assertNotNull(dataObject)
-        val keyAccessor = dataObject.get(MappingParameters.Converter.KEY_KEY, VariableAccessor.Converter)
+        val keyAccessor =
+            dataObject.get(MappingParameters.Converter.KEY_REFERENCE, ReferenceContainer.Converter)
         assertEquals(key, keyAccessor)
-        assertEquals(filter, dataObject.get(MappingParameters.Converter.KEY_FILTER, ValueContainer.Converter))
-        assertEquals(mapTo, dataObject.get(MappingParameters.Converter.KEY_MAP_TO, ValueContainer.Converter))
+        assertEquals(
+            filter,
+            dataObject.get(MappingParameters.Converter.KEY_FILTER, ValueContainer.Converter)
+        )
+        assertEquals(
+            mapTo,
+            dataObject.get(MappingParameters.Converter.KEY_MAP_TO, ValueContainer.Converter)
+        )
     }
 
     @Test
     fun asDataObject_Returns_Correct_DataObject_With_Null_Fields() {
-        val key = VariableAccessor("test_variable", null)
+        val key = ReferenceContainer.key("test_variable")
         val parameters = MappingParameters(key, null, null)
 
         val dataObject = parameters.asDataObject()
 
         assertNotNull(dataObject)
-        val keyAccessor = dataObject.get(MappingParameters.Converter.KEY_KEY, VariableAccessor.Converter)
+        val keyAccessor =
+            dataObject.get(MappingParameters.Converter.KEY_REFERENCE, ReferenceContainer.Converter)
         assertEquals(key, keyAccessor)
         assertNull(dataObject.get(MappingParameters.Converter.KEY_FILTER, ValueContainer.Converter))
         assertNull(dataObject.get(MappingParameters.Converter.KEY_MAP_TO, ValueContainer.Converter))
@@ -68,37 +78,33 @@ class MappingParametersTests {
 
     @Test
     fun converter_Converts_DataObject_To_MappingParameters_Correctly_With_All_Fields() {
-        val variable = "test_variable"
-        val path = listOf("path1")
+        val path = JsonPath["path1"]["test_variable"]
+        val reference = ReferenceContainer.path(path)
         val filter = "test_filter"
         val mapTo = "test_map_to"
 
         val dataObject = DataObject.create {
-            put(MappingParameters.Converter.KEY_KEY, VariableAccessor(variable, path))
+            put(MappingParameters.Converter.KEY_REFERENCE, reference)
             put(MappingParameters.Converter.KEY_FILTER, ValueContainer(filter))
             put(MappingParameters.Converter.KEY_MAP_TO, ValueContainer(mapTo))
         }
 
         val parameters = MappingParameters.Converter.convert(dataObject.asDataItem())!!
 
-        assertEquals(variable, parameters.key?.variable)
-        assertEquals(path, parameters.key?.path)
+        assertEquals(path, parameters.reference?.path)
         assertEquals(filter, parameters.filter?.value)
         assertEquals(mapTo, parameters.mapTo?.value)
     }
 
     @Test
     fun converter_Converts_DataObject_To_MappingParameters_Correctly_With_Null_Fields() {
-        val variable = "test_variable"
-
         val dataObject = DataObject.create {
-            put(MappingParameters.Converter.KEY_KEY, VariableAccessor(variable, null))
+            put(MappingParameters.Converter.KEY_REFERENCE, ReferenceContainer.key("test_variable"))
         }
 
         val parameters = MappingParameters.Converter.convert(dataObject.asDataItem())!!
 
-        assertEquals(variable, parameters.key?.variable)
-        assertNull(parameters.key?.path)
+        assertEquals(JsonPath["test_variable"], parameters.reference?.path)
         assertNull(parameters.filter)
         assertNull(parameters.mapTo)
     }
@@ -123,8 +129,8 @@ class MappingParametersTests {
 
     @Test
     fun equals_And_HashCode_Are_Correct() {
-        val key1 = VariableAccessor("variable1", listOf("path1"))
-        val key2 = VariableAccessor("variable2", listOf("path2"))
+        val key1 = ReferenceContainer.path(JsonPath["path1"]["variable1"])
+        val key2 = ReferenceContainer.path(JsonPath["path2"]["variable2"])
         val filter1 = ValueContainer("filter1")
         val filter2 = ValueContainer("filter2")
         val mapTo1 = ValueContainer("mapTo1")

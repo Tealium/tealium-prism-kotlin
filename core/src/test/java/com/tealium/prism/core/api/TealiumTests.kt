@@ -1,7 +1,7 @@
 package com.tealium.prism.core.api
 
 import android.app.Application
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.tests.common.getDefaultConfig
 import io.mockk.every
@@ -26,7 +26,7 @@ class TealiumTests {
 
     @Test
     fun tealium_ReturnsTealiumInstance_WhenReady() {
-        val callback = mockk<TealiumCallback<TealiumResult<Tealium>>>(relaxed = true)
+        val callback = mockk<Callback<TealiumResult<Tealium>>>(relaxed = true)
         Tealium.create(getDefaultConfig(app), callback)
 
         verify(timeout = 5000) {
@@ -41,7 +41,7 @@ class TealiumTests {
     fun tealium_MultipleInstances_ShareProcessingThread() {
         val threads = mutableSetOf<Thread>()
 
-        val callback = mockk<TealiumCallback<TealiumResult<Tealium>>>()
+        val callback = mockk<Callback<TealiumResult<Tealium>>>()
         every { callback.onComplete(any()) } answers {
             threads.add(Thread.currentThread())
         }

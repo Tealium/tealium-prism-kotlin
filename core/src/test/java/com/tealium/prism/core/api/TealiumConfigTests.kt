@@ -15,6 +15,7 @@ import com.tealium.prism.core.api.transform.TransformationSettings
 import com.tealium.prism.core.internal.dispatch.barrier
 import com.tealium.prism.core.internal.dispatch.barrierFactory
 import com.tealium.prism.core.internal.misc.Converters
+import com.tealium.prism.core.internal.modules.ModuleRegistry
 import com.tealium.prism.core.internal.rules.LoadRule
 import com.tealium.prism.core.internal.settings.BarrierSettings
 import com.tealium.prism.core.internal.settings.SdkSettings
@@ -26,8 +27,11 @@ import com.tealium.tests.common.getDefaultConfigBuilder
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -37,10 +41,15 @@ class TealiumConfigTests {
 
     // TODO - Other enforcedSettings tests (Modules/CoreSettings)
 
+    @Before
+    fun setUp() {
+        ModuleRegistry.clearAdditionalModules()
+    }
+
     @Test
     fun init_Adds_LoadRules_To_Enforced_Settings_Under_LoadRules_Key() {
-        val loadRule1 = LoadRule("rule-1", Rule.just(isEqual(true, null, "key", "value")))
-        val loadRule2 = LoadRule("rule-2", Rule.just(isDefined(null, "key")))
+        val loadRule1 = LoadRule("rule-1", Rule.just(isEqual(true, "key", "value")))
+        val loadRule2 = LoadRule("rule-2", Rule.just(isDefined("key")))
 
         val config = getDefaultConfigBuilder(app = mockk())
             .addLoadRule(loadRule1.id, loadRule1.conditions)
@@ -256,6 +265,54 @@ class TealiumConfigTests {
         val moduleObject = config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_MODULES)!!
         assertEquals(settings1, moduleObject.getDataObject("1"))
         assertNull(moduleObject.getDataObject("2"))
+    }
+
+    @Test
+    fun build_Adds_Default_Modules_To_Modules_List() {
+        val config = getDefaultConfig(mockk(), modules = emptyList())
+
+        assertTrue(config.modules.isNotEmpty())
+        assertTrue(config.modules.containsAll(Modules.defaultModules))
+    }
+
+    @Test
+    fun build_Adds_Additional_Default_Modules_To_Modules_List() {
+        val additionalModule = TestModuleFactory("additional")
+        ModuleRegistry.addDefaultModules(listOf(additionalModule))
+        val config = getDefaultConfig(mockk(), modules = emptyList())
+
+        assertTrue(config.modules.contains(additionalModule))
+    }
+
+    @Test
+    fun build_Deduplicates_By_Module_Type_Preferring_Added_Module() {
+        val customDataLayer = Modules.dataLayer { settings ->
+            settings.setOrder(1)
+        }
+        val config = getDefaultConfig(mockk(), modules = listOf(customDataLayer))
+
+        assertTrue(config.modules.contains(customDataLayer))
+        assertFalse(config.modules.contains(Modules.defaultModules.find { it.moduleType == Modules.Types.DATA_LAYER }))
+    }
+
+    @Test
+    fun enforcedSettings_Always_Contains_TealiumData_Module_Type() {
+        val config = getDefaultConfig(mockk(), modules = emptyList())
+
+        assertNotNull(
+            config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_MODULES)!!
+                .getDataObject(Modules.Types.TEALIUM_DATA)
+        )
+    }
+
+    @Test
+    fun enforcedSettings_Always_Contains_DataLayer_Module_Type() {
+        val config = getDefaultConfig(mockk(), modules = emptyList())
+
+        assertNotNull(
+            config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_MODULES)!!
+                .getDataObject(Modules.Types.DATA_LAYER)
+        )
     }
 
     private fun mockCmpAdapter(id: String = "cmp"): CmpAdapter {

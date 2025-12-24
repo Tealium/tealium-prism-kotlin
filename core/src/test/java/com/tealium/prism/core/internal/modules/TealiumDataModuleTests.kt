@@ -74,7 +74,7 @@ class TealiumDataModuleTests {
 
         val result = tealiumDataModule.collect(dispatchContext)
 
-        assertEquals(config.environment.environment, result.getString(Dispatch.Keys.TEALIUM_ENVIRONMENT))
+        assertEquals(config.environment, result.getString(Dispatch.Keys.TEALIUM_ENVIRONMENT))
     }
 
     @Test

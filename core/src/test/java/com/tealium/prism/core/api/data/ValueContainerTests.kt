@@ -1,7 +1,5 @@
-package com.tealium.prism.core.api.settings
+package com.tealium.prism.core.api.data
 
-import com.tealium.prism.core.api.data.DataItem
-import com.tealium.prism.core.api.data.DataObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull

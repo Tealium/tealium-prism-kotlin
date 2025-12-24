@@ -65,25 +65,21 @@ interface Lifecycle {
         const val ID = "Lifecycle"
 
         /**
-         * Returns a configured [ModuleFactory] for enabling the Lifecycle Module.
-         */
-        @JvmStatic
-        fun configure(): ModuleFactory {
-            return LifecycleModule.Factory()
-        }
-
-        /**
          * Returns a configured [ModuleFactory] for enabling Lifecycle.
          *
          * The [enforcedSettings] will be set for the lifetime of [Tealium] instance that this [ModuleFactory]
          * is loaded in, and these settings wll override any that come from other local/remote sources.
          *
-         * @param enforcedSettings Lifecycle settings that should override any from any other settings source
+         * @param enforcedSettings
+         *  Lifecycle settings that should override any from any other settings source.
+         *  Pass `null` to initialize this module only when some Local or Remote settings are provided.
+         *  Omitting this parameter will initialize the module with its default settings.
          */
         @JvmStatic
-        fun configure(enforcedSettings: (LifecycleSettingsBuilder) -> LifecycleSettingsBuilder): ModuleFactory {
-            val enforcedSettingsBuilder = enforcedSettings(LifecycleSettingsBuilder())
-            return LifecycleModule.Factory(enforcedSettingsBuilder)
+        @JvmOverloads
+        fun configure(enforcedSettings: ((LifecycleSettingsBuilder) -> LifecycleSettingsBuilder)? = { it }): ModuleFactory {
+            val enforcedSettingsBuilder = enforcedSettings?.invoke(LifecycleSettingsBuilder())
+            return LifecycleModule.Factory(enforcedSettingsBuilder?.build())
         }
 
         /**
@@ -97,11 +93,17 @@ interface Lifecycle {
 }
 
 /**
+ * Returns the default [ModuleFactory] implementation that will not create any instances
+ * unless there are settings provided from Local or Remote sources.
+ */
+@JvmField
+val DEFAULT_FACTORY: ModuleFactory = Lifecycle.configure(null)
+
+/**
  * Returns a configured [ModuleFactory] for enabling the Lifecycle Module.
  */
-fun com.tealium.prism.core.api.Modules.lifecycle(): ModuleFactory {
-    return Lifecycle.configure()
-}
+fun com.tealium.prism.core.api.Modules.lifecycle(): ModuleFactory =
+    Lifecycle.configure()
 
 /**
  * Returns a configured [ModuleFactory] for enabling Lifecycle.
@@ -109,11 +111,13 @@ fun com.tealium.prism.core.api.Modules.lifecycle(): ModuleFactory {
  * The [enforcedSettings] will be set for the lifetime of [Tealium] instance that this [ModuleFactory]
  * is loaded in, and these settings wll override any that come from other local/remote sources.
  *
- * @param enforcedSettings Lifecycle settings that should override any from any other settings source
+ * @param enforcedSettings
+ *  Lifecycle settings that should override any from any other settings source.
+ *  Pass `null` to initialize this module only when some Local or Remote settings are provided.
+ *  Omitting this parameter will initialize the module with its default settings.
  */
-fun com.tealium.prism.core.api.Modules.lifecycle(enforcedSettings: (LifecycleSettingsBuilder) -> LifecycleSettingsBuilder): ModuleFactory {
-    return Lifecycle.configure(enforcedSettings)
-}
+fun com.tealium.prism.core.api.Modules.lifecycle(enforcedSettings: ((LifecycleSettingsBuilder) -> LifecycleSettingsBuilder)? = { it }): ModuleFactory =
+    Lifecycle.configure(enforcedSettings)
 
 /**
  * The [Module.id] of the [Lifecycle] module.

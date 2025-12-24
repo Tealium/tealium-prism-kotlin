@@ -1,7 +1,6 @@
 package com.tealium.gradle
 
 import com.android.build.gradle.LibraryExtension
-import com.tealium.gradle.git.GitHelper
 import com.tealium.gradle.library.TealiumLibraryPlugin
 import com.tealium.gradle.tests.JacocoCoverageType
 import com.tealium.gradle.tests.JacocoVerifyType
@@ -9,25 +8,22 @@ import com.tealium.gradle.tests.TestType
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.tasks.bundling.Zip
+import org.gradle.kotlin.dsl.apply
 import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.support.uppercaseFirstChar
+import org.jetbrains.dokka.gradle.DokkaPlugin
 
 class TealiumGradlePlugin : Plugin<Project> {
     override fun apply(project: Project) {
+        project.pluginManager.apply(DokkaPlugin::class)
         project.configureCompressReportsTask()
         project.configureUpdatedModulesTask()
 
         project.gradle.projectsEvaluated {
-            // Flag to enable/disable CI tasks to avoid constant git checks
-            // note. will also require "GITHUB_BASE_REF" and "GITHUB_HEAD_REF" as environment vars or
-            // project properties. which can be passed as cli params like so:
-            // `./gradlew -PGITHUB_BASE_REF=main <task-name>` etc
-            val ciEnabled = project.getPropertyOrEnvironmentVariable("CI_TASKS_ENABLED", "false")
-                .toBoolean()
+            val modifiedProjects = project.getPropertyOrEnvironmentVariable("MODIFIED_PROJECTS", "")
+                .split(",")
 
-            if (ciEnabled) {
-                project.configureCiTasks()
-            }
+            project.configureCiTasks(modifiedProjects)
         }
     }
 
@@ -53,28 +49,34 @@ class TealiumGradlePlugin : Plugin<Project> {
     }
 
     private fun Project.configureUpdatedModulesTask() {
+        val incoming = project.getPropertyOrEnvironmentVariable("GITHUB_HEAD_REF", "")
+        val base = project.getPropertyOrEnvironmentVariable("GITHUB_BASE_REF", "")
+
         tasks.register("updatedUnitTestModules", UpdatedModules::class.java) {
             testType.set(TestType.UnitTest)
+            incomingBranch.set(incoming)
+            baseBranch.set(base)
         }
         tasks.register("updatedInstrumentedTestModules", UpdatedModules::class.java) {
             testType.set(TestType.InstrumentedTest)
+            incomingBranch.set(incoming)
+            baseBranch.set(base)
         }
     }
 
-    private fun Project.configureCiTasks() {
-        val tealiumLibraryProjects =
-            project.subprojects.filter { project -> project.plugins.hasPlugin(TealiumLibraryPlugin::class.java) }
+    private fun Project.configureCiTasks(modifiedProjectNames: List<String>) {
+        val tealiumLibraryProjects = project.subprojects.filter { project ->
+            project.plugins.hasPlugin(TealiumLibraryPlugin::class.java)
+        }
 
-        val modifiedProjects = tealiumLibraryProjects.filter { GitHelper.isModified(it) }
-
-        logger.lifecycle("Configuring CI Tasks for ${modifiedProjects.joinToString(", ") { it.name }}")
-
-        getAllModifiedVariants(modifiedProjects)
+        getAllModifiedVariants(tealiumLibraryProjects)
             .mapKeys { (variant, _) -> variant.uppercaseFirstChar() }
             .forEach { (variant, projects) ->
-                project.configureAssembleModifiedTasks(variant, projects)
-                project.configureAggregateTestTasks(variant, projects)
-                project.configureAggregateCoverageTasks(variant, projects)
+                val modifiedProjects =
+                    projects.filter { project -> modifiedProjectNames.contains(project.name) }
+                project.configureAssembleModifiedTasks(variant, modifiedProjects)
+                project.configureAggregateTestTasks(variant, modifiedProjects)
+                project.configureAggregateCoverageTasks(variant, modifiedProjects)
             }
     }
 
@@ -90,9 +92,10 @@ class TealiumGradlePlugin : Plugin<Project> {
      *
      * Projects that do not have the Android [LibraryExtension] are ignored.
      */
-    private fun getAllModifiedVariants(modifiedProjects: List<Project>): Map<String, List<Project>> =
-        modifiedProjects.mapNotNull { project ->
-            project.extensions.findByType(LibraryExtension::class.java)?.libraryVariants?.map { it.name to project }
+    private fun getAllModifiedVariants(tealiumLibraryProjects: List<Project>): Map<String, List<Project>> =
+        tealiumLibraryProjects.mapNotNull { project ->
+            project.extensions.findByType(LibraryExtension::class.java)
+                ?.libraryVariants?.map { it.name to project }
         }.flatten()
             .group()
 
@@ -100,8 +103,8 @@ class TealiumGradlePlugin : Plugin<Project> {
      * Groups a list of [Pair]s using their natural grouping - i.e. by taking the [Pair.first] as
      * the key, and [Pair.second] as the value.
      */
-    private fun <K, V> Iterable<Pair<K, V>>.group() : Map<K, List<V>> =
-        groupBy({ (k, _) -> k}, { (_, v) -> v})
+    private fun <K, V> Iterable<Pair<K, V>>.group(): Map<K, List<V>> =
+        groupBy({ (k, _) -> k }, { (_, v) -> v })
 
     /**
      * Configures additional aggregate tasks to

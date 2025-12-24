@@ -4,7 +4,7 @@ import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.logger.logIfTraceEnabled
 import com.tealium.prism.core.api.misc.Scheduler
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TimeFrame
 import com.tealium.prism.core.api.network.HttpRequest
 import com.tealium.prism.core.api.network.HttpRequest.Headers
@@ -24,7 +24,7 @@ import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.internal.logger.LogCategory
 import com.tealium.prism.core.internal.pubsub.AsyncDisposableContainer
-import com.tealium.prism.core.internal.pubsub.addTo
+import com.tealium.prism.core.api.pubsub.addTo
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.io.IOException
@@ -48,7 +48,7 @@ class HttpClient(
 
     override fun sendRequest(
         request: HttpRequest,
-        completion: TealiumCallback<NetworkResult>
+        completion: Callback<NetworkResult>
     ): Disposable {
         logger.logIfTraceEnabled(LogCategory.HTTP_CLIENT) {
             "Sending request ${request.url}"

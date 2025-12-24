@@ -42,7 +42,7 @@ class TraceModuleTests {
         dataStore = ModuleStore(repository)
 
         trace = TraceModule(
-            dataStore, mockk()
+            dataStore, mockk(), TraceModuleConfiguration()
         )
     }
 
@@ -71,6 +71,7 @@ class TraceModuleTests {
         val data = trace.collect(dispatchContext)
 
         assertEquals("12345", data.getString(Dispatch.Keys.TEALIUM_TRACE_ID))
+        assertEquals("12345", data.getString(Dispatch.Keys.CP_TRACE_ID))
     }
 
     @Test
@@ -91,7 +92,7 @@ class TraceModuleTests {
     }
 
     @Test
-    fun collect_Returns_Empty_Object_When_Source_Is_Trace_Module() {
+    fun collect_Returns_Trace_Data_When_Source_Is_Trace_Module() {
         trace.join("12345")
 
         val dispatchContext = dispatchContext.copy(
@@ -99,6 +100,7 @@ class TraceModuleTests {
         )
         val data = trace.collect(dispatchContext)
 
-        assertEquals(DataObject.EMPTY_OBJECT, data)
+        assertEquals("12345", data.getString(Dispatch.Keys.TEALIUM_TRACE_ID))
+        assertEquals("12345", data.getString(Dispatch.Keys.CP_TRACE_ID))
     }
 }

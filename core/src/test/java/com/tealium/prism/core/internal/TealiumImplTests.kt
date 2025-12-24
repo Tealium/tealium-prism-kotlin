@@ -2,13 +2,20 @@ package com.tealium.prism.core.internal
 
 import android.app.Activity
 import android.app.Application
+import com.tealium.prism.core.api.consent.ConsentDecision
+import com.tealium.prism.core.api.data.JsonPath
 import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.misc.ActivityManager
+import com.tealium.prism.core.api.misc.TealiumException
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
+import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.Observable
+import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.Observer
+import com.tealium.prism.core.api.settings.modules.ModuleSettingsBuilder
+import com.tealium.prism.core.internal.consent.MockCmpAdapter
 import com.tealium.prism.core.internal.misc.ActivityManagerImpl
 import com.tealium.prism.core.internal.modules.InternalModuleManager
 import com.tealium.prism.core.internal.modules.ModuleManagerImpl
@@ -20,7 +27,9 @@ import com.tealium.prism.core.internal.settings.SdkSettings
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestModule
 import com.tealium.tests.common.TestModuleFactory
+import com.tealium.tests.common.assertThrows
 import com.tealium.tests.common.getDefaultConfig
+import com.tealium.tests.common.getDefaultConfigBuilder
 import com.tealium.tests.common.testSchedulers
 import io.mockk.Ordering
 import io.mockk.every
@@ -48,6 +57,53 @@ class TealiumImplTests {
     }
 
     @Test
+    fun isShutdown_Returns_False_When_Not_Shutdown() {
+        val tealium =
+            TealiumImpl(getDefaultConfig(app), testSchedulers)
+
+        assertFalse(tealium.isShutdown)
+    }
+
+    @Test
+    fun isShutdown_Returns_True_After_Shutdown_Called() {
+        val tealium =
+            TealiumImpl(getDefaultConfig(app), testSchedulers)
+
+        tealium.shutdown()
+
+        assertTrue(tealium.isShutdown)
+    }
+
+    @Test
+    fun init_Throws_Tealium_Exception_And_Shuts_Down_When_Exception_During_Init() {
+        val enabledSettings = ModuleSettingsBuilder("type").setEnabled(true).build()
+        val config = getDefaultConfigBuilder(app)
+            .addModule(TestModuleFactory.singleInstance("type", enabledSettings) { _, _, _ ->
+                throw StackOverflowError()
+            }).build()
+        val disposables = Disposables.composite()
+
+        assertThrows<TealiumException>(cause = StackOverflowError::class) {
+            TealiumImpl(config, testSchedulers, disposables = disposables)
+        }
+        assertTrue(disposables.isDisposed)
+    }
+
+    @Test
+    fun init_Subscribes_Consent_To_CmpAdapter_And_Disposes_On_Shutdown() {
+        val decision = Observables.stateSubject<ConsentDecision?>(null)
+        val config = getDefaultConfigBuilder(app)
+            .enableConsentIntegration(MockCmpAdapter(_consentDecision = decision))
+            .build()
+        val tealium = TealiumImpl(config, testSchedulers)
+
+        assertEquals(1, decision.count)
+
+        tealium.shutdown()
+        assertEquals(0, decision.count)
+    }
+
+    @Test
     fun shutdown_Shuts_Down_Module_Manager() {
         val moduleManager = spyk(ModuleManagerImpl(testSchedulers.tealium))
         val tealium =
@@ -61,7 +117,10 @@ class TealiumImplTests {
     @Test
     fun tealium_Notifies_ApplicationSubscriberModules_IfSubscribed_AtLaunch() {
         val appObserver = mockk<Observer<ActivityManager.ApplicationStatus>>(relaxed = true)
-        val appAwareModuleFactory = TestModuleFactory("app-aware-module") { _, ctx, _ ->
+        val appAwareModuleFactory = TestModuleFactory(
+            "app-aware-module",
+            config = listOf(ModuleSettingsBuilder("app-aware-module").build())
+        ) { _, ctx, _ ->
             ObserverModule(
                 ctx.activityManager.applicationStatus,
                 appObserver
@@ -99,7 +158,10 @@ class TealiumImplTests {
     @Test
     fun tealium_Notifies_ActivitySubscriberModules_IfSubscribed_AtLaunch() {
         val appObserver = mockk<Observer<ActivityManager.ActivityStatus>>(relaxed = true)
-        val appAwareModuleFactory = TestModuleFactory("activity-aware-module") { _, ctx, _ ->
+        val appAwareModuleFactory = TestModuleFactory(
+            "activity-aware-module",
+            config = listOf(ModuleSettingsBuilder("activity-aware-module").build())
+        ) { _, ctx, _ ->
             ObserverModule(
                 ctx.activityManager.activities,
                 appObserver
@@ -227,14 +289,14 @@ class TealiumImplTests {
         assertEquals(2, dispatcherMappings.size)
 
         val mapping1 = dispatcherMappings[0]
-        assertEquals("destination1", mapping1.destination.variable)
-        assertEquals("source1", mapping1.parameters.key?.variable)
+        assertEquals(JsonPath["destination1"], mapping1.destination.path)
+        assertEquals(JsonPath["source1"], mapping1.parameters.reference?.path)
         assertNull(mapping1.parameters.filter)
         assertNull(mapping1.parameters.mapTo)
 
         val mapping2 = dispatcherMappings[1]
-        assertEquals("destination2", mapping2.destination.variable)
-        assertEquals("source2", mapping2.parameters.key?.variable)
+        assertEquals(JsonPath["destination2"], mapping2.destination.path)
+        assertEquals(JsonPath["source2"], mapping2.parameters.reference?.path)
         assertEquals("expected", mapping2.parameters.filter?.value)
         assertEquals("value", mapping2.parameters.mapTo?.value)
     }

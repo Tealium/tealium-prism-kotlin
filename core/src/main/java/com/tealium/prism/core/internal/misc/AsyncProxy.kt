@@ -1,7 +1,7 @@
 package com.tealium.prism.core.internal.misc
 
 import com.tealium.prism.core.api.misc.Scheduler
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observables
@@ -20,7 +20,7 @@ interface AsyncProxy<T> {
      *
      * @param callback The block of code to receive the proxied object.
      */
-    fun getProxiedObject(callback: TealiumCallback<T?>)
+    fun getProxiedObject(callback: Callback<T?>)
 
     /**
      * Eagerly executes a [task] with the result returned as a [TealiumResult]
@@ -39,7 +39,7 @@ interface AsyncProxy<T> {
      *
      * @return [Single] containing either the result of the task, or the failing exception
      */
-    fun <R> executeAsyncTask(task: (T, TealiumCallback<TealiumResult<R>>) -> Unit): Single<TealiumResult<R>>
+    fun <R> executeAsyncTask(task: (T, Callback<TealiumResult<R>>) -> Unit): Single<TealiumResult<R>>
 }
 
 /**
@@ -57,7 +57,7 @@ class AsyncProxyImpl<T>(
     private val onObject: Observable<TealiumResult<T>>
 ): AsyncProxy<T> {
 
-    override fun getProxiedObject(callback: TealiumCallback<T?>) {
+    override fun getProxiedObject(callback: Callback<T?>) {
         onObject.asSingle(scheduler)
             .subscribe { callback.onComplete(it.getOrNull()) }
     }
@@ -73,7 +73,7 @@ class AsyncProxyImpl<T>(
             tealiumCallback.onComplete(result)
         }
 
-    override fun <R> executeAsyncTask(task: (T, TealiumCallback<TealiumResult<R>>) -> Unit): Single<TealiumResult<R>> {
+    override fun <R> executeAsyncTask(task: (T, Callback<TealiumResult<R>>) -> Unit): Single<TealiumResult<R>> {
         val replay = Observables.replaySubject<TealiumResult<R>>()
 
         onObject.callback { t, observer ->

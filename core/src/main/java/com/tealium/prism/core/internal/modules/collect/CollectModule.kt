@@ -1,5 +1,6 @@
 package com.tealium.prism.core.internal.modules.collect
 
+import android.net.Uri
 import com.tealium.prism.core.BuildConfig
 import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.TealiumConfig
@@ -7,7 +8,7 @@ import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.logger.logIfTraceEnabled
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
@@ -19,7 +20,8 @@ import com.tealium.prism.core.internal.logger.LogCategory
 import com.tealium.prism.core.internal.logger.logDescriptions
 import com.tealium.prism.core.internal.pubsub.CompletedDisposable
 import com.tealium.prism.core.internal.pubsub.DisposableContainer
-import com.tealium.prism.core.internal.pubsub.addTo
+import com.tealium.prism.core.api.pubsub.addTo
+import java.net.URL
 
 /**
  * The [CollectModule]
@@ -52,7 +54,7 @@ class CollectModule(
 
     override fun dispatch(
         dispatches: List<Dispatch>,
-        callback: TealiumCallback<List<Dispatch>>
+        callback: Callback<List<Dispatch>>
     ): Disposable {
         return if (dispatches.size == 1) {
             sendSingle(dispatches.first(), callback)
@@ -63,7 +65,7 @@ class CollectModule(
 
     private fun sendBatch(
         dispatches: List<Dispatch>,
-        onProcessed: TealiumCallback<List<Dispatch>>
+        onProcessed: Callback<List<Dispatch>>
     ): Disposable {
         val disposableContainer = DisposableContainer()
 
@@ -91,7 +93,7 @@ class CollectModule(
     private fun sendBatch(
         visitorId: String,
         batch: List<Dispatch>,
-        onProcessed: TealiumCallback<List<Dispatch>>
+        onProcessed: Callback<List<Dispatch>>
     ): Disposable {
         if (batch.count() == 1) {
             return sendSingle(batch.first(), onProcessed)
@@ -108,14 +110,16 @@ class CollectModule(
             return CompletedDisposable
         }
 
-        return networkHelper.post(collectModuleConfiguration.batchUrl, compressed) {
+        val url = appendTraceIdToUrl(collectModuleConfiguration.batchUrl, batch)
+
+        return networkHelper.post(url, compressed) {
             onProcessed.onComplete(batch)
         }
     }
 
     private fun sendSingle(
         dispatch: Dispatch,
-        onProcessed: TealiumCallback<List<Dispatch>>
+        onProcessed: Callback<List<Dispatch>>
     ): Disposable {
         collectModuleConfiguration.profile?.let { profile ->
             dispatch.addAll(DataObject.create {
@@ -123,7 +127,9 @@ class CollectModule(
             })
         }
 
-        return networkHelper.post(collectModuleConfiguration.url, dispatch.payload()) {
+        val url = appendTraceIdToUrl(collectModuleConfiguration.url, listOf(dispatch))
+
+        return networkHelper.post(url, dispatch.payload()) {
             onProcessed.onComplete(listOf(dispatch))
         }
     }
@@ -133,6 +139,25 @@ class CollectModule(
 
         collectModuleConfiguration = newConfiguration
         return this
+    }
+
+    private fun appendTraceIdToUrl(url: URL, dispatches: List<Dispatch>): URL {
+        val traceId = dispatches.firstNotNullOfOrNull {
+            it.payload().getString(Dispatch.Keys.TEALIUM_TRACE_ID)
+                ?.takeIf { id -> id.isNotEmpty() }
+        }
+
+        if (traceId == null) {
+            return url
+        }
+
+        val urlString =
+            Uri.parse(url.toString()).buildUpon()
+                .appendQueryParameter(Dispatch.Keys.TEALIUM_TRACE_ID, traceId)
+                .build()
+                .toString()
+
+        return URL(urlString)
     }
 
     companion object {

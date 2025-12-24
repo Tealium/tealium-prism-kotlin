@@ -2,7 +2,7 @@ package com.tealium.prism.core.internal.modules
 
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.misc.Scheduler
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
 import com.tealium.prism.core.api.modules.TealiumContext
@@ -47,7 +47,7 @@ class ModuleManagerImpl(
         return null
     }
 
-    override fun <T : Module> getModuleOfType(clazz: Class<T>, callback: TealiumCallback<T?>) {
+    override fun <T : Module> getModuleOfType(clazz: Class<T>, callback: Callback<T?>) {
         scheduler.execute {
             callback.onComplete(getModuleOfType(clazz))
         }
@@ -118,23 +118,13 @@ class ModuleManagerImpl(
     }
 
     /**
-     * Returns a list of all [ModuleSettings] from the given [SdkSettings], joined with additional
-     * default [ModuleSettings] for any [ModuleFactory] that was added but does not have any settings
-     * available.
+     * Returns a list of all [ModuleSettings] from the given [SdkSettings]
      *
      * The returned list is sorted by [ModuleSettings.order], and deduplicated by [ModuleSettings.moduleId].
      */
     private fun prepareModuleSettings(settings: SdkSettings): List<ModuleSettings> {
-        val sortedModuleSettings = settings.modules.values.sortedBy { it.order }
-
-        val missingModuleSettings = moduleFactories.filterValues { factory ->
-            settings.modules.values.find { it.moduleType == factory.moduleType } == null
-        }.map { ModuleSettings(it.value.moduleType, order = Int.MAX_VALUE) }
-
-        val deduplicatedModuleSettings = (sortedModuleSettings + missingModuleSettings)
+        return settings.modules.values.sortedBy { it.order }
             .distinctBy { it.moduleId }
-
-        return deduplicatedModuleSettings
     }
 
     private fun updateOrDisableModule(

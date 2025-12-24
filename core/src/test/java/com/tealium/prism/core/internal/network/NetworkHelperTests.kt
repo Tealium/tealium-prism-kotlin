@@ -2,7 +2,7 @@ package com.tealium.prism.core.internal.network
 
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.TestDataObjectConvertible
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.network.DeserializedNetworkCallback
 import com.tealium.prism.core.api.network.HttpRequest
 import com.tealium.prism.core.api.network.HttpResponse
@@ -389,7 +389,7 @@ class NetworkHelperTests {
         response: NetworkResult,
         returns: Disposable = mockk()
     ) {
-        val responseCapture = slot<TealiumCallback<NetworkResult>>()
+        val responseCapture = slot<Callback<NetworkResult>>()
         every { networkClient.sendRequest(request, capture(responseCapture)) } answers {
             responseCapture.captured.onComplete(response)
             returns

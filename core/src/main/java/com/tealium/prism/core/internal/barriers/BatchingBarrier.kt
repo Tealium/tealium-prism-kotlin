@@ -30,9 +30,8 @@ class BatchingBarrier(
         configuration: DataObject
     ) : this(
         context.queueMetrics,
-        context.moduleManager.modules.map { it.filterIsInstance<Dispatcher>() }.withState {
-            context.moduleManager.modules.value.filterIsInstance<Dispatcher>()
-        },
+        context.moduleManager.modules
+            .mapState { it.filterIsInstance<Dispatcher>() },
         configuration.batchSize,
     )
 

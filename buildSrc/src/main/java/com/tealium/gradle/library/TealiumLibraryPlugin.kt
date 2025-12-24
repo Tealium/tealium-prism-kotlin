@@ -2,6 +2,7 @@ package com.tealium.gradle.library
 
 import com.android.build.gradle.LibraryExtension
 import com.android.build.gradle.LibraryPlugin
+import com.tealium.gradle.dokka.DokkaLibraryPlugin
 import com.tealium.gradle.getPropertyOrEnvironmentVariable
 import com.tealium.gradle.tests.JacocoCoverageType
 import com.tealium.gradle.tests.JacocoVerifyType
@@ -29,6 +30,7 @@ import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
 import org.gradle.testing.jacoco.tasks.JacocoCoverageVerification
 import org.gradle.testing.jacoco.tasks.JacocoReport
 import org.gradle.testing.jacoco.tasks.JacocoReportBase
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 import org.jetbrains.kotlin.gradle.plugin.KotlinAndroidPluginWrapper
 import java.math.BigDecimal
@@ -41,6 +43,7 @@ class TealiumLibraryPlugin : Plugin<Project> {
             apply<LibraryPlugin>()
             apply<KotlinAndroidPluginWrapper>()
             apply<JacocoPlugin>()
+            apply<DokkaLibraryPlugin>()
 
             val tealiumLibrary =
                 extensions.create<TealiumLibraryExtension>("tealiumLibrary", this)
@@ -77,11 +80,12 @@ class TealiumLibraryPlugin : Plugin<Project> {
                 sourceCompatibility = JavaVersion.VERSION_1_8
                 targetCompatibility = JavaVersion.VERSION_1_8
             }
-            tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
-                kotlinOptions {
-                    jvmTarget = JavaVersion.VERSION_1_8.toString()
+            tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java)
+                .configureEach {
+                    compilerOptions {
+                        jvmTarget.set(JvmTarget.JVM_1_8)
+                    }
                 }
-            }
             extensions.configure(KotlinAndroidProjectExtension::class.java) {
                 jvmToolchain {
                     languageVersion.set(JavaLanguageVersion.of(17))
@@ -160,7 +164,10 @@ class TealiumLibraryPlugin : Plugin<Project> {
     }
 
     private fun Project.configureVerifyTestCoverage(variant: String, config: JacocoConfig) {
-        tasks.register(JacocoVerifyType.Default.taskName(variant), JacocoCoverageVerification::class.java) {
+        tasks.register(
+            JacocoVerifyType.Default.taskName(variant),
+            JacocoCoverageVerification::class.java
+        ) {
             group = "Reporting"
             description = "Verify code coverage."
 
@@ -202,7 +209,8 @@ class TealiumLibraryPlugin : Plugin<Project> {
     ) {
         with(jacoco) {
             sourceDirectories.setFrom(config.sourceDirectory)
-            classDirectories.setFrom(files(
+            classDirectories.setFrom(
+                files(
                 fileTree(layout.buildDirectory.dir("intermediates/javac/${variant}")) {
                     exclude(config.exclusions)
                 },

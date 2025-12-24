@@ -138,6 +138,161 @@ class CollectModuleTests {
     }
 
     @Test
+    fun dispatch_Individually_UsesDefaultUrl_WhenTraceIdNotInPayload() {
+        collectModule = createCollectDispatcher()
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
+
+        val dispatch = createTestDispatch("test")
+
+        collectModule.dispatch(listOf(dispatch), observer)
+
+        verify(timeout = 1000) {
+            networkHelper.post(match<URL> {
+                it.toString() == defaultConfiguration.url.toString() &&
+                        !it.toString().contains("tealium_trace_id")
+            }, any(), any())
+        }
+    }
+
+    @Test
+    fun dispatch_Individually_AppendsUrl_WhenTraceIdInPayload() {
+        collectModule = createCollectDispatcher()
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
+
+        val dispatch = createTestDispatch("test", data = testDataObject.copy {
+            put("tealium_trace_id", "12345")
+        })
+
+        collectModule.dispatch(listOf(dispatch), observer)
+
+        verify(timeout = 1000) {
+            networkHelper.post(match<URL> {
+                it.toString().contains("tealium_trace_id=12345")
+            }, any(), any())
+        }
+    }
+
+    @Test
+    fun dispatch_Individually_DoesNotAppendUrl_WhenTraceIdIsEmpty() {
+        collectModule = createCollectDispatcher()
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
+
+        val dispatch = createTestDispatch("test", data = testDataObject.copy {
+            put("tealium_trace_id", "")
+        })
+
+        collectModule.dispatch(listOf(dispatch), observer)
+
+        verify(timeout = 1000) {
+            networkHelper.post(match<URL> {
+                !it.toString().contains("tealium_trace_id=")
+            }, any(), any())
+        }
+    }
+
+    @Test
+    fun dispatch_Individually_AppendsUrlWithTraceId_WhenUrlHasExistingParameters() {
+        collectModule = createCollectDispatcher(
+            collectConfig = CollectModuleConfiguration(
+                url = URL("https://collect.tealiumiq.com/event?existing_param=value")
+            )
+        )
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
+
+        val dispatch = createTestDispatch("test", data = testDataObject.copy {
+            put("tealium_trace_id", "12345")
+        })
+
+        collectModule.dispatch(listOf(dispatch), observer)
+
+        verify(timeout = 1000) {
+            networkHelper.post(match<URL> {
+                it.toString().contains("tealium_trace_id=12345") &&
+                        it.toString().contains("existing_param=value")
+            }, any(), any())
+        }
+    }
+
+    @Test
+    fun dispatch_Batch_UsesBatchUrl_WhenTraceIdNotInPayload() {
+        collectModule = createCollectDispatcher()
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
+
+        val dispatch1 = createTestDispatch("test")
+        val dispatch2 = createTestDispatch("test")
+
+        collectModule.dispatch(listOf(dispatch1, dispatch2), observer)
+
+        verify(timeout = 1000) {
+            networkHelper.post(match<URL> {
+                it.toString() == defaultConfiguration.batchUrl.toString() &&
+                        !it.toString().contains("tealium_trace_id")
+            }, any(), any())
+        }
+    }
+
+    @Test
+    fun dispatch_Batch_AppendsUrl_WhenTraceIdInPayload() {
+        collectModule = createCollectDispatcher()
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
+
+        val dispatch1 = createTestDispatch("test")
+        val dispatch2 = createTestDispatch("test", data = testDataObject.copy {
+            put("tealium_trace_id", "12345")
+        })
+
+        collectModule.dispatch(listOf(dispatch1, dispatch2), observer)
+
+        verify(timeout = 1000) {
+            networkHelper.post(match<URL> {
+                it.toString().contains("tealium_trace_id=12345")
+            }, any(), any())
+        }
+    }
+
+    @Test
+    fun dispatch_Batch_AppendsUrl_WithFirstTraceIdInPayload() {
+        collectModule = createCollectDispatcher()
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
+
+        val dispatch1 = createTestDispatch("test")
+        val dispatch2 = createTestDispatch("test", data = testDataObject.copy {
+            put("tealium_trace_id", "12345")
+        })
+        val dispatch3 = createTestDispatch("test", data = testDataObject.copy {
+            put("tealium_trace_id", "67890")
+        })
+
+        collectModule.dispatch(listOf(dispatch1, dispatch2, dispatch3), observer)
+
+        verify(timeout = 1000) {
+            networkHelper.post(match<URL> {
+                it.toString().contains("tealium_trace_id=12345") &&
+                        !it.toString().contains("tealium_trace_id=67890")
+            }, any(), any())
+        }
+    }
+
+    @Test
+    fun dispatch_Batch_DoesNotAppendUrl_WhenTraceIdIsEmpty() {
+        collectModule = createCollectDispatcher()
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
+
+        val dispatch1 = createTestDispatch("test")
+        val dispatch2 = createTestDispatch("test", data = testDataObject.copy {
+            put("tealium_trace_id", "")
+        })
+
+        collectModule.dispatch(listOf(dispatch1, dispatch2), observer)
+
+        verify(timeout = 1000) {
+            networkHelper.post(match<URL> {
+                !it.toString().contains("tealium_trace_id=")
+            }, any(), any())
+        }
+    }
+
+    @Test
     fun dispatch_Batches_SendsJson_ToConfiguredEndpoint() {
         collectModule = createCollectDispatcher()
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)

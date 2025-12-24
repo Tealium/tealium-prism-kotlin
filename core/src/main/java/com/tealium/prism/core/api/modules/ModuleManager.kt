@@ -1,14 +1,16 @@
 package com.tealium.prism.core.api.modules
 
 import com.tealium.prism.core.api.Tealium
-import com.tealium.prism.core.api.misc.TealiumCallback
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.ObservableState
 
 /**
  * The [ModuleManager] is responsible for managing [Module] implementations throughout the [Tealium]
  * instance lifecycle.
- * // TODO - complete
+ *
+ * This class provides properties for interacting with other [Module] implementations, either by
+ * fetching a specific [Module] implementation of by observing one of its properties.
  */
 interface ModuleManager {
 
@@ -31,7 +33,7 @@ interface ModuleManager {
      * @param clazz The Class or Interface to match against
      * @param callback The block of code to receive the [Module]
      */
-    fun <T: Module> getModuleOfType(clazz: Class<T>, callback: TealiumCallback<T?>)
+    fun <T: Module> getModuleOfType(clazz: Class<T>, callback: Callback<T?>)
 
     /**
      * Observe an observable of the [Module] regardless of if the [Module] is currently enabled or not.
