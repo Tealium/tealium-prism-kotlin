@@ -16,6 +16,7 @@ rootProject.name = "com.tealium.prism"
 include(":app")
 include(":core")
 include(":lifecycle")
+include(":momentsapi")
 include(":tests-common")
 include(":lint")
 include(":docs")

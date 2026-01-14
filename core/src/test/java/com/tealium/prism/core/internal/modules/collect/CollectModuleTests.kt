@@ -62,7 +62,7 @@ class CollectModuleTests {
         every { context.network } returns networking
 
         val completionCapture = slot<NetworkCallback<NetworkResult>>()
-        every { networkHelper.post(any<URL>(), any(), capture(completionCapture)) } answers {
+        every { networkHelper.post(any<URL>(), any(), any(), capture(completionCapture)) } answers {
             completionCapture.captured.onComplete(
                 Success(
                     HttpResponse(
@@ -88,6 +88,7 @@ class CollectModuleTests {
             networkHelper.post(
                 defaultConfiguration.url,
                 dispatch.payload(),
+                any(),
                 any()
             )
             observer(match {
@@ -108,7 +109,7 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(localhost, any(), any())
+            networkHelper.post(localhost, any(), any(), any())
             observer(match {
                 it.first().id == dispatch.id
             })
@@ -130,7 +131,7 @@ class CollectModuleTests {
         verify(timeout = 1000) {
             networkHelper.post(defaultConfiguration.url, match {
                 it.getString(Dispatch.Keys.TEALIUM_PROFILE) == "override"
-            }, any())
+            }, any(), any())
             observer(match {
                 it.first().id == dispatch.id
             })
@@ -150,7 +151,7 @@ class CollectModuleTests {
             networkHelper.post(match<URL> {
                 it.toString() == defaultConfiguration.url.toString() &&
                         !it.toString().contains("tealium_trace_id")
-            }, any(), any())
+            }, any(), any(), any())
         }
     }
 
@@ -168,7 +169,7 @@ class CollectModuleTests {
         verify(timeout = 1000) {
             networkHelper.post(match<URL> {
                 it.toString().contains("tealium_trace_id=12345")
-            }, any(), any())
+            }, any(), any(), any())
         }
     }
 
@@ -186,7 +187,7 @@ class CollectModuleTests {
         verify(timeout = 1000) {
             networkHelper.post(match<URL> {
                 !it.toString().contains("tealium_trace_id=")
-            }, any(), any())
+            }, any(), any(), any())
         }
     }
 
@@ -209,7 +210,7 @@ class CollectModuleTests {
             networkHelper.post(match<URL> {
                 it.toString().contains("tealium_trace_id=12345") &&
                         it.toString().contains("existing_param=value")
-            }, any(), any())
+            }, any(), any(), any())
         }
     }
 
@@ -227,7 +228,7 @@ class CollectModuleTests {
             networkHelper.post(match<URL> {
                 it.toString() == defaultConfiguration.batchUrl.toString() &&
                         !it.toString().contains("tealium_trace_id")
-            }, any(), any())
+            }, any(), any(), any())
         }
     }
 
@@ -246,7 +247,7 @@ class CollectModuleTests {
         verify(timeout = 1000) {
             networkHelper.post(match<URL> {
                 it.toString().contains("tealium_trace_id=12345")
-            }, any(), any())
+            }, any(), any(), any())
         }
     }
 
@@ -269,7 +270,7 @@ class CollectModuleTests {
             networkHelper.post(match<URL> {
                 it.toString().contains("tealium_trace_id=12345") &&
                         !it.toString().contains("tealium_trace_id=67890")
-            }, any(), any())
+            }, any(), any(), any())
         }
     }
 
@@ -288,7 +289,7 @@ class CollectModuleTests {
         verify(timeout = 1000) {
             networkHelper.post(match<URL> {
                 !it.toString().contains("tealium_trace_id=")
-            }, any(), any())
+            }, any(), any(), any())
         }
     }
 
@@ -303,7 +304,7 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultConfiguration.batchUrl, any(), any())
+            networkHelper.post(defaultConfiguration.batchUrl, any(), any(), any())
             observer(match {
                 it[0].id == dispatch1.id
                         && it[1].id == dispatch2.id
@@ -324,6 +325,7 @@ class CollectModuleTests {
             networkHelper.post(
                 defaultConfiguration.url,
                 dispatch.payload(),
+                any(),
                 any()
             )
             observer(match {
@@ -345,7 +347,7 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(localhost, any(), any())
+            networkHelper.post(localhost, any(), any(), any())
             observer(match {
                 it[0].id == dispatch1.id
                         && it[1].id == dispatch2.id
@@ -370,7 +372,7 @@ class CollectModuleTests {
             networkHelper.post(defaultConfiguration.batchUrl, match {
                 it.getDataObject(CollectModule.KEY_SHARED)!!
                     .getString(Dispatch.Keys.TEALIUM_PROFILE) == "override"
-            }, any())
+            }, any(), any())
             observer(match {
                 it[0].id == dispatch1.id
                         && it[1].id == dispatch2.id
@@ -411,7 +413,7 @@ class CollectModuleTests {
                         && event1.getString("key_2") == "string2"
                         && event2.getString("key_3") == "string3"
                         && event2.getString("key_4") == "string4"
-            }, any())
+            }, any(), any())
         }
     }
 
@@ -444,7 +446,7 @@ class CollectModuleTests {
                 shared.getString(Dispatch.Keys.TEALIUM_PROFILE) == "override"
                         && event1.get(Dispatch.Keys.TEALIUM_PROFILE) == null
                         && event2.get(Dispatch.Keys.TEALIUM_PROFILE) == null
-            }, any())
+            }, any(), any())
         }
     }
 
@@ -462,11 +464,11 @@ class CollectModuleTests {
         verify(timeout = 1000) {
             networkHelper.post(defaultConfiguration.url, match {
                 it.getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_1"
-            }, any())
+            }, any(), any())
             networkHelper.post(defaultConfiguration.batchUrl, match {
                 it.getDataObject(CollectModule.KEY_SHARED)!!
                     .getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_2"
-            }, any())
+            }, any(), any())
 
             observer(match { dispatches ->
                 dispatches.first().payload()
@@ -490,7 +492,7 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultConfiguration.url, any(), any())
+            networkHelper.post(defaultConfiguration.url, any(), any(), any())
         }
 
         collectModule.updateConfiguration(
@@ -499,7 +501,7 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(localhost, any(), any())
+            networkHelper.post(localhost, any(), any(), any())
         }
     }
 
@@ -513,7 +515,7 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1, dispatch1), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultConfiguration.batchUrl, any(), any())
+            networkHelper.post(defaultConfiguration.batchUrl, any(), any(), any())
         }
 
         collectModule.updateConfiguration(
@@ -522,7 +524,7 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1, dispatch1), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(localhost, any(), any())
+            networkHelper.post(localhost, any(), any(), any())
         }
     }
 
@@ -542,7 +544,7 @@ class CollectModuleTests {
         verify(timeout = 1000) {
             networkHelper.post(defaultConfiguration.url, match {
                 it.getString(Dispatch.Keys.TEALIUM_PROFILE) == "default"
-            }, any())
+            }, any(), any())
         }
 
         val overrideProfile = "override"
@@ -554,7 +556,7 @@ class CollectModuleTests {
         verify(timeout = 1000) {
             networkHelper.post(any<URL>(), match {
                 it.getString(Dispatch.Keys.TEALIUM_PROFILE) == overrideProfile
-            }, any())
+            }, any(), any())
         }
     }
 

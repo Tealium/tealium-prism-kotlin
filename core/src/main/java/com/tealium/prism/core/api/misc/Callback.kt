@@ -1,3 +1,5 @@
+@file:JvmName("CallbackUtils")
+
 package com.tealium.prism.core.api.misc
 
 /**
@@ -12,4 +14,20 @@ fun interface Callback<T> {
      * @param result
      */
     fun onComplete(result: T)
+}
+
+/**
+ * Completes this [Callback] with a successful [TealiumResult].
+ */
+@Suppress("NOTHING_TO_INLINE")
+inline fun <T> Callback<TealiumResult<T>>.success(value: T) {
+    this.onComplete(TealiumResult.success(value))
+}
+
+/**
+ * Completes this [Callback] with a [TealiumResult] failure.
+ */
+@Suppress("NOTHING_TO_INLINE")
+inline fun <T> Callback<TealiumResult<T>>.failure(throwable: Throwable) {
+    this.onComplete(TealiumResult.failure(throwable))
 }

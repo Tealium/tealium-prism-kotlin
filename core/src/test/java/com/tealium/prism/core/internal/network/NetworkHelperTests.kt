@@ -44,8 +44,8 @@ class NetworkHelperTests {
         val callback = mockCallback<NetworkResult>()
         mockRequest(request, Success(mockk(relaxed = true)))
 
-        networkHelper.get(request.url, null, callback)
-        networkHelper.get(request.url.toString(), null, callback)
+        networkHelper.get(request.url, null, null, callback)
+        networkHelper.get(request.url.toString(), null, null, callback)
 
         verify(exactly = 2) {
             networkClient.sendRequest(request, any())
@@ -58,8 +58,8 @@ class NetworkHelperTests {
         val callback = mockCallback<NetworkResult>()
         mockRequest(request, success(body = "result"))
 
-        networkHelper.get(request.url, null, callback)
-        networkHelper.get(request.url.toString(), null, callback)
+        networkHelper.get(request.url, null, null, callback)
+        networkHelper.get(request.url.toString(), null, null, callback)
 
         verify(exactly = 2) {
             callback.onComplete(match { result ->
@@ -75,8 +75,8 @@ class NetworkHelperTests {
         val callback = mockCallback<NetworkResult>()
         mockRequest(request, failure(NetworkException.UnexpectedException(null)))
 
-        networkHelper.get(request.url, null, callback)
-        networkHelper.get(request.url.toString(), null, callback)
+        networkHelper.get(request.url, null, null, callback)
+        networkHelper.get(request.url.toString(), null, null, callback)
 
         verify(exactly = 2) {
             callback.onComplete(match { result ->
@@ -93,8 +93,8 @@ class NetworkHelperTests {
         val callback = mockCallback<NetworkResult>()
         mockRequest(request, success())
 
-        networkHelper.post(request.url, payload, callback)
-        networkHelper.post(request.url.toString(), payload, callback)
+        networkHelper.post(request.url, payload, null, callback)
+        networkHelper.post(request.url.toString(), payload, null, callback)
 
         verify(exactly = 2) {
             networkClient.sendRequest(request, any())
@@ -108,8 +108,8 @@ class NetworkHelperTests {
         val callback = mockCallback<NetworkResult>()
         mockRequest(request, success(body = "result"))
 
-        networkHelper.post(request.url, payload, callback)
-        networkHelper.post(request.url.toString(), payload, callback)
+        networkHelper.post(request.url, payload, null, callback)
+        networkHelper.post(request.url.toString(), payload, null, callback)
 
         verify(exactly = 2) {
             callback.onComplete(match { result ->
@@ -126,8 +126,8 @@ class NetworkHelperTests {
         val callback = mockCallback<NetworkResult>()
         mockRequest(request, failure())
 
-        networkHelper.post(request.url, payload, callback)
-        networkHelper.post(request.url.toString(), payload, callback)
+        networkHelper.post(request.url, payload, null, callback)
+        networkHelper.post(request.url.toString(), payload, null, callback)
 
         verify(exactly = 2) {
             callback.onComplete(match { result ->
@@ -142,8 +142,8 @@ class NetworkHelperTests {
         val callback = mockDeserializedCallback<JSONObject>()
         mockRequest(request, success(body = "{\"key\": \"value\"}"))
 
-        networkHelper.getJson(request.url, null, callback)
-        networkHelper.getJson(request.url.toString(), null, callback)
+        networkHelper.getJson(request.url, null, null, callback)
+        networkHelper.getJson(request.url.toString(), null, null, callback)
 
         verify(exactly = 2) {
             networkClient.sendRequest(request, any())
@@ -156,8 +156,8 @@ class NetworkHelperTests {
         val callback = mockDeserializedCallback<JSONObject>()
         mockRequest(request, success(body = "{\"key\": \"value\"}"))
 
-        networkHelper.getJson(request.url, null, callback)
-        networkHelper.getJson(request.url.toString(), null, callback)
+        networkHelper.getJson(request.url, null, null, callback)
+        networkHelper.getJson(request.url.toString(), null, null, callback)
 
         verify(exactly = 2) {
             callback.onComplete(match {
@@ -172,8 +172,8 @@ class NetworkHelperTests {
         val callback = mockDeserializedCallback<JSONObject>()
         mockRequest(request, success(body = "{...."))
 
-        networkHelper.getJson(request.url, null, callback)
-        networkHelper.getJson(request.url.toString(), null, callback)
+        networkHelper.getJson(request.url, null, null, callback)
+        networkHelper.getJson(request.url.toString(), null, null, callback)
 
         verify(exactly = 2) {
             callback.onComplete(match {
@@ -188,8 +188,8 @@ class NetworkHelperTests {
         val callback = mockDeserializedCallback<JSONObject>()
         mockRequest(request, failure(NetworkException.NetworkIOException(null)))
 
-        networkHelper.getJson(request.url, null, callback)
-        networkHelper.getJson(request.url.toString(), null, callback)
+        networkHelper.getJson(request.url, null, null, callback)
+        networkHelper.getJson(request.url.toString(), null, null, callback)
 
         verify(exactly = 2) {
             callback.onComplete(match {
@@ -204,8 +204,8 @@ class NetworkHelperTests {
         val callback = mockDeserializedCallback<DataObject>()
         mockRequest(request, success(body = "{\"key\": \"value\"}"))
 
-        networkHelper.getDataObject(request.url, null, callback)
-        networkHelper.getDataObject(request.url.toString(), null, callback)
+        networkHelper.getDataObject(request.url, null, null, callback)
+        networkHelper.getDataObject(request.url.toString(), null, null, callback)
 
         verify(exactly = 2) {
             networkClient.sendRequest(request, any())
@@ -218,8 +218,8 @@ class NetworkHelperTests {
         val callback = mockDeserializedCallback<DataObject>()
         mockRequest(request, success(body = "{\"key\": \"value\"}"))
 
-        networkHelper.getDataObject(request.url, null, callback)
-        networkHelper.getDataObject(request.url.toString(), null, callback)
+        networkHelper.getDataObject(request.url, null, null, callback)
+        networkHelper.getDataObject(request.url.toString(), null, null, callback)
 
         verify(exactly = 2) {
             callback.onComplete(match { result ->
@@ -234,8 +234,8 @@ class NetworkHelperTests {
         val callback = mockDeserializedCallback<DataObject>()
         mockRequest(request, success(body = "{..."))
 
-        networkHelper.getDataObject(request.url, null, callback)
-        networkHelper.getDataObject(request.url.toString(), null, callback)
+        networkHelper.getDataObject(request.url, null, null, callback)
+        networkHelper.getDataObject(request.url.toString(), null, null, callback)
 
         verify(exactly = 2) {
             callback.onComplete(match { result ->
@@ -252,8 +252,8 @@ class NetworkHelperTests {
         mockRequest(request, success(body = testConvertible.asDataItem().toString()))
 
         val converter = TestDataObjectConvertible.Converter
-        networkHelper.getDataItemConvertible(request.url, null, converter, callback)
-        networkHelper.getDataItemConvertible(request.url.toString(), null, converter, callback)
+        networkHelper.getDataItemConvertible(request.url, null, null, converter, callback)
+        networkHelper.getDataItemConvertible(request.url.toString(), null, null, converter, callback)
 
         verify(exactly = 2) {
             networkClient.sendRequest(request, any())
@@ -268,8 +268,8 @@ class NetworkHelperTests {
         mockRequest(request, success(body = testConvertible.asDataItem().toString()))
 
         val converter = TestDataObjectConvertible.Converter
-        networkHelper.getDataItemConvertible(request.url, null, converter, callback)
-        networkHelper.getDataItemConvertible(request.url.toString(), null, converter, callback)
+        networkHelper.getDataItemConvertible(request.url, null, null, converter, callback)
+        networkHelper.getDataItemConvertible(request.url.toString(), null, null, converter, callback)
 
         verify(exactly = 2) {
             callback.onComplete(match { result ->
@@ -286,8 +286,8 @@ class NetworkHelperTests {
         mockRequest(request, success(body = "{..."))
 
         val converter = TestDataObjectConvertible.Converter
-        networkHelper.getDataItemConvertible(request.url, null, converter, callback)
-        networkHelper.getDataItemConvertible(request.url.toString(), null, converter, callback)
+        networkHelper.getDataItemConvertible(request.url, null, null, converter, callback)
+        networkHelper.getDataItemConvertible(request.url.toString(), null, null, converter, callback)
 
         verify(exactly = 2) {
             callback.onComplete(match { result ->
@@ -304,8 +304,8 @@ class NetworkHelperTests {
         mockRequest(request, failure(NetworkException.NetworkIOException(null)))
 
         val converter = TestDataObjectConvertible.Converter
-        networkHelper.getDataItemConvertible(request.url, null, converter, callback)
-        networkHelper.getDataItemConvertible(request.url.toString(), null, converter, callback)
+        networkHelper.getDataItemConvertible(request.url, null, null, converter, callback)
+        networkHelper.getDataItemConvertible(request.url.toString(), null, null, converter, callback)
 
         verify(exactly = 2) {
             callback.onComplete(match { result ->
@@ -321,8 +321,8 @@ class NetworkHelperTests {
         val callback = mockDeserializedCallback<Int>()
         mockRequest(request, success())
 
-        networkHelper.getDeserializable(request.url, null, String::toInt, callback)
-        networkHelper.getDeserializable(request.url.toString(), null, String::toInt, callback)
+        networkHelper.getDeserializable(request.url, null, null, String::toInt, callback)
+        networkHelper.getDeserializable(request.url.toString(), null, null, String::toInt, callback)
 
         verify(exactly = 2) {
             networkClient.sendRequest(request, any())
@@ -335,8 +335,8 @@ class NetworkHelperTests {
         val callback = mockDeserializedCallback<Int>()
         mockRequest(request, success(body = "10"))
 
-        networkHelper.getDeserializable(request.url, null, String::toInt, callback)
-        networkHelper.getDeserializable(request.url.toString(), null, String::toInt, callback)
+        networkHelper.getDeserializable(request.url, null, null, String::toInt, callback)
+        networkHelper.getDeserializable(request.url.toString(), null, null, String::toInt, callback)
 
         verify(exactly = 2) {
             callback.onComplete(match { result ->
@@ -351,8 +351,8 @@ class NetworkHelperTests {
         val callback = mockDeserializedCallback<Int>()
         mockRequest(request, success(body = "{..."))
 
-        networkHelper.getDeserializable(request.url, null, String::toInt, callback)
-        networkHelper.getDeserializable(request.url.toString(), null, String::toInt, callback)
+        networkHelper.getDeserializable(request.url, null, null, String::toInt, callback)
+        networkHelper.getDeserializable(request.url.toString(), null, null, String::toInt, callback)
 
         verify(exactly = 2) {
             callback.onComplete(match { result ->
@@ -368,8 +368,8 @@ class NetworkHelperTests {
         val callback = mockDeserializedCallback<Int>()
         mockRequest(request, failure(NetworkException.NetworkIOException(null)))
 
-        networkHelper.getDeserializable(request.url, null, String::toInt, callback)
-        networkHelper.getDeserializable(request.url.toString(), null, String::toInt, callback)
+        networkHelper.getDeserializable(request.url, null, null, String::toInt, callback)
+        networkHelper.getDeserializable(request.url.toString(), null, null, String::toInt, callback)
 
         verify(exactly = 2) {
             callback.onComplete(match { result ->

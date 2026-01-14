@@ -45,4 +45,5 @@ dependencies {
     implementation(libs.app.material)
     implementation(project (":core"))
     implementation(project (":lifecycle"))
+    implementation(project (":momentsapi"))
 }

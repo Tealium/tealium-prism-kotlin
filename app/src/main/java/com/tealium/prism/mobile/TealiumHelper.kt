@@ -39,7 +39,9 @@ import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.lifecycle.lifecycle
+import com.tealium.prism.momentsapi.MomentsApiRegion
 import com.tealium.prism.mobile.ExampleCmpAdapter.Purposes
+import com.tealium.prism.momentsapi.momentsApi
 
 object TealiumHelper {
 
@@ -60,7 +62,7 @@ object TealiumHelper {
             application = application,
             modules = configureModules(),
             accountName = "tealiummobile",
-            profileName = "android",
+            profileName = "demo",
             environment = Environment.DEV
         ).configureCoreSettings { settings ->
             settings
@@ -158,6 +160,7 @@ object TealiumHelper {
             Modules.deepLink(),
             configureTrace(),
             configureLifecycle(),
+            configureMomentsApi(),
             configureLoggingDispatcher("logger")
         )
     }
@@ -185,6 +188,14 @@ object TealiumHelper {
 //        }
     }
 
+    private fun configureMomentsApi(): ModuleFactory {
+        return Modules.momentsApi { settings ->
+            settings
+                .setRegion(MomentsApiRegion.UsEast)
+//                .setReferrer("https://example.com")
+        }
+    }
+
     private fun configureLoggingDispatcher(id: String): ModuleFactory {
         return object : ModuleFactory {
             override val moduleType: String
@@ -209,7 +220,6 @@ object TealiumHelper {
                         callback.onComplete(dispatches)
                         return Disposables.disposed()
                     }
-
                     override val id: String
                         get() = id
                     override val version: String

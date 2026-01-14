@@ -14,6 +14,9 @@
     <string name="consent_purposes">Consent Purposes</string>
     <string name="save_consent_settings">Save Consent Settings</string>
     <string name="consent_settings">Consent Settings</string>
+    <string name="moments_attr_label">Label</string>
+    <string name="fetch_engine_response">Fetch Engine Response</string>
+    <string name="engine_id">Enter Engine ID</string>
     <string name="join_trace">Join Trace</string>
     <string name="leave_trace">Leave Trace</string>
     <string name="trace_id_hint">trace id</string>

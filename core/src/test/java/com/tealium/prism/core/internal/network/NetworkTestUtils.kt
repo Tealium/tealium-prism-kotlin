@@ -58,6 +58,7 @@ fun <T> NetworkHelper.mockGetDataItemConvertibleResponse(
         getDataItemConvertible(
             any<URL>(),
             any(),
+            any(),
             converter,
             capture(completionCapture)
         )

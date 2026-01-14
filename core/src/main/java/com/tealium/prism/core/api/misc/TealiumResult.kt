@@ -36,6 +36,52 @@ class TealiumResult<T> private constructor(
      */
     fun exceptionOrNull(): Throwable? = result.exceptionOrNull()
 
+    /**
+     * Executes the given [block] when the [TealiumResult] was a failure.
+     *
+     * @param block The block to execute when the result was a failure
+     *
+     * @return this [TealiumResult]
+     */
+    @JvmSynthetic
+    inline fun onFailure(block: (ex: Throwable) -> Unit): TealiumResult<T> {
+        exceptionOrNull()?.let { block(it) }
+        return this
+    }
+
+    /**
+     * Executes the given [block] when the [TealiumResult] was a success.
+     *
+     * @param block The block to execute when the result was a success
+     *
+     * @return this [TealiumResult]
+     */
+    @JvmSynthetic
+    inline fun onSuccess(block: (value: T) -> Unit): TealiumResult<T> {
+        if (isSuccess) block(getOrThrow())
+        return this
+    }
+
+    /**
+     * Executes the given [action] when the [TealiumResult] was a failure.
+     *
+     * @param action The callback to execute when the result was a failure
+     *
+     * @return this [TealiumResult]
+     */
+    fun onFailure(action: Callback<Throwable>): TealiumResult<T> =
+        onFailure(block = { action.onComplete(it) })
+
+    /**
+     * Executes the given [action] when the [TealiumResult] was a success.
+     *
+     * @param action The callback to execute when the result was a success
+     *
+     * @return this [TealiumResult]
+     */
+    fun onSuccess(action: Callback<T>): TealiumResult<T> =
+        onSuccess(block = { value -> action.onComplete(value) })
+
     companion object {
         /**
          * Creates a [TealiumResult] that was successful with the given [result] value
