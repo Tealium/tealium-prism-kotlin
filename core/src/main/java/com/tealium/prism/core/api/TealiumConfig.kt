@@ -68,10 +68,9 @@ class TealiumConfig private constructor(
     private val pathName
         get() = listOf(
             application.filesDir,
-            "tealium",
+            "tealium-prism",
             accountName,
-            profileName,
-            environment
+            profileName
         ).joinToString(File.separator)
 
     val tealiumDirectory: File

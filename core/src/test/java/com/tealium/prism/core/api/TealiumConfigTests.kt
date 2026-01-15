@@ -1,9 +1,11 @@
 package com.tealium.prism.core.api
 
+import android.app.Application
 import com.tealium.prism.core.api.barriers.BarrierScope
 import com.tealium.prism.core.api.barriers.BarrierState
 import com.tealium.prism.core.api.consent.CmpAdapter
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.misc.Environment
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.rules.Condition.Companion.isDefined
 import com.tealium.prism.core.api.rules.Condition.Companion.isEqual
@@ -24,7 +26,9 @@ import com.tealium.prism.core.internal.settings.consent.ConsentSettings
 import com.tealium.tests.common.TestModuleFactory
 import com.tealium.tests.common.getDefaultConfig
 import com.tealium.tests.common.getDefaultConfigBuilder
+import io.mockk.MockKAnnotations
 import io.mockk.every
+import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -35,15 +39,21 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 class TealiumConfigTests {
 
     // TODO - Other enforcedSettings tests (Modules/CoreSettings)
+    @RelaxedMockK
+    lateinit var mockApplication: Application
 
     @Before
     fun setUp() {
+        MockKAnnotations.init(this)
         ModuleRegistry.clearAdditionalModules()
+
+        every { mockApplication.filesDir } returns File("/mock/files/dir")
     }
 
     @Test
@@ -313,6 +323,14 @@ class TealiumConfigTests {
             config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_MODULES)!!
                 .getDataObject(Modules.Types.DATA_LAYER)
         )
+    }
+
+    @Test
+    fun tealiumDirectory_PathName_Constructed_Correctly() {
+        val config = getDefaultConfig(mockApplication, accountName = "test-account", profileName = "test-profile", modules = emptyList())
+
+        val expectedPath = "/mock/files/dir/tealium-prism/test-account/test-profile"
+        assertEquals(expectedPath, config.tealiumDirectory.path)
     }
 
     private fun mockCmpAdapter(id: String = "cmp"): CmpAdapter {
