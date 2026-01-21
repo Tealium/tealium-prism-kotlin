@@ -3,13 +3,13 @@ name: "Publish Snapshot"
 on:
   workflow_dispatch:
     inputs:
-      accessKey:
+      AWS_ACCESS_KEY:
         description: "ACCESS_KEY"
         required: true
-      secretKey:
+      AWS_SECRET_KEY:
         description: "SECRET_KEY"
         required: true
-      token:
+      AWS_SESSION_TOKEN:
         description: "SESSION_TOKEN"
         required: true
 
@@ -18,9 +18,9 @@ jobs:
     name: Publish Snapshot
     runs-on: ubuntu-latest
     env:
-      AWS_ACCESS_KEY: ${{ inputs.accessKey }}
-      AWS_SECRET_KEY: ${{ inputs.secretKey }}
-      AWS_SESSION_TOKEN: ${{ inputs.token }}
+      AWS_ACCESS_KEY: ${{ inputs.AWS_ACCESS_KEY }}
+      AWS_SECRET_KEY: ${{ inputs.AWS_SECRET_KEY }}
+      AWS_SESSION_TOKEN: ${{ inputs.AWS_SESSION_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 

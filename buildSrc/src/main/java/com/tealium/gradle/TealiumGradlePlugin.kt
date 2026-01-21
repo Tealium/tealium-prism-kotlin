@@ -5,6 +5,7 @@ import com.tealium.gradle.library.TealiumLibraryPlugin
 import com.tealium.gradle.tests.JacocoCoverageType
 import com.tealium.gradle.tests.JacocoVerifyType
 import com.tealium.gradle.tests.TestType
+import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.tasks.bundling.Zip
@@ -52,6 +53,10 @@ class TealiumGradlePlugin : Plugin<Project> {
         val incoming = project.getPropertyOrEnvironmentVariable("GITHUB_HEAD_REF", "")
         val base = project.getPropertyOrEnvironmentVariable("GITHUB_BASE_REF", "")
 
+        tasks.register("updatedModules", UpdatedModules::class.java) {
+            incomingBranch.set(incoming)
+            baseBranch.set(base)
+        }
         tasks.register("updatedUnitTestModules", UpdatedModules::class.java) {
             testType.set(TestType.UnitTest)
             incomingBranch.set(incoming)
@@ -68,6 +73,10 @@ class TealiumGradlePlugin : Plugin<Project> {
         val tealiumLibraryProjects = project.subprojects.filter { project ->
             project.plugins.hasPlugin(TealiumLibraryPlugin::class.java)
         }
+
+        val modifiedProjects =
+            tealiumLibraryProjects.filter { project -> modifiedProjectNames.contains(project.name) }
+        project.configureAggregatePublishingTasks(modifiedProjects)
 
         getAllModifiedVariants(tealiumLibraryProjects)
             .mapKeys { (variant, _) -> variant.uppercaseFirstChar() }
@@ -160,6 +169,38 @@ class TealiumGradlePlugin : Plugin<Project> {
         project.tasks.register(JacocoVerifyType.ModifiedOnly.taskName(variant)) {
             dependsOn.add(modifiedTaskName)
             dependsOn.addAll(modifiedProjects.taskNames(JacocoVerifyType.Default.taskName(variant)))
+        }
+    }
+
+    /**
+     * Configures additional aggregate tasks to publish release artifacts to either the "Snapshot"
+     * or "Release" repositories
+     */
+    private fun Project.configureAggregatePublishingTasks(
+        modifiedProjects: List<Project>
+    ) {
+        // TODO - this should be the BOM project once available
+        val coreProject = rootProject.project(":core")
+        val expectedVersion = findProperty("RELEASE_TAG")
+        // need expected version to validate it's been updated before publication
+        if (expectedVersion == null) return
+
+        val coreVersion = coreProject.version.toString()
+
+        if (coreVersion != expectedVersion) {
+            throw GradleException(
+                "Refusing to publish: core project version ($coreVersion) " +
+                        "does not match RELEASE_TAG ($expectedVersion)."
+            )
+        }
+
+        listOf("Snapshot", "Release").forEach { repo ->
+            tasks.register("publishModifiedReleasePublicationTo${repo}Repository") {
+                group = "Publishing"
+                description =
+                    "Publishes release artifacts for modified projects to the $repo repository"
+                dependsOn.addAll(modifiedProjects.taskNames("publishReleasePublicationTo${repo}Repository"))
+            }
         }
     }
 
