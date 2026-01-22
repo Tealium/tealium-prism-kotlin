@@ -27,7 +27,6 @@ class ConnectivityRetriever(
     private val request: NetworkRequest = NetworkRequest.Builder()
         .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
         .addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-        .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
         .build(),
     private val statusSubject: StateSubject<Connectivity.Status> =
         Observables.stateSubject(Connectivity.Status.Unknown),

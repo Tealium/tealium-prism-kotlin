@@ -13,10 +13,10 @@ import com.tealium.prism.core.api.modules.ModuleFactory
 import com.tealium.prism.core.api.modules.ModuleProxy
 import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.pubsub.CompositeDisposable
+import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.pubsub.Single
 import com.tealium.prism.core.api.pubsub.addTo
-import com.tealium.prism.core.internal.pubsub.DisposableContainer
 import com.tealium.prism.momentsapi.BuildConfig
 import com.tealium.prism.momentsapi.EngineResponse
 import com.tealium.prism.momentsapi.MomentsApi
@@ -60,7 +60,7 @@ class MomentsApiModule(
         )
     )
 
-    private val disposables: CompositeDisposable = DisposableContainer()
+    private val disposables: CompositeDisposable = Disposables.composite()
     
     fun fetchEngineResponse(engineId: String, callback: Callback<TealiumResult<EngineResponse>>) {
         val visitorId = visitorId.value
