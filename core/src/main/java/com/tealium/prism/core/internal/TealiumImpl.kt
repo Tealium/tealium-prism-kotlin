@@ -207,6 +207,7 @@ class TealiumImpl(
         visitorIdProvider =
             VisitorIdProviderImpl(config, sharedDataStore, logger)
 
+        val dataLayerDataStore = storage.getModuleStore(Modules.Types.DATA_LAYER)
         val tealiumContext =
             TealiumContext(
                 config.application,
@@ -223,14 +224,15 @@ class TealiumImpl(
                 barrierRegistry = BarrierRegistryImpl(barrierManager),
                 moduleManager = moduleManager,
                 queueMetrics = queueMetrics,
-                sessionRegistry = SessionRegistryImpl(sessionManager)
+                sessionRegistry = SessionRegistryImpl(sessionManager),
+                dataLayer = dataLayerDataStore
             )
 
         try {
             // handle all subscriptions so that errors thrown can appropriately be disposed/shutdown
             subscribeIdentityUpdates(
                 coreSettings,
-                storage.getModuleStore(Modules.Types.DATA_LAYER),
+                dataLayerDataStore,
                 visitorIdProvider,
             ).addTo(disposables)
 
@@ -249,6 +251,8 @@ class TealiumImpl(
 
             dispatchManager.startDispatchLoop()
         } catch (t: Throwable) {
+            logger.error(LogCategory.TEALIUM, "Init exception: ${t.message}")
+
             shutdown()
             throw TealiumException(cause = t)
         }

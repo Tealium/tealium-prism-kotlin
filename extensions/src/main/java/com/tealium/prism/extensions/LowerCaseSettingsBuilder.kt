@@ -5,6 +5,7 @@ import com.tealium.prism.core.api.data.DataItemUtils.asDataList
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.ReferenceContainer
 import com.tealium.prism.core.api.settings.json.TransformationOperation
+import com.tealium.prism.core.api.transform.TransformationSettingsBuilder
 import com.tealium.prism.extensions.internal.LOWERCASE
 import com.tealium.prism.extensions.internal.LowerCaseInput
 import com.tealium.prism.extensions.internal.LowerCaseKeys

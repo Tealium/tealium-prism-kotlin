@@ -15,6 +15,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
     }
 
     buildTypes {
@@ -26,6 +27,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
         jvmTarget = "1.8"
@@ -46,4 +48,9 @@ dependencies {
     implementation(project (":core"))
     implementation(project (":lifecycle"))
     implementation(project (":extensions"))
+    implementation(project (":jstransformer"))
+    implementation(project (":jstransformer:jstransformer-rhino"))
+
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+
 }

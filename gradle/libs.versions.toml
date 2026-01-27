@@ -4,6 +4,7 @@ dokkaGradlePlugin = "2.0.0"
 kotlin = "2.0.21"
 lint = "27.2.2" # NOTE - this is quite old - need Kotlin version updated to 1.9 though to use later versions
 mockk = "1.13.13"
+rhino = "1.8.1"
 
 [libraries]
 android-gradle = { module = "com.android.tools.build:gradle", version.ref = "agp" }
@@ -19,6 +20,7 @@ eclipse-jgit = "org.eclipse.jgit:org.eclipse.jgit:6.10.0.202406032230-r"
 kotlin-gradle-jvm = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 lint-api = { module = "com.android.tools.lint:lint-api", version.ref = "lint" }
 lint-tests = { module = "com.android.tools.lint:lint-tests", version.ref = "lint" }
+rhino = { module = "org.mozilla:rhino", version.ref = "rhino" }
 test-androidx-core = "androidx.test:core-ktx:1.6.1"
 test-androidx-junit = "androidx.test.ext:junit:1.2.1"
 test-androidx-runner = "androidx.test:runner:1.6.2"

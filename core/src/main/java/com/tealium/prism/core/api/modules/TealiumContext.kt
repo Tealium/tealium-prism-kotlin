@@ -8,6 +8,7 @@ import com.tealium.prism.core.api.misc.ActivityManager
 import com.tealium.prism.core.api.misc.QueueMetrics
 import com.tealium.prism.core.api.misc.Schedulers
 import com.tealium.prism.core.api.network.NetworkUtilities
+import com.tealium.prism.core.api.persistence.DataStore
 import com.tealium.prism.core.api.persistence.ModuleStoreProvider
 import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.session.SessionRegistry
@@ -30,5 +31,6 @@ class TealiumContext(
     val barrierRegistry: BarrierRegistry,
     val moduleManager: ModuleManager,
     val queueMetrics: QueueMetrics,
-    val sessionRegistry: SessionRegistry
+    val sessionRegistry: SessionRegistry,
+    val dataLayer: DataStore
 )

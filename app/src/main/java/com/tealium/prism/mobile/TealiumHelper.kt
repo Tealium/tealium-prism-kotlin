@@ -6,11 +6,10 @@ import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.Tealium
 import com.tealium.prism.core.api.TealiumConfig
 import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
+import com.tealium.prism.core.api.data.DataItemUtils.asDataList
+import com.tealium.prism.core.api.data.DataItemUtils.asDataObject
 import com.tealium.prism.core.api.data.DataObject
-import com.tealium.prism.core.api.data.JsonPath
 import com.tealium.prism.core.api.data.ReferenceContainer.Companion.key
-import com.tealium.prism.core.api.data.ReferenceContainer.Companion.path
-import com.tealium.prism.core.api.data.get
 import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.logIfInfoEnabled
 import com.tealium.prism.core.api.misc.Callback
@@ -46,6 +45,7 @@ import com.tealium.prism.extensions.LowerCaseSettingsBuilder
 import com.tealium.prism.extensions.PersistDataValuesSettingsBuilder
 import com.tealium.prism.extensions.SetDataValuesSettingsBuilder
 import com.tealium.prism.extensions.internal.persistdatavalue.PersistValuesUpdateType
+import com.tealium.prism.jstransformer.JavaScriptTransformationSettingsBuilder
 import com.tealium.prism.lifecycle.lifecycle
 import com.tealium.prism.mobile.ExampleCmpAdapter.Purposes
 
@@ -83,11 +83,18 @@ object TealiumHelper {
                     .addPurpose(Purposes.FUNCTIONAL, setOf("logger"))
                     .setRefireDispatcherIds(setOf(Modules.Types.COLLECT))
             }
-            .addTransformation(SetDataValuesSettingsBuilder("sdv_1")
-                .addScope(TransformationScope.AfterCollectors)
-                .addOperation("some_value", key("some_key"))
-                .addOperation(key("some_key"), key("other_key"))
-                .build()
+            .addTransformation(
+                SetDataValuesSettingsBuilder("sdv_1")
+                    .addScope(TransformationScope.AfterCollectors)
+                    .addOperation("some_value", key("some_key"))
+                    .addOperation(key("some_key"), key("other_key"))
+                    .build()
+            )
+            .addTransformation(
+                JavaScriptTransformationSettingsBuilder("js_1")
+                    .addScope(TransformationScope.AfterCollectors)
+                    .setJsCode("payload.isVip = true")
+                    .build()
             )
             .addTransformation(LowerCaseSettingsBuilder("lowercase-specific")
                 .addScope(TransformationScope.AllDispatchers)
@@ -139,9 +146,13 @@ object TealiumHelper {
             }
 
             tealium.dataLayer.transactionally { editor ->
-                editor.put("key", "value".asDataItem(), Expiry.SESSION)
-                    .put("key2", "value2".asDataItem(), Expiry.SESSION)
-                    .remove("key2")
+                editor
+                    .put("key", "value".asDataItem(), Expiry.SESSION)
+                    .put("string", "value".asDataItem(), Expiry.SESSION)
+                    .put("int", 1.asDataItem(), Expiry.SESSION)
+                    .put("bool", true.asDataItem(), Expiry.SESSION)
+                    .put("array", listOf(1, 2, 3).asDataList(), Expiry.SESSION)
+                    .put("object", mapOf("key" to "value").asDataObject(), Expiry.SESSION)
                     .commit()
             }.onFailure {
                 Log.d("DataLayer", "Transactional update failed: ${it.message}")
