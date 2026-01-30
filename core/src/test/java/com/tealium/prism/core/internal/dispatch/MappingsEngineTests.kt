@@ -3,14 +3,14 @@ package com.tealium.prism.core.internal.dispatch
 import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.ReferenceContainer
+import com.tealium.prism.core.api.data.ValueContainer
 import com.tealium.prism.core.api.data.get
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.StateSubject
+import com.tealium.prism.core.api.settings.MappingParameters
 import com.tealium.prism.core.api.settings.Mappings
-import com.tealium.prism.core.api.data.ValueContainer
 import com.tealium.prism.core.api.settings.json.TransformationOperation
 import com.tealium.prism.core.api.tracking.Dispatch
-import com.tealium.prism.core.internal.settings.MappingParameters
 import com.tealium.prism.core.internal.settings.MappingsImpl
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -48,7 +48,7 @@ class MappingsEngineTests {
 
         val initialMappings = mapOf(
             "dispatcher1" to buildMappings {
-                from("string", "output_string")
+                mapFrom("string", "output_string")
             },
             "empty_mappings" to listOf()
         )
@@ -86,7 +86,7 @@ class MappingsEngineTests {
     @Test
     fun map_Uses_Latest_Emitted_Mappings() {
         mappings.onNext(mapOf("empty_mappings" to buildMappings {
-            from("string", "output_string")
+            mapFrom("string", "output_string")
         }))
 
         val mappedDispatch = mappingsEngine.map("empty_mappings", dispatch)
@@ -106,8 +106,8 @@ class MappingsEngineTests {
     @Test
     fun map_DataObject_Maps_Only_Listed_Keys() {
         val mappings = buildMappings {
-            from("string", "new_string")
-            from("int", "new_int")
+            mapFrom("string", "new_string")
+            mapFrom("int", "new_int")
         }
 
         val remapped = MappingsEngine.map(payload, mappings)
@@ -120,8 +120,8 @@ class MappingsEngineTests {
     @Test
     fun map_DataObject_Maps_Keys_From_Nested_Objects() {
         val mappings = buildMappings {
-            from(path("obj-1")["key-1"], "1")
-            from(path("obj-1")["key-2"], "2")
+            mapFrom(path("obj-1")["key-1"], "1")
+            mapFrom(path("obj-1")["key-2"], "2")
         }
 
         val remapped = MappingsEngine.map(payload, mappings)
@@ -137,7 +137,7 @@ class MappingsEngineTests {
     @Test
     fun map_DataObject_Creates_Missing_Objects_On_Path() {
         val mappings = buildMappings {
-            from("string", path("obj-lvl-1")["obj-lvl-2"]["new_string"])
+            mapFrom("string", path("obj-lvl-1")["obj-lvl-2"]["new_string"])
         }
 
         val remapped = MappingsEngine.map(payload, mappings)
@@ -157,8 +157,8 @@ class MappingsEngineTests {
     @Test
     fun map_DataObject_Replaces_Duplicate_Destinations() {
         val mappings = buildMappings {
-            from("string", "result")
-            from("int", "result")
+            mapFrom("string", "result")
+            mapFrom("int", "result")
         }
 
         val remapped = MappingsEngine.map(payload, mappings)
@@ -171,9 +171,9 @@ class MappingsEngineTests {
     @Test
     fun map_DataObject_Replaces_Nested_Duplicate_Destinations() {
         val mappings = buildMappings {
-            from("string", path("obj")["result"])
-            from("int", path("obj")["result"])
-            from("bool", path("obj")["result"])
+            mapFrom("string", path("obj")["result"])
+            mapFrom("int", path("obj")["result"])
+            mapFrom("bool", path("obj")["result"])
         }
 
         val remapped = MappingsEngine.map(payload, mappings)
@@ -186,8 +186,8 @@ class MappingsEngineTests {
     @Test
     fun map_DataObject_Merges_Duplicate_Destinations_When_Value_Is_Constant() {
         val mappings = buildMappings {
-            constant("value1", "result")
-            constant("value2", "result")
+            mapConstant("value1", "result")
+            mapConstant("value2", "result")
         }
 
         val remapped = MappingsEngine.map(payload, mappings)
@@ -203,8 +203,8 @@ class MappingsEngineTests {
     @Test
     fun map_DataObject_Merges_Duplicate_Nested_Destinations_When_Value_Is_Constant() {
         val mappings = buildMappings {
-            constant("value1", path("obj")["result"])
-            constant("value2", path("obj")["result"])
+            mapConstant("value1", path("obj")["result"])
+            mapConstant("value2", path("obj")["result"])
         }
 
         val remapped = MappingsEngine.map(payload, mappings)
@@ -220,8 +220,8 @@ class MappingsEngineTests {
     @Test
     fun map_DataObject_Merges_Into_Existing_SubObjects_If_Already_Present() {
         val mappings = buildMappings {
-            from("string", path("obj")["obj2"]["string"])
-            from("int", path("obj")["int"])
+            mapFrom("string", path("obj")["obj2"]["string"])
+            mapFrom("int", path("obj")["int"])
         }
 
         val remapped = MappingsEngine.map(payload, mappings)
@@ -239,7 +239,7 @@ class MappingsEngineTests {
     @Test
     fun map_DataObject_Does_Run_Mapping_If_Extracted_Value_Matches_Filter() {
         val mappings = buildMappings {
-            from("string", "string")
+            mapFrom("string", "string")
                 .ifValueEquals("value")
         }
 
@@ -251,7 +251,7 @@ class MappingsEngineTests {
     @Test
     fun map_DataObject_Does_Not_Run_Mapping_If_Extracted_Value_Not_Matches_Filter() {
         val mappings = buildMappings {
-            from("string", "string")
+            mapFrom("string", "string")
                 .ifValueEquals("something else")
         }
 
@@ -263,7 +263,7 @@ class MappingsEngineTests {
     @Test
     fun map_DataObject_Does_Not_Run_Mapping_If_MapTo_Value_Matches_Filter() {
         val mappings = buildMappings {
-            constant("non_matching_value", "string")
+            mapConstant("non_matching_value", "string")
                 .ifValueEquals("string", "non_matching_value")
         }
 
@@ -275,7 +275,7 @@ class MappingsEngineTests {
     @Test
     fun map_DataObject_Does_Not_Run_Mapping_If_Extracted_Value_Not_Matches_Filter_As_String() {
         val mappings = buildMappings {
-            from("int", "int")
+            mapFrom("int", "int")
                 .ifValueEquals("100")
         }
 
@@ -287,7 +287,7 @@ class MappingsEngineTests {
     @Test
     fun map_DataObject_Does_Run_Mapping_If_Extracted_Value_Matches_Filter_As_String() {
         val mappings = buildMappings {
-            from("int", "int")
+            mapFrom("int", "int")
                 .ifValueEquals("10")
         }
 

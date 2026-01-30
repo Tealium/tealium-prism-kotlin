@@ -487,5 +487,10 @@ class Dispatch private constructor(
          * A [Long] value of containing the session timeout measured in milliseconds
          */
         const val TEALIUM_SESSION_TIMEOUT = "_dc_ttl_"
+
+        /**
+         * Mapping destination for commands used by Remote Command Dispatchers.
+         */
+        const val COMMAND_NAME = "command_name"
     }
 }

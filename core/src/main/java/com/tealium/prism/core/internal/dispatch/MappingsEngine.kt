@@ -5,9 +5,9 @@ import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.pubsub.ObservableState
+import com.tealium.prism.core.api.settings.MappingParameters
 import com.tealium.prism.core.api.settings.json.TransformationOperation
 import com.tealium.prism.core.api.tracking.Dispatch
-import com.tealium.prism.core.internal.settings.MappingParameters
 
 typealias MappingOperation = TransformationOperation<MappingParameters>
 

@@ -2,6 +2,7 @@ package com.tealium.prism.core.api.settings.modules
 
 import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.TealiumConfig
+import com.tealium.prism.core.api.settings.Mappings
 import com.tealium.prism.core.internal.modules.collect.CollectModuleConfiguration
 
 /**
@@ -11,7 +12,10 @@ import com.tealium.prism.core.internal.modules.collect.CollectModuleConfiguratio
  * settings files and will no longer be overridable remotely.
  */
 class CollectSettingsBuilder :
-    DispatcherSettingsBuilder<CollectSettingsBuilder>(Modules.Types.COLLECT),
+    DispatcherSettingsBuilder<Mappings, CollectSettingsBuilder>(
+        Modules.Types.COLLECT,
+        Mappings::default
+    ),
     MultipleInstancesModuleSettingsBuilder<CollectSettingsBuilder> {
 
     override fun setModuleId(moduleId: String): CollectSettingsBuilder =

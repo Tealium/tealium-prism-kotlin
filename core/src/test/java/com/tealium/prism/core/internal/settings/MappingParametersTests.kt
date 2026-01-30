@@ -4,8 +4,9 @@ import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.JsonPath
 import com.tealium.prism.core.api.data.ReferenceContainer
-import com.tealium.prism.core.api.data.get
 import com.tealium.prism.core.api.data.ValueContainer
+import com.tealium.prism.core.api.data.get
+import com.tealium.prism.core.api.settings.MappingParameters
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull

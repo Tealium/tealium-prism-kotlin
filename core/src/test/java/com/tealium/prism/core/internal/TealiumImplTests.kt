@@ -270,8 +270,8 @@ class TealiumImplTests {
     @Test
     fun extractMappings_Returns_Mappings_When_Given_Valid_DataObject() {
         val mappings = MappingsImpl().apply {
-            from("source1", "destination1")
-            constant("value", "destination2")
+            mapFrom("source1", "destination1")
+            mapConstant("value", "destination2")
                 .ifValueEquals("source2", "expected")
         }.build()
 

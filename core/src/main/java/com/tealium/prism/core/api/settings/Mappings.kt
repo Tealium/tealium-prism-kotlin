@@ -4,12 +4,17 @@ import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.JsonObjectPath
 import com.tealium.prism.core.api.data.JsonPath
+import com.tealium.prism.core.api.modules.Dispatcher
+import com.tealium.prism.core.api.settings.json.TransformationOperation
+import com.tealium.prism.core.api.tracking.Dispatch
+import com.tealium.prism.core.internal.dispatch.MappingOperation
+import com.tealium.prism.core.internal.settings.MappingsImpl
 
 /**
  * The [Mappings] interface is used to build up key/destination mappings used when optionally
  * translating the full [Dispatch] payload to just the relevant data for any given [Dispatcher]
  *
- * Use the multiple [from] methods to supply the required source "key" and "destination" key, as
+ * Use the multiple [mapFrom] methods to supply the required source "key" and "destination" key, as
  * well as any optional "path" entries required to access keys in nested object.
  *
  * Using the following payload DataObject as an example (shown as JSON)
@@ -26,19 +31,20 @@ import com.tealium.prism.core.api.data.JsonPath
  *
  * Simple usage for keys in the top level [DataObject] would look like so:
  * ```kotlin
- * from("source", "destination")
+ * mapFrom("source", "destination")
  * ```
  *
  * More complex versions requiring accessing keys that exist in nested objects would look like so:
  * ```kotlin
- * from(JsonPath["path"]["to"]["source"], JsonPath["path"]["to"]["destination"])
+ * mapFrom(JsonPath["path"]["to"]["source"], JsonPath["path"]["to"]["destination"])
  *
  * ```
  *
- * The [from] method returns a [VariableOptions] that allows for setting optional properties relevant to a mapping.
+ * The [mapFrom] method returns a [VariableOptions] that allows for setting optional properties relevant to a mapping.
  *
  * @see VariableOptions
  * @see ConstantOptions
+ * @see CommandOptions
  */
 interface Mappings {
 
@@ -54,7 +60,7 @@ interface Mappings {
          *
          * @param value The target value that the source key should contain.
          */
-        fun ifValueEquals(value: String): VariableOptions
+        fun ifValueEquals(value: String)
     }
 
     /**
@@ -70,7 +76,7 @@ interface Mappings {
          * @param key The [key] to take the value from when comparing against the expected [value]
          * @param value The target value that the source key should contain.
          */
-        fun ifValueEquals(key: String, value: String): ConstantOptions
+        fun ifValueEquals(key: String, value: String)
 
         /**
          * Sets an optional basic condition that the value at the given mapping [path] needs to match
@@ -80,7 +86,26 @@ interface Mappings {
          * @param path The [path] to take the value from when comparing against the expected [value]
          * @param value The target value that the source key should contain.
          */
-        fun ifValueEquals(path: JsonObjectPath, value: String): ConstantOptions
+        fun ifValueEquals(path: JsonObjectPath, value: String)
+    }
+
+    /**
+     * The [CommandOptions] allows for configuring optional properties relevant only when mapping
+     * commands for Remote Command Dispatchers.
+     *
+     * @see Mappings.mapCommand
+     */
+    interface CommandOptions: ConstantOptions {
+
+        /**
+         * Configures a condition used to apply this command when any "event" is tracked.
+         */
+        fun forAllEvents()
+
+        /**
+         * Configures a condition used to apply this command when any "view" is tracked.
+         */
+        fun forAllViews()
     }
 
     /**
@@ -91,7 +116,7 @@ interface Mappings {
      * @param key The [key] to take the value from and place it in the mapped payload at the [destination] key
      * @param destination The [destination] key to store the mapped value
      */
-    fun from(key: String, destination: String): VariableOptions
+    fun mapFrom(key: String, destination: String): VariableOptions
 
     /**
      * Adds a mapping where the [destination] is to be in the top level of the mapped payload, but
@@ -102,7 +127,7 @@ interface Mappings {
      * @param path The [path] used to take the value from and place it in the mapped payload at the [destination] key
      * @param destination The [destination] key to store the mapped value
      */
-    fun from(path: JsonObjectPath, destination: String): VariableOptions
+    fun mapFrom(path: JsonObjectPath, destination: String): VariableOptions
 
     /**
      * Adds a mapping where the [key] is to be found in the top level of the input payload, but the
@@ -113,7 +138,7 @@ interface Mappings {
      * @param key The [key] to take the value from and place it in the mapped payload at the [destination] key
      * @param destination The [destination] key path to store the mapped value
      */
-    fun from(key: String, destination: JsonObjectPath): VariableOptions
+    fun mapFrom(key: String, destination: JsonObjectPath): VariableOptions
 
     /**
      * Adds a mapping where both the [path] and [destination] can be located/stored at some
@@ -124,7 +149,7 @@ interface Mappings {
      * @param path The [path] to take the value from and place it in the mapped payload at the [destination] key
      * @param destination The [destination] key path to store the mapped value
      */
-    fun from(path: JsonObjectPath, destination: JsonObjectPath): VariableOptions
+    fun mapFrom(path: JsonObjectPath, destination: JsonObjectPath): VariableOptions
 
     /**
      * Adds a mapping where the [key] is both the source and destination of the mapping.
@@ -153,7 +178,7 @@ interface Mappings {
      * @param value The constant value to map to the given [destination]
      * @param destination The [destination] key to store the mapped value
      */
-    fun constant(value: String, destination: String): ConstantOptions
+    fun mapConstant(value: String, destination: String): ConstantOptions
 
     /**
      * Adds a mapping where the value to map is given by the constant [value] and will be mapped to
@@ -165,7 +190,17 @@ interface Mappings {
      * @param value The constant value to map to the given [destination]
      * @param destination The [destination] key to store the mapped value
      */
-    fun constant(value: String, destination: JsonObjectPath): ConstantOptions
+    fun mapConstant(value: String, destination: JsonObjectPath): ConstantOptions
+
+    /**
+     * Adds a mapping where the value to map is given by the constant [name] and will be mapped to a
+     * fixed destination of [Dispatch.Keys.COMMAND_NAME].
+     *
+     * Returns a [CommandOptions] with which to configure some options if required.
+     *
+     * @param name The command name to map to the constant command key, [Dispatch.Keys.COMMAND_NAME]
+     */
+    fun mapCommand(name: String): CommandOptions
 
     /**
      * Utility method to start creating [JsonObjectPath]s. This method is shorthand for [JsonPath.root]
@@ -195,4 +230,22 @@ interface Mappings {
      * @param root The root key required to reach a variable contained in nested [DataObject]s or [DataList]s
      */
     fun path(root: String): JsonObjectPath = JsonPath[root]
+
+    /**
+     * Builds and returns the list of mapping [TransformationOperation]s that have been configured.
+     *
+     * @return A list of mapping [TransformationOperation]s representing all the mappings that have been configured
+     */
+    fun build(): List<MappingOperation>
+
+    companion object {
+
+        /**
+         * Returns a new instance of the default [Mappings] implementation, which can be used to configure
+         * multiple mappings.
+         */
+        @JvmStatic
+        fun default() : Mappings =
+            MappingsImpl()
+    }
 }

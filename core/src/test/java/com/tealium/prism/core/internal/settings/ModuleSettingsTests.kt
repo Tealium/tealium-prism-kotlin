@@ -2,10 +2,11 @@ package com.tealium.prism.core.internal.settings
 
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.ReferenceContainer
-import com.tealium.prism.core.api.rules.Rule
 import com.tealium.prism.core.api.data.ValueContainer
+import com.tealium.prism.core.api.rules.Rule
+import com.tealium.prism.core.api.settings.DefaultDispatcherSettingsBuilder
+import com.tealium.prism.core.api.settings.MappingParameters
 import com.tealium.prism.core.api.settings.modules.CollectorSettingsBuilder
-import com.tealium.prism.core.api.settings.modules.DispatcherSettingsBuilder
 import com.tealium.prism.core.api.settings.modules.ModuleSettingsBuilder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -93,7 +94,7 @@ class ModuleSettingsTests {
 
     @Test
     fun convert_Sets_Mappings_To_Null_When_Omitted() {
-        val settingsObject = DispatcherSettingsBuilder("module")
+        val settingsObject = DefaultDispatcherSettingsBuilder("module")
             .build()
 
         val settings = ModuleSettings.Converter.convert(settingsObject)!!
@@ -102,11 +103,11 @@ class ModuleSettingsTests {
 
     @Test
     fun convert_Sets_Mappings_To_Given_Mappings() {
-        val settingsObject = DispatcherSettingsBuilder("module")
+        val settingsObject = DefaultDispatcherSettingsBuilder("module")
             .setMappings {
-                from("source", "destination")
+                mapFrom("source", "destination")
                     .ifValueEquals("target")
-                constant("other", "destination")
+                mapConstant("other", "destination")
                     .ifValueEquals("source", "target")
             }
             .build()

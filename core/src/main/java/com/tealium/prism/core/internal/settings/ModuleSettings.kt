@@ -4,6 +4,7 @@ import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataItemConverter
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.rules.Rule
+import com.tealium.prism.core.api.settings.MappingParameters
 import com.tealium.prism.core.api.settings.json.TransformationOperation
 import com.tealium.prism.core.internal.dispatch.MappingOperation
 
