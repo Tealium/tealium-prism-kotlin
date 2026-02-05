@@ -11,7 +11,7 @@
             android:exported="false"
             android:initOrder="100" />
 
-        <service android:name="com.tealium.prism.core.internal.modules.ModuleDiscoveryService"
+        <service android:name="com.tealium.prism.core.internal.misc.ComponentDiscoveryService"
             android:exported="false" />
     </application>
 </manifest>

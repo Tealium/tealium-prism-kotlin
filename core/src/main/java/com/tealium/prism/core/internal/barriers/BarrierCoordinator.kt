@@ -1,4 +1,4 @@
-package com.tealium.prism.core.internal.dispatch
+package com.tealium.prism.core.internal.barriers
 
 import com.tealium.prism.core.api.barriers.Barrier
 import com.tealium.prism.core.api.barriers.BarrierScope

@@ -1,9 +1,7 @@
 package com.tealium.prism.core.api
 
 import android.app.Application
-import com.tealium.prism.core.api.barriers.Barrier
 import com.tealium.prism.core.api.barriers.BarrierFactory
-import com.tealium.prism.core.api.barriers.BarrierScope
 import com.tealium.prism.core.api.barriers.ConfigurableBarrier
 import com.tealium.prism.core.api.consent.CmpAdapter
 import com.tealium.prism.core.api.consent.ConsentDecision
@@ -95,7 +93,6 @@ class TealiumConfig private constructor(
         private val modules = modules.toMutableList()
         private val rules = DataObject.Builder()
         private val transformations = DataObject.Builder()
-        private val barrierSettings = DataObject.Builder()
         private val consentSettings = DataObject.Builder()
         private val barriers: MutableList<BarrierFactory> = mutableListOf()
         private var datasource: String? = null
@@ -173,20 +170,13 @@ class TealiumConfig private constructor(
         }
 
         /**
-         * Registers a `barrier` that is able to control the flow of events to [Dispatcher] instances
-         * via setting of [scopes].
+         * Adds a [BarrierFactory] that will create a [ConfigurableBarrier] to control the flow of
+         * dispatches to the [Dispatcher]s.
          *
-         * Setting the [scopes] will override any settings from remote/local sources. Leaving it as `null`
-         * will use any settings from remote or local sources, or a default if the [barrier] supports this.
-         *
-         * @param barrier the [BarrierFactory] used to create the [Barrier] instance
-         * @param scopes optionally fix the set of [Dispatcher]s that this barrier applies to.
+         * @param barrier The [BarrierFactory] that can create a specific [ConfigurableBarrier].
          */
-        @JvmOverloads
-        fun addBarrier(barrier: BarrierFactory, scopes: Set<BarrierScope>? = null) = apply {
+        fun addBarrier(barrier: BarrierFactory) = apply {
             barriers.add(barrier)
-            if (scopes != null)
-                barrierSettings.put(barrier.id, BarrierSettings(barrier.id, scopes))
         }
 
         /**
@@ -199,19 +189,19 @@ class TealiumConfig private constructor(
          * for the provided [CmpAdapter] to ensure proper tracking.
          *
          * @param cmpAdapter: The adapter that will report the [ConsentDecision] to the SDK
-         * @param enforcingSettings: An optional block called with a configuration builder, used to force some of the Consent Configuration properties.
+         * @param enforcedSettings: An optional block called with a configuration builder, used to force some of the Consent Configuration properties.
          *          Properties set with this block will have precedence to local and remote settings.
          */
         @JvmOverloads
         fun enableConsentIntegration(
             cmpAdapter: CmpAdapter,
-            enforcingSettings: ((ConsentConfigurationBuilder) -> ConsentConfigurationBuilder)? = null
+            enforcedSettings: ((ConsentConfigurationBuilder) -> ConsentConfigurationBuilder)? = null
         ) = apply {
             this.cmpAdapter = cmpAdapter
             consentSettings.clear()
-            if (enforcingSettings == null) return@apply
+            if (enforcedSettings == null) return@apply
 
-            val consentConfiguration = enforcingSettings.invoke(ConsentConfigurationBuilder())
+            val consentConfiguration = enforcedSettings.invoke(ConsentConfigurationBuilder())
                 .build()
 
             consentSettings.put(ConsentSettings.Converter.KEY_CONFIGURATIONS, DataObject.create {
@@ -277,9 +267,22 @@ class TealiumConfig private constructor(
                     put(SdkSettings.KEY_TRANSFORMATIONS, transformations)
                 }
 
-                val barriers = barrierSettings.build()
-                if (barriers != DataObject.EMPTY_OBJECT) {
-                    put(SdkSettings.KEY_BARRIERS, barriers)
+                val barriersSettingsKeyValue = barriers.mapNotNull { factory ->
+                    val enforcedSettings = factory.getEnforcedSettings()
+                    if (enforcedSettings != DataObject.EMPTY_OBJECT) {
+                        factory.id to enforcedSettings.copy {
+                            put(BarrierSettings.Converter.KEY_BARRIER_ID, factory.id)
+                        }
+                    } else null
+                }
+                
+                if (barriersSettingsKeyValue.isNotEmpty()) {
+                    val barriersSettings = DataObject.create {
+                        barriersSettingsKeyValue.forEach { (barrierId, settings) ->
+                            put(barrierId, settings)
+                        }
+                    }
+                    put(SdkSettings.KEY_BARRIERS, barriersSettings)
                 }
 
                 val consent = consentSettings.build()

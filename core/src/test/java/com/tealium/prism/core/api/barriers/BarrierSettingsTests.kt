@@ -55,9 +55,9 @@ class BarrierSettingsTests {
         )
 
         val barrierSettings = barrierSettingsConverter.convert(dataObject.asDataItem())!!
-        assertEquals(2, barrierSettings.scope.size)
-        assertEquals(BarrierScope.All, barrierSettings.scope.elementAt(0))
-        assertEquals(BarrierScope.Dispatcher("some_dispatcher"), barrierSettings.scope.elementAt(1))
+        assertEquals(2, barrierSettings.scopes.size)
+        assertEquals(BarrierScope.All, barrierSettings.scopes.elementAt(0))
+        assertEquals(BarrierScope.Dispatcher("some_dispatcher"), barrierSettings.scopes.elementAt(1))
     }
 
     @Test
@@ -69,10 +69,10 @@ class BarrierSettingsTests {
 
         val barrierSettings = barrierSettingsConverter.convert(dataObject.asDataItem())!!
         assertEquals("test", barrierSettings.barrierId)
-        assertEquals(3, barrierSettings.scope.size)
-        assertEquals(BarrierScope.All, barrierSettings.scope.elementAt(0))
-        assertEquals(BarrierScope.Dispatcher("some_dispatcher"), barrierSettings.scope.elementAt(1))
-        assertEquals(BarrierScope.Dispatcher("other_dispatcher"), barrierSettings.scope.elementAt(2))
+        assertEquals(3, barrierSettings.scopes.size)
+        assertEquals(BarrierScope.All, barrierSettings.scopes.elementAt(0))
+        assertEquals(BarrierScope.Dispatcher("some_dispatcher"), barrierSettings.scopes.elementAt(1))
+        assertEquals(BarrierScope.Dispatcher("other_dispatcher"), barrierSettings.scopes.elementAt(2))
     }
 
     @Test

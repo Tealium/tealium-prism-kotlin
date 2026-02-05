@@ -13,25 +13,25 @@ import com.tealium.prism.core.internal.settings.BarrierSettings.Converter.KEY_SC
 
 /**
  * A [BarrierSettings] describes which [Dispatcher] implementation any given [Barrier] should be
- * guarding. The [Barrier] implementation is identified by the [barrierId], and the [scope]
+ * guarding. The [Barrier] implementation is identified by the [barrierId], and the [scopes]
  * sets out which scopes that barrier is relevant for.
  *
  * @param barrierId The id of the [Barrier]
- * @param scope A set of [BarrierScope]s that the [Barrier] should be consulted on.
+ * @param scopes A set of [BarrierScope]s that the [Barrier] should be consulted on.
  *
  * @see Barrier
  * @see BarrierScope
  */
 data class BarrierSettings(
     val barrierId: String,
-    val scope: Set<BarrierScope>,
+    val scopes: Set<BarrierScope>,
     val configuration: DataObject = DataObject.EMPTY_OBJECT
 ) : DataItemConvertible {
 
     override fun asDataItem(): DataItem {
         return DataObject.create {
             put(KEY_BARRIER_ID, barrierId)
-            put(KEY_SCOPES, DataItem.convert(scope))
+            put(KEY_SCOPES, DataItem.convert(scopes))
             put(KEY_CONFIGURATION, configuration)
         }.asDataItem()
     }

@@ -3,8 +3,8 @@ package com.tealium.prism.core.internal.dispatch
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.transform.DispatchScope
 import com.tealium.prism.core.api.transform.TransformationSettings
-import com.tealium.prism.core.api.transform.TransformerRegistry
 import com.tealium.prism.core.api.transform.Transformer
+import com.tealium.prism.core.api.transform.TransformerRegistrar
 
 /**
  * The [TransformerCoordinator] is responsible for:
@@ -12,7 +12,7 @@ import com.tealium.prism.core.api.transform.Transformer
  *  - maintaining a list of [TransformationSettings]s
  *  - delegating the application of any [TransformationSettings]s to the appropriate [Transformer]
  */
-interface TransformerCoordinator : TransformerRegistry {
+interface TransformerCoordinator : TransformerRegistrar {
 
     /**
      * Transforms the [dispatch] using any [Transformer]s that are scoped to the given [dispatchScope].

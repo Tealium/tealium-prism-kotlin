@@ -16,6 +16,7 @@ import com.tealium.prism.core.api.transform.DispatchScope
 import com.tealium.prism.core.api.transform.TransformationScope
 import com.tealium.prism.core.api.transform.TransformationSettings
 import com.tealium.prism.core.api.transform.Transformer
+import com.tealium.prism.core.internal.barriers.BarrierCoordinator
 import com.tealium.prism.core.internal.consent.ConsentManager
 import com.tealium.prism.core.internal.modules.InternalModuleManager
 import com.tealium.prism.core.internal.persistence.repositories.QueueRepository

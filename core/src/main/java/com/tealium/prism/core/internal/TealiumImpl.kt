@@ -27,10 +27,10 @@ import com.tealium.prism.core.api.tracking.DispatchContext
 import com.tealium.prism.core.api.tracking.TrackResultListener
 import com.tealium.prism.core.api.transform.Transformer
 import com.tealium.prism.core.internal.consent.ConsentIntegrationManager
-import com.tealium.prism.core.internal.dispatch.BarrierCoordinator
-import com.tealium.prism.core.internal.dispatch.BarrierCoordinatorImpl
-import com.tealium.prism.core.internal.dispatch.BarrierManager
-import com.tealium.prism.core.internal.dispatch.BarrierRegistryImpl
+import com.tealium.prism.core.internal.barriers.BarrierCoordinator
+import com.tealium.prism.core.internal.barriers.BarrierCoordinatorImpl
+import com.tealium.prism.core.internal.barriers.BarrierManager
+import com.tealium.prism.core.internal.barriers.BarrierRegistrarImpl
 import com.tealium.prism.core.internal.dispatch.DispatchManagerImpl
 import com.tealium.prism.core.internal.dispatch.MappingOperation
 import com.tealium.prism.core.internal.dispatch.MappingsEngine
@@ -39,7 +39,7 @@ import com.tealium.prism.core.internal.dispatch.QueueManagerImpl
 import com.tealium.prism.core.internal.dispatch.QueueMetricsImpl
 import com.tealium.prism.core.internal.dispatch.TransformerCoordinator
 import com.tealium.prism.core.internal.dispatch.TransformerCoordinatorImpl
-import com.tealium.prism.core.internal.dispatch.TransformerRegistryImpl
+import com.tealium.prism.core.internal.dispatch.TransformerRegistrarImpl
 import com.tealium.prism.core.internal.logger.LogCategory
 import com.tealium.prism.core.internal.logger.LoggerImpl
 import com.tealium.prism.core.internal.misc.ActivityManagerImpl
@@ -220,8 +220,8 @@ class TealiumImpl(
                 tracker = tracker,
                 schedulers = schedulers,
                 activityManager = this.activityManager,
-                transformerRegistry = TransformerRegistryImpl(transformerCoordinator),
-                barrierRegistry = BarrierRegistryImpl(barrierManager),
+                transformerRegistrar = TransformerRegistrarImpl(transformerCoordinator),
+                barrierRegistrar = BarrierRegistrarImpl(barrierManager),
                 moduleManager = moduleManager,
                 queueMetrics = queueMetrics,
                 sessionRegistry = SessionRegistryImpl(sessionManager)

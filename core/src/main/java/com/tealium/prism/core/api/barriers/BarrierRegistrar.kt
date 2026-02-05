@@ -1,12 +1,12 @@
 package com.tealium.prism.core.api.barriers
 
 /**
- * The [BarrierRegistry] is responsible for registering and unregistering additional [Barrier]s
+ * The [BarrierRegistrar] is responsible for registering and unregistering additional [Barrier]s
  * outside of those provided by the main SDK settings.
  *
- * Note. Barriers registered using the [BarrierRegistry] will not receive updated settings.
+ * Note. Barriers registered using the [BarrierRegistrar] will not receive updated settings.
  */
-interface BarrierRegistry {
+interface BarrierRegistrar {
 
     /**
      * Registers or updates an additional [Barrier] with the applied [scopes]

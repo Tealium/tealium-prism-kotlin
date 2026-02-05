@@ -1,8 +1,8 @@
-package com.tealium.prism.core.internal.dispatch
+package com.tealium.prism.core.internal.barriers
 
 import com.tealium.prism.core.api.barriers.Barrier
 import com.tealium.prism.core.api.barriers.BarrierFactory
-import com.tealium.prism.core.api.barriers.BarrierRegistry
+import com.tealium.prism.core.api.barriers.BarrierRegistrar
 import com.tealium.prism.core.api.barriers.BarrierScope
 import com.tealium.prism.core.api.barriers.ConfigurableBarrier
 import com.tealium.prism.core.api.data.DataObject
@@ -11,7 +11,6 @@ import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.StateSubject
-import com.tealium.prism.core.internal.network.ConnectivityBarrier
 import com.tealium.prism.core.internal.settings.BarrierSettings
 import com.tealium.prism.core.internal.settings.SdkSettings
 
@@ -19,13 +18,13 @@ import com.tealium.prism.core.internal.settings.SdkSettings
  * The [BarrierManager] is responsible for initializing [ConfigurableBarrier]'s from their
  * [BarrierFactory] counterpart, as well as updating their settings.
  *
- * It also provides [BarrierRegistry] functionality for any [Barrier] implementations. Note. these
+ * It also provides [BarrierRegistrar] functionality for any [Barrier] implementations. Note. these
  * will not received any settings updates.
  */
 class BarrierManager(
     private val sdkBarrierSettings: ObservableState<Map<String, BarrierSettings>>,
     private val configBarriers: StateSubject<List<ConfigurableBarrier>> = Observables.stateSubject(emptyList()),
-): BarrierRegistry {
+): BarrierRegistrar {
     private val extraBarriers: StateSubject<List<ScopedBarrier>> =
         Observables.stateSubject(emptyList())
     private var defaultBarrierScopes: Map<String, Set<BarrierScope>> = emptyMap()
@@ -47,17 +46,16 @@ class BarrierManager(
 
     fun initializeBarriers(
         factories: List<BarrierFactory>,
-        context: TealiumContext,
-        defaultBarrierFactories: List<BarrierFactory> = getDefaultBarrierFactories()
+        context: TealiumContext
     ) {
-        val missingDefaults =
-            defaultBarrierFactories.filter { default -> factories.find { it.id == default.id } == null }
-        val toCreate = factories + missingDefaults
-
-        val barriers = toCreate.map { factory ->
+        // Add default barriers from registry and remove duplicates (keeping first occurrence)
+        val allFactories = (factories + BarrierRegistry.defaultBarriers)
+            .distinctBy { it.id }
+        
+        val barriers = allFactories.map { factory ->
             createBarrier(factory, context)
-        }.distinctBy { it.id }
-        defaultBarrierScopes = toCreate.associate { it.id to it.defaultScope() }
+        }
+        defaultBarrierScopes = allFactories.associate { it.id to it.defaultScopes() }
 
         configBarriers.onNext(barriers)
     }
@@ -99,16 +97,13 @@ class BarrierManager(
     }
 
     companion object {
-        private fun getDefaultBarrierFactories(): List<BarrierFactory> =
-            listOf(ConnectivityBarrier.Factory())
-
         fun combineBarriersAndSettings(
             barriers: List<ConfigurableBarrier>,
             settings: Map<String, BarrierSettings>,
             defaultBarrierScopes: Map<String, Set<BarrierScope>>
         ): List<ScopedBarrier> {
             return barriers.map { barrier ->
-                barrier to (settings[barrier.id]?.scope
+                barrier to (settings[barrier.id]?.scopes
                     ?: defaultBarrierScopes[barrier.id]
                     ?: setOf(BarrierScope.All))
             }

@@ -9,6 +9,7 @@ import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observables
+import com.tealium.prism.core.internal.barriers.ScopedBarrier
 
 fun barrier(
     barrierId: String,
@@ -42,17 +43,21 @@ fun barrier(
  */
 fun barrierFactory(
     barrier: ConfigurableBarrier,
-    defaultScope: Set<BarrierScope>? = null
+    defaultScopes: Set<BarrierScope>? = null,
+    enforcedSettings: DataObject? = null
 ): BarrierFactory = object : BarrierFactory {
     override val id: String
         get() = barrier.id
 
-    override fun defaultScope(): Set<BarrierScope> =
-        defaultScope ?: super.defaultScope()
+    override fun defaultScopes(): Set<BarrierScope> =
+        defaultScopes ?: super.defaultScopes()
 
     override fun create(context: TealiumContext, configuration: DataObject): ConfigurableBarrier {
         return barrier
     }
+
+    override fun getEnforcedSettings(): DataObject =
+        enforcedSettings ?: super.getEnforcedSettings()
 }
 
 fun List<ScopedBarrier>.containsBarrier(barrier: Barrier): Boolean =

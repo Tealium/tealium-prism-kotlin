@@ -26,7 +26,7 @@
 
 -keep class kotlin.Metadata { *; }
 
-# Keep all public interfaces
+# Keep all public interfaces and classes (.* = top-level package only)
 -keep public interface com.tealium.prism.core.* { *; }
 -keep public class com.tealium.prism.core.* { *; }
 
@@ -44,7 +44,7 @@
     public protected *;
 }
 
--keepnames class com.tealium.prism.core.internal.modules.ModuleDiscoveryService
+-keepnames class com.tealium.prism.core.internal.misc.ComponentDiscoveryService
 -keep class com.tealium.prism.core.internal.misc.TealiumAutoInitContentProvider {
     <init>(...);
     *;

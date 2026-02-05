@@ -1,10 +1,10 @@
 package com.tealium.prism.core.api.transform
 
 /**
- * The [TransformerRegistry] is responsible for registering and unregistering additional
+ * The [TransformerRegistrar] is responsible for registering and unregistering additional
  * [TransformationSettings]s outside of those provided by the main SDK settings.
  */
-interface TransformerRegistry {
+interface TransformerRegistrar {
 
     /**
      * Registers an additional [TransformationSettings]
