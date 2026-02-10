@@ -2,6 +2,7 @@ package com.tealium.prism.core.internal
 
 import com.tealium.prism.core.api.Tealium
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.modules.DataLayer
@@ -60,6 +61,14 @@ class TealiumProxy(
             .subscribe {
                 doShutdown()
             }
+    }
+
+    override fun onReady(callback: Callback<Tealium>) {
+        asyncProxy.getProxiedObject { tealium ->
+            if (tealium != null) {
+                callback.onComplete(this)
+            }
+        }
     }
 
     override fun track(name: String, data: DataObject): SingleResult<TrackResult> =

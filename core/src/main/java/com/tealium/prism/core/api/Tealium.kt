@@ -57,6 +57,21 @@ interface Tealium {
     val dataLayer: DataLayer
 
     /**
+     * Executes the provided [callback] when [Tealium] is ready for use, from the [Tealium] internal thread.
+     *
+     * Usage of this method is incentivized in case you want to call multiple [Tealium] methods in a row.
+     * Every one of those methods, if called from a different thread, will cause the execution to move into our
+     * own internal queue, causing overhead.
+     * Calling those methods from the [callback] of this method, instead, will skip all of those context switches
+     * and perform the operations synchronously onto our thread.
+     *
+     * @param callback
+     *  A closure that is called with the [Tealium] instance when it's ready.
+     *  In case of an initialization error the completion won't be called at all.
+     */
+    fun onReady(callback: Callback<Tealium>)
+
+    /**
      * Creates a [ModuleProxy] for the given module [clazz] to allow for an easy creation of Module Wrappers.
      *
      * This method should only be used when creating a [Module] wrapper. Use the already prebuilt wrappers for modules included in the SDK.
