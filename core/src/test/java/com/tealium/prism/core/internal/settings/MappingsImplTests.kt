@@ -1,5 +1,6 @@
 package com.tealium.prism.core.internal.settings
 
+import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.JsonPath
 import com.tealium.prism.core.api.data.get
 import com.tealium.prism.core.api.tracking.Dispatch
@@ -120,7 +121,7 @@ class MappingsImplTests {
     fun build_Returns_All_MappingParameters_When_Multiple_Mappings_Are_Defined() {
         mappings.mapFrom("source1", "destination1")
         mappings.mapFrom("source2", "destination2").ifValueEquals("value2")
-        mappings.mapConstant("mapped3", "destination3").ifValueEquals("source3", "value3")
+        mappings.mapConstant("mapped3".asDataItem(), "destination3").ifValueEquals("source3", "value3")
 
         val transformations = mappings.build()
         assertEquals(3, transformations.size)
@@ -141,12 +142,12 @@ class MappingsImplTests {
         assertEquals(JsonPath["destination3"], transformation3.destination.path)
         assertEquals(JsonPath["source3"], transformation3.parameters.reference?.path)
         assertEquals("value3", transformation3.parameters.filter?.value)
-        assertEquals("mapped3", transformation3.parameters.mapTo?.value)
+        assertEquals("mapped3", transformation3.parameters.mapTo?.value?.value)
     }
 
     @Test
     fun mapConstant_Builds_Transformation_Operation_With_Constant_Value() {
-        val builder = mappings.mapConstant("constant_value", "destination")
+        val builder = mappings.mapConstant("constant_value".asDataItem(), "destination")
         assertNotNull(builder)
 
         val mappingsList = mappings.build()
@@ -156,13 +157,13 @@ class MappingsImplTests {
         assertEquals(JsonPath["destination"], mapping.destination.path)
         assertNull(mapping.parameters.reference)
         assertNull(mapping.parameters.filter)
-        assertEquals("constant_value", mapping.parameters.mapTo?.value)
+        assertEquals("constant_value", mapping.parameters.mapTo?.value?.value)
     }
 
     @Test
     fun mapConstant_Builds_Transformation_Operation_With_Destination_Path() {
         val destination = JsonPath["path"]["to"]["destination"]
-        val builder = mappings.mapConstant("constant_value", destination)
+        val builder = mappings.mapConstant("constant_value".asDataItem(), destination)
         assertNotNull(builder)
 
         val mappingsList = mappings.build()
@@ -172,13 +173,13 @@ class MappingsImplTests {
         assertEquals(destination, mapping.destination.path)
         assertNull(mapping.parameters.reference)
         assertNull(mapping.parameters.filter)
-        assertEquals("constant_value", mapping.parameters.mapTo?.value)
+        assertEquals("constant_value", mapping.parameters.mapTo?.value?.value)
     }
 
     @Test
     fun mapConstant_Builds_Transformation_Operation_With_Options() {
         val destination = JsonPath["dest"]["path"]["destination"]
-        val builder = mappings.mapConstant("constant_value", destination)
+        val builder = mappings.mapConstant("constant_value".asDataItem(), destination)
             .ifValueEquals("key", "expected")
         assertNotNull(builder)
 
@@ -189,7 +190,7 @@ class MappingsImplTests {
         assertEquals(destination, mapping.destination.path)
         assertEquals(JsonPath["key"], mapping.parameters.reference?.path)
         assertEquals("expected", mapping.parameters.filter?.value)
-        assertEquals("constant_value", mapping.parameters.mapTo?.value)
+        assertEquals("constant_value", mapping.parameters.mapTo?.value?.value)
     }
 
     @Test
@@ -252,7 +253,7 @@ class MappingsImplTests {
         assertEquals(JsonPath[Dispatch.Keys.COMMAND_NAME], mapping.destination.path)
         assertNull(mapping.parameters.reference)
         assertNull(mapping.parameters.filter)
-        assertEquals("test_command", mapping.parameters.mapTo?.value)
+        assertEquals("test_command", mapping.parameters.mapTo?.value?.value)
     }
 
     @Test
@@ -268,7 +269,7 @@ class MappingsImplTests {
         assertEquals(JsonPath[Dispatch.Keys.COMMAND_NAME], mapping.destination.path)
         assertEquals(JsonPath[Dispatch.Keys.TEALIUM_EVENT_TYPE], mapping.parameters.reference?.path)
         assertEquals(DispatchType.Event.name, mapping.parameters.filter?.value)
-        assertEquals("event_command", mapping.parameters.mapTo?.value)
+        assertEquals("event_command", mapping.parameters.mapTo?.value?.value)
     }
 
     @Test
@@ -284,7 +285,7 @@ class MappingsImplTests {
         assertEquals(JsonPath[Dispatch.Keys.COMMAND_NAME], mapping.destination.path)
         assertEquals(JsonPath[Dispatch.Keys.TEALIUM_EVENT_TYPE], mapping.parameters.reference?.path)
         assertEquals(DispatchType.View.name, mapping.parameters.filter?.value)
-        assertEquals("view_command", mapping.parameters.mapTo?.value)
+        assertEquals("view_command", mapping.parameters.mapTo?.value?.value)
     }
 
     @Test
@@ -300,7 +301,7 @@ class MappingsImplTests {
         assertEquals(JsonPath[Dispatch.Keys.COMMAND_NAME], mapping.destination.path)
         assertEquals(JsonPath["custom_key"], mapping.parameters.reference?.path)
         assertEquals("expected_value", mapping.parameters.filter?.value)
-        assertEquals("conditional_command", mapping.parameters.mapTo?.value)
+        assertEquals("conditional_command", mapping.parameters.mapTo?.value?.value)
     }
 
     @Test
@@ -317,7 +318,7 @@ class MappingsImplTests {
         assertEquals(JsonPath[Dispatch.Keys.COMMAND_NAME], mapping.destination.path)
         assertEquals(path, mapping.parameters.reference?.path)
         assertEquals("expected_value", mapping.parameters.filter?.value)
-        assertEquals("path_conditional_command", mapping.parameters.mapTo?.value)
+        assertEquals("path_conditional_command", mapping.parameters.mapTo?.value?.value)
     }
 
     @Test
@@ -325,7 +326,7 @@ class MappingsImplTests {
         // Complex scenario: mix of all mapping types with various options
         mappings.mapFrom(JsonPath["user"]["profile"]["name"], "customer_name")
         mappings.keep("event_name").ifValueEquals("tracked")
-        mappings.mapConstant("analytics_v2", JsonPath["config"]["version"])
+        mappings.mapConstant("analytics_v2".asDataItem(), JsonPath["config"]["version"])
             .ifValueEquals(JsonPath["settings"]["enabled"], "true")
         mappings.mapCommand("purchase").forAllEvents()
         mappings.mapFrom("product_id", JsonPath["ecommerce"]["item"]["id"])
@@ -353,14 +354,14 @@ class MappingsImplTests {
         assertEquals(JsonPath["config"]["version"], mapping3.destination.path)
         assertEquals(JsonPath["settings"]["enabled"], mapping3.parameters.reference?.path)
         assertEquals("true", mapping3.parameters.filter?.value)
-        assertEquals("analytics_v2", mapping3.parameters.mapTo?.value)
+        assertEquals("analytics_v2", mapping3.parameters.mapTo?.value?.value)
 
         // Verify fourth mapping: command for all events
         val mapping4 = transformations[3]
         assertEquals(JsonPath[Dispatch.Keys.COMMAND_NAME], mapping4.destination.path)
         assertEquals(JsonPath[Dispatch.Keys.TEALIUM_EVENT_TYPE], mapping4.parameters.reference?.path)
         assertEquals(DispatchType.Event.name, mapping4.parameters.filter?.value)
-        assertEquals("purchase", mapping4.parameters.mapTo?.value)
+        assertEquals("purchase", mapping4.parameters.mapTo?.value?.value)
 
         // Verify fifth mapping: simple key to nested path with condition
         val mapping5 = transformations[4]
@@ -378,7 +379,7 @@ class MappingsImplTests {
             .ifValueEquals(JsonPath["event"]["action"], "cart_add")
         mappings.mapFrom(JsonPath["cart"]["items"][0]["price"], JsonPath["analytics"]["item_price"])
             .ifValueEquals("available")
-        mappings.mapConstant("mobile_app", "platform")
+        mappings.mapConstant("mobile_app".asDataItem(), "platform")
             .ifValueEquals("app_version", "2.1.0")
         mappings.keep(JsonPath["user"]["preferences"]["notifications"])
 
@@ -390,14 +391,14 @@ class MappingsImplTests {
         assertEquals(JsonPath[Dispatch.Keys.COMMAND_NAME], mapping1.destination.path)
         assertEquals(JsonPath[Dispatch.Keys.TEALIUM_EVENT_TYPE], mapping1.parameters.reference?.path)
         assertEquals(DispatchType.View.name, mapping1.parameters.filter?.value)
-        assertEquals("view_product", mapping1.parameters.mapTo?.value)
+        assertEquals("view_product", mapping1.parameters.mapTo?.value?.value)
 
         // Verify conditional command with nested path condition
         val mapping2 = transformations[1]
         assertEquals(JsonPath[Dispatch.Keys.COMMAND_NAME], mapping2.destination.path)
         assertEquals(JsonPath["event"]["action"], mapping2.parameters.reference?.path)
         assertEquals("cart_add", mapping2.parameters.filter?.value)
-        assertEquals("add_to_cart", mapping2.parameters.mapTo?.value)
+        assertEquals("add_to_cart", mapping2.parameters.mapTo?.value?.value)
 
         // Verify complex array access mapping with condition
         val mapping3 = transformations[2]
@@ -411,7 +412,7 @@ class MappingsImplTests {
         assertEquals(JsonPath["platform"], mapping4.destination.path)
         assertEquals(JsonPath["app_version"], mapping4.parameters.reference?.path)
         assertEquals("2.1.0", mapping4.parameters.filter?.value)
-        assertEquals("mobile_app", mapping4.parameters.mapTo?.value)
+        assertEquals("mobile_app", mapping4.parameters.mapTo?.value?.value)
 
         // Verify keep with nested path
         val mapping5 = transformations[4]

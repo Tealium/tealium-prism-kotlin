@@ -1,13 +1,13 @@
 package com.tealium.prism.core.api.data
 
 /**
- * A container for holding a specific [DataItem] [value].
+ * A container for holding a specific [String] [value].
  *
  * This class is typically used for retrieving data from settings as it will serialize and deserialize
- * to/from a [DataObject], as opposed to just the [value].
+ * to/from a [DataObject], as opposed to just the [value] string.
  */
-data class ValueContainer(
-    val value: DataItem
+data class StringContainer(
+    val value: String
 ): DataObjectConvertible {
 
     override fun asDataObject(): DataObject =
@@ -15,16 +15,16 @@ data class ValueContainer(
             put(Converter.KEY_VALUE, value)
         }
 
-    object Converter : DataItemConverter<ValueContainer> {
+    object Converter : DataItemConverter<StringContainer> {
         const val KEY_VALUE = "value"
-        override fun convert(dataItem: DataItem): ValueContainer? {
+        override fun convert(dataItem: DataItem): StringContainer? {
             val dataObject = dataItem.getDataObject()
                 ?: return null
 
-            val value = dataObject.get(KEY_VALUE)
+            val value = dataObject.getString(KEY_VALUE)
                 ?: return null
 
-            return ValueContainer(value)
+            return StringContainer(value)
         }
     }
 }

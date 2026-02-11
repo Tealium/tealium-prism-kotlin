@@ -3,7 +3,7 @@ package com.tealium.prism.core.internal.rules
 import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
-import com.tealium.prism.core.api.data.ValueContainer
+import com.tealium.prism.core.api.data.StringContainer
 import com.tealium.prism.core.api.rules.Condition
 import com.tealium.prism.core.api.rules.Condition.Operator
 import com.tealium.prism.core.api.rules.MissingDataItemException
@@ -333,7 +333,7 @@ class CustomOperator(
     override val id: String,
     private val predicate: (DataItem?, String?) -> Boolean
 ) : Operator {
-    override fun apply(dataItem: DataItem?, filter: ValueContainer?): Boolean =
+    override fun apply(dataItem: DataItem?, filter: StringContainer?): Boolean =
         predicate.invoke(dataItem, filter?.value)
 }
 
@@ -348,7 +348,7 @@ class StringsMatchOperator(
 ) : Operator {
 
     @Suppress("NAME_SHADOWING")
-    override fun apply(dataItem: DataItem?, filter: ValueContainer?): Boolean {
+    override fun apply(dataItem: DataItem?, filter: StringContainer?): Boolean {
         val dataItem = OperatorPreconditions.requireDataItem(dataItem)
         val filter = OperatorPreconditions.requireFilter(filter)
         if (dataItem.isDataObject())
@@ -405,7 +405,7 @@ class EqualsOperator(
     private val stringsEqual = StringsMatchOperator(id, ignoreCase, not, String::equals)
 
     @Suppress("NAME_SHADOWING")
-    override fun apply(dataItem: DataItem?, filter: ValueContainer?): Boolean {
+    override fun apply(dataItem: DataItem?, filter: StringContainer?): Boolean {
         val dataItem = OperatorPreconditions.requireDataItem(dataItem)
         val filter = OperatorPreconditions.requireFilter(filter)
 
@@ -439,7 +439,7 @@ class NumericOperator(
 ) : Operator {
 
     @Suppress("NAME_SHADOWING")
-    override fun apply(dataItem: DataItem?, filter: ValueContainer?): Boolean {
+    override fun apply(dataItem: DataItem?, filter: StringContainer?): Boolean {
         val dataItem = OperatorPreconditions.requireDataItem(dataItem)
         val filter = OperatorPreconditions.requireFilter(filter)
 

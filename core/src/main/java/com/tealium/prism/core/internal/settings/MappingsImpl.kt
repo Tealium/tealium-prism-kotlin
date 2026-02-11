@@ -1,9 +1,12 @@
 package com.tealium.prism.core.internal.settings
 
+import com.tealium.prism.core.api.data.DataItem
+import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.JsonObjectPath
 import com.tealium.prism.core.api.data.ReferenceContainer
 import com.tealium.prism.core.api.data.ReferenceContainer.Companion.key
 import com.tealium.prism.core.api.data.ReferenceContainer.Companion.path
+import com.tealium.prism.core.api.data.StringContainer
 import com.tealium.prism.core.api.data.ValueContainer
 import com.tealium.prism.core.api.settings.MappingParameters
 import com.tealium.prism.core.api.settings.Mappings
@@ -20,10 +23,10 @@ class MappingsImpl : Mappings {
         private var key: ReferenceContainer? = null,
         private var mapTo: ValueContainer? = null
     ) : Mappings.VariableOptions, Mappings.ConstantOptions, Mappings.CommandOptions {
-        private var filter: ValueContainer? = null
+        private var filter: StringContainer? = null
 
         override fun ifValueEquals(value: String) {
-            filter = ValueContainer(value)
+            filter = StringContainer(value)
         }
 
         override fun ifValueEquals(path: JsonObjectPath, value: String) =
@@ -34,7 +37,7 @@ class MappingsImpl : Mappings {
 
         private fun ifValueEquals(reference: ReferenceContainer, value: String) {
             this.key = reference
-            this.filter = ValueContainer(value)
+            this.filter = StringContainer(value)
         }
 
         override fun forAllEvents() =
@@ -69,13 +72,13 @@ class MappingsImpl : Mappings {
         return builder
     }
 
-    override fun mapConstant(value: String, destination: JsonObjectPath): Mappings.ConstantOptions =
+    override fun mapConstant(value: DataItem, destination: JsonObjectPath): Mappings.ConstantOptions =
         mapConstant(value, path(destination))
 
-    override fun mapConstant(value: String, destination: String): Mappings.ConstantOptions =
+    override fun mapConstant(value: DataItem, destination: String): Mappings.ConstantOptions =
         mapConstant(value, key(destination))
 
-    private fun mapConstant(value: String, destination: ReferenceContainer): Mappings.ConstantOptions {
+    private fun mapConstant(value: DataItem, destination: ReferenceContainer): Mappings.ConstantOptions {
         val builder = BuilderImpl(destination, mapTo = ValueContainer(value))
         mappings.add(builder)
         return builder
@@ -91,7 +94,7 @@ class MappingsImpl : Mappings {
         mapFrom(reference, reference)
 
     override fun mapCommand(name: String): Mappings.CommandOptions {
-        val builder = BuilderImpl(key(Dispatch.Keys.COMMAND_NAME), mapTo = ValueContainer(name))
+        val builder = BuilderImpl(key(Dispatch.Keys.COMMAND_NAME), mapTo = ValueContainer(name.asDataItem()))
         mappings.add(builder)
         return builder
     }

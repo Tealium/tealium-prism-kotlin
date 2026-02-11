@@ -3,6 +3,7 @@ package com.tealium.prism.core.internal
 import android.app.Activity
 import android.app.Application
 import com.tealium.prism.core.api.consent.ConsentDecision
+import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.JsonPath
 import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.Logger
@@ -271,7 +272,7 @@ class TealiumImplTests {
     fun extractMappings_Returns_Mappings_When_Given_Valid_DataObject() {
         val mappings = MappingsImpl().apply {
             mapFrom("source1", "destination1")
-            mapConstant("value", "destination2")
+            mapConstant("value".asDataItem(), "destination2")
                 .ifValueEquals("source2", "expected")
         }.build()
 
@@ -298,7 +299,7 @@ class TealiumImplTests {
         assertEquals(JsonPath["destination2"], mapping2.destination.path)
         assertEquals(JsonPath["source2"], mapping2.parameters.reference?.path)
         assertEquals("expected", mapping2.parameters.filter?.value)
-        assertEquals("value", mapping2.parameters.mapTo?.value)
+        assertEquals("value", mapping2.parameters.mapTo?.value?.value)
     }
 
     private fun getTestModules(count: Int = 1): List<ModuleFactory> = (1..count).map {

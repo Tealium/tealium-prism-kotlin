@@ -1,5 +1,6 @@
 package com.tealium.prism.core.api.settings
 
+import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.JsonObjectPath
@@ -178,7 +179,7 @@ interface Mappings {
      * @param value The constant value to map to the given [destination]
      * @param destination The [destination] key to store the mapped value
      */
-    fun mapConstant(value: String, destination: String): ConstantOptions
+    fun mapConstant(value: DataItem, destination: String): ConstantOptions
 
     /**
      * Adds a mapping where the value to map is given by the constant [value] and will be mapped to
@@ -190,7 +191,7 @@ interface Mappings {
      * @param value The constant value to map to the given [destination]
      * @param destination The [destination] key to store the mapped value
      */
-    fun mapConstant(value: String, destination: JsonObjectPath): ConstantOptions
+    fun mapConstant(value: DataItem, destination: JsonObjectPath): ConstantOptions
 
     /**
      * Adds a mapping where the value to map is given by the constant [name] and will be mapped to a

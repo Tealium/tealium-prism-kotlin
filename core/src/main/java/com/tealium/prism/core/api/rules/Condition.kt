@@ -11,7 +11,7 @@ import com.tealium.prism.core.api.data.ReferenceContainer.Companion.key
 import com.tealium.prism.core.api.data.ReferenceContainer.Companion.path
 import com.tealium.prism.core.api.rules.Condition.Companion.isDefined
 import com.tealium.prism.core.api.rules.Condition.Companion.isNotDefined
-import com.tealium.prism.core.api.data.ValueContainer
+import com.tealium.prism.core.api.data.StringContainer
 import com.tealium.prism.core.internal.rules.Operators
 
 /**
@@ -38,7 +38,7 @@ import com.tealium.prism.core.internal.rules.Operators
 data class Condition internal constructor(
     val variable: ReferenceContainer,
     val operator: Operator,
-    val filter: ValueContainer?
+    val filter: StringContainer?
 ) : DataItemConvertible, Matchable<DataObject> {
 
     override fun asDataItem(): DataItem {
@@ -84,7 +84,7 @@ data class Condition internal constructor(
          * @throws OperatorFailedException when the [Operator] cannot be evaluated successfully.
          */
         @Throws(OperatorFailedException::class)
-        fun apply(dataItem: DataItem?, filter: ValueContainer?): Boolean
+        fun apply(dataItem: DataItem?, filter: StringContainer?): Boolean
 
         override fun asDataItem(): DataItem {
             return DataItem.string(id)
@@ -115,7 +115,7 @@ data class Condition internal constructor(
             if (variable == null || operator == null)
                 return null
 
-            val filter = dataObject.get(KEY_FILTER, ValueContainer.Converter)
+            val filter = dataObject.get(KEY_FILTER, StringContainer.Converter)
 
             return Condition(variable, operator, filter)
         }
@@ -155,7 +155,7 @@ data class Condition internal constructor(
             Condition(
                 variable,
                 if (ignoreCase) Operators.equalsIgnoreCase else Operators.equals,
-                ValueContainer(target)
+                StringContainer(target)
             )
 
         /**
@@ -190,7 +190,7 @@ data class Condition internal constructor(
             Condition(
                 variable,
                 if (ignoreCase) Operators.doesNotEqualIgnoreCase else Operators.doesNotEqual,
-                ValueContainer(target)
+                StringContainer(target)
             )
 
         /**
@@ -225,7 +225,7 @@ data class Condition internal constructor(
             Condition(
                 variable,
                 if (ignoreCase) Operators.containsIgnoreCase else Operators.contains,
-                ValueContainer(string)
+                StringContainer(string)
             )
 
         /**
@@ -264,7 +264,7 @@ data class Condition internal constructor(
             Condition(
                 variable,
                 if (ignoreCase) Operators.doesNotContainIgnoreCase else Operators.doesNotContain,
-                ValueContainer(string)
+                StringContainer(string)
             )
 
         /**
@@ -299,7 +299,7 @@ data class Condition internal constructor(
             Condition(
                 variable,
                 if (ignoreCase) Operators.startsWithIgnoreCase else Operators.startsWith,
-                ValueContainer(prefix)
+                StringContainer(prefix)
             )
 
         /**
@@ -338,7 +338,7 @@ data class Condition internal constructor(
             Condition(
                 variable,
                 if (ignoreCase) Operators.doesNotStartWithIgnoreCase else Operators.doesNotStartWith,
-                ValueContainer(prefix)
+                StringContainer(prefix)
             )
 
         /**
@@ -373,7 +373,7 @@ data class Condition internal constructor(
             Condition(
                 variable,
                 if (ignoreCase) Operators.endsWithIgnoreCase else Operators.endsWith,
-                ValueContainer(suffix)
+                StringContainer(suffix)
             )
 
         /**
@@ -412,7 +412,7 @@ data class Condition internal constructor(
             Condition(
                 variable,
                 if (ignoreCase) Operators.doesNotEndWithIgnoreCase else Operators.doesNotEndWith,
-                ValueContainer(suffix)
+                StringContainer(suffix)
             )
 
         /**
@@ -567,7 +567,7 @@ data class Condition internal constructor(
             Condition(
                 variable,
                 if (orEqual) Operators.greaterThanOrEquals else Operators.greaterThan,
-                ValueContainer(number)
+                StringContainer(number)
             )
 
         /**
@@ -602,7 +602,7 @@ data class Condition internal constructor(
             Condition(
                 variable,
                 if (orEqual) Operators.lessThanOrEquals else Operators.lessThan,
-                ValueContainer(number)
+                StringContainer(number)
             )
 
         /**
@@ -628,6 +628,6 @@ data class Condition internal constructor(
             regularExpression(path(variable), regex)
 
         private fun regularExpression(variable: ReferenceContainer, regex: String): Condition =
-            Condition(variable, Operators.regularExpression, ValueContainer(regex))
+            Condition(variable, Operators.regularExpression, StringContainer(regex))
     }
 }

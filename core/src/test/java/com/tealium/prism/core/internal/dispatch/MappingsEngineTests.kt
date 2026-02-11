@@ -1,5 +1,6 @@
 package com.tealium.prism.core.internal.dispatch
 
+import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.ReferenceContainer
@@ -186,8 +187,8 @@ class MappingsEngineTests {
     @Test
     fun map_DataObject_Merges_Duplicate_Destinations_When_Value_Is_Constant() {
         val mappings = buildMappings {
-            mapConstant("value1", "result")
-            mapConstant("value2", "result")
+            mapConstant("value1".asDataItem(), "result")
+            mapConstant("value2".asDataItem(), "result")
         }
 
         val remapped = MappingsEngine.map(payload, mappings)
@@ -203,8 +204,8 @@ class MappingsEngineTests {
     @Test
     fun map_DataObject_Merges_Duplicate_Nested_Destinations_When_Value_Is_Constant() {
         val mappings = buildMappings {
-            mapConstant("value1", path("obj")["result"])
-            mapConstant("value2", path("obj")["result"])
+            mapConstant("value1".asDataItem(), path("obj")["result"])
+            mapConstant("value2".asDataItem(), path("obj")["result"])
         }
 
         val remapped = MappingsEngine.map(payload, mappings)
@@ -263,7 +264,7 @@ class MappingsEngineTests {
     @Test
     fun map_DataObject_Does_Not_Run_Mapping_If_MapTo_Value_Matches_Filter() {
         val mappings = buildMappings {
-            mapConstant("non_matching_value", "string")
+            mapConstant("non_matching_value".asDataItem(), "string")
                 .ifValueEquals("string", "non_matching_value")
         }
 
@@ -306,7 +307,7 @@ class MappingsEngineTests {
                 ReferenceContainer.key("string"),
                 MappingParameters(
                     reference = ReferenceContainer.key("string"),
-                    mapTo = ValueContainer("something else"),
+                    mapTo = ValueContainer("something else".asDataItem()),
                     filter = null
                 )
             )
@@ -324,7 +325,7 @@ class MappingsEngineTests {
                 ReferenceContainer.key("string"),
                 MappingParameters(
                     reference = ReferenceContainer.key("missing_input"),
-                    mapTo = ValueContainer("something else"),
+                    mapTo = ValueContainer("something else".asDataItem()),
                     filter = null
                 )
             )

@@ -1,7 +1,9 @@
 package com.tealium.prism.core.internal.settings
 
+import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.ReferenceContainer
+import com.tealium.prism.core.api.data.StringContainer
 import com.tealium.prism.core.api.data.ValueContainer
 import com.tealium.prism.core.api.rules.Rule
 import com.tealium.prism.core.api.settings.DefaultDispatcherSettingsBuilder
@@ -107,15 +109,15 @@ class ModuleSettingsTests {
             .setMappings {
                 mapFrom("source", "destination")
                     .ifValueEquals("target")
-                mapConstant("other", "destination")
+                mapConstant("other".asDataItem(), "destination")
                     .ifValueEquals("source", "target")
             }
             .build()
 
         val settings = ModuleSettings.Converter.convert(settingsObject)!!
         val expected1 =
-            MappingParameters(ReferenceContainer.key("source"), ValueContainer("target"), null)
-        val expected2 = expected1.copy(mapTo = ValueContainer("other"))
+            MappingParameters(ReferenceContainer.key("source"), StringContainer("target"), null)
+        val expected2 = expected1.copy(mapTo = ValueContainer("other".asDataItem()))
         assertEquals(expected1, settings.mappings!![0].parameters)
         assertEquals(expected2, settings.mappings!![1].parameters)
     }

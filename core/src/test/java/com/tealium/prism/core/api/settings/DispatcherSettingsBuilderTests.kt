@@ -136,7 +136,7 @@ class DispatcherSettingsBuilderTests {
         assertEquals(JsonPath[Dispatch.Keys.COMMAND_NAME], customCommandMapping.destination.path)
         assertNull(customCommandMapping.parameters.reference)
         assertNull(customCommandMapping.parameters.filter)
-        assertEquals("cmd", customCommandMapping.parameters.mapTo?.value)
+        assertEquals("cmd", customCommandMapping.parameters.mapTo?.value?.value)
     }
 
     @Test

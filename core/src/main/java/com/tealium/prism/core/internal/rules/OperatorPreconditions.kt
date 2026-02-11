@@ -5,7 +5,7 @@ import com.tealium.prism.core.api.rules.Condition.Operator
 import com.tealium.prism.core.api.rules.MissingDataItemException
 import com.tealium.prism.core.api.rules.MissingFilterException
 import com.tealium.prism.core.api.rules.NumberParseException
-import com.tealium.prism.core.api.data.ValueContainer
+import com.tealium.prism.core.api.data.StringContainer
 
 /**
  * Utility functions for throwing standard exceptions used by [Operator] implementations
@@ -17,7 +17,7 @@ object OperatorPreconditions {
      * @throws MissingFilterException when [filter] is null
      */
     @Throws(MissingFilterException::class)
-    fun requireFilter(filter: ValueContainer?): ValueContainer =
+    fun requireFilter(filter: StringContainer?): StringContainer =
         filter ?: throw MissingFilterException()
 
     /**

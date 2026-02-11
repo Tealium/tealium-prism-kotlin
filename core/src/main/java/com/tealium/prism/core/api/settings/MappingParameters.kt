@@ -5,6 +5,7 @@ import com.tealium.prism.core.api.data.DataItemConverter
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.DataObjectConvertible
 import com.tealium.prism.core.api.data.ReferenceContainer
+import com.tealium.prism.core.api.data.StringContainer
 import com.tealium.prism.core.api.data.ValueContainer
 
 /**
@@ -24,7 +25,7 @@ import com.tealium.prism.core.api.data.ValueContainer
  */
 data class MappingParameters(
     val reference: ReferenceContainer?,
-    val filter: ValueContainer?,
+    val filter: StringContainer?,
     val mapTo: ValueContainer?
 ) : DataObjectConvertible {
 
@@ -51,7 +52,7 @@ data class MappingParameters(
                 ?: return null
 
             val reference = dataObject.get(KEY_REFERENCE, ReferenceContainer.Converter)
-            val filter = dataObject.get(KEY_FILTER, ValueContainer.Converter)
+            val filter = dataObject.get(KEY_FILTER, StringContainer.Converter)
             val mapTo = dataObject.get(KEY_MAP_TO, ValueContainer.Converter)
 
             if (reference == null && mapTo == null) return null

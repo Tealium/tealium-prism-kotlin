@@ -7,7 +7,7 @@ import com.tealium.prism.core.api.data.get
 import com.tealium.prism.core.api.rules.Condition.Converter.KEY_FILTER
 import com.tealium.prism.core.api.rules.Condition.Converter.KEY_OPERATOR
 import com.tealium.prism.core.api.rules.Condition.Converter.KEY_VARIABLE
-import com.tealium.prism.core.api.data.ValueContainer
+import com.tealium.prism.core.api.data.StringContainer
 import com.tealium.prism.core.internal.rules.Operators
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -398,6 +398,6 @@ class ConditionConverterTests {
 
     private fun value(value: String): DataObject =
         DataObject.create {
-            put(ValueContainer.Converter.KEY_VALUE, value)
+            put(StringContainer.Converter.KEY_VALUE, value)
         }
 }
