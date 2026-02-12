@@ -40,3 +40,4 @@ tealium-gradle = { id = "tealium-plugin" }
 tealium-library = { id = "tealium-library" }
 tealium-dokka-root = { id = "dokka-root" }
 tealium-dokka-library = { id = "dokka-library" }
+tealium-bom = { id = "tealium-bom" }

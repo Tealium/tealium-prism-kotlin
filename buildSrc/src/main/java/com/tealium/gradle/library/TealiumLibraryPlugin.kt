@@ -3,25 +3,18 @@ package com.tealium.gradle.library
 import com.android.build.gradle.LibraryExtension
 import com.android.build.gradle.LibraryPlugin
 import com.tealium.gradle.dokka.DokkaLibraryPlugin
-import com.tealium.gradle.getPropertyOrEnvironmentVariable
+import com.tealium.gradle.publish.TealiumPublishPlugin
 import com.tealium.gradle.tests.JacocoCoverageType
 import com.tealium.gradle.tests.JacocoVerifyType
 import com.tealium.gradle.tests.TestType
-import org.gradle.api.Action
 import org.gradle.api.JavaVersion
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.credentials.AwsCredentials
 import org.gradle.api.file.Directory
 import org.gradle.api.file.FileCollection
-import org.gradle.api.publish.PublishingExtension
-import org.gradle.api.publish.maven.MavenPublication
-import org.gradle.api.publish.maven.plugins.MavenPublishPlugin
 import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.kotlin.dsl.apply
-import org.gradle.kotlin.dsl.configure
-import org.gradle.kotlin.dsl.create
 import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.support.uppercaseFirstChar
 import org.gradle.testing.jacoco.plugins.JacocoPlugin
@@ -34,7 +27,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 import org.jetbrains.kotlin.gradle.plugin.KotlinAndroidPluginWrapper
 import java.math.BigDecimal
-import java.net.URI
 
 class TealiumLibraryPlugin : Plugin<Project> {
 
@@ -44,13 +36,10 @@ class TealiumLibraryPlugin : Plugin<Project> {
             apply<KotlinAndroidPluginWrapper>()
             apply<JacocoPlugin>()
             apply<DokkaLibraryPlugin>()
-
-            val tealiumLibrary =
-                extensions.create<TealiumLibraryExtension>("tealiumLibrary", this)
+            apply<TealiumPublishPlugin>()
 
             configureJacocoPlugin()
             configureAndroidExtensions()
-            configurePublishing(tealiumLibrary)
             configureDefaultDependencies()
         }
     }
@@ -211,13 +200,13 @@ class TealiumLibraryPlugin : Plugin<Project> {
             sourceDirectories.setFrom(config.sourceDirectory)
             classDirectories.setFrom(
                 files(
-                fileTree(layout.buildDirectory.dir("intermediates/javac/${variant}")) {
-                    exclude(config.exclusions)
-                },
-                fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/${variant}")) {
-                    exclude(config.exclusions)
-                }
-            ))
+                    fileTree(layout.buildDirectory.dir("intermediates/javac/${variant}")) {
+                        exclude(config.exclusions)
+                    },
+                    fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/${variant}")) {
+                        exclude(config.exclusions)
+                    }
+                ))
             executionData.setFrom(config.executionData)
         }
     }
@@ -241,47 +230,6 @@ class TealiumLibraryPlugin : Plugin<Project> {
         )
 
         return JacocoConfig(exclusions, jacocoSourceDirectories, jacocoExecutionData)
-    }
-
-    private fun Project.configurePublishing(tealiumLibraryExtension: TealiumLibraryExtension) {
-        apply<MavenPublishPlugin>()
-
-        val isSnapshot = getPropertyOrEnvironmentVariable("SNAPSHOT").toBoolean()
-
-        val credentials = Action<AwsCredentials> {
-            accessKey = getPropertyOrEnvironmentVariable("AWS_ACCESS_KEY")
-            secretKey = getPropertyOrEnvironmentVariable("AWS_SECRET_KEY")
-            sessionToken = getPropertyOrEnvironmentVariable("AWS_SESSION_TOKEN")
-        }
-
-        extensions.configure<PublishingExtension> {
-            repositories {
-                maven {
-                    url = URI("s3://maven.tealiumiq.com/android/releases/")
-                    name = "Release"
-                    credentials(AwsCredentials::class.java, credentials)
-                }
-                maven {
-                    url = URI("s3://maven.tealiumiq.com/android/snapshots/")
-                    name = "Snapshot"
-                    credentials(AwsCredentials::class.java, credentials)
-                }
-            }
-            publications.create<MavenPublication>("Release") {
-                afterEvaluate {
-                    val versionName = if (isSnapshot) {
-                        "${tealiumLibraryExtension.version.get()}-SNAPSHOT"
-                    } else {
-                        tealiumLibraryExtension.version.get()
-                    }
-
-                    groupId = tealiumLibraryExtension.groupId.get()
-                    artifactId = tealiumLibraryExtension.artifactId.get()
-                    version = versionName
-                    from(components.findByName("release"))
-                }
-            }
-        }
     }
 
     private fun Project.configureDefaultDependencies() {

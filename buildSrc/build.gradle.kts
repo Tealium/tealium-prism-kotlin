@@ -34,5 +34,9 @@ gradlePlugin {
             id = "dokka-library"
             implementationClass = "com.tealium.gradle.dokka.DokkaLibraryPlugin"
         }
+        register("tealiumBom") {
+            id = "tealium-bom"
+            implementationClass = "com.tealium.gradle.publish.TealiumBomPlugin"
+        }
     }
 }

@@ -1,7 +1,7 @@
 package com.tealium.gradle
 
 import com.android.build.gradle.LibraryExtension
-import com.tealium.gradle.library.TealiumLibraryPlugin
+import com.tealium.gradle.library.TealiumLibraryExtension
 import com.tealium.gradle.tests.JacocoCoverageType
 import com.tealium.gradle.tests.JacocoVerifyType
 import com.tealium.gradle.tests.TestType
@@ -10,6 +10,7 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.kotlin.dsl.apply
+import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.support.uppercaseFirstChar
 import org.jetbrains.dokka.gradle.DokkaPlugin
@@ -70,9 +71,7 @@ class TealiumGradlePlugin : Plugin<Project> {
     }
 
     private fun Project.configureCiTasks(modifiedProjectNames: List<String>) {
-        val tealiumLibraryProjects = project.subprojects.filter { project ->
-            project.plugins.hasPlugin(TealiumLibraryPlugin::class.java)
-        }
+        val tealiumLibraryProjects = getTealiumLibraryProjects()
 
         val modifiedProjects =
             tealiumLibraryProjects.filter { project -> modifiedProjectNames.contains(project.name) }
@@ -179,27 +178,30 @@ class TealiumGradlePlugin : Plugin<Project> {
     private fun Project.configureAggregatePublishingTasks(
         modifiedProjects: List<Project>
     ) {
-        // TODO - this should be the BOM project once available
-        val coreProject = rootProject.project(":core")
+        val bomProject = rootProject.project(":platform")
         val expectedVersion = findProperty("RELEASE_TAG")
         // need expected version to validate it's been updated before publication
         if (expectedVersion == null) return
 
-        val coreVersion = coreProject.version.toString()
+        val bomVersion = bomProject.extensions.getByType(TealiumLibraryExtension::class).version.get()
 
-        if (coreVersion != expectedVersion) {
+        if (bomVersion != expectedVersion) {
             throw GradleException(
-                "Refusing to publish: core project version ($coreVersion) " +
+                "Refusing to publish: :platform project version ($bomVersion) " +
                         "does not match RELEASE_TAG ($expectedVersion)."
             )
         }
+
+        // BoM project is not a TealiumLibraryPlugin Project, so need to add it here so it gets
+        // published alongside the others.
+        val projectsToPublish = modifiedProjects + bomProject
 
         listOf("Snapshot", "Release").forEach { repo ->
             tasks.register("publishModifiedReleasePublicationTo${repo}Repository") {
                 group = "Publishing"
                 description =
                     "Publishes release artifacts for modified projects to the $repo repository"
-                dependsOn.addAll(modifiedProjects.taskNames("publishReleasePublicationTo${repo}Repository"))
+                dependsOn.addAll(projectsToPublish.taskNames("publishReleasePublicationTo${repo}Repository"))
             }
         }
     }
