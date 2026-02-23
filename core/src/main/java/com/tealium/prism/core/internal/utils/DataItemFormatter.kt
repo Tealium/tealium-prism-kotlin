@@ -28,8 +28,13 @@ fun DataItem?.format() : String? {
  * Formats a [Double] as human-readable number, i.e.
  *  - not Scientific notation
  *  - trimmed decimal placings and trailing zeros
+ *  - non-finite values are stringified; "NaN", "Infinity", "-Infinity"
  */
 fun Double.humanReadable() : String =
-    BigDecimal.valueOf(this)
-        .stripTrailingZeros()
-        .toPlainString()
+    if (!isFinite()) {
+        toString()
+    } else {
+        BigDecimal.valueOf(this)
+            .stripTrailingZeros()
+            .toPlainString()
+    }
