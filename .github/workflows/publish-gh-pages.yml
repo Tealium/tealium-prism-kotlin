@@ -18,6 +18,8 @@ jobs:
   build:
     # Specify runner +  build & upload the static files as an artifact
     runs-on: 'ubuntu-latest'
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -28,11 +30,24 @@ jobs:
         id: build
         run: ./gradlew :docs:dokkaGenerate
 
-      - name: Upload static files as artifact
+      - name: "Upload static files as artifact"
         id: upload-artifact
         uses: actions/upload-pages-artifact@v4
         with:
           path: docs/build/dokka/html
+
+      - name: "Build documentation for docs.tealium.com"
+        run: ./gradlew :docs:dokkaGenerate -PDOKKA_TEMPLATES_DIR=docs-tealium-com
+
+      - name: "Push to gh-pages branch"
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          # Set this to the directory produced by :docs:dokkaGenerate
+          publish_dir: ./docs/build/dokka/html-docs-tealium-com
+          # Recreate gh-pages as an orphan branch → exactly one commit each deploy
+          force_orphan: true
 
   # Deployment job
   deploy:

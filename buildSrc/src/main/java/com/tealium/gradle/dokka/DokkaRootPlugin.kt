@@ -18,16 +18,23 @@ abstract class DokkaRootPlugin : Plugin<Project> {
     }
 
     private fun Project.configureDokkaPlugin() {
+        val project = this
         extensions.configure(DokkaExtension::class.java) {
             moduleName.set("TealiumPrism")
             dokkaPublications.named("html") {
                 // todo - consider versioning the docs
                 // https://github.com/Kotlin/dokka/tree/master/examples/gradle-v2/versioning-multimodule-example
                 // outputDirectory.set(project.rootDir.resolve("docs/api/0.x"))
+
+                val templates = getDokkaTemplatesDirectory()
+                if (templates.isNotBlank()) {
+                    outputDirectory.set(project.layout.buildDirectory.dir("dokka/html-$templates"))
+                }
                 includes.from(file("Module.md"))
             }
             pluginsConfiguration.named("html", DokkaHtmlPluginParameters::class.java) {
-                footerMessage.set("(c) Tealium 2025")
+                configureCommonHtmlProperties()
+                configureCustomTemplates(project)
             }
         }
 
