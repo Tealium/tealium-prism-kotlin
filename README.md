@@ -26,9 +26,10 @@ dependencyResolutionManagement {
 Then add your required tealium-prism dependencies
 
 ```kotlin
-implementation("com.tealium.prism:prism-core:0.3.0")
-implementation("com.tealium.prism:prism-lifecycle:0.2.0")
-implementation("com.tealium.prism:prism-moments-api:0.1.0") 
+implementation(platform("com.tealium.prism:prism-bom:0.4.0"))
+implementation("com.tealium.prism:prism-core")
+implementation("com.tealium.prism:prism-lifecycle")
+implementation("com.tealium.prism:prism-moments-api") 
 ```
 
 And re-sync your Gradle projects
@@ -46,10 +47,10 @@ import com.tealium.prism.core.api.Tealium
 import com.tealium.prism.core.api.TealiumConfig
 
 val config = TealiumConfig.Builder(
-   accountName = "my_account",
-   profileName = "my_profile",
-   environment = Environment.PROD,
-   modules = listOf(
+    accountName = "my_account",
+    profileName = "my_profile",
+    environment = Environment.PROD,
+    modules = listOf(
         Modules.appData(),
         Modules.collect(),
         Modules.connectivityData(),
@@ -58,7 +59,7 @@ val config = TealiumConfig.Builder(
         Modules.lifecycle(),
         Modules.timeData(),
         Modules.trace(),
-       )
+    )
 ).build()
 val tealium = Tealium.create(config)
 tealium.track("An Event")
