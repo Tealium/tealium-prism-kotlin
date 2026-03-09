@@ -15,9 +15,9 @@ class TraceWrapper(
         tealium: Tealium
     ) : this(tealium.createModuleProxy(TraceModule::class.java))
 
-    override fun killVisitorSession(): Single<TealiumResult<TrackResult>> =
+    override fun forceEndOfVisit(): Single<TealiumResult<TrackResult>> =
         moduleProxy.executeAsyncModuleTask { trace, callback ->
-            trace.killVisitorSession { trackResult ->
+            trace.forceEndOfVisit { trackResult ->
                 callback.onComplete(TealiumResult.success(trackResult))
             }
         }

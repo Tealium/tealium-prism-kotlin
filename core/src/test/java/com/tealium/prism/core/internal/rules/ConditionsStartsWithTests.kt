@@ -11,7 +11,7 @@ import com.tealium.prism.core.api.rules.ConditionEvaluationException
 import com.tealium.prism.core.api.rules.MissingDataItemException
 import com.tealium.prism.core.api.rules.MissingFilterException
 import com.tealium.prism.core.api.rules.UnsupportedOperatorException
-import com.tealium.prism.core.api.data.ValueContainer
+import com.tealium.prism.core.api.data.StringContainer
 import com.tealium.tests.common.assertThrows
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -209,7 +209,7 @@ class ConditionsStartsWithTests {
         val condition = Condition(
             variable = key("null"),
             operator = Operators.startsWith,
-            filter = ValueContainer("null")
+            filter = StringContainer("null")
         )
         assertTrue(condition.matches(payload))
     }
@@ -243,7 +243,7 @@ class ConditionsStartsWithTests {
         val condition = Condition(
             variable = key("null"),
             operator = Operators.startsWithIgnoreCase,
-            filter = ValueContainer("null")
+            filter = StringContainer("null")
         )
         assertTrue(condition.matches(payload))
     }

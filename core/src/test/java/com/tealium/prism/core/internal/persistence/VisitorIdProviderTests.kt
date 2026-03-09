@@ -71,6 +71,32 @@ class VisitorIdProviderTests {
     }
 
     @Test
+    fun init_DoesNot_MigrateKnownVisitorId_FromExistingId_When_NoVisitorIdSaved_And_ExistingVisitorId_IsBlank() {
+        val visitorIdProvider = createCustomVisitorIdProvider(
+            existingVisitorId = " ",
+            visitorStorage = visitorStorage
+        )
+
+        assertTrue(visitorIdProvider.visitorId.value.isNotBlank())
+        verify {
+            visitorStorage.changeVisitor(match { it.isNotBlank() })
+        }
+    }
+
+    @Test
+    fun init_DoesNot_MigrateKnownVisitorId_FromExistingId_When_NoVisitorIdSaved_And_ExistingVisitorId_IsEmpty() {
+        val visitorIdProvider = createCustomVisitorIdProvider(
+            existingVisitorId = "",
+            visitorStorage = visitorStorage
+        )
+
+        assertTrue(visitorIdProvider.visitorId.value.isNotEmpty())
+        verify {
+            visitorStorage.changeVisitor(match { it.isNotEmpty() })
+        }
+    }
+
+    @Test
     fun init_GeneratesNewId_When_NoVisitorIds() {
         val visitorIdProvider =
             createCustomVisitorIdProvider(visitorStorage = visitorStorage, existingVisitorId = null)

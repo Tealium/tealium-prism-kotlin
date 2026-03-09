@@ -61,16 +61,19 @@ class ConnectivityBarrier(
     }
 
     class Factory(
-        private val defaultScope: Set<BarrierScope> = setOf(
+        private val defaultScopes: Set<BarrierScope> = setOf(
             BarrierScope.Dispatcher(Modules.Types.COLLECT)
-        )
+        ),
+        private val enforcedSettings: DataObject = DataObject.EMPTY_OBJECT
     ) : BarrierFactory {
         override val id: String = BARRIER_ID
-        override fun defaultScope(): Set<BarrierScope> = defaultScope
+        override fun defaultScopes(): Set<BarrierScope> = defaultScopes
         override fun create(
             context: TealiumContext,
             configuration: DataObject
         ): ConfigurableBarrier =
             ConnectivityBarrier(context, configuration)
+        
+        override fun getEnforcedSettings(): DataObject = enforcedSettings
     }
 }

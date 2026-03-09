@@ -2,6 +2,10 @@ package com.tealium.prism.core.api.data
 
 import com.tealium.prism.core.internal.data.extract
 
+/**
+ * Defines common read methods for getting or extracting common data types from a [Map]-like object
+ * containing [DataItem]s
+ */
 interface DataItemExtractor: JsonPathExtractable<JsonPath.Component.Key> {
 
     /**

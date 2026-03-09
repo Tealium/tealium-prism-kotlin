@@ -128,7 +128,7 @@ class ResourceRefresherImpl<T : DataItemConvertible> internal constructor(
 
     private fun refresh(isValid: (T) -> Boolean) {
         refreshDisposable =
-            networkHelper.getDataItemConvertible(params.url, lastEtag, converter) { result ->
+            networkHelper.getDataItemConvertible(params.url, lastEtag, null, converter) { result ->
                 try {
                     val value = result.getOrThrow()
                     handleNetworkSuccess(value, isValid)

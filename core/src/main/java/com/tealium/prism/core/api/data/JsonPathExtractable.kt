@@ -1,5 +1,8 @@
 package com.tealium.prism.core.api.data
 
+/**
+ * Interface defining common methods for extracting [DataItem]s using a [JsonPath] object.
+ */
 interface JsonPathExtractable<TRoot: JsonPath.Component> {
 
     /**

@@ -1,11 +1,14 @@
 package com.tealium.prism.core.internal.settings
 
+import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.ReferenceContainer
-import com.tealium.prism.core.api.rules.Rule
+import com.tealium.prism.core.api.data.StringContainer
 import com.tealium.prism.core.api.data.ValueContainer
+import com.tealium.prism.core.api.rules.Rule
+import com.tealium.prism.core.api.settings.DefaultDispatcherSettingsBuilder
+import com.tealium.prism.core.api.settings.MappingParameters
 import com.tealium.prism.core.api.settings.modules.CollectorSettingsBuilder
-import com.tealium.prism.core.api.settings.modules.DispatcherSettingsBuilder
 import com.tealium.prism.core.api.settings.modules.ModuleSettingsBuilder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -93,7 +96,7 @@ class ModuleSettingsTests {
 
     @Test
     fun convert_Sets_Mappings_To_Null_When_Omitted() {
-        val settingsObject = DispatcherSettingsBuilder("module")
+        val settingsObject = DefaultDispatcherSettingsBuilder("module")
             .build()
 
         val settings = ModuleSettings.Converter.convert(settingsObject)!!
@@ -102,19 +105,19 @@ class ModuleSettingsTests {
 
     @Test
     fun convert_Sets_Mappings_To_Given_Mappings() {
-        val settingsObject = DispatcherSettingsBuilder("module")
+        val settingsObject = DefaultDispatcherSettingsBuilder("module")
             .setMappings {
-                from("source", "destination")
+                mapFrom("source", "destination")
                     .ifValueEquals("target")
-                constant("other", "destination")
+                mapConstant("other".asDataItem(), "destination")
                     .ifValueEquals("source", "target")
             }
             .build()
 
         val settings = ModuleSettings.Converter.convert(settingsObject)!!
         val expected1 =
-            MappingParameters(ReferenceContainer.key("source"), ValueContainer("target"), null)
-        val expected2 = expected1.copy(mapTo = ValueContainer("other"))
+            MappingParameters(ReferenceContainer.key("source"), StringContainer("target"), null)
+        val expected2 = expected1.copy(mapTo = ValueContainer("other".asDataItem()))
         assertEquals(expected1, settings.mappings!![0].parameters)
         assertEquals(expected2, settings.mappings!![1].parameters)
     }

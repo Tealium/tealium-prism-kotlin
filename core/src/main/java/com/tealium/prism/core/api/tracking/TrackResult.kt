@@ -20,6 +20,9 @@ data class TrackResult(
         Accepted, Dropped
     }
 
+    /**
+     * Returns a human readable description of the [TrackResult].
+     */
     val description: String
         get() {
             val statusStr = when (status) {
@@ -31,10 +34,16 @@ data class TrackResult(
         }
 
     companion object {
+        /**
+         * Utility method to create a [TrackResult] that has a [TrackResult.status] of [Status.Accepted]
+         */
         @JvmStatic
         fun accepted(dispatch: Dispatch, info: String) =
             TrackResult(dispatch, Status.Accepted, info)
 
+        /**
+         * Utility method to create a [TrackResult] that has a [TrackResult.status] of [Status.Dropped]
+         */
         @JvmStatic
         fun dropped(dispatch: Dispatch, reason: String) =
             TrackResult(dispatch, Status.Dropped, "Reason: $reason")

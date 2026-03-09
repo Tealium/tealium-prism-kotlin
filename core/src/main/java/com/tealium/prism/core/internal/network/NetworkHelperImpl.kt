@@ -71,68 +71,78 @@ class NetworkHelperImpl(
     override fun get(
         url: String,
         etag: String?,
+        additionalHeaders: Map<String, String>?,
         completion: NetworkCallback<NetworkResult>
     ): Disposable =
-        send(HttpRequest.get(url, etag), completion)
+        send(HttpRequest.get(url, etag).additionalHeaders(additionalHeaders), completion)
 
     override fun get(
         url: URL,
         etag: String?,
+        additionalHeaders: Map<String, String>?,
         completion: NetworkCallback<NetworkResult>
     ): Disposable =
-        send(HttpRequest.get(url, etag), completion)
+        send(HttpRequest.get(url, etag).additionalHeaders(additionalHeaders), completion)
 
     override fun post(
         url: String,
         payload: DataObject?,
+        additionalHeaders: Map<String, String>?,
         completion: NetworkCallback<NetworkResult>
-    ): Disposable = send(HttpRequest.post(url, payload.toString()).gzip(true), completion)
+    ): Disposable = send(HttpRequest.post(url, payload.toString()).gzip(true).additionalHeaders(additionalHeaders), completion)
 
     override fun post(
         url: URL,
         payload: DataObject?,
+        additionalHeaders: Map<String, String>?,
         completion: NetworkCallback<NetworkResult>
-    ): Disposable = send(HttpRequest.post(url, payload.toString()).gzip(true), completion)
+    ): Disposable = send(HttpRequest.post(url, payload.toString()).gzip(true).additionalHeaders(additionalHeaders), completion)
 
     override fun getJson(
         url: String,
         etag: String?,
+        additionalHeaders: Map<String, String>?,
         completion: DeserializedNetworkCallback<JSONObject>
-    ): Disposable = getDeserializable(url, etag, ::JSONObject, completion)
+    ): Disposable = getDeserializable(url, etag, additionalHeaders, ::JSONObject, completion)
 
     override fun getJson(
         url: URL,
         etag: String?,
+        additionalHeaders: Map<String, String>?,
         completion: DeserializedNetworkCallback<JSONObject>
-    ): Disposable = getDeserializable(url, etag, ::JSONObject, completion)
+    ): Disposable = getDeserializable(url, etag, additionalHeaders, ::JSONObject, completion)
 
     override fun getDataObject(
         url: String,
         etag: String?,
+        additionalHeaders: Map<String, String>?,
         completion: DeserializedNetworkCallback<DataObject>
     ): Disposable =
-        getDataItemConvertible(url, etag, DataObject.Converter, completion)
+        getDataItemConvertible(url, etag, additionalHeaders, DataObject.Converter, completion)
 
     override fun getDataObject(
         url: URL,
         etag: String?,
+        additionalHeaders: Map<String, String>?,
         completion: DeserializedNetworkCallback<DataObject>
     ): Disposable =
-        getDataItemConvertible(url, etag, DataObject.Converter, completion)
+        getDataItemConvertible(url, etag, additionalHeaders, DataObject.Converter, completion)
 
     override fun <T> getDataItemConvertible(
         url: String,
         etag: String?,
+        additionalHeaders: Map<String, String>?,
         converter: DataItemConverter<T>,
         completion: DeserializedNetworkCallback<T>
-    ): Disposable = getDeserializable(url, etag, dataItemDeserializer(converter), completion)
+    ): Disposable = getDeserializable(url, etag, additionalHeaders, dataItemDeserializer(converter), completion)
 
     override fun <T> getDataItemConvertible(
         url: URL,
         etag: String?,
+        additionalHeaders: Map<String, String>?,
         converter: DataItemConverter<T>,
         completion: DeserializedNetworkCallback<T>
-    ): Disposable = getDeserializable(url, etag, dataItemDeserializer(converter), completion)
+    ): Disposable = getDeserializable(url, etag, additionalHeaders, dataItemDeserializer(converter), completion)
 
     private fun <T> dataItemDeserializer(converter: DataItemConverter<T>) =
         { str: String ->
@@ -143,10 +153,11 @@ class NetworkHelperImpl(
     override fun <T> getDeserializable(
         url: String,
         etag: String?,
+        additionalHeaders: Map<String, String>?,
         deserializer: Deserializer<String, T?>,
         completion: DeserializedNetworkCallback<T>
     ): Disposable = send(
-        HttpRequest.get(url, etag)
+        HttpRequest.get(url, etag).additionalHeaders(additionalHeaders)
     ) { networkResult ->
         val result = deserializeResult(networkResult, deserializer)
 
@@ -156,10 +167,11 @@ class NetworkHelperImpl(
     override fun <T> getDeserializable(
         url: URL,
         etag: String?,
+        additionalHeaders: Map<String, String>?,
         deserializer: Deserializer<String, T?>,
         completion: DeserializedNetworkCallback<T>
     ): Disposable = send(
-        HttpRequest.get(url, etag),
+        HttpRequest.get(url, etag).additionalHeaders(additionalHeaders)
     ) { networkResult ->
         val result = deserializeResult(networkResult, deserializer)
 

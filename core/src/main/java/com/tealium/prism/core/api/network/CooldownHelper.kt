@@ -32,8 +32,17 @@ class CooldownHelper internal constructor(
         Success, Failure
     }
 
+    /**
+     * Gets the current [CooldownStatus] of this [CooldownHelper]
+     */
     var status: CooldownStatus = status
         private set
+
+    /**
+     * Gets the number of consecutive [CooldownStatus.Failure]s that have been reported.
+     *
+     * This value is reset to 0 upon any [CooldownStatus.Success] being reported
+     */
     var failureCount: Int = 0
         private set
 
@@ -51,6 +60,14 @@ class CooldownHelper internal constructor(
         }
     }
 
+    /**
+     * Used to notify the [CooldownHelper] of the latest status.
+     *
+     * [status] values that are [CooldownStatus.Failure] will potentially increase the cooldown
+     * according to the [maxInterval] and [errorBaseInterval]
+     *
+     * [status] values that are [CooldownStatus.Success] will reset the cooldown.
+     */
     fun updateStatus(status: CooldownStatus) {
         if (status == CooldownStatus.Success) {
             failureCount = 0

@@ -6,6 +6,12 @@ import com.tealium.prism.core.api.misc.TimeFrame
 import com.tealium.prism.core.api.pubsub.Observable
 import java.net.URL
 
+/**
+ * A utility class to repeatedly fetch some resource
+ *
+ * The [ResourceRefresher.Parameters] can be used to configure where to fetch the resource from and
+ * how often, as well as some cooldown behaviour in the event of any failures.
+ */
 interface ResourceRefresher<T : DataItemConvertible> {
 
     /**

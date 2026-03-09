@@ -25,8 +25,9 @@ interface NetworkHelper {
      *
      * @param url The Url to GET
      * @param etag Optional etag of the currently known resource
+     * @param additionalHeaders Optional map of additional headers to add to the request
      */
-    fun get(url: String, etag: String?, completion: NetworkCallback<NetworkResult>): Disposable
+    fun get(url: String, etag: String? = null, additionalHeaders: Map<String, String>? = null, completion: NetworkCallback<NetworkResult>): Disposable
 
     /**
      * Asynchronously fetches the given [url]. An optional [etag] can be supplied if the resource
@@ -34,24 +35,27 @@ interface NetworkHelper {
      *
      * @param url The Url to GET
      * @param etag Optional etag of the currently known resource
+     * @param additionalHeaders Optional map of additional headers to add to the request
      */
-    fun get(url: URL, etag: String?, completion: NetworkCallback<NetworkResult>): Disposable
+    fun get(url: URL, etag: String? = null, additionalHeaders: Map<String, String>? = null, completion: NetworkCallback<NetworkResult>): Disposable
 
     /**
      * Asynchronously POSTs the [payload] to the given [url].
      *
-     * @param url The Url to GET
+     * @param url The Url to POST to
      * @param payload The body to be POSTed
+     * @param additionalHeaders Optional map of additional headers to add to the request
      */
-    fun post(url: String, payload: DataObject?, completion: NetworkCallback<NetworkResult>): Disposable
+    fun post(url: String, payload: DataObject?, additionalHeaders: Map<String, String>? = null, completion: NetworkCallback<NetworkResult>): Disposable
 
     /**
      * Asynchronously POSTs the [payload] to the given [url].
      *
-     * @param url The Url to GET
+     * @param url The Url to POST to
      * @param payload The body to be POSTed
+     * @param additionalHeaders Optional map of additional headers to add to the request
      */
-    fun post(url: URL, payload: DataObject?, completion: NetworkCallback<NetworkResult>): Disposable
+    fun post(url: URL, payload: DataObject?, additionalHeaders: Map<String, String>? = null, completion: NetworkCallback<NetworkResult>): Disposable
 
     /**
      * Asynchronously fetches the given [url] and returns the payload parsed as a [JSONObject]
@@ -60,8 +64,9 @@ interface NetworkHelper {
      *
      * @param url The Url to GET
      * @param etag Optional etag of the currently known resource
+     * @param additionalHeaders Optional map of additional headers to add to the request
      */
-    fun getJson(url: String, etag: String?, completion: DeserializedNetworkCallback<JSONObject>): Disposable
+    fun getJson(url: String, etag: String? = null, additionalHeaders: Map<String, String>? = null, completion: DeserializedNetworkCallback<JSONObject>): Disposable
 
     /**
      * Asynchronously fetches the given [url] and returns the payload parsed as a [JSONObject]
@@ -70,8 +75,9 @@ interface NetworkHelper {
      *
      * @param url The Url to GET
      * @param etag Optional etag of the currently known resource
+     * @param additionalHeaders Optional map of additional headers to add to the request
      */
-    fun getJson(url: URL, etag: String?, completion: DeserializedNetworkCallback<JSONObject>): Disposable
+    fun getJson(url: URL, etag: String? = null, additionalHeaders: Map<String, String>? = null, completion: DeserializedNetworkCallback<JSONObject>): Disposable
 
     /**
      * Asynchronously fetches the given [url] and returns the payload parsed as a [DataObject]
@@ -80,10 +86,12 @@ interface NetworkHelper {
      *
      * @param url The Url to GET
      * @param etag Optional etag of the currently known resource
+     * @param additionalHeaders Optional map of additional headers to add to the request
      */
     fun getDataObject(
         url: String,
-        etag: String?,
+        etag: String? = null,
+        additionalHeaders: Map<String, String>? = null,
         completion: DeserializedNetworkCallback<DataObject>
     ): Disposable
 
@@ -94,8 +102,9 @@ interface NetworkHelper {
      *
      * @param url The Url to GET
      * @param etag Optional etag of the currently known resource
+     * @param additionalHeaders Optional map of additional headers to add to the request
      */
-    fun getDataObject(url: URL, etag: String?, completion: DeserializedNetworkCallback<DataObject>): Disposable
+    fun getDataObject(url: URL, etag: String? = null, additionalHeaders: Map<String, String>? = null, completion: DeserializedNetworkCallback<DataObject>): Disposable
 
     /**
      * Asynchronously fetches the given [url] and returns the payload parsed as a [DataItem] and
@@ -106,12 +115,14 @@ interface NetworkHelper {
      *
      * @param url The Url to GET
      * @param etag Optional etag of the currently known resource
+     * @param additionalHeaders Optional map of additional headers to add to the request
      * @param converter [DataItemConverter] to convert a [DataItem] to an instance of [T]
      * @param completion completion to be notified with the result
      */
     fun <T> getDataItemConvertible(
         url: URL,
-        etag: String?,
+        etag: String? = null,
+        additionalHeaders: Map<String, String>? = null,
         converter: DataItemConverter<T>,
         completion: DeserializedNetworkCallback<T>
     ): Disposable
@@ -125,12 +136,14 @@ interface NetworkHelper {
      *
      * @param url The Url to GET
      * @param etag Optional etag of the currently known resource
+     * @param additionalHeaders Optional map of additional headers to add to the request
      * @param converter [DataItemConverter] to convert a [DataItem] to an instance of [T]
      * @param completion completion to be notified with the result
      */
     fun <T> getDataItemConvertible(
         url: String,
-        etag: String?,
+        etag: String? = null,
+        additionalHeaders: Map<String, String>? = null,
         converter: DataItemConverter<T>,
         completion: DeserializedNetworkCallback<T>
     ): Disposable
@@ -144,12 +157,14 @@ interface NetworkHelper {
      *
      * @param url The Url to GET
      * @param etag Optional etag of the currently known resource
+     * @param additionalHeaders Optional map of additional headers to add to the request
      * @param deserializer Deserializer to convert a [String] to an instance of [T]
      * @param completion completion to be notified with the result
      */
     fun <T> getDeserializable(
         url: String,
-        etag: String?,
+        etag: String? = null,
+        additionalHeaders: Map<String, String>? = null,
         deserializer: Deserializer<String, T?>,
         completion: DeserializedNetworkCallback<T>
     ): Disposable
@@ -163,12 +178,14 @@ interface NetworkHelper {
      *
      * @param url The Url to GET
      * @param etag Optional etag of the currently known resource
+     * @param additionalHeaders Optional map of additional headers to add to the request
      * @param deserializer Deserializer to convert a [String] to an instance of [T]
      * @param completion completion to be notified with the result
      */
     fun <T> getDeserializable(
         url: URL,
-        etag: String?,
+        etag: String? = null,
+        additionalHeaders: Map<String, String>? = null,
         deserializer: Deserializer<String, T?>,
         completion: DeserializedNetworkCallback<T>
     ): Disposable

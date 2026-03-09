@@ -1,23 +1,39 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application>
-        <service android:name="com.tealium.prism.core.internal.modules.ModuleDiscoveryService"
+        <service android:name="com.tealium.prism.core.internal.misc.ComponentDiscoveryService"
             android:exported="false">
             <meta-data
-                android:name="com.tealium.prism.core.modules:com.tealium.prism.core.internal.modules.ConstructorModuleFactory"
-                android:value="com.tealium.prism.core.api.ModuleFactory" />
+                android:name="com.tealium.prism.core.api.modules:com.tealium.prism.core.internal.misc.ConstructorModuleFactory"
+                android:value="com.tealium.prism.core.api.modules.ModuleFactory" />
             <meta-data
-                android:name="com.tealium.prism.core.modules:com.tealium.prism.core.internal.modules.ObjectModuleFactory"
-                android:value="com.tealium.prism.core.api.ModuleFactory" />
+                android:name="com.tealium.prism.core.api.modules:com.tealium.prism.core.internal.misc.ObjectModuleFactory"
+                android:value="com.tealium.prism.core.api.modules.ModuleFactory" />
             <meta-data
-                android:name="com.tealium.prism.core.modules:com.tealium.prism.core.internal.modules.CompanionModuleFactory"
-                android:value="com.tealium.prism.core.api.ModuleFactory" />
+                android:name="com.tealium.prism.core.api.modules:com.tealium.prism.core.internal.misc.CompanionModuleFactory"
+                android:value="com.tealium.prism.core.api.modules.ModuleFactory" />
             <meta-data
-                android:name="com.tealium.prism.core.modules:com.tealium.prism.core.internal.modules.FieldModuleFactory#FACTORY"
-                android:value="com.tealium.prism.core.api.ModuleFactory" />
+                android:name="com.tealium.prism.core.api.modules:com.tealium.prism.core.internal.misc.FieldModuleFactory#FACTORY"
+                android:value="com.tealium.prism.core.api.modules.ModuleFactory" />
             <meta-data
-                android:name="com.tealium.prism.core.modules:com.tealium.prism.core.internal.modules.MissingModuleFactory"
-                android:value="com.tealium.prism.core.api.ModuleFactory" />
+                android:name="com.tealium.prism.core.api.modules:com.tealium.prism.core.internal.misc.MissingModuleFactory"
+                android:value="com.tealium.prism.core.api.modules.ModuleFactory" />
+
+            <meta-data
+                android:name="com.tealium.prism.core.api.barriers:com.tealium.prism.core.internal.misc.ConstructorBarrierFactory"
+                android:value="com.tealium.prism.core.api.barriers.BarrierFactory" />
+            <meta-data
+                android:name="com.tealium.prism.core.api.barriers:com.tealium.prism.core.internal.misc.ObjectBarrierFactory"
+                android:value="com.tealium.prism.core.api.barriers.BarrierFactory" />
+            <meta-data
+                android:name="com.tealium.prism.core.api.barriers:com.tealium.prism.core.internal.misc.CompanionBarrierFactory"
+                android:value="com.tealium.prism.core.api.barriers.BarrierFactory" />
+            <meta-data
+                android:name="com.tealium.prism.core.api.barriers:com.tealium.prism.core.internal.misc.FieldBarrierFactory#FACTORY"
+                android:value="com.tealium.prism.core.api.barriers.BarrierFactory" />
+            <meta-data
+                android:name="com.tealium.prism.core.api.barriers:com.tealium.prism.core.internal.misc.MissingBarrierFactory"
+                android:value="com.tealium.prism.core.api.barriers.BarrierFactory" />
         </service>
     </application>
 

@@ -100,6 +100,20 @@ class HttpRequest private constructor(
         }
 
         /**
+         * Sets multiple HTTP headers at once for the outgoing request.
+         *
+         * All header field names are lowercased before storing for consistency.
+         *
+         * @param additionalHeaders Optional map of additional headers to add to the request
+         * @return The builder instance for method chaining
+         */
+        fun additionalHeaders(additionalHeaders: Map<String, String>?): Builder = apply {
+            additionalHeaders?.forEach { (key, value) ->
+                header(key, value)
+            }
+        }
+
+        /**
          * Sets the request body that needs to be sent.
          *
          * @param body The request body to send

@@ -5,7 +5,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.tealium.prism.core.api.consent.ConsentDecision
 import com.tealium.prism.core.api.pubsub.CompositeDisposable
-import com.tealium.prism.core.internal.pubsub.DisposableContainer
+import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.addTo
 import com.tealium.prism.mobile.TealiumHelper
 
@@ -13,7 +13,7 @@ class ConsentFragmentViewModel : ViewModel() {
 
     private val cmp = TealiumHelper.cmp
     private var cmpDecision: ConsentDecision? = null
-    private val disposables: CompositeDisposable = DisposableContainer()
+    private val disposables: CompositeDisposable = Disposables.composite()
 
     val availablePurposes: Set<String>
         get() = cmp.allPurposes ?: emptySet()

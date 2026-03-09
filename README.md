@@ -18,7 +18,7 @@ dependencyResolutionManagement {
     repositories {
         // .. other repos
         maven {
-            url = URI("https://maven.tealiumiq.com/android/snapshots/")
+            url = URI("https://maven.tealiumiq.com/android/releases/")
         }
     }
 }
@@ -26,9 +26,12 @@ dependencyResolutionManagement {
 Then add your required tealium-prism dependencies
 
 ```kotlin
-implementation("com.tealium.prism:prism-core:0.1.0-SNAPSHOT")
-implementation("com.tealium.prism:prism-lifecycle:0.1.0-SNAPSHOT")
+implementation(platform("com.tealium.prism:prism-bom:0.4.0"))
+implementation("com.tealium.prism:prism-core")
+implementation("com.tealium.prism:prism-lifecycle")
+implementation("com.tealium.prism:prism-moments-api") 
 ```
+
 And re-sync your Gradle projects
 
 ## Usage
@@ -44,10 +47,10 @@ import com.tealium.prism.core.api.Tealium
 import com.tealium.prism.core.api.TealiumConfig
 
 val config = TealiumConfig.Builder(
-   accountName = "my_account",
-   profileName = "my_profile",
-   environment = Environment.PROD,
-   modules = listOf(
+    accountName = "my_account",
+    profileName = "my_profile",
+    environment = Environment.PROD,
+    modules = listOf(
         Modules.appData(),
         Modules.collect(),
         Modules.connectivityData(),
@@ -56,9 +59,14 @@ val config = TealiumConfig.Builder(
         Modules.lifecycle(),
         Modules.timeData(),
         Modules.trace(),
-       )
+    )
 ).build()
 val tealium = Tealium.create(config)
 tealium.track("An Event")
 ```
 
+For more advanced usage and detailed documentation, visit our [developer documentation](https://tealium.github.io/tealium-prism-kotlin/).
+
+## License
+
+tealium-prism is available under a commercial license. See the [LICENSE](./LICENSE) file for more info.

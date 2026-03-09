@@ -1,0 +1,60 @@
+name: "Publish Release"
+
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  publish:
+    name: Publish Release
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY: ${{ secrets.AWS_ACCESS_KEY }}
+      AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: ./.github/actions/android-setup
+
+      - name: Determine what to publish
+        id: release-context
+        run: |
+          set -euo pipefail
+          current="${{ github.event.release.tag_name }}"
+          prev=""
+          if prev_candidate=$(git describe --tags --abbrev=0 "${current}^" 2>/dev/null); then
+            prev="$prev_candidate"
+          fi
+          
+          # Only run updatedModules when we have a previous tag
+          if [ -n "$prev" ]; then  
+            updated=$(./gradlew -q updatedModules \
+              -PGITHUB_BASE_REF="$prev" \
+              -PGITHUB_HEAD_REF="$current")
+            echo "modules=$updated" >> "$GITHUB_OUTPUT"
+          else
+            echo "No previous tag – skipping updatedModules; treat as full release."
+            echo "modules=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish
+        run: |
+          set -euo pipefail
+          
+          TAG=${{ github.event.release.tag_name }}
+          MODULES=${{ steps.release-context.outputs.modules }}
+          
+          if [ -z "$MODULES" ]; then
+            echo "No updated modules – publishing all release modules."
+            ./gradlew publishReleasePublicationToReleaseRepository
+          else
+            echo "Publishing updated modules: $MODULES"
+            ./gradlew publishModifiedReleasePublicationToReleaseRepository \
+              -PMODIFIED_PROJECTS="$MODULES" \
+              -PRELEASE_TAG="$TAG"
+          fi

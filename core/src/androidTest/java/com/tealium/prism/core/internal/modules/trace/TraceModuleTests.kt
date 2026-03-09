@@ -42,7 +42,7 @@ class TraceModuleTests {
         dataStore = ModuleStore(repository)
 
         trace = TraceModule(
-            dataStore, mockk()
+            dataStore, mockk(), TraceModuleConfiguration()
         )
     }
 

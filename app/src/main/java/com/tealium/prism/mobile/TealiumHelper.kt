@@ -11,6 +11,7 @@ import com.tealium.prism.core.api.data.DataItemUtils.asDataObject
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.ReferenceContainer.Companion.key
 import com.tealium.prism.core.api.logger.LogLevel
+import com.tealium.prism.core.api.logger.logIfErrorEnabled
 import com.tealium.prism.core.api.logger.logIfInfoEnabled
 import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.Environment
@@ -47,7 +48,9 @@ import com.tealium.prism.extensions.SetDataValuesSettingsBuilder
 import com.tealium.prism.extensions.internal.persistdatavalue.PersistValuesUpdateType
 import com.tealium.prism.jstransformer.JavaScriptTransformationSettingsBuilder
 import com.tealium.prism.lifecycle.lifecycle
+import com.tealium.prism.momentsapi.MomentsApiRegion
 import com.tealium.prism.mobile.ExampleCmpAdapter.Purposes
+import com.tealium.prism.momentsapi.momentsApi
 
 object TealiumHelper {
 
@@ -66,11 +69,9 @@ object TealiumHelper {
 
         val config = TealiumConfig.Builder(
             application = application,
-            modules = listOf(
-                configureLoggingDispatcher("logger")
-            ),
+            modules = configureModules(),
             accountName = "tealiummobile",
-            profileName = "android",
+            profileName = "demo",
             environment = Environment.DEV
         ).configureCoreSettings { settings ->
             settings
@@ -163,6 +164,18 @@ object TealiumHelper {
         }
     }
 
+    fun joinTrace(traceId: String) {
+        shared?.trace?.join(traceId)
+    }
+
+    fun leaveTrace() {
+        shared?.trace?.leave()
+    }
+
+    fun endVisitorSession() {
+        shared?.trace?.forceEndOfVisit()
+    }
+
     fun shutdown() {
         shared?.shutdown()
         shared = null
@@ -195,10 +208,18 @@ object TealiumHelper {
             Modules.appData(),
             Modules.deviceData(),
             Modules.deepLink(),
-            Modules.trace(),
+            configureTrace(),
             configureLifecycle(),
+            configureMomentsApi(),
             configureLoggingDispatcher("logger")
         )
+    }
+
+    private fun configureTrace(): ModuleFactory {
+        return Modules.trace()
+//        return Modules.trace { settings ->
+//            settings.setTrackErrors(true)
+//        }
     }
 
     private fun configureCollect(): ModuleFactory {
@@ -215,6 +236,14 @@ object TealiumHelper {
 //                .setSessionTimeoutInMinutes(10)
 //                .setDataTarget(LifecycleDataTarget.AllEvents)
 //        }
+    }
+
+    private fun configureMomentsApi(): ModuleFactory {
+        return Modules.momentsApi { settings ->
+            settings
+                .setRegion(MomentsApiRegion.UsEast)
+//                .setReferrer("https://example.com")
+        }
     }
 
     private fun configureLoggingDispatcher(id: String): ModuleFactory {
@@ -241,7 +270,6 @@ object TealiumHelper {
                         callback.onComplete(dispatches)
                         return Disposables.disposed()
                     }
-
                     override val id: String
                         get() = id
                     override val version: String

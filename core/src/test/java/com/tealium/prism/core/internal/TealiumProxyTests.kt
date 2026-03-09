@@ -3,6 +3,7 @@ package com.tealium.prism.core.internal
 import android.app.Application
 import com.tealium.prism.core.api.Tealium
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.misc.TealiumException
 import com.tealium.prism.core.api.misc.TealiumResult
@@ -13,7 +14,6 @@ import com.tealium.prism.core.api.pubsub.Subject
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.api.tracking.TrackResultListener
-import com.tealium.prism.core.internal.misc.SynchronousScheduler
 import io.mockk.MockKAnnotations
 import io.mockk.Runs
 import io.mockk.every
@@ -291,6 +291,43 @@ class TealiumProxyTests {
 
         verify {
             onShutdown(key)
+        }
+    }
+
+    @Test
+    fun onReady_Calls_Callback_When_TealiumImpl_Ready() {
+        val onReady = mockk<Callback<Tealium>>(relaxed = true)
+
+        tealiumProxy.onReady(onReady)
+
+        onTealiumImplReady.onNext(TealiumResult.success(mockk()))
+
+        verify {
+            onReady.onComplete(tealiumProxy)
+        }
+    }
+
+    @Test
+    fun onReady_Does_Not_Call_Callback_When_TealiumImpl_Not_Ready() {
+        val onReady = mockk<Callback<Tealium>>(relaxed = true)
+
+        tealiumProxy.onReady(onReady)
+
+        verify(inverse = true) {
+            onReady.onComplete(tealiumProxy)
+        }
+    }
+
+    @Test
+    fun onReady_Does_Not_Call_Callback_When_TealiumImpl_Failed() {
+        val onReady = mockk<Callback<Tealium>>(relaxed = true)
+
+        tealiumProxy.onReady(onReady)
+
+        onTealiumImplReady.onNext(TealiumResult.failure(Exception()))
+
+        verify(inverse = true) {
+            onReady.onComplete(tealiumProxy)
         }
     }
 }

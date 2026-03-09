@@ -185,6 +185,7 @@ class ResourceRefresherTests {
             networkHelper.getDataItemConvertible(
                 any<URL>(),
                 any(),
+                any(),
                 TestDataObjectConvertible.Converter,
                 any()
             )
@@ -197,6 +198,7 @@ class ResourceRefresherTests {
             networkHelper.getDataItemConvertible(
                 any<URL>(),
                 any(),
+                any(),
                 TestDataObjectConvertible.Converter,
                 any()
             )
@@ -208,6 +210,7 @@ class ResourceRefresherTests {
         every {
             networkHelper.getDataItemConvertible(
                 any<URL>(),
+                any(),
                 any(),
                 TestDataObjectConvertible.Converter,
                 any()
@@ -223,6 +226,7 @@ class ResourceRefresherTests {
             networkHelper.getDataItemConvertible(
                 any<URL>(),
                 any(),
+                any(),
                 TestDataObjectConvertible.Converter,
                 any()
             )
@@ -234,6 +238,7 @@ class ResourceRefresherTests {
         every {
             networkHelper.getDataItemConvertible(
                 any<URL>(),
+                any(),
                 any(),
                 TestDataObjectConvertible.Converter,
                 any()
@@ -250,6 +255,7 @@ class ResourceRefresherTests {
             networkHelper.getDataItemConvertible(
                 any<URL>(),
                 any(),
+                any(),
                 TestDataObjectConvertible.Converter,
                 any()
             )
@@ -262,6 +268,7 @@ class ResourceRefresherTests {
         every {
             networkHelper.getDataItemConvertible(
                 any<URL>(),
+                any(),
                 any(),
                 TestDataObjectConvertible.Converter,
                 any()
@@ -282,6 +289,7 @@ class ResourceRefresherTests {
         every {
             networkHelper.getDataItemConvertible(
                 any<URL>(),
+                any(),
                 any(),
                 TestDataObjectConvertible.Converter,
                 any()
@@ -306,6 +314,7 @@ class ResourceRefresherTests {
             networkHelper.getDataItemConvertible(
                 any<URL>(),
                 any(),
+                any(),
                 TestDataObjectConvertible.Converter,
                 any()
             )
@@ -319,6 +328,7 @@ class ResourceRefresherTests {
             networkHelper.getDataItemConvertible(
                 any<URL>(),
                 any(),
+                any(),
                 TestDataObjectConvertible.Converter,
                 any()
             )
@@ -331,6 +341,7 @@ class ResourceRefresherTests {
             networkHelper.getDataItemConvertible(
                 any<URL>(),
                 "abcd1234",
+                any(),
                 TestDataObjectConvertible.Converter,
                 any()
             )
@@ -423,6 +434,7 @@ class ResourceRefresherTests {
             networkHelper.getDataItemConvertible(
                 any<URL>(),
                 any(),
+                any(),
                 TestDataObjectConvertible.Converter,
                 any()
             )
@@ -445,6 +457,7 @@ class ResourceRefresherTests {
         verify(exactly = 1) {
             networkHelper.getDataItemConvertible(
                 any<URL>(),
+                any(),
                 any(),
                 TestDataObjectConvertible.Converter,
                 any()

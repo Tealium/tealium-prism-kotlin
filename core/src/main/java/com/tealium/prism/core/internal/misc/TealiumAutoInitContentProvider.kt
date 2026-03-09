@@ -1,5 +1,6 @@
 package com.tealium.prism.core.internal.misc
 
+import android.annotation.SuppressLint
 import android.app.Application
 import android.content.ContentProvider
 import android.content.ContentValues
@@ -8,10 +9,11 @@ import android.net.Uri
 import android.util.Log
 import com.tealium.prism.core.BuildConfig
 import com.tealium.prism.core.api.Modules
-import com.tealium.prism.core.internal.modules.ModuleDiscoveryService
+import com.tealium.prism.core.internal.barriers.BarrierRegistry
 
 class TealiumAutoInitContentProvider: ContentProvider() {
 
+    @SuppressLint("AndroidLogUsageIssue")
     override fun onCreate(): Boolean {
         val app = context?.applicationContext as? Application
         if (app == null) {
@@ -23,8 +25,11 @@ class TealiumAutoInitContentProvider: ContentProvider() {
 
         ActivityManagerImpl.getInstance(app)
 
-        val modules = ModuleDiscoveryService.discover(app)
+        val modules = ComponentDiscoveryService.discoverModules(app)
         Modules.addDefaultModules(modules)
+
+        val barriers = ComponentDiscoveryService.discoverBarriers(app)
+        BarrierRegistry.addDefaultBarriers(barriers)
 
         Log.d(BuildConfig.TAG, "Auto-init successful")
 

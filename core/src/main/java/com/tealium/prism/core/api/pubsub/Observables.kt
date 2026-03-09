@@ -10,7 +10,17 @@ import com.tealium.prism.core.internal.pubsub.impl.CustomObservable
 import com.tealium.prism.core.internal.pubsub.impl.IterableCombineObservable
 import com.tealium.prism.core.internal.pubsub.impl.IterableObservable
 
+/**
+ * Factory object for creating common [Observable] and [Subject] implementations.
+ */
 object Observables {
+
+    /**
+     * Used to create a custom [Observable] implementation whereby the [subscriptionHandler] will be
+     * call upon an [Observer] subscribing to the returned [Observable]
+     *
+     * @param subscriptionHandler the handler to call upon subscription
+     */
     @JvmStatic
     fun <T> create(subscriptionHandler: (Observer<T>) -> Disposable): Observable<T> {
         return CustomObservable<T>(null, subscriptionHandler)

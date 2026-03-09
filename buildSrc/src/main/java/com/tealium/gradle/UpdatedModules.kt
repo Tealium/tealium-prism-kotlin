@@ -10,6 +10,7 @@ import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.TaskAction
 
 
@@ -22,6 +23,7 @@ abstract class UpdatedModules : DefaultTask() {
     val modules: ListProperty<String> = project.objects.listProperty(String::class.java)
 
     @Input
+    @Optional
     val testType: Property<TestType> = project.objects.property(TestType::class.java)
 
     @Input
@@ -38,10 +40,17 @@ abstract class UpdatedModules : DefaultTask() {
         )
         modules.convention(
             project.provider {
+                val maybeTestType = testType.orNull
+
                 project.subprojects
                     .filter { it.plugins.hasPlugin(TealiumLibraryPlugin::class.java) }
-                    .filter { it.tasks.findByPath(testType.get().taskName("Debug")) != null }
-                    .map(Project::getName)
+                    .filter { project ->
+                        if (maybeTestType != null) {
+                            project.tasks.findByPath(maybeTestType.taskName("Debug")) != null
+                        } else {
+                            true
+                        }
+                    }.map(Project::getName)
             }
         )
     }

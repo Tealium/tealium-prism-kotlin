@@ -1,9 +1,14 @@
 package com.tealium.prism.core.api
 
+import android.app.Application
+import com.tealium.prism.core.api.barriers.BarrierFactory
 import com.tealium.prism.core.api.barriers.BarrierScope
 import com.tealium.prism.core.api.barriers.BarrierState
+import com.tealium.prism.core.api.barriers.ConfigurableBarrier
+import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.consent.CmpAdapter
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.misc.Environment
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.rules.Condition.Companion.isDefined
 import com.tealium.prism.core.api.rules.Condition.Companion.isEqual
@@ -24,7 +29,9 @@ import com.tealium.prism.core.internal.settings.consent.ConsentSettings
 import com.tealium.tests.common.TestModuleFactory
 import com.tealium.tests.common.getDefaultConfig
 import com.tealium.tests.common.getDefaultConfigBuilder
+import io.mockk.MockKAnnotations
 import io.mockk.every
+import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -35,15 +42,21 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 class TealiumConfigTests {
 
     // TODO - Other enforcedSettings tests (Modules/CoreSettings)
+    @RelaxedMockK
+    lateinit var mockApplication: Application
 
     @Before
     fun setUp() {
+        MockKAnnotations.init(this)
         ModuleRegistry.clearAdditionalModules()
+
+        every { mockApplication.filesDir } returns File("/mock/files/dir")
     }
 
     @Test
@@ -96,17 +109,20 @@ class TealiumConfigTests {
     @Test
     fun init_Adds_Barriers_To_Enforced_Settings_Under_Barriers_Key() {
         val barrier = barrier("test-barrier", Observables.just(BarrierState.Open))
-        val barrierFactory = barrierFactory(barrier)
         val scopes = setOf(BarrierScope.All, BarrierScope.Dispatcher("dispatcher"))
+        val barrierFactory = barrierFactory(
+            barrier,
+            enforcedSettings = BarrierSettings(barrier.id, scopes).asDataItem().getDataObject()!!
+        )
 
         val config = getDefaultConfigBuilder(app = mockk())
-            .addBarrier(barrierFactory, scopes)
+            .addBarrier(barrierFactory)
             .build()
 
         val barriers = config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_BARRIERS)!!
         val barrierSettings = barriers.get(barrier.id, BarrierSettings.Converter)!!
         assertEquals(barrier.id, barrierSettings.barrierId)
-        assertEquals(scopes, barrierSettings.scope)
+        assertEquals(scopes, barrierSettings.scopes)
         assertEquals(DataObject.EMPTY_OBJECT, barrierSettings.configuration)
     }
 
@@ -313,6 +329,14 @@ class TealiumConfigTests {
             config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_MODULES)!!
                 .getDataObject(Modules.Types.DATA_LAYER)
         )
+    }
+
+    @Test
+    fun tealiumDirectory_PathName_Constructed_Correctly() {
+        val config = getDefaultConfig(mockApplication, accountName = "test-account", profileName = "test-profile", modules = emptyList())
+
+        val expectedPath = "/mock/files/dir/tealium-prism/test-account/test-profile"
+        assertEquals(expectedPath, config.tealiumDirectory.path)
     }
 
     private fun mockCmpAdapter(id: String = "cmp"): CmpAdapter {

@@ -31,13 +31,16 @@ import java.util.*
  */
 abstract class BaseSubjectImpl<T> : Subject<T> {
 
+    protected val lock = Any()
     private val subscribers: MutableList<Observer<T>> = mutableListOf()
 
     override val count: Int
-        get() = subscribers.count()
+        get() = synchronized(lock) {
+            subscribers.count()
+        }
 
     override fun onNext(value: T) {
-        synchronized(this) {
+        synchronized(lock) {
             onBeforeNext(value)
 
             // can't mutate while iterating
@@ -52,7 +55,7 @@ abstract class BaseSubjectImpl<T> : Subject<T> {
     }
 
     final override fun subscribe(observer: Observer<T>): Disposable {
-        synchronized(this) {
+        synchronized(lock) {
             onBeforeSubscribed(observer)
             val subscribed = subscribers.add(observer)
 
@@ -61,7 +64,7 @@ abstract class BaseSubjectImpl<T> : Subject<T> {
             }
         }
         return Subscription {
-            subscribers.remove(observer)
+            remove(observer)
         }
     }
 
@@ -70,7 +73,7 @@ abstract class BaseSubjectImpl<T> : Subject<T> {
     }
 
     protected fun remove(observer: Observer<T>) {
-        synchronized(this) {
+        synchronized(lock) {
             subscribers.remove(observer)
         }
     }
@@ -141,13 +144,13 @@ class ReplaySubjectImpl<T>(
     private var cacheSize = standardizeSize(cacheSize)
 
     override fun clear() {
-        synchronized(this) {
+        synchronized(lock) {
             cache.clear()
         }
     }
 
     override fun resize(size: Int) {
-        synchronized(this) {
+        synchronized(lock) {
             val newSize = standardizeSize(size)
 
             while (cache.size > newSize) {

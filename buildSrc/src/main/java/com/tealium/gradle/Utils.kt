@@ -1,5 +1,6 @@
 package com.tealium.gradle
 
+import com.tealium.gradle.library.TealiumLibraryPlugin
 import org.gradle.api.Project
 
 fun Project.getPropertyOrEnvironmentVariable(
@@ -15,4 +16,13 @@ fun Project.getPropertyOrEnvironmentVariable(
     if (env != null) return env
 
     return default
+}
+
+/**
+ * Returns a list of [Project]s that have the [TealiumLibraryPlugin] applied.
+ */
+fun Project.getTealiumLibraryProjects(): List<Project> {
+    return rootProject.subprojects.filter { project ->
+        project.plugins.hasPlugin(TealiumLibraryPlugin::class.java)
+    }
 }

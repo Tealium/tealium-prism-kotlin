@@ -9,6 +9,8 @@ import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.ReplaySubject
 import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.pubsub.Subject
+import com.tealium.prism.core.internal.barriers.BarrierCoordinatorImpl
+import com.tealium.prism.core.internal.barriers.ScopedBarrier
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify

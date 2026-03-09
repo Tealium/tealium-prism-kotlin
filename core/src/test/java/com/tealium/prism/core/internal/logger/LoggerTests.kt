@@ -3,6 +3,7 @@ package com.tealium.prism.core.internal.logger
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.logger.LogHandler
 import com.tealium.prism.core.api.logger.LogLevel
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.Subject
 import io.mockk.Called
@@ -22,6 +23,7 @@ class LoggerTests {
     private lateinit var handler: LogHandler
     private lateinit var onLogLevel: Subject<LogLevel>
     private val category = "cat"
+    private val scheduler: Scheduler = Scheduler.SYNCHRONOUS
 
     @Before
     fun setUp() {
@@ -35,7 +37,7 @@ class LoggerTests {
 
     @Test
     fun shouldLog_Returns_False_When_LogLevel_Too_High() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
 
         onLogLevel.onNext(LogLevel.DEBUG)
         assertFalse(logger.shouldLog(LogLevel.TRACE))
@@ -51,9 +53,9 @@ class LoggerTests {
 
     @Test
     fun shouldLog_Returns_False_When_LogLevel_Silent() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
 
-        LogLevel.values().forEach { level ->
+        LogLevel.entries.forEach { level ->
             onLogLevel.onNext(level)
             assertFalse(logger.shouldLog(LogLevel.SILENT))
         }
@@ -61,16 +63,16 @@ class LoggerTests {
 
     @Test
     fun shouldLog_Returns_True_When_No_LogLevel_Set() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
 
-        LogLevel.values().filter { it != LogLevel.SILENT }.forEach { level ->
+        LogLevel.entries.filter { it != LogLevel.SILENT }.forEach { level ->
             assertTrue(logger.shouldLog(level))
         }
     }
 
     @Test
     fun logger_Buffers_Until_LogLevel_Chosen() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
 
         logger.debug("", "")
 
@@ -81,7 +83,7 @@ class LoggerTests {
 
     @Test
     fun logger_Logs_When_LogLevel_Chosen() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
 
         logger.debug(category, "message")
         onLogLevel.onNext(LogLevel.DEBUG)
@@ -93,7 +95,7 @@ class LoggerTests {
 
     @Test
     fun logger_Drops_Logs_When_Chosen_LogLevel_Too_High() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
 
         logger.debug(category, "message")
         onLogLevel.onNext(LogLevel.INFO)
@@ -105,7 +107,7 @@ class LoggerTests {
 
     @Test
     fun logger_Does_Not_Subscribe_To_LogLevel_Updates_When_Level_Preset() {
-        val logger = LoggerImpl(handler, onLogLevel, LogLevel.ERROR)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel, LogLevel.ERROR)
 
         onLogLevel.onNext(LogLevel.TRACE)
         logger.debug(category, "message")
@@ -118,7 +120,7 @@ class LoggerTests {
 
     @Test
     fun trace_Does_Not_Log_When_Level_Is_Higher() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
 
         onLogLevel.onNext(LogLevel.DEBUG)
         logger.trace(category, "trace")
@@ -138,7 +140,7 @@ class LoggerTests {
 
     @Test
     fun trace_Does_Log_When_Level_Is_Trace() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
 
         onLogLevel.onNext(LogLevel.TRACE)
         logger.trace(category, "trace")
@@ -150,7 +152,7 @@ class LoggerTests {
 
     @Test
     fun debug_Does_Not_Log_When_Level_Is_Higher() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
 
         onLogLevel.onNext(LogLevel.INFO)
         logger.debug(category, "debug")
@@ -168,7 +170,7 @@ class LoggerTests {
 
     @Test
     fun debug_Does_Log_When_Level_Is_Debug_Or_Lower() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
 
         onLogLevel.onNext(LogLevel.TRACE)
         logger.debug(category, "debug")
@@ -182,7 +184,7 @@ class LoggerTests {
 
     @Test
     fun info_Does_Not_Log_When_Level_Is_Higher() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
 
         onLogLevel.onNext(LogLevel.WARN)
         logger.info(category, "info")
@@ -198,7 +200,7 @@ class LoggerTests {
 
     @Test
     fun info_Does_Log_When_Level_Is_Info_Or_Lower() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
 
         onLogLevel.onNext(LogLevel.TRACE)
         logger.info(category, "info")
@@ -214,7 +216,7 @@ class LoggerTests {
 
     @Test
     fun warn_Does_Not_Log_When_Level_Is_Higher() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
 
         onLogLevel.onNext(LogLevel.ERROR)
         logger.warn(category, "warn")
@@ -228,7 +230,7 @@ class LoggerTests {
 
     @Test
     fun warn_Does_Log_When_Level_Is_Warn_Or_Lower() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
 
         onLogLevel.onNext(LogLevel.TRACE)
         logger.warn(category, "warn")
@@ -246,7 +248,7 @@ class LoggerTests {
 
     @Test
     fun error_Does_Not_Log_When_Level_Is_Higher() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
 
         onLogLevel.onNext(LogLevel.SILENT)
         logger.error(category, "error")
@@ -258,7 +260,7 @@ class LoggerTests {
 
     @Test
     fun error_Does_Log_When_Level_Is_Error_Or_Lower() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
 
         onLogLevel.onNext(LogLevel.TRACE)
         logger.error(category, "error")
@@ -278,7 +280,7 @@ class LoggerTests {
 
     @Test
     fun nothing_Is_Logged_When_Level_Is_Silent() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
 
         onLogLevel.onNext(LogLevel.SILENT)
         logger.trace(category, "trace")
@@ -297,7 +299,7 @@ class LoggerTests {
         val dataObject = DataObject.create {
             put("key", "value")
         }
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
         onLogLevel.onNext(LogLevel.TRACE)
 
         logger.trace(category, "Message %s formatted", dataObject)
@@ -312,7 +314,7 @@ class LoggerTests {
         val string = "string"
         val ten = 10
         val pi = 3.1415
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
         onLogLevel.onNext(LogLevel.TRACE)
 
         logger.trace(category, "string:%s int:%d, double:%.2f", string, ten, pi)
@@ -324,7 +326,7 @@ class LoggerTests {
 
     @Test
     fun logger_With_Supplier_Does_Not_Evaluate_Supplier_If_Level_Too_Low() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
         val supplier = mockk<() -> String>()
 
         onLogLevel.onNext(LogLevel.SILENT)
@@ -341,7 +343,7 @@ class LoggerTests {
 
     @Test
     fun logger_With_Supplier_Does_Not_Evaluate_Supplier_If_Buffering() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
         val supplier = mockk<() -> String>()
 
         logger.trace(category, supplier)
@@ -357,7 +359,7 @@ class LoggerTests {
 
     @Test
     fun logger_With_Supplier_Does_Evaluate_Supplier_When_LogLevel_Correct() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
         val supplier = { "message" }
 
         onLogLevel.onNext(LogLevel.TRACE)
@@ -378,7 +380,7 @@ class LoggerTests {
 
     @Test
     fun logger_With_LogLevel_And_Supplier_Does_Not_Evaluate_Supplier_If_Level_Too_Low() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
         val supplier = mockk<() -> String>()
 
         onLogLevel.onNext(LogLevel.SILENT)
@@ -395,7 +397,7 @@ class LoggerTests {
 
     @Test
     fun logger_With_LogLevel_And_Supplier_Does_Not_Evaluate_Supplier_If_Buffering() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
         val supplier = mockk<() -> String>()
 
         logger.log(LogLevel.TRACE, category, supplier)
@@ -411,7 +413,7 @@ class LoggerTests {
 
     @Test
     fun logger_With_LogLevel_And_Supplier_Does_Evaluate_Supplier_When_LogLevel_Correct() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
         val supplier = { "message" }
 
         onLogLevel.onNext(LogLevel.TRACE)
@@ -432,7 +434,7 @@ class LoggerTests {
 
     @Test
     fun logger_With_LogLevel_Silent_Does_Nothing() {
-        val logger = LoggerImpl(handler, onLogLevel)
+        val logger = LoggerImpl(scheduler, handler, onLogLevel)
         val supplier = mockk<() -> String>()
 
         onLogLevel.onNext(LogLevel.TRACE)
@@ -443,5 +445,74 @@ class LoggerTests {
         verify {
             handler wasNot Called
         }
+    }
+
+    @Test
+    fun logger_Tracks_Errors_When_LogLevel_IsError() {
+        val errorsSubject = Observables.publishSubject<ErrorEvent>()
+        val logger = LoggerImpl(scheduler, handler, onLogLevel, _onErrorEvent = errorsSubject)
+        val category1 = "TestCategory"
+        val message1 = "Test error message"
+        val category2 = "AnotherTestCategory"
+        val message2 = "Another Test error message"
+
+        val emittedEvent = mutableListOf<ErrorEvent>()
+        errorsSubject.subscribe { event ->
+            emittedEvent.add(event)
+        }
+
+        onLogLevel.onNext(LogLevel.WARN)
+        logger.log(LogLevel.ERROR, category1, message1)
+        onLogLevel.onNext(LogLevel.TRACE)
+        logger.log(LogLevel.ERROR, category2, message2)
+
+        assertTrue(emittedEvent.size == 2)
+        assertTrue(emittedEvent[0].description == "$message1")
+        assertTrue(emittedEvent[1].description == "$message2")
+    }
+
+    @Test
+    fun logger_DoesNotTrack_Errors_When_LogLevel_NonError() {
+        val errorsSubject = Observables.publishSubject<ErrorEvent>()
+        val logger = LoggerImpl(scheduler, handler, onLogLevel, _onErrorEvent = errorsSubject)
+        val category = "TestCategory"
+        val message = "Test message"
+
+        val emittedEvent = mutableListOf<ErrorEvent>()
+        errorsSubject.subscribe { event ->
+            emittedEvent.add(event)
+        }
+
+        onLogLevel.onNext(LogLevel.TRACE)
+        logger.log(LogLevel.TRACE, category, message)
+        onLogLevel.onNext(LogLevel.SILENT)
+        logger.log(LogLevel.SILENT, category, message)
+        onLogLevel.onNext(LogLevel.WARN)
+        logger.log(LogLevel.WARN, category, message)
+        onLogLevel.onNext(LogLevel.INFO)
+        logger.log(LogLevel.INFO, category, message)
+        onLogLevel.onNext(LogLevel.DEBUG)
+        logger.log(LogLevel.DEBUG, category, message)
+
+        assertTrue(emittedEvent.size == 0)
+    }
+
+    @Test
+    fun logger_Tracks_ErrorEvent_WhenOnLogLevel_IsSilent() {
+        val errorsSubject = Observables.publishSubject<ErrorEvent>()
+        val logger = LoggerImpl(scheduler, handler, onLogLevel, _onErrorEvent = errorsSubject)
+        val category = "TestCategory"
+        val message = "Test message"
+
+        val emittedEvent = mutableListOf<ErrorEvent>()
+        errorsSubject.subscribe { event ->
+            emittedEvent.add(event)
+        }
+
+        onLogLevel.onNext(LogLevel.SILENT)
+        logger.log(LogLevel.ERROR, category, message)
+
+        assertTrue(emittedEvent.size == 1)
+        assertTrue(emittedEvent[0].description == "$message")
     }
 }

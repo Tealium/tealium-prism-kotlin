@@ -47,10 +47,10 @@ dependencies {
     implementation(libs.app.material)
     implementation(project (":core"))
     implementation(project (":lifecycle"))
+    implementation(project (":momentsapi"))
     implementation(project (":extensions"))
     implementation(project (":jstransformer"))
     implementation(project (":jstransformer:jstransformer-rhino"))
 
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
-
 }

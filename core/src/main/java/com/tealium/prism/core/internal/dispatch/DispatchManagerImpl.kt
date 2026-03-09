@@ -14,6 +14,7 @@ import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.api.tracking.TrackResultListener
 import com.tealium.prism.core.api.transform.DispatchScope
+import com.tealium.prism.core.internal.barriers.BarrierCoordinator
 import com.tealium.prism.core.internal.consent.ConsentManager
 import com.tealium.prism.core.internal.consent.matchesConfiguration
 import com.tealium.prism.core.internal.logger.LogCategory

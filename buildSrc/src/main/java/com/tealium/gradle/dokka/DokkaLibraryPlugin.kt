@@ -5,6 +5,7 @@ import org.gradle.api.Project
 import org.gradle.kotlin.dsl.apply
 import org.jetbrains.dokka.gradle.DokkaExtension
 import org.jetbrains.dokka.gradle.DokkaPlugin
+import org.jetbrains.dokka.gradle.engine.plugins.DokkaHtmlPluginParameters
 
 /**
  * Convention plugin to be applied to any project that should have their classes documented
@@ -16,7 +17,13 @@ abstract class DokkaLibraryPlugin : Plugin<Project> {
     }
 
     private fun Project.configureDokkaPlugin() {
+        val project = this
         extensions.configure(DokkaExtension::class.java) {
+            pluginsConfiguration.named("html", DokkaHtmlPluginParameters::class.java) {
+                configureCommonHtmlProperties()
+                configureCustomTemplates(project)
+            }
+            
             dokkaSourceSets.named("main") {
                 includes.from("Module.md", "Packages.md")
                 // source link currently not functioning as expected for Android projects

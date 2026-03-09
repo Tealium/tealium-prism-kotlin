@@ -81,14 +81,15 @@ class BatchingBarrier(
     }
 
     class Factory(
-        private val scopes: Set<BarrierScope>? = null
+        private val defaultScopes: Set<BarrierScope>? = null,
+        private val enforcedSettings: DataObject = DataObject.EMPTY_OBJECT
     ) : BarrierFactory {
 
         override val id: String
             get() = BARRIER_ID
 
-        override fun defaultScope(): Set<BarrierScope> =
-            scopes ?: super.defaultScope()
+        override fun defaultScopes(): Set<BarrierScope> =
+            defaultScopes ?: super.defaultScopes()
 
         override fun create(
             context: TealiumContext,
@@ -96,5 +97,7 @@ class BatchingBarrier(
         ): ConfigurableBarrier {
             return BatchingBarrier(context, configuration)
         }
+        
+        override fun getEnforcedSettings(): DataObject = enforcedSettings
     }
 }
