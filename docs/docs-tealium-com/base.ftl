@@ -14,21 +14,8 @@
     <@template_cmd name="pathToRoot">
         <script>var pathToRoot = "${pathToRoot}";</script></@template_cmd>
     <script>document.documentElement.classList.replace("no-js", "js");</script>
-    <#-- This script doesn't need to be there but it is nice to have
-    since app in dark mode doesn't 'blink' (class is added before it is rendered) -->
-    <script>const storage = localStorage.getItem("dokka-dark-mode")
-      if (storage == null) {
-        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-        if (osDarkSchemePreferred === true) {
-          document.getElementsByTagName("html")[0].classList.add("theme-dark")
-        }
-      } else {
-        const savedDarkMode = JSON.parse(storage)
-        if (savedDarkMode === true) {
-          document.getElementsByTagName("html")[0].classList.add("theme-dark")
-        }
-      }
-    </script>
+    <#-- This script updates the root element's class early so CSS can
+    apply JS-specific styling without a visible 'blink' during page load. -->
     <#-- Resources (scripts, stylesheets) are handled by Dokka.
     Use customStyleSheets and customAssets to change them. -->
     <@resources/>
