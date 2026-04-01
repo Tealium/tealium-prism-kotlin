@@ -1,4 +1,4 @@
-package com.tealium.prism.extensions.internal
+package com.tealium.prism.extensions.internal.lowercase
 
 import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataItemConverter

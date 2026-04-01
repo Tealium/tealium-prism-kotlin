@@ -2,6 +2,7 @@ package com.tealium.prism.extensions.internal.persistdatavalue
 
 import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.data.ValueSource
 import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.settings.json.TransformationOperation
 import com.tealium.prism.core.api.tracking.Dispatch
@@ -11,7 +12,6 @@ import com.tealium.prism.core.api.transform.Transformer
 import com.tealium.prism.core.internal.modules.datalayer.DataLayerModule
 import com.tealium.prism.extensions.BuildConfig
 import com.tealium.prism.extensions.internal.PERSIST_DATA_VALUES
-import com.tealium.prism.extensions.internal.ValueSource
 
 class PersistDataValuesTransformer(private val context: TealiumContext) : Transformer {
     constructor(context: TealiumContext, configuration: DataObject) : this(context)

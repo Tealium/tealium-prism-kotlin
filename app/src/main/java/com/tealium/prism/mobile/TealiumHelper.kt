@@ -11,7 +11,6 @@ import com.tealium.prism.core.api.data.DataItemUtils.asDataObject
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.ReferenceContainer.Companion.key
 import com.tealium.prism.core.api.logger.LogLevel
-import com.tealium.prism.core.api.logger.logIfErrorEnabled
 import com.tealium.prism.core.api.logger.logIfInfoEnabled
 import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.Environment
@@ -42,9 +41,9 @@ import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.api.transform.TransformationScope
-import com.tealium.prism.extensions.LowerCaseSettingsBuilder
-import com.tealium.prism.extensions.PersistDataValuesSettingsBuilder
-import com.tealium.prism.extensions.SetDataValuesSettingsBuilder
+import com.tealium.prism.extensions.api.lowercase.LowerCaseSettingsBuilder
+import com.tealium.prism.extensions.api.persistdatavalue.PersistDataValuesSettingsBuilder
+import com.tealium.prism.extensions.api.setdatavalues.SetDataValuesSettingsBuilder
 import com.tealium.prism.extensions.internal.persistdatavalue.PersistValuesUpdateType
 import com.tealium.prism.jstransformer.JavaScriptTransformationSettingsBuilder
 import com.tealium.prism.lifecycle.lifecycle
@@ -87,8 +86,8 @@ object TealiumHelper {
             .addTransformation(
                 SetDataValuesSettingsBuilder("sdv_1")
                     .addScope(TransformationScope.AfterCollectors)
-                    .addOperation("some_value", key("some_key"))
-                    .addOperation(key("some_key"), key("other_key"))
+                    .setConstant("some_value".asDataItem(), key("some_key"))
+                    .setFrom(key("some_key"), key("other_key"))
                     .build()
             )
             .addTransformation(
@@ -97,7 +96,8 @@ object TealiumHelper {
                     .setJsCode("payload.isVip = true")
                     .build()
             )
-            .addTransformation(LowerCaseSettingsBuilder("lowercase-specific")
+            .addTransformation(
+                LowerCaseSettingsBuilder("lowercase-specific")
                 .addScope(TransformationScope.AllDispatchers)
                 .setAllVariables(false)
                 .addVariable(key("event_category"))
@@ -114,7 +114,8 @@ object TealiumHelper {
 //                .build()
 //            )
 
-            .addTransformation(PersistDataValuesSettingsBuilder("pdv_2")
+            .addTransformation(
+                PersistDataValuesSettingsBuilder("pdv_2")
                 .addScope(TransformationScope.AfterCollectors)
                 .persistValue(key("persisted_value"), key("first_persisted_value"))
                 .setExpiry(Expiry.FOREVER)

@@ -1,4 +1,4 @@
-package com.tealium.prism.extensions.internal
+package com.tealium.prism.extensions.internal.lowercase
 
 import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
@@ -11,6 +11,7 @@ import com.tealium.prism.core.api.transform.DispatchScope
 import com.tealium.prism.core.api.transform.TransformationSettings
 import com.tealium.prism.core.api.transform.Transformer
 import com.tealium.prism.extensions.BuildConfig
+import com.tealium.prism.extensions.internal.LOWERCASE
 
 class LowerCaseTransformer() : Transformer {
 

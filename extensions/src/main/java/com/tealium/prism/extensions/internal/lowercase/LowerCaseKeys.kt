@@ -1,4 +1,4 @@
-package com.tealium.prism.extensions.internal
+package com.tealium.prism.extensions.internal.lowercase
 
 /**
  * Configuration keys for LowerCase transformation

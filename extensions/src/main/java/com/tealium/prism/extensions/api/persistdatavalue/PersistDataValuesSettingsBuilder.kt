@@ -1,13 +1,14 @@
-package com.tealium.prism.extensions
+package com.tealium.prism.extensions.api.persistdatavalue
 
+import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.ReferenceContainer
 import com.tealium.prism.core.api.data.ValueContainer
+import com.tealium.prism.core.api.data.ValueSource
 import com.tealium.prism.core.api.persistence.Expiry
 import com.tealium.prism.core.api.settings.json.TransformationOperation
 import com.tealium.prism.core.api.transform.TransformationSettingsBuilder
 import com.tealium.prism.extensions.internal.PERSIST_DATA_VALUES
-import com.tealium.prism.extensions.internal.ValueSource
 import com.tealium.prism.extensions.internal.persistdatavalue.PersistDataValuesConfiguration
 import com.tealium.prism.extensions.internal.persistdatavalue.PersistValuesUpdateType
 
@@ -40,7 +41,7 @@ class PersistDataValuesSettingsBuilder(transformationId: String) :
         input: String,
         destination: ReferenceContainer
     ): PersistDataValuesSettingsBuilder = apply {
-        this.input = ValueSource.Constant(ValueContainer(input))
+        this.input = ValueSource.Constant(ValueContainer(input.asDataItem()))
         this.destination = destination
     }
 
@@ -48,9 +49,10 @@ class PersistDataValuesSettingsBuilder(transformationId: String) :
         this.expiry = expiry
     }
 
-    fun setUpdateType(updateType: PersistValuesUpdateType): PersistDataValuesSettingsBuilder = apply {
-        this.updateType = updateType
-    }
+    fun setUpdateType(updateType: PersistValuesUpdateType): PersistDataValuesSettingsBuilder =
+        apply {
+            this.updateType = updateType
+        }
 
     override fun onBuildConfiguration(): DataObject {
         val input = this.input ?: return DataObject.EMPTY_OBJECT

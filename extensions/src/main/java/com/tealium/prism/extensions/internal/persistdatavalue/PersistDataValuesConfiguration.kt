@@ -6,8 +6,8 @@ import com.tealium.prism.core.api.data.DataItemConvertible
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.ReferenceContainer
 import com.tealium.prism.core.api.data.ValueContainer
+import com.tealium.prism.core.api.data.ValueSource
 import com.tealium.prism.core.api.persistence.Expiry
-import com.tealium.prism.extensions.internal.ValueSource
 
 class PersistDataValuesConfiguration(
     val input: ValueSource,
