@@ -1,4 +1,4 @@
-package com.tealium.prism.extensions.internal
+package com.tealium.prism.extensions.internal.setdatavalues
 
 import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.DataObject
@@ -8,7 +8,7 @@ import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.transform.DispatchScope
 import com.tealium.prism.extensions.BuildConfig
 import com.tealium.prism.extensions.api.setdatavalues.SetDataValuesSettingsBuilder
-import com.tealium.prism.extensions.internal.setdatavalues.SetDataValuesTransformer
+import com.tealium.prism.extensions.internal.SET_DATA_VALUES
 import io.mockk.MockKAnnotations
 import io.mockk.impl.annotations.MockK
 import io.mockk.mockk

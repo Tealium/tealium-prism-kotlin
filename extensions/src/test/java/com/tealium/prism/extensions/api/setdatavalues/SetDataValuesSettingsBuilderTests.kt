@@ -1,4 +1,4 @@
-package com.tealium.prism.extensions.api
+package com.tealium.prism.extensions.api.setdatavalues
 
 import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.DataObject
@@ -9,7 +9,6 @@ import com.tealium.prism.core.api.data.ValueSource
 import com.tealium.prism.core.api.rules.Condition
 import com.tealium.prism.core.api.rules.Rule
 import com.tealium.prism.core.api.transform.TransformationScope
-import com.tealium.prism.extensions.api.setdatavalues.SetDataValuesSettingsBuilder
 import com.tealium.prism.extensions.internal.SET_DATA_VALUES
 import com.tealium.prism.extensions.internal.setdatavalues.SetDataValuesConfiguration.Converter
 import com.tealium.prism.extensions.internal.setdatavalues.SetDataValuesOperation

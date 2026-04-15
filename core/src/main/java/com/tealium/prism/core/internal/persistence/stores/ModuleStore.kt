@@ -56,9 +56,19 @@ class ModuleStore(
         }
 
     override fun buildPath(path: JsonObjectPath, value: DataItem, expiry: Expiry) {
-        edit()
-            .buildPath(path, value, expiry)
-            .commit()
+        if (path.components.isEmpty()) {
+            edit().put(path.firstComponent.key, value, expiry).commit()
+            return
+        }
+
+        val dataObjectBuilder = DataObject.Builder()
+        val existingItem = get(path.firstComponent.key)
+        if (existingItem != null) {
+            dataObjectBuilder.put(path.firstComponent.key, existingItem)
+        }
+
+        val updated = dataObjectBuilder.buildPath(path, value).build()
+        edit().putAll(updated, expiry).commit()
     }
 
     override fun get(key: String): DataItem? =
@@ -103,34 +113,11 @@ class ModuleStore(
             }
         }
 
-        override fun buildPath(path: JsonObjectPath, value: DataItem, expiry: Expiry) = apply {
-            ensureNotClosed()
-
-            if (path.components.isEmpty()) {
-                edits.add(Edit.Put(path.firstComponent.key, value, expiry))
-                return@apply
-            }
-
-            // wrap existing value in a [DataObject] to save reimplementation
-            val dataObjectBuilder = DataObject.Builder()
-            val existingItem = get(path.firstComponent.key)
-            if (existingItem != null) {
-                dataObjectBuilder
-                    .put(path.firstComponent.key, existingItem)
-            }
-
-            val updated = dataObjectBuilder.buildPath(path, value)
-                .build()
-
-            putAll(updated, expiry)
-        }
-
         override fun remove(key: String): DataStore.Editor = apply {
             ensureNotClosed()
 
             edits.add(Edit.Remove(key))
         }
-
 
         override fun remove(keys: List<String>): DataStore.Editor = apply {
             ensureNotClosed()

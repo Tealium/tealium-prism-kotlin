@@ -1,11 +1,10 @@
-package com.tealium.prism.extensions.internal
+package com.tealium.prism.extensions.internal.setdatavalues
 
 import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.ReferenceContainer
 import com.tealium.prism.core.api.data.ValueContainer
 import com.tealium.prism.core.api.data.ValueSource
-import com.tealium.prism.extensions.internal.setdatavalues.SetDataValuesOperation
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

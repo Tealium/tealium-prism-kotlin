@@ -14,7 +14,9 @@ import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.logIfInfoEnabled
 import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.Environment
+import com.tealium.prism.core.api.misc.ExpiryPolicy
 import com.tealium.prism.core.api.misc.TealiumResult
+import com.tealium.prism.core.api.misc.TimeFrameUtils.minutes
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
@@ -42,9 +44,9 @@ import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.api.transform.TransformationScope
 import com.tealium.prism.extensions.api.lowercase.LowerCaseSettingsBuilder
-import com.tealium.prism.extensions.api.persistdatavalue.PersistDataValuesSettingsBuilder
+import com.tealium.prism.extensions.api.persistdatavalue.PersistDataValueSettingsBuilder
+import com.tealium.prism.extensions.api.persistdatavalue.UpdatePolicy
 import com.tealium.prism.extensions.api.setdatavalues.SetDataValuesSettingsBuilder
-import com.tealium.prism.extensions.internal.persistdatavalue.PersistValuesUpdateType
 import com.tealium.prism.jstransformer.JavaScriptTransformationSettingsBuilder
 import com.tealium.prism.lifecycle.lifecycle
 import com.tealium.prism.momentsapi.MomentsApiRegion
@@ -106,20 +108,20 @@ object TealiumHelper {
                 .build()
             )
 
-//            .addTransformation(PersistDataValuesSettingsBuilder("pdv_1")
+//            .addTransformation(PersistDataValueSettingsBuilder("pdv_1")
 //                .addScope(TransformationScope.AfterCollectors)
-//                .persistValue("persisted_value", path(JsonPath["persist_object"]["persist_key"]))
-//                .setExpiry(Expiry.SESSION)
-//                .setUpdateType(PersistValuesUpdateType.ALLOW_UPDATE)
+//                .persistConstant("persisted_value", path(JsonPath["persist_object"]["persist_key"]))
+//                .setExpiryPolicy(ExpiryPolicy.FOREVER)
+//                .setUpdatePolicy(UpdatePolicy.ALLOW_UPDATE)
 //                .build()
 //            )
 
             .addTransformation(
-                PersistDataValuesSettingsBuilder("pdv_2")
+                PersistDataValueSettingsBuilder("pdv_2")
                 .addScope(TransformationScope.AfterCollectors)
-                .persistValue(key("persisted_value"), key("first_persisted_value"))
-                .setExpiry(Expiry.FOREVER)
-                .setUpdateType(PersistValuesUpdateType.KEEP_FIRST_VALUE)
+                .persistFrom(key("persisted_value"), key("first_persisted_value"))
+                .setExpiryPolicy(ExpiryPolicy.duration(10.minutes))
+                .setUpdatePolicy(UpdatePolicy.KEEP_FIRST_VALUE)
                 .build()
             )
 
