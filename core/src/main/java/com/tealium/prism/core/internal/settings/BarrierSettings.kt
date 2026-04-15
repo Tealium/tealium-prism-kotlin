@@ -12,26 +12,27 @@ import com.tealium.prism.core.internal.settings.BarrierSettings.Converter.KEY_CO
 import com.tealium.prism.core.internal.settings.BarrierSettings.Converter.KEY_SCOPES
 
 /**
- * A [BarrierSettings] describes which [Dispatcher] implementation any given [Barrier] should be
- * guarding. The [Barrier] implementation is identified by the [barrierId], and the [scopes]
- * sets out which scopes that barrier is relevant for.
+ * Holds the configuration for a barrier, identifying it by [barrierId] and optionally restricting
+ * which dispatch scopes it applies to via [scopes].
  *
- * @param barrierId The id of the [Barrier]
- * @param scopes A set of [BarrierScope]s that the [Barrier] should be consulted on.
+ * @param barrierId The unique identifier for this barrier.
+ * @param scopes The set of [BarrierScope]s this barrier applies to.
+ * @param configuration Additional barrier-specific configuration data.
  *
- * @see Barrier
  * @see BarrierScope
  */
 data class BarrierSettings(
     val barrierId: String,
-    val scopes: Set<BarrierScope>,
+    val scopes: Set<BarrierScope>? = null,
     val configuration: DataObject = DataObject.EMPTY_OBJECT
 ) : DataItemConvertible {
 
     override fun asDataItem(): DataItem {
         return DataObject.create {
             put(KEY_BARRIER_ID, barrierId)
-            put(KEY_SCOPES, DataItem.convert(scopes))
+            scopes?.let {
+                put(KEY_SCOPES, DataItem.convert(it))
+            }
             put(KEY_CONFIGURATION, configuration)
         }.asDataItem()
     }
@@ -49,12 +50,12 @@ data class BarrierSettings(
                 ?.mapNotNull(DataItem::getString)
                 ?.map(::barrierScopeFromString)
 
-            if (id == null || scopes == null) return null
+            if (id == null) return null
 
             val configuration = dataObject.getDataObject(KEY_CONFIGURATION)
                 ?: DataObject.EMPTY_OBJECT
 
-            return BarrierSettings(id, scopes.toSet(), configuration)
+            return BarrierSettings(id, scopes?.toSet(), configuration)
         }
     }
 }
