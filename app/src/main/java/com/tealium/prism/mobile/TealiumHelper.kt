@@ -43,7 +43,7 @@ import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.api.transform.TransformationScope
-import com.tealium.prism.extensions.api.lowercase.LowerCaseSettingsBuilder
+import com.tealium.prism.extensions.api.lowercase.LowercaseSettingsBuilder
 import com.tealium.prism.extensions.api.persistdatavalue.PersistDataValueSettingsBuilder
 import com.tealium.prism.extensions.api.persistdatavalue.UpdatePolicy
 import com.tealium.prism.extensions.api.setdatavalues.SetDataValuesSettingsBuilder
@@ -99,14 +99,25 @@ object TealiumHelper {
                     .build()
             )
             .addTransformation(
-                LowerCaseSettingsBuilder("lowercase-specific")
-                .addScope(TransformationScope.AllDispatchers)
-                .setAllVariables(false)
-                .addVariable(key("event_category"))
-                .addVariable(key("event_label"))
-                .addVariable(key("user_id"))
-                .build()
+                LowercaseSettingsBuilder("lowercase-specific")
+                    .addScope(TransformationScope.AllDispatchers)
+                    .lowercaseVariables(
+                            listOf(
+                                key("event_name"),
+                                key("event_category"),
+                                key("event_label"),
+                                key("user_id")
+                            )
+                    )
+                    .build()
             )
+
+//            .addTransformation(
+//                LowercaseSettingsBuilder("lowercase-all-variables")
+//                    .addScope(TransformationScope.AllDispatchers)
+//                    .lowercaseAllVariables()
+//                    .build()
+//            )
 
 //            .addTransformation(PersistDataValueSettingsBuilder("pdv_1")
 //                .addScope(TransformationScope.AfterCollectors)

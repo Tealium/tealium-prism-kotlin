@@ -8,7 +8,7 @@
             android:name="com.tealium.prism.core.api.modules:com.tealium.prism.extensions.api.SetDataValuesFactory"
             android:value="com.tealium.prism.core.api.ModuleFactory" />
         <meta-data
-            android:name="com.tealium.prism.core.api.modules:com.tealium.prism.extensions.api.LowerCaseFactory"
+            android:name="com.tealium.prism.core.api.modules:com.tealium.prism.extensions.api.LowercaseFactory"
             android:value="com.tealium.prism.core.api.ModuleFactory" />
         <meta-data
             android:name="com.tealium.prism.core.api.modules:com.tealium.prism.extensions.api.PersistDataValueFactory"
