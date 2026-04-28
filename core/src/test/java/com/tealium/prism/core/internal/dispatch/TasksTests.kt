@@ -1,5 +1,6 @@
 package com.tealium.prism.core.internal.dispatch
 
+import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.internal.misc.SingleThreadedScheduler
 import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.mockk
@@ -29,15 +30,27 @@ class TasksTests {
     private fun <T> syncTask(returns: T): CompletableTask<T> {
         return CompletableTask { callback ->
             callback(returns)
+            Disposables.disposed()
         }
     }
 
-    private fun <T> asyncTask(returns: T, delay: Long, unit: TimeUnit = TimeUnit.MILLISECONDS, executorService: ScheduledExecutorService = this.executorService): CompletableTask<T> {
+    private fun <T> asyncTask(returns: T, delay: Long, unit: TimeUnit = TimeUnit.MILLISECONDS): CompletableTask<T> {
         return CompletableTask { callback ->
             executorService.schedule({
                 callback(returns)
             }, delay, unit)
+            Disposables.disposed()
         }
+    }
+
+    @Test
+    fun taskGroup_NotifiesImmediately_WhenTaskListIsEmpty() {
+        val notify = mockk<(List<Int>) -> Unit>(relaxed = true)
+
+        val disposable = Tasks.execute(notifyOn = testTealiumScheduler, emptyList(), notify)
+
+        verify { notify(emptyList()) }
+        Assert.assertTrue(disposable.isDisposed)
     }
 
     @Test
@@ -111,6 +124,21 @@ class TasksTests {
 
         verify(timeout = 1000) {
             notify(listOf(1, 2, 3))
+        }
+    }
+
+    @Test
+    fun taskGroup_DoesNotNotify_WhenDisposedBeforeCompletion() {
+        val notify = mockk<(List<Int>) -> Unit>()
+
+        val disposable = Tasks.execute(notifyOn = testTealiumScheduler, listOf(
+            asyncTask(1, 500, TimeUnit.MILLISECONDS),
+        ), notify)
+
+        disposable.dispose()
+
+        verify(timeout = 1000, inverse = true) {
+            notify(any())
         }
     }
 }
