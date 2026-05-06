@@ -1,11 +1,9 @@
 package com.tealium.prism.core.internal.dispatch
 
-import com.tealium.prism.core.api.barriers.Barrier
 import com.tealium.prism.core.api.barriers.BarrierScope
 import com.tealium.prism.core.api.transform.DispatchScope
 import com.tealium.prism.core.api.transform.TransformationScope
 import com.tealium.prism.core.api.transform.TransformationSettings
-import com.tealium.prism.core.internal.settings.BarrierSettings
 
 /**
  * Describes whether or not this [TransformationScope] matches the [DispatchScope].
@@ -47,12 +45,12 @@ fun transformationScopeFromString(scope: String) : TransformationScope {
 }
 
 /**
- * Convenience method for converting a string value to a [BarrierScope]
+ * A [BarrierScope] matches a given dispatcher id if either
+ *  - The [BarrierScope] is [BarrierScope.All]
+ *  - The [BarrierScope] is [BarrierScope.Dispatchers] and the provided dispatcher id is in the list of dispatcher ids for this scope.
  */
-fun barrierScopeFromString(scope: String): BarrierScope {
-    return if (scope == BarrierScope.All.value) {
-        BarrierScope.All
-    } else {
-        BarrierScope.Dispatcher(scope)
+fun BarrierScope.matches(dispatcherId: String): Boolean =
+    when(this) {
+        is BarrierScope.All -> true
+        is BarrierScope.Dispatchers -> this.dispatcherIds.contains(dispatcherId)
     }
-}

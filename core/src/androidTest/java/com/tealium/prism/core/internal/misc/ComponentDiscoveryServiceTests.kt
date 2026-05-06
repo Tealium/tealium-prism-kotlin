@@ -160,7 +160,7 @@ class ConstructorBarrierFactory(
 object ObjectBarrierFactory : BarrierFactory {
     private val delegateFactory = TestBarrierFactory("object")
     override val id: String get() = delegateFactory.id
-    override fun defaultScopes(): Set<BarrierScope> = delegateFactory.defaultScopes()
+    override fun defaultScope(): BarrierScope = delegateFactory.defaultScope()
     override fun create(context: TealiumContext, configuration: DataObject): ConfigurableBarrier =
         delegateFactory.create(context, configuration)
 }
@@ -169,7 +169,7 @@ class CompanionBarrierFactory {
     companion object : BarrierFactory {
         private val delegateFactory = TestBarrierFactory("companion")
         override val id: String get() = delegateFactory.id
-        override fun defaultScopes(): Set<BarrierScope> = delegateFactory.defaultScopes()
+        override fun defaultScope(): BarrierScope = delegateFactory.defaultScope()
         override fun create(context: TealiumContext, configuration: DataObject): ConfigurableBarrier =
             delegateFactory.create(context, configuration)
     }
@@ -184,9 +184,9 @@ class FieldBarrierFactory {
 
 internal class TestBarrierFactory(
     override val id: String,
-    private val defaultScopes: Set<BarrierScope> = emptySet()
+    private val defaultScope: BarrierScope = BarrierScope.Dispatchers(emptyList())
 ) : BarrierFactory {
-    override fun defaultScopes(): Set<BarrierScope> = defaultScopes
+    override fun defaultScope(): BarrierScope = defaultScope
     override fun create(context: TealiumContext, configuration: DataObject): ConfigurableBarrier =
         object : ConfigurableBarrier {
             override val id: String get() = this@TestBarrierFactory.id

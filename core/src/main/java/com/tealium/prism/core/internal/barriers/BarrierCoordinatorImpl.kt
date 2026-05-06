@@ -9,15 +9,16 @@ import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.Subject
 import com.tealium.prism.core.api.pubsub.mapToUnit
+import com.tealium.prism.core.internal.dispatch.matches
 
 /**
  * Utility alias to link a [Barrier] implementation with its known scope.
  */
-typealias ScopedBarrier = Pair<Barrier, Set<BarrierScope>>
+typealias ScopedBarrier = Pair<Barrier, BarrierScope>
 
 inline val ScopedBarrier.barrier: Barrier
     get() = this.first
-inline val ScopedBarrier.scopes: Set<BarrierScope>
+inline val ScopedBarrier.scope: BarrierScope
     get() = this.second
 
 class BarrierCoordinatorImpl(
@@ -79,8 +80,7 @@ class BarrierCoordinatorImpl(
     ): List<Barrier> {
         return barriers
             .filter { scopedBarrier ->
-                scopedBarrier.scopes.contains(BarrierScope.All)
-                        || scopedBarrier.scopes.contains(BarrierScope.Dispatcher(dispatcherId))
+                scopedBarrier.scope.matches(dispatcherId)
             }.map { scopedBarrier -> scopedBarrier.barrier }
     }
 

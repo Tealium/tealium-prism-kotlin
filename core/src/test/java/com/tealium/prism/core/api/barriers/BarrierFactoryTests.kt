@@ -1,6 +1,5 @@
 package com.tealium.prism.core.api.barriers
 
-import com.tealium.prism.core.api.barriers.BarrierState
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.internal.dispatch.barrier
@@ -12,22 +11,22 @@ import org.junit.Test
 class BarrierFactoryTests {
 
     @Test
-    fun default_getEnforcedSettings_returns_empty_data_object() {
+    fun default_GetEnforcedSettings_Returns_Empty_Data_Object() {
         val factory = barrierFactory(
             barrier("test-barrier", Observables.just(BarrierState.Open)),
-            defaultScopes = setOf(BarrierScope.All)
+            defaultScope = BarrierScope.All
         )
         assertEquals(DataObject.EMPTY_OBJECT, factory.getEnforcedSettings())
     }
 
     @Test
-    fun custom_getEnforcedSettings_returns_enforced_settings() {
+    fun custom_GetEnforcedSettings_Returns_Enforced_Settings() {
         val settings = DataObject.create {
             put("test_key", "test_value")
         }
         val factory = barrierFactory(
             barrier("test-barrier", Observables.just(BarrierState.Open)),
-            defaultScopes = setOf(BarrierScope.All),
+            defaultScope = BarrierScope.All,
             enforcedSettings = settings
         )
 
@@ -35,56 +34,57 @@ class BarrierFactoryTests {
     }
 
     @Test
-    fun factory_id_matches_barrier_id() {
+    fun factory_Id_Matches_Barrier_Id() {
         val barrierId = "test-barrier"
         val factory = barrierFactory(
             barrier(barrierId, Observables.just(BarrierState.Open)),
-            defaultScopes = setOf(BarrierScope.All)
+            defaultScope = BarrierScope.All
         )
         assertEquals(barrierId, factory.id)
     }
 
     @Test
-    fun defaultScopes_returns_configured_scopes() {
-        val expectedScopes = setOf(
-            BarrierScope.All,
-            BarrierScope.Dispatcher("dispatcher1")
-        )
+    fun defaultScope_Returns_Configured_Scope() {
+        val expectedScope =
+            BarrierScope.Dispatchers("dispatcher1", "dispatcher2")
+
         val factory = barrierFactory(
             barrier("test-barrier", Observables.just(BarrierState.Open)),
-            defaultScopes = expectedScopes
+            defaultScope = expectedScope
         )
 
-        assertEquals(expectedScopes, factory.defaultScopes())
+        assertEquals(expectedScope, factory.defaultScope())
     }
 
     @Test
-    fun defaultScopes_returns_single_scope_when_configured() {
-        val expectedScopes = setOf(BarrierScope.Dispatcher("collect"))
+    fun defaultScope_Returns_Single_Scope_When_Configured() {
+        val expectedScope = BarrierScope.Dispatchers("collect")
         val factory = barrierFactory(
             barrier("test-barrier", Observables.just(BarrierState.Open)),
-            defaultScopes = expectedScopes
+            defaultScope = expectedScope
         )
 
-        assertEquals(expectedScopes, factory.defaultScopes())
+        assertEquals(expectedScope, factory.defaultScope())
     }
 
     @Test
-    fun defaultScopes_returns_empty_set_when_no_default_scopes() {
+    fun defaultScope_Returns_Empty_List_When_No_Default_Scope() {
         val factory = barrierFactory(
             barrier("test-barrier", Observables.just(BarrierState.Open)),
-            defaultScopes = emptySet()
+            defaultScope = BarrierScope.Dispatchers(emptyList())
         )
 
-        assertTrue(factory.defaultScopes().isEmpty())
+        assertTrue(factory.defaultScope() is BarrierScope.Dispatchers)
+        val dispatchers = (factory.defaultScope() as BarrierScope.Dispatchers).dispatcherIds
+        assertTrue(dispatchers.isEmpty())
     }
 
     @Test
-    fun factory_with_custom_barrier_id_uses_correct_id() {
+    fun factory_Id_Matches_Correct_Id() {
         val customId = "custom_barrier_id"
         val factory = barrierFactory(
             barrier(customId, Observables.just(BarrierState.Open)),
-            defaultScopes = setOf(BarrierScope.All)
+            defaultScope = BarrierScope.All
         )
 
         assertEquals(customId, factory.id)

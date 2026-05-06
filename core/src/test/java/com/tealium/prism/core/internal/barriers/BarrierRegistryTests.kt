@@ -4,8 +4,6 @@ import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.barriers.BarrierScope
 import com.tealium.prism.core.api.barriers.BarrierState
 import com.tealium.prism.core.api.pubsub.Observables
-import com.tealium.prism.core.internal.barriers.BarrierRegistry
-import com.tealium.prism.core.internal.barriers.BatchingBarrier
 import com.tealium.prism.core.internal.dispatch.barrier
 import com.tealium.prism.core.internal.dispatch.barrierFactory
 import com.tealium.prism.core.internal.network.ConnectivityBarrier
@@ -43,12 +41,12 @@ class BarrierRegistryTests {
         val batchingFactory = defaultBarriers.firstOrNull { it.id == BatchingBarrier.BARRIER_ID }
 
         assertEquals(
-            setOf(BarrierScope.Dispatcher(Modules.Types.COLLECT)),
-            connectivityFactory?.defaultScopes()
+            BarrierScope.Dispatchers(Modules.Types.COLLECT),
+            connectivityFactory?.defaultScope()
         )
         assertEquals(
-            emptySet<BarrierScope>(),
-            batchingFactory?.defaultScopes()
+            BarrierScope.Dispatchers(emptyList()),
+            batchingFactory?.defaultScope()
         )
     }
 
@@ -58,7 +56,7 @@ class BarrierRegistryTests {
 
         val mockBarrier = barrierFactory(
             barrier("MockBarrier", Observables.just(BarrierState.Open)),
-            defaultScopes = setOf(BarrierScope.All)
+            defaultScope = BarrierScope.All
         )
         registry.addDefaultBarrier(mockBarrier)
 
@@ -72,11 +70,11 @@ class BarrierRegistryTests {
 
         val mockBarrier1 = barrierFactory(
             barrier("MockBarrier1", Observables.just(BarrierState.Open)),
-            defaultScopes = setOf(BarrierScope.All)
+            defaultScope = BarrierScope.All
         )
         val mockBarrier2 = barrierFactory(
             barrier("MockBarrier2", Observables.just(BarrierState.Open)),
-            defaultScopes = setOf(BarrierScope.Dispatcher("test"))
+            defaultScope = BarrierScope.Dispatchers("test")
         )
         registry.addDefaultBarriers(listOf(mockBarrier1, mockBarrier2))
 
@@ -89,7 +87,7 @@ class BarrierRegistryTests {
     fun defaultBarriers_Includes_Both_Core_And_Additional_Barriers_When_Additional_Added() {
         val mockBarrier = barrierFactory(
             barrier("MockBarrier", Observables.just(BarrierState.Open)),
-            defaultScopes = setOf(BarrierScope.All)
+            defaultScope = BarrierScope.All
         )
         registry.addDefaultBarrier(mockBarrier)
 
@@ -107,11 +105,11 @@ class BarrierRegistryTests {
     fun clearAdditionalBarriers_Removes_All_Additional_Barriers_When_Called() {
         val mockBarrier1 = barrierFactory(
             barrier("mockBarrier1", Observables.just(BarrierState.Open)),
-            defaultScopes = setOf(BarrierScope.All)
+            defaultScope = BarrierScope.All
         )
         val mockBarrier2 = barrierFactory(
             barrier("mockBarrier2", Observables.just(BarrierState.Open)),
-            defaultScopes = setOf(BarrierScope.Dispatcher("test"))
+            defaultScope = BarrierScope.Dispatchers("test")
         )
 
         registry.addDefaultBarrier(mockBarrier1)

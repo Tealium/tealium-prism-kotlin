@@ -16,13 +16,13 @@ interface BarrierFactory {
     val id: String
 
     /**
-     * An optional set of default [BarrierScope]s to use in the event that these are not configured
+     * An optional default [BarrierScope] to use in the event that these are not configured
      * in any settings sources.
      *
      * In the case that no settings are found, and no default is available, then [BarrierScope.All]
-     * will be used. Therefore applying badly configured [Barrier] implementations to all [Dispatcher]s
+     * will be used. Therefore, applying badly configured [Barrier] implementations to all [Dispatcher]s
      */
-    fun defaultScopes(): Set<BarrierScope> = setOf(BarrierScope.All)
+    fun defaultScope(): BarrierScope = BarrierScope.All
 
     /**
      * Creates a [ConfigurableBarrier] instance using the given [context] and [configuration].
