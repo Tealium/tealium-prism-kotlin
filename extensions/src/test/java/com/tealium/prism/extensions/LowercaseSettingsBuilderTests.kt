@@ -16,7 +16,7 @@ class LowercaseSettingsBuilderTests {
 
     @Test
     fun build_NoPolicySet_ReturnsNullConfig() {
-        val settings = LowercaseSettingsBuilder("test_id").build()
+        val settings = LowercaseSettingsBuilder("test_id")
         val config = LowercaseConfiguration.Converter.convert(settings.configuration.asDataItem())
 
         assertNull(config)
@@ -26,7 +26,6 @@ class LowercaseSettingsBuilderTests {
     fun build_lowercaseAllVariables_ReturnsAllVariablesPolicy() {
         val settings = LowercaseSettingsBuilder("test_id")
             .lowercaseAllVariables()
-            .build()
         val config = LowercaseConfiguration.Converter.convert(settings.configuration.asDataItem())
 
         assertTrue(config?.policy is LowercasePolicy.AllVariables)
@@ -37,7 +36,6 @@ class LowercaseSettingsBuilderTests {
         val ref = ReferenceContainer.key("my_key")
         val settings = LowercaseSettingsBuilder("test_id")
             .lowercaseVariables(listOf(ref))
-            .build()
         val config = LowercaseConfiguration.Converter.convert(settings.configuration.asDataItem())
 
         assertTrue(config?.policy is LowercasePolicy.Variables)
@@ -52,7 +50,6 @@ class LowercaseSettingsBuilderTests {
         val ref2 = ReferenceContainer.key("key2")
         val settings = LowercaseSettingsBuilder("test_id")
             .lowercaseVariables(listOf(ref1, ref2))
-            .build()
         val config = LowercaseConfiguration.Converter.convert(settings.configuration.asDataItem())
 
         assertTrue(config?.policy is LowercasePolicy.Variables)
@@ -66,7 +63,6 @@ class LowercaseSettingsBuilderTests {
     fun build_LowercaseEmptyVariablesList_CreatesEmptyInputsPolicy() {
         val settings = LowercaseSettingsBuilder("test_id")
             .lowercaseVariables(emptyList())
-            .build()
         val config = LowercaseConfiguration.Converter.convert(settings.configuration.asDataItem())
 
         assertTrue(config?.policy is LowercasePolicy.Variables)
@@ -78,7 +74,6 @@ class LowercaseSettingsBuilderTests {
     fun build_SetsTransformationId() {
         val settings = LowercaseSettingsBuilder("my_transformation_id")
             .lowercaseAllVariables()
-            .build()
         assertEquals("my_transformation_id", settings.id)
     }
 
@@ -88,7 +83,6 @@ class LowercaseSettingsBuilderTests {
         val settings = LowercaseSettingsBuilder("test_id")
             .lowercaseVariables(listOf(ref))
             .lowercaseAllVariables()
-            .build()
         val config = LowercaseConfiguration.Converter.convert(settings.configuration.asDataItem())
 
         assertTrue(config?.policy is LowercasePolicy.AllVariables)
@@ -100,7 +94,6 @@ class LowercaseSettingsBuilderTests {
         val settings = LowercaseSettingsBuilder("test_id")
             .lowercaseAllVariables()
             .lowercaseVariables(listOf(ref))
-            .build()
         val config = LowercaseConfiguration.Converter.convert(settings.configuration.asDataItem())
 
         assertTrue(config?.policy is LowercasePolicy.Variables)

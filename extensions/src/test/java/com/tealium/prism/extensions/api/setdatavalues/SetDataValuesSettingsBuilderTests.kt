@@ -9,10 +9,15 @@ import com.tealium.prism.core.api.data.ValueSource
 import com.tealium.prism.core.api.rules.Condition
 import com.tealium.prism.core.api.rules.Rule
 import com.tealium.prism.core.api.transform.TransformationScope
+import com.tealium.prism.extensions.conditions
+import com.tealium.prism.extensions.configuration
+import com.tealium.prism.extensions.id
 import com.tealium.prism.extensions.internal.SET_DATA_VALUES
 import com.tealium.prism.extensions.internal.setdatavalues.SetDataValuesConfiguration.Converter
 import com.tealium.prism.extensions.internal.setdatavalues.SetDataValuesOperation
+import com.tealium.prism.extensions.scope
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -28,49 +33,42 @@ class SetDataValuesSettingsBuilderTests {
 
     @Test
     fun constructor_SetsCorrectTransformationId() {
-        val builder = SetDataValuesSettingsBuilder(transformationId)
-
-        val settings = builder.build()
+        val settings = SetDataValuesSettingsBuilder(transformationId)
 
         assertEquals(transformationId, settings.id)
         assertEquals(SET_DATA_VALUES, settings.transformerId)
     }
 
     @Test
-    fun addScope_SingleScope_AddsToScopes() {
-        val builder = SetDataValuesSettingsBuilder(transformationId)
+    fun setScope_SingleScope_SetsScope() {
         val scope = TransformationScope.AfterCollectors
+        val settings = SetDataValuesSettingsBuilder(transformationId)
+            .setScope(scope)
 
-        val settings = builder.addScope(scope).build()
-
-        assertTrue(settings.scope.contains(scope))
+        assertEquals(scope, settings.scope)
     }
 
     @Test
-    fun addScope_MultipleScopes_AddsAllScopes() {
-        val builder = SetDataValuesSettingsBuilder(transformationId)
+    fun setScope_MultipleScopes_SetsLastScope() {
         val scope1 = TransformationScope.AfterCollectors
         val scope2 = TransformationScope.AllDispatchers
 
-        val settings = builder
-            .addScope(scope1)
-            .addScope(scope2)
-            .build()
+        val settings = SetDataValuesSettingsBuilder(transformationId)
+            .setScope(scope1)
+            .setScope(scope2)
 
-        assertTrue(settings.scope.contains(scope1))
-        assertTrue(settings.scope.contains(scope2))
-        assertEquals(2, settings.scope.size)
+        assertEquals(scope2, settings.scope)
+        assertNotEquals(scope1, settings.scope)
     }
 
     @Test
     fun setFrom_ReturnsExpectedParameters() {
-        val builder = SetDataValuesSettingsBuilder(transformationId)
         val input = ReferenceContainer.key("input_key")
         val destination = ReferenceContainer.key("destination_key")
 
-        val settings = builder.setFrom(input, destination).build()
-        val config = settings.configuration
-        val operations = config.operations
+        val settings = SetDataValuesSettingsBuilder(transformationId)
+            .setFrom(input, destination)
+        val operations = settings.configuration.operations
 
         val expectedOperations = listOf(
             SetDataValuesOperation(ValueSource.Reference(input), destination)
@@ -82,13 +80,12 @@ class SetDataValuesSettingsBuilderTests {
 
     @Test
     fun setConstant_ReturnsExpectParameters() {
-        val builder = SetDataValuesSettingsBuilder(transformationId)
         val input = "constant-value".asDataItem()
         val destination = ReferenceContainer.key("destination_key")
 
-        val settings = builder.setConstant(input, destination).build()
-        val config = settings.configuration
-        val operations = config.operations
+        val settings = SetDataValuesSettingsBuilder(transformationId)
+            .setConstant(input, destination)
+        val operations = settings.configuration.operations
 
         val expectedOperations = listOf(
             SetDataValuesOperation(
@@ -103,18 +100,15 @@ class SetDataValuesSettingsBuilderTests {
 
     @Test
     fun setFrom_MultipleOperations_AddsAllOperations() {
-        val builder = SetDataValuesSettingsBuilder(transformationId)
         val input1 = ReferenceContainer.key("input1_key")
         val destination1 = ReferenceContainer.key("destination1_key")
         val input2 = "constant-value".asDataItem()
         val destination2 = ReferenceContainer.key("destination2_key")
 
-        val settings = builder
+        val settings = SetDataValuesSettingsBuilder(transformationId)
             .setFrom(input1, destination1)
             .setConstant(input2, destination2)
-            .build()
-        val config = settings.configuration
-        val operations = config.operations
+        val operations = settings.configuration.operations
 
         val expectedOperations = listOf(
             SetDataValuesOperation(
@@ -133,10 +127,8 @@ class SetDataValuesSettingsBuilderTests {
 
     @Test
     fun build_WithNoOperations_ProducesNoOperationsConfiguration() {
-        val builder = SetDataValuesSettingsBuilder(transformationId)
-        val settings = builder.build()
-        val config = settings.configuration
-        val operations = config.operations
+        val settings = SetDataValuesSettingsBuilder(transformationId)
+        val operations = settings.configuration.operations
 
         assertNull(operations)
     }
@@ -144,22 +136,20 @@ class SetDataValuesSettingsBuilderTests {
     @Test
     fun build_WithAllProperties_CreatesCompleteSettings() {
         val transformationId = "complete-test"
-        val builder = SetDataValuesSettingsBuilder(transformationId)
         val scope = TransformationScope.AfterCollectors
 
         val condition = Rule.just(Condition.isEqual(true, JsonObjectPath["obj"], "true"))
         val input = ReferenceContainer.key("input_key")
         val destination = ReferenceContainer.key("destination_key")
 
-        val settings = builder
-            .addScope(scope)
+        val settings = SetDataValuesSettingsBuilder(transformationId)
+            .setScope(scope)
             .setCondition(condition)
             .setFrom(input, destination)
-            .build()
 
         assertEquals(transformationId, settings.id)
         assertEquals(SET_DATA_VALUES, settings.transformerId)
-        assertTrue(settings.scope.contains(scope))
+        assertEquals(scope, settings.scope)
         assertEquals(condition, settings.conditions)
 
         val config = settings.configuration
@@ -185,10 +175,10 @@ class SetDataValuesSettingsBuilderTests {
     }
 
     @Test
-    fun addScope_ReturnsBuilderInstance_AllowsChaining() {
+    fun setScope_ReturnsBuilderInstance_AllowsChaining() {
         val builder = SetDataValuesSettingsBuilder(transformationId)
         val scope = TransformationScope.AfterCollectors
-        val result = builder.addScope(scope)
+        val result = builder.setScope(scope)
 
         assertSame(builder, result)
     }

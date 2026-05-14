@@ -10,6 +10,7 @@ import com.tealium.prism.core.api.misc.ExpiryPolicy
 import com.tealium.prism.core.api.misc.TimeFrameUtils.seconds
 import com.tealium.prism.extensions.api.persistdatavalue.PersistDataValueSettingsBuilder
 import com.tealium.prism.extensions.api.persistdatavalue.UpdatePolicy
+import com.tealium.prism.extensions.configuration
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -116,7 +117,6 @@ class PersistDataValueConfigurationTests {
             .persistFrom(input, destination)
             .setExpiryPolicy(ExpiryPolicy.SESSION)
             .setUpdatePolicy(UpdatePolicy.ALLOW_UPDATE)
-            .build()
 
         val config =
             PersistDataValueConfiguration.Converter.convert(settings.configuration.asDataItem())
@@ -133,7 +133,6 @@ class PersistDataValueConfigurationTests {
             .persistConstant("constant_value".asDataItem(), destination)
             .setExpiryPolicy(ExpiryPolicy.SESSION)
             .setUpdatePolicy(UpdatePolicy.ALLOW_UPDATE)
-            .build()
 
         val config =
             PersistDataValueConfiguration.Converter.convert(settings.configuration.asDataItem())
@@ -148,7 +147,6 @@ class PersistDataValueConfigurationTests {
         val settings = PersistDataValueSettingsBuilder("test")
             .persistFrom(ReferenceContainer.key("source_key"), destination)
             .setExpiryPolicy(ExpiryPolicy.FOREVER)
-            .build()
 
         val config =
             PersistDataValueConfiguration.Converter.convert(settings.configuration.asDataItem())
@@ -161,7 +159,6 @@ class PersistDataValueConfigurationTests {
         val settings = PersistDataValueSettingsBuilder("test")
             .persistFrom(ReferenceContainer.key("source_key"), destination)
             .setExpiryPolicy(ExpiryPolicy.UNTIL_RESTART)
-            .build()
 
         val config =
             PersistDataValueConfiguration.Converter.convert(settings.configuration.asDataItem())
@@ -175,7 +172,6 @@ class PersistDataValueConfigurationTests {
         val settings = PersistDataValueSettingsBuilder("test")
             .persistFrom(ReferenceContainer.key("source_key"), destination)
             .setExpiryPolicy(duration)
-            .build()
 
         val config =
             PersistDataValueConfiguration.Converter.convert(settings.configuration.asDataItem())
@@ -188,7 +184,6 @@ class PersistDataValueConfigurationTests {
         val settings = PersistDataValueSettingsBuilder("test")
             .persistFrom(ReferenceContainer.key("source_key"), destination)
             .setUpdatePolicy(UpdatePolicy.KEEP_FIRST_VALUE)
-            .build()
 
         val config =
             PersistDataValueConfiguration.Converter.convert(settings.configuration.asDataItem())

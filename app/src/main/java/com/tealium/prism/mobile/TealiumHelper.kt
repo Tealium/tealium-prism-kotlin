@@ -87,20 +87,18 @@ object TealiumHelper {
             }
             .addTransformation(
                 SetDataValuesSettingsBuilder("sdv_1")
-                    .addScope(TransformationScope.AfterCollectors)
+                    .setScope(TransformationScope.AfterCollectors)
                     .setConstant("some_value".asDataItem(), key("some_key"))
                     .setFrom(key("some_key"), key("other_key"))
-                    .build()
             )
             .addTransformation(
                 JavaScriptTransformationSettingsBuilder("js_1")
-                    .addScope(TransformationScope.AfterCollectors)
+                    .setScope(TransformationScope.AfterCollectors)
                     .setJsCode("payload.isVip = true")
-                    .build()
             )
             .addTransformation(
                 LowercaseSettingsBuilder("lowercase-specific")
-                    .addScope(TransformationScope.AllDispatchers)
+                    .setScope(TransformationScope.AllDispatchers)
                     .lowercaseVariables(
                             listOf(
                                 key("event_name"),
@@ -109,31 +107,28 @@ object TealiumHelper {
                                 key("user_id")
                             )
                     )
-                    .build()
             )
 
 //            .addTransformation(
 //                LowercaseSettingsBuilder("lowercase-all-variables")
-//                    .addScope(TransformationScope.AllDispatchers)
+//                    .setScope(TransformationScope.AllDispatchers)
 //                    .lowercaseAllVariables()
 //                    .build()
 //            )
 
 //            .addTransformation(PersistDataValueSettingsBuilder("pdv_1")
-//                .addScope(TransformationScope.AfterCollectors)
+//                .setScope(TransformationScope.AfterCollectors)
 //                .persistConstant("persisted_value", path(JsonPath["persist_object"]["persist_key"]))
 //                .setExpiryPolicy(ExpiryPolicy.FOREVER)
 //                .setUpdatePolicy(UpdatePolicy.ALLOW_UPDATE)
-//                .build()
 //            )
 
             .addTransformation(
                 PersistDataValueSettingsBuilder("pdv_2")
-                .addScope(TransformationScope.AfterCollectors)
+                .setScope(TransformationScope.AfterCollectors)
                 .persistFrom(key("persisted_value"), key("first_persisted_value"))
                 .setExpiryPolicy(ExpiryPolicy.duration(10.minutes))
                 .setUpdatePolicy(UpdatePolicy.KEEP_FIRST_VALUE)
-                .build()
             )
 
 //            .addBarrier(Barriers.connectivity(),

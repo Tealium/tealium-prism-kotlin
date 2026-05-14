@@ -425,7 +425,7 @@ class TealiumImpl(
                     modules.filterIsInstance<Transformer>()
                 },
                 sdkSettings.mapState { settings ->
-                    settings.transformations.values.toSet()
+                    settings.transformations.values.toList()
                 },
                 schedulers.tealium,
                 logger

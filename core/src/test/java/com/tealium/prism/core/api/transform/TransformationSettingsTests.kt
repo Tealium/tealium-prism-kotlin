@@ -1,24 +1,25 @@
 package com.tealium.prism.core.api.transform
 
 import com.tealium.prism.core.api.data.DataItem
+import com.tealium.prism.core.api.data.DataItemConvertible
+import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.rules.Condition
 import com.tealium.prism.core.api.rules.Rule
-import com.tealium.prism.core.internal.misc.Converters
-import com.tealium.prism.core.internal.misc.Converters.TransformationSettingsConverter.KEY_CONDITIONS
-import com.tealium.prism.core.internal.misc.Converters.TransformationSettingsConverter.KEY_CONFIGURATION
-import com.tealium.prism.core.internal.misc.Converters.TransformationSettingsConverter.KEY_SCOPES
-import com.tealium.prism.core.internal.misc.Converters.TransformationSettingsConverter.KEY_TRANSFORMATION_ID
-import com.tealium.prism.core.internal.misc.Converters.TransformationSettingsConverter.KEY_TRANSFORMER_ID
-import com.tealium.prism.core.internal.rules.conditionConverter
+import com.tealium.prism.core.api.transform.TransformationSettings.Converter.KEY_CONDITIONS
+import com.tealium.prism.core.api.transform.TransformationSettings.Converter.KEY_CONFIGURATION
+import com.tealium.prism.core.api.transform.TransformationSettings.Converter.KEY_ORDER
+import com.tealium.prism.core.api.transform.TransformationSettings.Converter.KEY_SCOPE
+import com.tealium.prism.core.api.transform.TransformationSettings.Converter.KEY_TRANSFORMATION_ID
+import com.tealium.prism.core.api.transform.TransformationSettings.Converter.KEY_TRANSFORMER_ID
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class TransformationSettingsTests {
 
-    val transformationConverter = Converters.TransformationSettingsConverter
+    val transformationConverter = TransformationSettings.Converter
 
     @Test
     fun convert_Returns_Null_When_Not_DataObject() {
@@ -29,9 +30,7 @@ class TransformationSettingsTests {
                     """{
                 "transformer_id": "test",
                 "transformation_id": "test",
-                "scopes": [
-                    "${TransformationScope.AllDispatchers.value}", "some_dispatcher"
-                ]
+                "scope": "${TransformationScope.AllDispatchers.STRING_VALUE}"
             }""".trimMargin()
                 )
             )
@@ -44,7 +43,6 @@ class TransformationSettingsTests {
         val dataObject = createTransformationDataObject(
             transformerId = null,
             transformationId = "transformation",
-            scopes = listOf(TransformationScope.AllDispatchers.value, "some_dispatcher")
         )
         assertNull(transformationConverter.convert(dataObject.asDataItem()))
     }
@@ -54,19 +52,44 @@ class TransformationSettingsTests {
         val dataObject = createTransformationDataObject(
             transformerId = "transformer",
             transformationId = null,
-            scopes = listOf(TransformationScope.AllDispatchers.value, "some_dispatcher")
         )
         assertNull(transformationConverter.convert(dataObject.asDataItem()))
     }
 
     @Test
-    fun convert_Returns_Null_When_Missing_Scopes() {
+    fun convert_Returns_Null_When_Missing_Scope() {
         val dataObject = createTransformationDataObject(
             transformerId = "transformer",
             transformationId = "transformation",
-            scopes = null
+            scope = null
         )
         assertNull(transformationConverter.convert(dataObject.asDataItem()))
+    }
+
+    @Test
+    fun convert_Returns_Null_When_Invalid_Scope_Name() {
+        val dataObject =
+            createTransformationDataObject(
+                transformerId = "transformer",
+                transformationId = "transformation",
+                scope = "unsupported".asDataItem() // can only be "alldispatchers" or "aftercollectors"
+            )
+
+        val transformationSettings = transformationConverter.convert(dataObject.asDataItem())
+        assertNull(transformationSettings)
+    }
+
+    @Test
+    fun convert_Returns_Null_When_Invalid_Scope_Type() {
+        val dataObject =
+            createTransformationDataObject(
+                transformerId = "transformer",
+                transformationId = "transformation",
+                scope = 1.asDataItem() // can only be string or list
+            )
+
+        val transformationSettings = transformationConverter.convert(dataObject.asDataItem())
+        assertNull(transformationSettings)
     }
 
     @Test
@@ -74,7 +97,6 @@ class TransformationSettingsTests {
         val dataObject = createTransformationDataObject(
             transformerId = "transformer",
             transformationId = "transformation",
-            scopes = listOf("some_dispatcher")
         )
         assertEquals(
             DataObject.EMPTY_OBJECT,
@@ -87,27 +109,8 @@ class TransformationSettingsTests {
         val dataObject = createTransformationDataObject(
             transformerId = "transformer",
             transformationId = "transformation",
-            scopes = listOf("some_dispatcher")
         )
         assertNull(transformationConverter.convert(dataObject.asDataItem())!!.conditions)
-    }
-
-    @Test
-    fun convert_Ignores_Scopes_That_Arent_Strings() {
-        val dataObject =
-            createTransformationDataObject(
-                transformerId = "transformer",
-                transformationId = "transformation",
-                scopes = listOf(TransformationScope.AllDispatchers.value, 1, "some_dispatcher")
-            )
-
-        val transformationSettings = transformationConverter.convert(dataObject.asDataItem())!!
-        assertEquals(2, transformationSettings.scope.size)
-        assertEquals(TransformationScope.AllDispatchers, transformationSettings.scope.elementAt(0))
-        assertEquals(
-            TransformationScope.Dispatcher("some_dispatcher"),
-            transformationSettings.scope.elementAt(1)
-        )
     }
 
     @Test
@@ -116,11 +119,7 @@ class TransformationSettingsTests {
         val dataObject = createTransformationDataObject(
             transformerId = "transformer",
             transformationId = "transformation",
-            scopes = listOf(
-                TransformationScope.AllDispatchers,
-                TransformationScope.AfterCollectors,
-                "some_dispatcher"
-            ),
+            scope = TransformationScope.AllDispatchers,
             configuration = DataObject.create { put("key", "value") },
             conditions = conditions
         )
@@ -128,86 +127,78 @@ class TransformationSettingsTests {
         val transformationSettings = transformationConverter.convert(dataObject.asDataItem())!!
         assertEquals("transformation", transformationSettings.id)
         assertEquals("transformer", transformationSettings.transformerId)
-        assertEquals(3, transformationSettings.scope.size)
-        assertEquals(TransformationScope.AllDispatchers, transformationSettings.scope.elementAt(0))
-        assertEquals(TransformationScope.AfterCollectors, transformationSettings.scope.elementAt(1))
-        assertEquals(
-            TransformationScope.Dispatcher("some_dispatcher"),
-            transformationSettings.scope.elementAt(2)
-        )
+        assertEquals(TransformationScope.AllDispatchers, transformationSettings.scope)
         assertEquals("value", transformationSettings.configuration.getString("key"))
         assertEquals(conditions, transformationSettings.conditions)
     }
 
     @Test
-    fun asDataItem_Returns_All_Fields_As_DataObject() {
-        val conditions = Rule.just(Condition.isDefined("key"))
-        val transformationSettings =
-            TransformationSettings(
-                "transformation",
-                "transformer",
-                setOf(
-                    TransformationScope.AllDispatchers,
-                    TransformationScope.AfterCollectors,
-                    TransformationScope.Dispatcher("dispatcher1")
-                ),
-                DataObject.create { put("key", "value") },
-                conditions
-            )
+    fun convert_Converts_AllDispatchers_Scope() {
+        val dataObject = createTransformationDataObject(
+            transformerId = "transformer",
+            transformationId = "transformation",
+            scope = TransformationScope.AllDispatchers,
+        )
 
-        val dataItem = transformationSettings.asDataItem()
-        val dataObject = dataItem.getDataObject()!!
-
-        assertEquals("transformation", dataObject.getString(KEY_TRANSFORMATION_ID))
-        assertEquals("transformer", dataObject.getString(KEY_TRANSFORMER_ID))
-        assertEquals(
-            TransformationScope.AllDispatchers.value,
-            dataObject.getDataList(KEY_SCOPES)!!.getString(0)
-        )
-        assertEquals(
-            TransformationScope.AfterCollectors.value,
-            dataObject.getDataList(KEY_SCOPES)!!.getString(1)
-        )
-        assertEquals(
-            TransformationScope.Dispatcher("dispatcher1").value,
-            dataObject.getDataList(KEY_SCOPES)!!.getString(2)
-        )
-        assertEquals(
-            "value",
-            dataObject.getDataObject(KEY_CONFIGURATION)!!.getString("key")
-        )
-        assertEquals(
-            conditions,
-            dataObject.get(KEY_CONDITIONS, conditionConverter)
-        )
+        val transformationSettings = transformationConverter.convert(dataObject.asDataItem())!!
+        assertEquals(TransformationScope.AllDispatchers, transformationSettings.scope)
     }
 
     @Test
-    fun dataItemConvertible_Converted_Returns_Equal_Object() {
-        val transformationSettings =
-            TransformationSettings(
-                "transformation",
-                "transformer",
-                setOf(
-                    TransformationScope.AllDispatchers,
-                    TransformationScope.AfterCollectors,
-                    TransformationScope.Dispatcher("dispatcher1")
-                ),
-                DataObject.create { put("key", "value") }
-            )
+    fun convert_Converts_AfterCollectors_Scope() {
+        val dataObject = createTransformationDataObject(
+            transformerId = "transformer",
+            transformationId = "transformation",
+            scope = TransformationScope.AfterCollectors,
+        )
 
-        val converted = transformationConverter.convert(transformationSettings.asDataItem())
-
-        assertEquals(transformationSettings, converted)
+        val transformationSettings = transformationConverter.convert(dataObject.asDataItem())!!
+        assertEquals(TransformationScope.AfterCollectors, transformationSettings.scope)
     }
 
+    @Test
+    fun convert_Converts_Dispatchers_Scope() {
+        val scope = TransformationScope.Dispatchers("d1", "d2")
+        val dataObject = createTransformationDataObject(
+            transformerId = "transformer",
+            transformationId = "transformation",
+            scope = scope,
+        )
+
+        val transformationSettings = transformationConverter.convert(dataObject.asDataItem())!!
+        assertEquals(scope, transformationSettings.scope)
+    }
+
+    @Test
+    fun convert_Sets_Default_Order_To_MaxValue_When_Omitted() {
+        val dataObject = createTransformationDataObject(
+            transformerId = "transformer",
+            transformationId = "transformation",
+        )
+
+        val transformationSettings = transformationConverter.convert(dataObject.asDataItem())!!
+        assertEquals(Int.MAX_VALUE, transformationSettings.order)
+    }
+
+    @Test
+    fun convert_Sets_Order_When_Provided() {
+        val dataObject = createTransformationDataObject(
+            transformerId = "transformer",
+            transformationId = "transformation",
+            order = 5,
+        )
+
+        val transformationSettings = transformationConverter.convert(dataObject.asDataItem())!!
+        assertEquals(5, transformationSettings.order)
+    }
 
     private fun createTransformationDataObject(
         transformerId: String?,
         transformationId: String?,
-        scopes: List<Any>?,
+        scope: DataItemConvertible? = TransformationScope.AllDispatchers,
         configuration: DataObject? = null,
-        conditions: Rule<Condition>? = null
+        conditions: Rule<Condition>? = null,
+        order: Int? = null
     ): DataObject {
         return DataObject.create {
             transformerId?.let {
@@ -216,14 +207,17 @@ class TransformationSettingsTests {
             transformationId?.let {
                 put(KEY_TRANSFORMATION_ID, it)
             }
-            scopes?.let {
-                put(KEY_SCOPES, DataItem.convert(scopes))
+            scope?.let {
+                put(KEY_SCOPE, scope)
             }
             configuration?.let {
                 put(KEY_CONFIGURATION, it)
             }
             conditions?.let {
                 put(KEY_CONDITIONS, it)
+            }
+            order?.let {
+                put(KEY_ORDER, it)
             }
         }
     }

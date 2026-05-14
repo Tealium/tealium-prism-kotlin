@@ -15,6 +15,7 @@ import com.tealium.prism.core.api.rules.Rule
 import com.tealium.prism.core.api.settings.ConsentConfigurationBuilder
 import com.tealium.prism.core.api.settings.CoreSettingsBuilder
 import com.tealium.prism.core.api.transform.TransformationSettings
+import com.tealium.prism.core.api.transform.TransformationSettingsBuilder
 import com.tealium.prism.core.api.transform.Transformer
 import com.tealium.prism.core.internal.logger.LoggerImpl
 import com.tealium.prism.core.internal.rules.LoadRule
@@ -225,14 +226,16 @@ class TealiumConfig private constructor(
          * The transformation Id and transformer Id will be combined and need to be unique or the newer
          * transformation will replace older ones.
          *
-         * @param transformation The [TransformationSettings] that defines which [Transformer] should
-         * handle this transformation and how.
+         * @param transformation
+         *  The [TransformationSettingsBuilder] that defines which [Transformer] should
+         *  handle this transformation and how.
          */
-        fun addTransformation(transformation: TransformationSettings) = apply {
-            transformations.put(
-                "${transformation.transformerId}-${transformation.id}",
-                transformation
-            )
+        fun addTransformation(transformation: TransformationSettingsBuilder<*>) = apply {
+            val transformerId = transformation.transformerId
+            val transformationId = transformation.transformationId
+            val transformationSettings = transformation.build()
+
+            transformations.put("${transformerId}-${transformationId}", transformationSettings)
         }
 
         private fun enforcedSdkSettings(deduplicatedModules: List<ModuleFactory>): DataObject =

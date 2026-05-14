@@ -6,8 +6,10 @@ import com.tealium.prism.core.api.data.ReferenceContainer
 import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.transform.DispatchScope
+import com.tealium.prism.core.api.transform.TransformationScope
 import com.tealium.prism.extensions.BuildConfig
 import com.tealium.prism.extensions.api.setdatavalues.SetDataValuesSettingsBuilder
+import com.tealium.prism.extensions.buildTransformationSettings
 import com.tealium.prism.extensions.internal.SET_DATA_VALUES
 import io.mockk.MockKAnnotations
 import io.mockk.impl.annotations.MockK
@@ -61,7 +63,8 @@ class SetDataValuesTransformerTests {
             put("key", "value")
         })
         val settings = SetDataValuesSettingsBuilder("test")
-            .build()
+            .setScope(TransformationScope.AfterCollectors)
+            .buildTransformationSettings()
 
         val completion = mockk<(Dispatch?) -> Unit>(relaxed = true)
 
@@ -84,7 +87,8 @@ class SetDataValuesTransformerTests {
 
         val settings = SetDataValuesSettingsBuilder("test")
             .setFrom(ReferenceContainer.key("source_key"), ReferenceContainer.key("destination_key"))
-            .build()
+            .setScope(TransformationScope.AfterCollectors)
+            .buildTransformationSettings()
 
         transformer.applyTransformation(
             settings,
@@ -105,7 +109,8 @@ class SetDataValuesTransformerTests {
 
         val settings = SetDataValuesSettingsBuilder("test")
             .setConstant("constant_value".asDataItem(), ReferenceContainer.key("destination_key"))
-            .build()
+            .setScope(TransformationScope.AfterCollectors)
+            .buildTransformationSettings()
 
         val completion = mockk<(Dispatch?) -> Unit>(relaxed = true)
 
@@ -134,7 +139,8 @@ class SetDataValuesTransformerTests {
         val settings = SetDataValuesSettingsBuilder("test")
             .setFrom(ReferenceContainer.key("source1"), ReferenceContainer.key("dest1"))
             .setConstant("constant".asDataItem(), ReferenceContainer.key("dest2"))
-            .build()
+            .setScope(TransformationScope.AfterCollectors)
+            .buildTransformationSettings()
 
         val completion = mockk<(Dispatch?) -> Unit>(relaxed = true)
 
@@ -161,7 +167,8 @@ class SetDataValuesTransformerTests {
 
         val settings = SetDataValuesSettingsBuilder("test")
             .setFrom(ReferenceContainer.key("missing_key"), ReferenceContainer.key("destination_key"))
-            .build()
+            .setScope(TransformationScope.AfterCollectors)
+            .buildTransformationSettings()
 
         val completion = mockk<(Dispatch?) -> Unit>(relaxed = true)
 

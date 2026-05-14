@@ -6,8 +6,10 @@ import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.ReferenceContainer
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.transform.DispatchScope
+import com.tealium.prism.core.api.transform.TransformationScope
 import com.tealium.prism.core.api.transform.TransformationSettings
 import com.tealium.prism.extensions.api.lowercase.LowercaseSettingsBuilder
+import com.tealium.prism.extensions.buildTransformationSettings
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -29,7 +31,8 @@ class LowercaseTransformerTests {
         } else if (inputs.isNotEmpty()) {
             settings.lowercaseVariables(inputs)
         }
-        return settings.build()
+        return settings.setScope(TransformationScope.AfterCollectors) // required.
+            .buildTransformationSettings()
     }
 
     @Test

@@ -10,6 +10,7 @@ import com.tealium.prism.core.api.transform.TransformationScope
 import com.tealium.prism.core.api.transform.TransformationSettings
 import com.tealium.prism.extensions.api.persistdatavalue.PersistDataValueSettingsBuilder
 import com.tealium.prism.extensions.api.persistdatavalue.UpdatePolicy
+import com.tealium.prism.extensions.buildTransformationSettings
 import com.tealium.prism.extensions.internal.persistdatavalue.PersistDataValueTransformer
 import io.mockk.MockKAnnotations
 import io.mockk.every
@@ -47,7 +48,7 @@ class PersistDataValueTransformerTests {
         val settings = TransformationSettings(
             "test",
             "1.0",
-            setOf(TransformationScope.AfterCollectors),
+            TransformationScope.AfterCollectors,
             DataObject.EMPTY_OBJECT
         )
 
@@ -75,7 +76,8 @@ class PersistDataValueTransformerTests {
             )
             .setExpiryPolicy(ExpiryPolicy.SESSION)
             .setUpdatePolicy(UpdatePolicy.ALLOW_UPDATE)
-            .build()
+            .setScope(TransformationScope.AfterCollectors)
+            .buildTransformationSettings()
 
         transformer.applyTransformation(settings, dispatch, DispatchScope.AfterCollectors) {}
 
@@ -97,7 +99,8 @@ class PersistDataValueTransformerTests {
             )
             .setExpiryPolicy(ExpiryPolicy.SESSION)
             .setUpdatePolicy(UpdatePolicy.ALLOW_UPDATE)
-            .build()
+            .setScope(TransformationScope.AfterCollectors)
+            .buildTransformationSettings()
 
         transformer.applyTransformation(
             settings,
@@ -121,7 +124,8 @@ class PersistDataValueTransformerTests {
             .persistConstant("constant_value".asDataItem(), ReferenceContainer.key("destination_key"))
             .setExpiryPolicy(ExpiryPolicy.SESSION)
             .setUpdatePolicy(UpdatePolicy.ALLOW_UPDATE)
-            .build()
+            .setScope(TransformationScope.AfterCollectors)
+            .buildTransformationSettings()
 
         transformer.applyTransformation(settings, dispatch, DispatchScope.AfterCollectors) {}
 
@@ -140,7 +144,8 @@ class PersistDataValueTransformerTests {
             .persistConstant("constant_value".asDataItem(), ReferenceContainer.key("destination_key"))
             .setExpiryPolicy(ExpiryPolicy.SESSION)
             .setUpdatePolicy(UpdatePolicy.ALLOW_UPDATE)
-            .build()
+            .setScope(TransformationScope.AfterCollectors)
+            .buildTransformationSettings()
 
         transformer.applyTransformation(
             settings,
@@ -167,7 +172,8 @@ class PersistDataValueTransformerTests {
             )
             .setExpiryPolicy(ExpiryPolicy.SESSION)
             .setUpdatePolicy(UpdatePolicy.ALLOW_UPDATE)
-            .build()
+            .setScope(TransformationScope.AfterCollectors)
+            .buildTransformationSettings()
 
         transformer.applyTransformation(
             settings,
@@ -198,7 +204,8 @@ class PersistDataValueTransformerTests {
             )
             .setExpiryPolicy(ExpiryPolicy.SESSION)
             .setUpdatePolicy(UpdatePolicy.KEEP_FIRST_VALUE)
-            .build()
+            .setScope(TransformationScope.AfterCollectors)
+            .buildTransformationSettings()
 
         transformer.applyTransformation(
             settings,
@@ -228,7 +235,8 @@ class PersistDataValueTransformerTests {
             )
             .setExpiryPolicy(ExpiryPolicy.SESSION)
             .setUpdatePolicy(UpdatePolicy.KEEP_FIRST_VALUE)
-            .build()
+            .setScope(TransformationScope.AfterCollectors)
+            .buildTransformationSettings()
 
         transformer.applyTransformation(
             settings,
@@ -257,7 +265,8 @@ class PersistDataValueTransformerTests {
             )
             .setExpiryPolicy(ExpiryPolicy.SESSION)
             .setUpdatePolicy(UpdatePolicy.ALLOW_UPDATE)
-            .build()
+            .setScope(TransformationScope.AfterCollectors)
+            .buildTransformationSettings()
 
         transformer.applyTransformation(
             settings,
@@ -286,7 +295,8 @@ class PersistDataValueTransformerTests {
             )
             .setExpiryPolicy(ExpiryPolicy.SESSION)
             .setUpdatePolicy(UpdatePolicy.ALLOW_UPDATE)
-            .build()
+            .setScope(TransformationScope.AfterCollectors)
+            .buildTransformationSettings()
 
         transformer.applyTransformation(
             settings,

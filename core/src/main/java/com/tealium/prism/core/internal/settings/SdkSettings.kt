@@ -4,7 +4,7 @@ import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.mapValuesNotNull
 import com.tealium.prism.core.api.settings.CoreSettings
 import com.tealium.prism.core.api.transform.TransformationSettings
-import com.tealium.prism.core.internal.misc.Converters
+import com.tealium.prism.core.api.transform.TransformationSettings.Converter
 import com.tealium.prism.core.internal.rules.LoadRule
 import com.tealium.prism.core.internal.settings.consent.ConsentSettings
 
@@ -35,7 +35,7 @@ data class SdkSettings(
             val modules = modulesObject.mapValuesNotNull(ModuleSettings.Converter::convert)
             val loadRules = loadRulesObject.mapValuesNotNull(LoadRule.Converter::convert)
             val transformations =
-                transformationsObject.mapValuesNotNull(Converters.TransformationSettingsConverter::convert)
+                transformationsObject.mapValuesNotNull(Converter::convert)
             val barriers = barriersObject.mapValuesNotNull(BarrierSettings.Converter::convert)
             val consent = dataObject.get(KEY_CONSENT, ConsentSettings.Converter)
 
