@@ -25,5 +25,8 @@ dependencies {
     implementation(project(":core"))
 
     testImplementation(libs.test.junit)
+    testImplementation(libs.test.mockk.jvm)
+    testImplementation(libs.test.robolectric)
+    
     androidTestImplementation(libs.test.androidx.junit)
 }

@@ -29,6 +29,12 @@ class ScriptableDataLayer(
         dataLayer.getAll().asScriptable(ctx, scope)
 
     @JSFunction
+    fun remove(key: String) =
+        dataLayer.edit()
+            .remove(key)
+            .commit()
+
+    @JSFunction
     fun clear() =
         dataLayer.edit()
             .clear()

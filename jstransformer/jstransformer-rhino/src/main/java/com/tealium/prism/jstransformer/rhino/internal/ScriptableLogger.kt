@@ -9,6 +9,10 @@ class ScriptableLogger(
     private val logger: Logger
 ) {
     @JSFunction
+    fun debug(vararg args: Any?) =
+        log(LogLevel.TRACE, *args)
+
+    @JSFunction
     fun log(vararg args: Any?) =
         log(LogLevel.DEBUG, *args)
 

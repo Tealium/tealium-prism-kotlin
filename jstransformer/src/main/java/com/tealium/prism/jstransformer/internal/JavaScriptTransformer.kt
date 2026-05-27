@@ -1,5 +1,6 @@
 package com.tealium.prism.jstransformer.internal
 
+import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.logger.logIfErrorEnabled
 import com.tealium.prism.core.api.pubsub.Disposables
@@ -8,9 +9,11 @@ import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.transform.DispatchScope
 import com.tealium.prism.core.api.transform.TransformationSettings
 import com.tealium.prism.core.api.transform.Transformer
+import com.tealium.prism.core.internal.data.buildPath
 import com.tealium.prism.jstransformer.BuildConfig
 import com.tealium.prism.jstransformer.JavaScriptEngineAdapter
 import com.tealium.prism.jstransformer.JavaScriptTransformerFactory
+import org.json.JSONObject
 
 class JavaScriptTransformer(
     private val adapter: JavaScriptEngineAdapter,
@@ -35,34 +38,36 @@ class JavaScriptTransformer(
             return
         }
 
+        val escapedScope = JSONObject.quote(scope.toString())
+
         val js = """
             let track = ${createTrackFunction(dispatch)};
-            ((payload, scope) => { 
+            ((payload, scope) => {
                 let drop = () => { payload = undefined };
-                
+
                 (() => {
                     $userJsCode
                 })()
-              
+
                return JSON.stringify(payload);
-            })(${dispatch.payload()}, "$scope")
+            })(${dispatch.payload()}, $escapedScope)
         """.trimIndent()
 
         adapter.evaluateJavaScript(js)
             .subscribe { result ->
-                try {
-                    val newPayload = result.getOrThrow()
-                        .getDataObject()
+                result.onSuccess { payload ->
+                    val newPayload = payload.getDataObject()
                     if (newPayload == null) {
                         completion.invoke(null)
                         return@subscribe
                     }
 
                     dispatch.replace(newPayload)
-                } catch (e: Exception) {
+                }.onFailure { e ->
                     logger.logIfErrorEnabled(id) {
                         "Exception whilst running transformation: ${transformation.transformerId}; ${e.message}"
                     }
+                    dispatch.addAll(DataObject.create { put("js_error", e.message.toString()) })
                 }
 
                 completion.invoke(dispatch)

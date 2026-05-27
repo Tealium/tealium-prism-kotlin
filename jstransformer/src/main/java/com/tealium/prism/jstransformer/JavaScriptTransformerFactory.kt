@@ -8,9 +8,21 @@ import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.settings.modules.ModuleSettingsBuilder
 import com.tealium.prism.jstransformer.internal.JavaScriptTransformer
 
+/**
+ * Module type identifier for the JavaScript Transformer module.
+ */
 val Modules.Types.JS_TRANSFORMER
     get() = JavaScriptTransformerFactory.MODULE_TYPE
 
+/**
+ * Factory responsible for creating and configuring the [JavaScriptTransformer] module.
+ *
+ * Subclasses must provide an [adapterProvider] that supplies a [JavaScriptEngineAdapter]
+ * for the given [TealiumContext]. If the adapter fails to initialize, the factory logs a
+ * warning and returns null, preventing the module from being registered.
+ *
+ * This factory is always enforced and cannot be disabled.
+ */
 abstract class JavaScriptTransformerFactory(
     private val adapterProvider: (TealiumContext) -> JavaScriptEngineAdapter
 ) : ModuleFactory {
