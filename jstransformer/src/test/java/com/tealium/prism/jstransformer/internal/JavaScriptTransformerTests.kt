@@ -7,10 +7,12 @@ import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.transform.DispatchScope
+import com.tealium.prism.core.api.transform.TransformationScope
 import com.tealium.prism.core.api.transform.TransformationSettings
 import com.tealium.prism.jstransformer.JavaScriptEngineAdapter
 import com.tealium.prism.jstransformer.JavaScriptTransformationSettingsBuilder
 import com.tealium.prism.jstransformer.JavaScriptTransformerFactory
+import com.tealium.tests.common.buildTransformationSettings
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
@@ -45,16 +47,19 @@ class JavaScriptTransformerTests {
         transformer = JavaScriptTransformer(mockAdapter, mockLogger)
     }
 
-    private fun settingsWithCode(jsCode: String): TransformationSettings {
-        return JavaScriptTransformationSettingsBuilder(
-            transformationId = "test_transformation"
-        ).setJsCode(jsCode).build()
-    }
+    private fun settingsWithCode(jsCode: String): TransformationSettings =
+        buildTransformationsSettings(jsCode)
 
-    private fun settingsWithNoCode(): TransformationSettings {
-        return JavaScriptTransformationSettingsBuilder(
+    private fun settingsWithNoCode(): TransformationSettings =
+        buildTransformationsSettings(null)
+
+    private fun buildTransformationsSettings(jsCode: String?): TransformationSettings {
+        val builder = JavaScriptTransformationSettingsBuilder(
             transformationId = "test_transformation"
-        ).build()
+        ).setScope(TransformationScope.AfterCollectors) // scope is required
+        jsCode?.let { code -> builder.setJsCode(code) }
+
+        return builder.buildTransformationSettings()
     }
 
     @Test

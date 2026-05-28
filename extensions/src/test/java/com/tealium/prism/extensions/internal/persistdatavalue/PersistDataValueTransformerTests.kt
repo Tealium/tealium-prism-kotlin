@@ -10,7 +10,7 @@ import com.tealium.prism.core.api.transform.TransformationScope
 import com.tealium.prism.core.api.transform.TransformationSettings
 import com.tealium.prism.extensions.api.persistdatavalue.PersistDataValueSettingsBuilder
 import com.tealium.prism.extensions.api.persistdatavalue.UpdatePolicy
-import com.tealium.prism.extensions.buildTransformationSettings
+import com.tealium.tests.common.buildTransformationSettings
 import com.tealium.prism.extensions.internal.persistdatavalue.PersistDataValueTransformer
 import io.mockk.MockKAnnotations
 import io.mockk.every

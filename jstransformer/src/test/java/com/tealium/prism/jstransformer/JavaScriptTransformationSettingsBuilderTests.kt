@@ -1,6 +1,8 @@
 package com.tealium.prism.jstransformer
 
 import com.tealium.prism.jstransformer.internal.JavaScriptTransformer
+import com.tealium.tests.common.configuration
+import com.tealium.tests.common.id
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -12,21 +14,21 @@ class JavaScriptTransformationSettingsBuilderTests {
 
     @Test
     fun build_SetsTransformationId_FromConstructorArgument() {
-        val result = JavaScriptTransformationSettingsBuilder("my_transformation").build()
+        val result = JavaScriptTransformationSettingsBuilder("my_transformation")
 
         assertEquals("my_transformation", result.id)
     }
 
     @Test
     fun build_SetsTransformerId_ToJsTransformerModuleType() {
-        val result = JavaScriptTransformationSettingsBuilder("test").build()
+        val result = JavaScriptTransformationSettingsBuilder("test")
 
         assertEquals(JavaScriptTransformerFactory.MODULE_TYPE, result.transformerId)
     }
 
     @Test
     fun build_Configuration_HasNoJsCode_WhenSetJsCodeNotCalled() {
-        val result = JavaScriptTransformationSettingsBuilder("test").build()
+        val result = JavaScriptTransformationSettingsBuilder("test")
 
         assertNull(result.configuration.getString(JavaScriptTransformer.Keys.JS_CODE))
     }
@@ -36,7 +38,6 @@ class JavaScriptTransformationSettingsBuilderTests {
         val jsCode = "payload.custom = 'value';"
         val result = JavaScriptTransformationSettingsBuilder("test")
             .setJsCode(jsCode)
-            .build()
 
         assertEquals(jsCode, result.configuration.getString(JavaScriptTransformer.Keys.JS_CODE))
     }
@@ -46,7 +47,6 @@ class JavaScriptTransformationSettingsBuilderTests {
         val result = JavaScriptTransformationSettingsBuilder("test")
             .setJsCode("first_code();")
             .setJsCode("second_code();")
-            .build()
 
         assertEquals("second_code();", result.configuration.getString(JavaScriptTransformer.Keys.JS_CODE))
     }
@@ -62,7 +62,6 @@ class JavaScriptTransformationSettingsBuilderTests {
 
         val result = JavaScriptTransformationSettingsBuilder("test")
             .setJsCode(jsCode)
-            .build()
 
         assertEquals(jsCode, result.configuration.getString(JavaScriptTransformer.Keys.JS_CODE))
     }

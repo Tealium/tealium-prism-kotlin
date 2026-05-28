@@ -5,6 +5,7 @@ plugins {
 version = "0.1.0"
 
 tealiumLibrary {
+    groupId = "com.tealium.prism"
     artifactId = "prism-extensions"
 }
 

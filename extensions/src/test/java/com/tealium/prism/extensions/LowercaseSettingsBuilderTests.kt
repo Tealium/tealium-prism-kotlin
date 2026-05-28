@@ -4,6 +4,8 @@ import com.tealium.prism.core.api.data.ReferenceContainer
 import com.tealium.prism.extensions.internal.lowercase.LowercasePolicy
 import com.tealium.prism.extensions.api.lowercase.LowercaseSettingsBuilder
 import com.tealium.prism.extensions.internal.lowercase.LowercaseConfiguration
+import com.tealium.tests.common.configuration
+import com.tealium.tests.common.id
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue

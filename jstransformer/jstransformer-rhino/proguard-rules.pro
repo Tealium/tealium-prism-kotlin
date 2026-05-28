@@ -19,3 +19,18 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+-keepparameternames
+-keeppackagenames
+-renamesourcefileattribute SourceFile
+-keepattributes Exceptions, InnerClasses, Signature, Deprecated, SourceFile, LineNumberTable,
+*Annotation*, EnclosingMethod
+
+# If you keep the line number information, uncomment this to
+# hide the original source file name.
+#-renamesourcefileattribute SourceFile
+-keep class kotlin.Metadata { *; }
+
+-keep public interface com.tealium.prism.jstransformer.rhino.* { *; }
+-keep public class com.tealium.prism.jstransformer.rhino.* { *; }
+
+-keep public class com.tealium.prism.**$DefaultImpls { *; }

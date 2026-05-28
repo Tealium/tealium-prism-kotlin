@@ -10,7 +10,7 @@ import com.tealium.prism.core.api.misc.ExpiryPolicy
 import com.tealium.prism.core.api.misc.TimeFrameUtils.seconds
 import com.tealium.prism.extensions.api.persistdatavalue.PersistDataValueSettingsBuilder
 import com.tealium.prism.extensions.api.persistdatavalue.UpdatePolicy
-import com.tealium.prism.extensions.configuration
+import com.tealium.tests.common.configuration
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

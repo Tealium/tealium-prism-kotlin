@@ -2,7 +2,10 @@ plugins {
     alias(libs.plugins.tealium.library)
 }
 
+version = "0.1.0"
+
 tealiumLibrary {
+    groupId = "com.tealium.prism"
     artifactId = "prism-js-transformer"
 }
 
@@ -24,6 +27,7 @@ android {
 dependencies {
     implementation(project(":core"))
 
+    testImplementation(project(":tests-common"))
     testImplementation(libs.test.junit)
     testImplementation(libs.test.mockk.jvm)
     testImplementation(libs.test.robolectric)

@@ -4,7 +4,7 @@ import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.ReferenceContainer
 import com.tealium.prism.core.api.data.ValueSource
 import com.tealium.prism.core.api.misc.ExpiryPolicy
-import com.tealium.prism.extensions.configuration
+import com.tealium.tests.common.configuration
 import com.tealium.prism.extensions.internal.persistdatavalue.PersistDataValueConfiguration
 import org.junit.Assert.*
 import org.junit.Test

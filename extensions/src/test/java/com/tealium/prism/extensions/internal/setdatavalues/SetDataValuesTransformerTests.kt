@@ -9,7 +9,7 @@ import com.tealium.prism.core.api.transform.DispatchScope
 import com.tealium.prism.core.api.transform.TransformationScope
 import com.tealium.prism.extensions.BuildConfig
 import com.tealium.prism.extensions.api.setdatavalues.SetDataValuesSettingsBuilder
-import com.tealium.prism.extensions.buildTransformationSettings
+import com.tealium.tests.common.buildTransformationSettings
 import com.tealium.prism.extensions.internal.SET_DATA_VALUES
 import io.mockk.MockKAnnotations
 import io.mockk.impl.annotations.MockK

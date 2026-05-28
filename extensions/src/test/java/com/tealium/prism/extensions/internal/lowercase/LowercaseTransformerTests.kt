@@ -9,7 +9,7 @@ import com.tealium.prism.core.api.transform.DispatchScope
 import com.tealium.prism.core.api.transform.TransformationScope
 import com.tealium.prism.core.api.transform.TransformationSettings
 import com.tealium.prism.extensions.api.lowercase.LowercaseSettingsBuilder
-import com.tealium.prism.extensions.buildTransformationSettings
+import com.tealium.tests.common.buildTransformationSettings
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
