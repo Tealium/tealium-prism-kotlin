@@ -28,19 +28,25 @@ object ObservableUtils {
 
     private fun <T> getObserver(
         onNextHandler: ((T) -> Unit)? = null,
+        onCompleteHandler: (() -> Unit)? = null,
     ): Observer<T> {
         return object : Observer<T> {
             private var disposable: Disposable? = null
             override fun onNext(value: T) {
                 onNextHandler?.invoke(value)
             }
+
+            override fun onComplete() {
+                onCompleteHandler?.invoke()
+            }
         }
     }
 
     fun <T> getMockObserver(
+        onCompleteHandler: (() -> Unit)? = null,
         onNextHandler: ((T) -> Unit)? = null,
     ): Observer<T> {
-        return spyk(getObserver(onNextHandler))
+        return spyk(getObserver(onNextHandler, onCompleteHandler))
     }
 
     fun <T> Subject<T>.assertNoSubscribers() {

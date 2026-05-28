@@ -8,6 +8,7 @@ import com.tealium.prism.core.api.data.JsonPath
 import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.misc.ActivityManager
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.misc.TealiumException
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
@@ -18,6 +19,7 @@ import com.tealium.prism.core.api.pubsub.Observer
 import com.tealium.prism.core.api.settings.modules.ModuleSettingsBuilder
 import com.tealium.prism.core.internal.consent.MockCmpAdapter
 import com.tealium.prism.core.internal.misc.ActivityManagerImpl
+import com.tealium.prism.core.internal.misc.SchedulersImpl
 import com.tealium.prism.core.internal.modules.InternalModuleManager
 import com.tealium.prism.core.internal.modules.ModuleManagerImpl
 import com.tealium.prism.core.internal.modules.TealiumDataModule
@@ -31,6 +33,8 @@ import com.tealium.tests.common.TestModuleFactory
 import com.tealium.tests.common.assertThrows
 import com.tealium.tests.common.getDefaultConfig
 import com.tealium.tests.common.getDefaultConfigBuilder
+import com.tealium.tests.common.testMainScheduler
+import com.tealium.tests.common.testNetworkScheduler
 import com.tealium.tests.common.testSchedulers
 import io.mockk.Ordering
 import io.mockk.every
@@ -96,7 +100,10 @@ class TealiumImplTests {
         val config = getDefaultConfigBuilder(app)
             .enableConsentIntegration(MockCmpAdapter(_consentDecision = decision))
             .build()
-        val tealium = TealiumImpl(config, testSchedulers)
+        val tealium = TealiumImpl(
+            config,
+            SchedulersImpl(testMainScheduler, Scheduler.SYNCHRONOUS, testNetworkScheduler)
+        )
 
         assertEquals(1, decision.count)
 

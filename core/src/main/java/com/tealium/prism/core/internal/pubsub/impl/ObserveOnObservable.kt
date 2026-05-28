@@ -1,8 +1,9 @@
 package com.tealium.prism.core.internal.pubsub.impl
 
 import com.tealium.prism.core.api.misc.Scheduler
+import com.tealium.prism.core.api.pubsub.CompositeDisposable
 import com.tealium.prism.core.api.pubsub.Disposable
-import com.tealium.prism.core.internal.pubsub.DisposableContainer
+import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observer
 import com.tealium.prism.core.api.pubsub.addTo
@@ -16,26 +17,34 @@ class ObserveOnObservable<T>(
 ) : Observable<T> {
 
     override fun subscribe(observer: Observer<T>): Disposable {
-        val container = DisposableContainer()
-        val parent = ObserveOnObserver(observer, scheduler, container)
-
-        source.subscribe(parent)
-            .addTo(container)
-
-        return container
+        val observeOnObserver = ObserveOnObserver(observer, scheduler)
+        source.subscribe(observeOnObserver)
+            .addTo(observeOnObserver)
+        return observeOnObserver
     }
 
     class ObserveOnObserver<T>(
         private val observer: Observer<T>,
         private val scheduler: Scheduler,
-        private val disposable: Disposable
-    ) : Observer<T> {
+        disposable: CompositeDisposable = Disposables.composite(scheduler)
+    ) : Observer<T>, CompositeDisposable by disposable {
 
+        private var completed = false
         override fun onNext(value: T) {
             scheduler.execute {
-                if (disposable.isDisposed) return@execute
+                if (completed || isDisposed) return@execute
 
                 observer.onNext(value)
+            }
+        }
+
+        override fun onComplete() {
+            scheduler.execute {
+                if (completed) return@execute
+                completed = true
+
+                observer.onComplete()
+                dispose()
             }
         }
     }

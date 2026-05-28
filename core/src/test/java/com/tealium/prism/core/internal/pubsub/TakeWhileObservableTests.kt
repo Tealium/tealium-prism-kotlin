@@ -1,76 +1,76 @@
 package com.tealium.prism.core.internal.pubsub
 
 import com.tealium.prism.core.api.pubsub.Observables
+import com.tealium.prism.core.api.pubsub.Observer
 import com.tealium.prism.core.internal.pubsub.ObservableUtils.assertNoSubscribers
 import io.mockk.confirmVerified
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import junit.framework.TestCase.assertTrue
+import org.junit.Before
 import org.junit.Test
 
 class TakeWhileObservableTests {
 
-    @Test
-    fun takeWhile_Emits_Only_Configured_Amount() {
-        val onNext = mockk<(Int) -> Unit>(relaxed = true)
+    private lateinit var observer: Observer<Int>
 
-        Observables.just(1, 2, 3, 2)
-            .takeWhile { it <= 2 }
-            .subscribe(onNext)
-
-        verify(exactly = 1) {
-            onNext(1)
-            onNext(2)
-        }
-
-        confirmVerified(onNext)
+    @Before
+    fun setUp() {
+        observer = mockk(relaxed = true)
     }
 
     @Test
-    fun takeWhile_Emits_Final_Emission_When_Inclusive() {
-        val onNext = mockk<(Int) -> Unit>(relaxed = true)
-
+    fun takeWhile_Emits_Only_Configured_Amount_Then_Completes() {
         Observables.just(1, 2, 3, 2)
-            .takeWhile(inclusive = true) { it <= 2 }
-            .subscribe(onNext)
+            .takeWhile { it <= 2 }
+            .subscribe(observer)
 
         verify(exactly = 1) {
-            onNext(1)
-            onNext(2)
-            onNext(3)
+            observer.onNext(1)
+            observer.onNext(2)
+            observer.onComplete()
         }
 
-        confirmVerified(onNext)
+        confirmVerified(observer)
+    }
+
+    @Test
+    fun takeWhile_Emits_Final_Emission_When_Inclusive_Then_Completes() {
+        Observables.just(1, 2, 3, 2)
+            .takeWhile(inclusive = true) { it <= 2 }
+            .subscribe(observer)
+
+        verify(exactly = 1) {
+            observer.onNext(1)
+            observer.onNext(2)
+            observer.onNext(3)
+            observer.onComplete()
+        }
+
+        confirmVerified(observer)
     }
 
     @Test
     fun takeWhile_Auto_Disposes_When_Predicate_Fails() {
         val subject = Observables.publishSubject<Int>()
-        val onNext = mockk<(Int) -> Unit>(relaxed = true)
 
-        subject.takeWhile {
-            it <= 2
-        }.subscribe(onNext)
+        val subscription = subject.takeWhile { it < 2 }
+            .subscribe(observer)
 
         subject.onNext(1)
-        subject.onNext(2)
-        subject.onNext(3) // auto-dispose
+        subject.onNext(2) // auto-dispose
 
+        assertTrue(subscription.isDisposed)
         subject.assertNoSubscribers()
-        verify {
-            onNext(1)
-            onNext(2)
-        }
-        confirmVerified(onNext)
     }
 
     @Test
     fun takeWhile_Dispose_Stops_Emitting() {
         val subject = Observables.publishSubject<Int>()
-        val onNext = mockk<(Int) -> Unit>(relaxed = true)
 
-        val subscription = subject.takeWhile {
-            it <= 2
-        }.subscribe(onNext)
+        val subscription = subject.takeWhile { it <= 2 }
+            .subscribe(observer)
 
         subject.onNext(1)
         subscription.dispose()
@@ -78,8 +78,55 @@ class TakeWhileObservableTests {
 
         subject.assertNoSubscribers()
         verify {
-            onNext(1)
+            observer.onNext(1)
         }
-        confirmVerified(onNext)
+        confirmVerified(observer)
+    }
+
+    @Test
+    fun takeWhile_Stops_Exclusive_Reentrant_Events_And_Completes() {
+        val subject = Observables.publishSubject<Int>()
+        every { observer.onNext(1) } answers {
+            subject.onNext(2) // reentrantly fail predicate
+        }
+        every { observer.onNext(2) } answers {
+            subject.onNext(1) // reentrantly resatisfy predicate
+        }
+
+        subject.takeWhile(false) { it < 2 }
+            .subscribe(observer)
+
+        subject.onNext(1)
+
+        subject.assertNoSubscribers()
+        verify(exactly = 1) {
+            observer.onNext(1)
+            observer.onComplete()
+        }
+        confirmVerified(observer)
+    }
+
+    @Test
+    fun takeWhile_Stops_Inclusive_Reentrant_Events_And_Completes() {
+        val subject = Observables.publishSubject<Int>()
+        every { observer.onNext(1) } answers {
+            subject.onNext(2) // reentrantly fail predicate
+        }
+        every { observer.onNext(2) } answers {
+            subject.onNext(1) // reentrantly resatisfy predicate
+        }
+
+        subject.takeWhile(true) { it < 2 }
+            .subscribe(observer)
+
+        subject.onNext(1)
+
+        subject.assertNoSubscribers()
+        verify(exactly = 1) {
+            observer.onNext(1)
+            observer.onNext(2)
+            observer.onComplete()
+        }
+        confirmVerified(observer)
     }
 }

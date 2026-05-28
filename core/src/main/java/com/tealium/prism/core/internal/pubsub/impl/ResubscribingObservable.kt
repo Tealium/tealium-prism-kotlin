@@ -2,38 +2,64 @@ package com.tealium.prism.core.internal.pubsub.impl
 
 import com.tealium.prism.core.api.pubsub.CompositeDisposable
 import com.tealium.prism.core.api.pubsub.Disposable
+import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observer
-import com.tealium.prism.core.internal.pubsub.DisposableContainer
-import com.tealium.prism.core.api.pubsub.addTo
+import com.tealium.prism.core.api.pubsub.subscribe
 
 class ResubscribingObservable<T>(
     private val source: Observable<T>,
     private val predicate: (T) -> Boolean
-): Observable<T> {
+) : Observable<T> {
 
-    private fun subscribeOnceInfiniteLoop(
-        observer: Observer<T>,
-        disposables: CompositeDisposable
-    ): Disposable {
-        return source.subscribeOnce { element ->
-            if (disposables.isDisposed) return@subscribeOnce
+    override fun subscribe(observer: Observer<T>): Disposable =
+        ResubscribingWhileCoordinator(source, observer, predicate)
 
-            observer.onNext(element)
-            if (predicate(element)) {
-                subscribeOnceInfiniteLoop(
-                    observer,
-                    disposables
-                ).addTo(disposables)
-            }
+    class ResubscribingWhileCoordinator<T>(
+        private val source: Observable<T>,
+        private val downstream: Observer<T>,
+        private val predicate: (T) -> Boolean,
+        private val container: CompositeDisposable = Disposables.composite()
+    ) : Disposable by container {
+
+        init {
+            subscribeOnce()
         }
-    }
 
-    override fun subscribe(observer: Observer<T>): Disposable {
-        val container = DisposableContainer()
-        subscribeOnceInfiniteLoop(observer, container)
-            .addTo(container)
+        private fun subscribeOnce() {
+            // Per-call flag: first() fires onNext+onComplete on match; emitted=false means upstream ended without matching.
+            source.take(1)
+                .subscribe(container, object : Observer<T> {
+                    var emitted = false
+                    override fun onNext(value: T) {
+                        emitted = true
+                        handleElement(value)
+                    }
 
-        return container
+                    override fun onComplete() {
+                        if (!emitted) {
+                            handleUpstreamCompleted()
+                        }
+                    }
+
+                    fun handleElement(element: T) {
+                        if (isDisposed) return
+
+                        downstream.onNext(element)
+                        if (predicate(element)) {
+                            subscribeOnce()
+                        } else {
+                            handleUpstreamCompleted()
+                        }
+                    }
+
+                    private fun handleUpstreamCompleted() {
+                        if (isDisposed) return
+
+                        downstream.onComplete()
+                        dispose()
+                    }
+                })
+        }
     }
 }

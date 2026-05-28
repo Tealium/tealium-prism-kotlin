@@ -1,15 +1,14 @@
 package com.tealium.prism.core.api.pubsub
 
 import com.tealium.prism.core.api.misc.Scheduler
+import com.tealium.prism.core.internal.pubsub.AnonymousObserver
 import com.tealium.prism.core.internal.pubsub.SingleImpl
-import com.tealium.prism.core.internal.pubsub.impl.BufferedObservable
 import com.tealium.prism.core.internal.pubsub.impl.DistinctObservable
 import com.tealium.prism.core.internal.pubsub.impl.FilterObservable
 import com.tealium.prism.core.internal.pubsub.impl.FlatMapLatestObservable
 import com.tealium.prism.core.internal.pubsub.impl.FlatMapObservable
 import com.tealium.prism.core.internal.pubsub.impl.MapNotNullObservable
 import com.tealium.prism.core.internal.pubsub.impl.MapObservable
-import com.tealium.prism.core.internal.pubsub.impl.MulticastObservable
 import com.tealium.prism.core.internal.pubsub.impl.ObserveOnObservable
 import com.tealium.prism.core.internal.pubsub.impl.ResubscribingObservable
 import com.tealium.prism.core.internal.pubsub.impl.StartWithObservable
@@ -46,19 +45,13 @@ interface Observable<T> : Subscribable<T> {
 
     /**
      * Returns an observable that emits only the specified number of events given by the provided [count]
+     *
+     * @param count The number of emissions to emit downstream; must be a positive integer
+     * @throws IllegalArgumentException when [count] is less than or equal to zero
      */
     fun take(count: Int): Observable<T> {
         return TakeObservable(this, count)
     }
-
-    /**
-     * Returns an observable that will buffer emissions until the buffer is full, at which point they
-     * will be emitted downstream.
-     */
-    fun buffered(count: Int): Observable<T> {
-        return BufferedObservable(this, count)
-    }
-
     /**
      * Returns an observable that applies the given [transform] to each emission before passing it
      * downstream.
@@ -177,12 +170,12 @@ interface Observable<T> : Subscribable<T> {
      * the given [block].
      *
      * @param block a block of code, to be executed with the next value from the source, along with
-     * the observer with which to emit downstream.
+     * the consumer with which to emit values downstream.
      */
-    fun <R> async(block: (T, Observer<R>) -> Disposable): Observable<R> {
+    fun <R> async(block: (T, Consumer<R>) -> Disposable): Observable<R> {
         return flatMap { value ->
-            Observables.async { observer ->
-                block(value, observer)
+            Observables.async { onNext ->
+                block(value, onNext)
             }
         }
     }
@@ -192,12 +185,12 @@ interface Observable<T> : Subscribable<T> {
      * the given [block].
      *
      * @param block a block of code, to be executed with the next value from the source, along with
-     * the observer with which to emit downstream.
+     * the consumer with which to emit values downstream.
      */
-    fun <R> callback(block: (T, Observer<R>) -> Unit): Observable<R> {
+    fun <R> callback(block: BiConsumer<T, Consumer<R>>): Observable<R> {
         return flatMap { value ->
-            Observables.callback { observer ->
-                block(value, observer)
+            Observables.callback { onNext ->
+                block.accept(value, onNext)
             }
         }
     }
@@ -222,32 +215,16 @@ interface Observable<T> : Subscribable<T> {
     }
 
     /**
-     * Returns an [Observable] that will share a single connection to the source [Observable] (this).
-     *
-     * This [Observable] will not subscribe to the source until the first observer subscribes, and
-     * no emissions are replayed to late-subscribing observers.
-     */
-    fun share() : Observable<T> {
-        return MulticastObservable(this, Observables.publishSubject())
-    }
-
-    /**
-     * Returns an [Observable] that will share a single connection to the source [Observable] (this).
-     *
-     * This [Observable] will not subscribe to the source until the first observer subscribes.
-     * Emissions are replayed to late-subscribing observers according to the given [replay]
-     *
-     * @param replay The number of emissions to cache and replay to late-subscribing observers
-     */
-    fun share(replay: Int) : Observable<T> {
-        return MulticastObservable(this, Observables.replaySubject(replay))
-    }
-
-    /**
      * Subscribes the given [observer] to a single emission of the source.
      */
     fun subscribeOnce(observer: Observer<T>): Disposable {
         return take(1)
             .subscribe(observer)
     }
+
+    /**
+     * Subscribes the given [onNext] to a single emission of the source.
+     */
+    fun subscribeOnce(onNext: Consumer<T>): Disposable =
+        subscribeOnce(AnonymousObserver(onNext))
 }

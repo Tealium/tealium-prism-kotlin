@@ -16,8 +16,10 @@ import com.tealium.prism.core.api.persistence.DataStore
 import com.tealium.prism.core.api.persistence.Expiry
 import com.tealium.prism.core.api.persistence.ModuleStoreProvider
 import com.tealium.prism.core.api.persistence.PersistenceException
+import com.tealium.prism.core.api.pubsub.Consumer
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observables
+import com.tealium.prism.core.api.pubsub.Observer
 import com.tealium.prism.core.api.pubsub.ReplaySubject
 import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.settings.modules.DeepLinkSettingsBuilder
@@ -414,7 +416,7 @@ class DeepLinkModuleTests {
     fun updateConfiguration_Updates_Configuration_And_Subscription() {
         val disposable = mockk<Disposable>(relaxed = true)
         activities = mockk()
-        every { activities.subscribe(any()) } returns disposable
+        every { activities.subscribe(any<Consumer<ActivityManager.ActivityStatus>>()) } returns disposable
 
         // Start with automatic tracking enabled
         deepLinkModule = DeepLinkModule(
@@ -447,7 +449,7 @@ class DeepLinkModuleTests {
 
         // Should create a new subscription
         verify(exactly = 2) {
-            activities.subscribe(any())
+            activities.subscribe(any<Consumer<ActivityManager.ActivityStatus>>())
         }
     }
 
@@ -455,7 +457,7 @@ class DeepLinkModuleTests {
     fun onShutdown_Disposes_Activity_Subscription() {
         val disposable = mockk<Disposable>(relaxed = true)
         activities = mockk()
-        every { activities.subscribe(any()) } returns disposable
+        every { activities.subscribe(any<Consumer<ActivityManager.ActivityStatus>>()) } returns disposable
 
         deepLinkModule = DeepLinkModule(
             dataStore,
@@ -470,7 +472,7 @@ class DeepLinkModuleTests {
 
         // Should dispose the subscription
         verifyOrder {
-            activities.subscribe(any())
+            activities.subscribe(any<Consumer<ActivityManager.ActivityStatus>>())
             disposable.dispose()
         }
     }

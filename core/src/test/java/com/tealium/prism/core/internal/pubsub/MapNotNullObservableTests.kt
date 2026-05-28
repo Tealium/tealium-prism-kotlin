@@ -1,37 +1,45 @@
 package com.tealium.prism.core.internal.pubsub
 
 import com.tealium.prism.core.api.pubsub.Observables
+import com.tealium.prism.core.api.pubsub.Observer
 import com.tealium.prism.core.internal.pubsub.ObservableUtils.assertNoSubscribers
 import io.mockk.mockk
 import io.mockk.verify
 import io.mockk.verifyOrder
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
 class MapNotNullObservableTests {
 
+    private lateinit var observer: Observer<Int>
+
+    @Before
+    fun setUp() {
+        observer = mockk(relaxed = true)
+    }
+
     @Test
-    fun mapNotNull_EmitsOnlyNonNull() {
+    fun mapNotNull_Emits_Only_Non_Null() {
         val just = Observables.just(1, null, 2, 3, null)
-        val onNext = mockk<(Int) -> Unit>(relaxed = true)
 
         just.mapNotNull { it }
-            .subscribe(onNext)
+            .subscribe(observer)
 
         verifyOrder {
-            onNext(1)
-            onNext(2)
-            onNext(3)
+            observer.onNext(1)
+            observer.onNext(2)
+            observer.onNext(3)
         }
     }
 
     @Test
-    fun mapNotNull_Dispose_StopsEmitting() {
+    fun mapNotNull_Dispose_Stops_Emitting() {
         val subject = Observables.publishSubject<Int?>()
-        val onNext = mockk<(Int) -> Unit>(relaxed = true)
 
-        val subscription = subject.mapNotNull {
-            it
-        }.subscribe(onNext)
+        val subscription = subject.mapNotNull { it }
+            .subscribe(observer)
 
         subject.onNext(1)
         subject.onNext(null)
@@ -41,10 +49,37 @@ class MapNotNullObservableTests {
 
         subject.assertNoSubscribers()
         verify {
-            onNext(1)
+            observer.onNext(1)
         }
         verify(inverse = true) {
-            onNext(2)
+            observer.onNext(2)
         }
+    }
+
+    @Test
+    fun mapNotNull_Emits_OnComplete_When_Source_Completes() {
+        val subject = Observables.publishSubject<Int?>()
+        subject.mapNotNull { it }
+            .subscribe(observer)
+
+        subject.onNext(1)
+        subject.onComplete()
+
+        verify {
+            observer.onNext(1)
+            observer.onComplete()
+        }
+    }
+
+    @Test
+    fun mapNotNull_Disposable_Is_Disposed_After_OnComplete() {
+        val subject = Observables.publishSubject<Int>()
+        val disposable = subject.mapNotNull { it }
+            .subscribe(observer)
+
+        assertFalse(disposable.isDisposed)
+
+        subject.onComplete()
+        assertTrue(disposable.isDisposed)
     }
 }

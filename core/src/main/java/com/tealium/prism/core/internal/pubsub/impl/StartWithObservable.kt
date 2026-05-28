@@ -3,10 +3,11 @@ package com.tealium.prism.core.internal.pubsub.impl
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observer
+import com.tealium.prism.core.internal.pubsub.subscribeWrapAndLink
 
 /**
  * The [StartWithObservable] will emit the given [initial] items before subscribing to the underlying
- * observable.
+ * observable. [Observer.onComplete] is forwarded directly from the source.
  */
 class StartWithObservable<T>(
     private val source: Observable<T>,
@@ -16,6 +17,6 @@ class StartWithObservable<T>(
         for (value in initial) {
             observer.onNext(value)
         }
-        return source.subscribe(observer)
+        return source.subscribeWrapAndLink { observer }
     }
 }

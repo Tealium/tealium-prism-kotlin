@@ -4,7 +4,9 @@ import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.logger.LogHandler
 import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.misc.Scheduler
+import com.tealium.prism.core.api.pubsub.Consumer
 import com.tealium.prism.core.api.pubsub.Observables
+import com.tealium.prism.core.api.pubsub.Observer
 import com.tealium.prism.core.api.pubsub.Subject
 import io.mockk.Called
 import io.mockk.mockk
@@ -113,7 +115,7 @@ class LoggerTests {
         logger.debug(category, "message")
 
         verify(inverse = true) {
-            onLogLevel.subscribe(any())
+            onLogLevel.subscribe(any<Observer<LogLevel>>())
             handler.log(category, "message", LogLevel.DEBUG)
         }
     }

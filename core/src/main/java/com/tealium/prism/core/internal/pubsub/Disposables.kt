@@ -148,3 +148,49 @@ object CompletedDisposable : Disposable {
     override val isDisposed: Boolean = true
     override fun dispose() {}
 }
+
+/**
+ * A [Disposable] implementation whose upstream subscription will be added after its construction.
+ *
+ * This implementation is intended to hold one linked subscription, and therefore doesn't need the
+ * complexities of a [CompositeDisposable]
+ */
+interface UpstreamLinkable : Disposable {
+
+    /**
+     * Sets the [upstream] as the [Disposable] to dispose of when this is disposed.
+     *
+     * If `this` is already disposed then [upstream] will be disposed.
+     *
+     */
+    fun setUpstream(upstream: Disposable)
+}
+
+/**
+ * Default implementation of [UpstreamLinkable] where the actual subscription is added via [setUpstream]
+ * post-subscription to a source.
+ */
+class UpstreamLinkableImpl : UpstreamLinkable {
+
+    private var linked: Disposable? = null
+    private var _isDisposed: Boolean = false
+    override val isDisposed: Boolean
+        get() = _isDisposed
+
+    override fun dispose() {
+        if (isDisposed) return
+
+        _isDisposed = true
+        linked?.dispose()
+        linked = null
+    }
+
+    override fun setUpstream(upstream: Disposable) {
+        if (isDisposed) {
+            upstream.dispose()
+            return
+        }
+
+        linked = upstream
+    }
+}

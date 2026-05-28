@@ -10,12 +10,13 @@ import io.mockk.verify
 import io.mockk.verifyOrder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ReplaySubjectTests {
 
     @Test
-    fun replaySubject_EvictsOldEntries() {
+    fun replaySubject_Evicts_Old_Entries() {
         val subject = Observables.replaySubject<Int>(2)
         val observer1 = mockk<Observer<Int>>(relaxed = true)
 
@@ -32,7 +33,7 @@ class ReplaySubjectTests {
     }
 
     @Test
-    fun replaySubject_EmitsToMultipleSubscribers() {
+    fun replaySubject_Emits_To_Multiple_Subscribers() {
         val subject = Observables.replaySubject<Int>(2)
         val observer1 = mockk<Observer<Int>>(relaxed = true)
         val observer2 = mockk<Observer<Int>>(relaxed = true)
@@ -49,7 +50,7 @@ class ReplaySubjectTests {
     }
 
     @Test
-    fun replaySubject_EmitsCachedToNewSubscribers() {
+    fun replaySubject_Emits_Cached_To_New_Subscribers() {
         val subject = Observables.replaySubject<Int>(2)
         val observer1 = mockk<Observer<Int>>(relaxed = true)
         val observer2 = mockk<Observer<Int>>(relaxed = true)
@@ -70,7 +71,7 @@ class ReplaySubjectTests {
     }
 
     @Test
-    fun replaySubject_WithNoSize_IsUnbounded() {
+    fun replaySubject_With_No_Size_Is_Unbounded() {
         val subject = Observables.replaySubject<Int>()
         val observer = mockk<Observer<Int>>(relaxed = true)
 
@@ -87,7 +88,7 @@ class ReplaySubjectTests {
     }
 
     @Test
-    fun replaySubject_WithZeroSize_ReplaysNothing() {
+    fun replaySubject_With_Zero_Size_Replays_Nothing() {
         val subject = Observables.replaySubject<Int>(0)
         val observer = mockk<Observer<Int>>(relaxed = true)
 
@@ -100,7 +101,7 @@ class ReplaySubjectTests {
     }
 
     @Test
-    fun replaySubject_WithNegativeSize_IsUnbounded() {
+    fun replaySubject_With_Negative_Size_Is_Unbounded() {
         val subject = Observables.replaySubject<Int>(-1)
         val observer = mockk<Observer<Int>>(relaxed = true)
 
@@ -117,7 +118,7 @@ class ReplaySubjectTests {
     }
 
     @Test
-    fun replaySubject_Resize_ShrinksCache_RemovingOldest() {
+    fun replaySubject_Resize_Shrinks_Cache_Removing_Oldest() {
         val subject = Observables.replaySubject<Int>(3)
         val observer = mockk<Observer<Int>>(relaxed = true)
 
@@ -134,7 +135,7 @@ class ReplaySubjectTests {
     }
 
     @Test
-    fun replaySubject_Resize_GrowsCache_MaintainingExisting() {
+    fun replaySubject_Resize_Grows_Cache_Maintaining_Existing() {
         val subject = Observables.replaySubject<Int>(2)
         val observer = mockk<Observer<Int>>(relaxed = true)
 
@@ -153,7 +154,7 @@ class ReplaySubjectTests {
     }
 
     @Test
-    fun replaySubject_Resize_GrowsToUnbounded() {
+    fun replaySubject_Resize_Grows_To_Unbounded() {
         val subject = Observables.replaySubject<Int>(2)
         val observer = mockk<Observer<Int>>(relaxed = true)
 
@@ -176,7 +177,7 @@ class ReplaySubjectTests {
     }
 
     @Test
-    fun replaySubject_ResizeToZero_StopsReplays() {
+    fun replaySubject_Resize_To_Zero_Stops_Replays() {
         val subject = Observables.replaySubject<Int>(2)
         val observer = mockk<Observer<Int>>(relaxed = true)
 
@@ -196,7 +197,7 @@ class ReplaySubjectTests {
     }
 
     @Test
-    fun replaySubject_Disposal_DoesNotAffectOtherSubscribers() {
+    fun replaySubject_Disposal_Does_Not_Affect_Other_Subscribers() {
         val subject = Observables.replaySubject<Int>(2)
         val observer1 = mockk<Observer<Int>>(relaxed = true)
         val observer2 = mockk<Observer<Int>>(relaxed = true)
@@ -220,7 +221,7 @@ class ReplaySubjectTests {
     }
 
     @Test
-    fun replaySubject_Dispose_ClearsSubscription() {
+    fun replaySubject_Dispose_Clears_Subscription() {
         val subject = Observables.replaySubject<Int>(2)
         val observer1 = mockk<Observer<Int>>(relaxed = true)
         val observer2 = mockk<Observer<Int>>(relaxed = true)
@@ -300,5 +301,89 @@ class ReplaySubjectTests {
         replaySubject.resize(0)
 
         assertNull(replaySubject.last())
+    }
+
+    @Test
+    fun onComplete_Calls_Subscriber_OnComplete() {
+        val subject = Observables.replaySubject<Int>(1)
+        val observer1 = mockk<Observer<Int>>(relaxed = true)
+        val observer2 = mockk<Observer<Int>>(relaxed = true)
+
+        subject.subscribe(observer1)
+        subject.subscribe(observer2)
+
+        subject.onComplete()
+
+        verify {
+            observer1.onComplete()
+            observer2.onComplete()
+        }
+    }
+
+    @Test
+    fun onComplete_Removes_Subscribers() {
+        val subject = Observables.replaySubject<Int>(1)
+        val observer1 = mockk<Observer<Int>>(relaxed = true)
+        val observer2 = mockk<Observer<Int>>(relaxed = true)
+
+        subject.subscribe(observer1)
+        subject.subscribe(observer2)
+
+        subject.onComplete()
+
+        subject.assertNoSubscribers()
+    }
+
+    @Test
+    fun onNext_Does_Not_Emit_Downstream_After_OnComplete() {
+        val subject = Observables.replaySubject<Int>(1)
+        val observer1 = mockk<Observer<Int>>(relaxed = true)
+
+        subject.subscribe(observer1)
+
+        subject.onComplete()
+        subject.onNext(2)
+
+        verify(inverse = true) {
+            observer1.onNext(2)
+        }
+    }
+
+    @Test
+    fun subscribe_Returns_Disposed_When_Subscribed_After_OnComplete() {
+        val subject = Observables.replaySubject<Int>(1)
+        val observer1 = mockk<Observer<Int>>(relaxed = true)
+
+        subject.onComplete()
+        val sub = subject.subscribe(observer1)
+
+        assertTrue(sub.isDisposed)
+    }
+
+    @Test
+    fun subscribe_Calls_Observer_OnComplete_When_Subscribed_After_OnComplete() {
+        val subject = Observables.replaySubject<Int>(1)
+        val observer1 = mockk<Observer<Int>>(relaxed = true)
+
+        subject.onComplete()
+        subject.subscribe(observer1)
+
+        verify {
+            observer1.onComplete()
+        }
+    }
+
+    @Test
+    fun subscribe_Emits_Latest_Cache_When_Subscribed_After_OnComplete() {
+        val subject = Observables.replaySubject<Int>(1)
+        val observer1 = mockk<Observer<Int>>(relaxed = true)
+
+        subject.onNext(1)
+        subject.onComplete()
+        subject.subscribe(observer1)
+
+        verify {
+            observer1.onNext(1)
+        }
     }
 }

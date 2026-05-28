@@ -4,11 +4,11 @@ import com.tealium.prism.core.api.barriers.BarrierState
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.logger.logIfDebugEnabled
 import com.tealium.prism.core.api.modules.Dispatcher
+import com.tealium.prism.core.api.pubsub.Consumer
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.pubsub.Observables
-import com.tealium.prism.core.api.pubsub.Observer
 import com.tealium.prism.core.api.pubsub.addTo
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.TrackResult
@@ -115,13 +115,13 @@ class DispatchManagerImpl(
                 Observables.fromIterable(dispatchers)
             }.flatMap { dispatcher ->
                 ensureBarriersOpen(dispatcher)
-                    .async { dispatches, observer: Observer<Pair<Dispatcher, List<Dispatch>>> ->
+                    .async { dispatches, onNext: Consumer<Pair<Dispatcher, List<Dispatch>>> ->
                         logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
                             "Sending events to dispatcher ${dispatcher.id}: ${dispatches.successful.logDescriptions()}"
                         }
 
                         transformAndDispatch(dispatches, dispatcher) { completedDispatches ->
-                            observer.onNext(dispatcher to completedDispatches)
+                            onNext.accept(dispatcher to completedDispatches)
                         }
                     }
             }.subscribe { (dispatcher, completedDispatches) ->

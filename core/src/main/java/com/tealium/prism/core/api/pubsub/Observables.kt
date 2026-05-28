@@ -1,9 +1,9 @@
 package com.tealium.prism.core.api.pubsub
 
+import com.tealium.prism.core.internal.pubsub.DisposableObserver
 import com.tealium.prism.core.internal.pubsub.PublishSubject
 import com.tealium.prism.core.internal.pubsub.ReplaySubjectImpl
 import com.tealium.prism.core.internal.pubsub.StateSubjectImpl
-import com.tealium.prism.core.internal.pubsub.Subscription
 import com.tealium.prism.core.internal.pubsub.impl.CallbackObservable
 import com.tealium.prism.core.internal.pubsub.impl.CombineObservable
 import com.tealium.prism.core.internal.pubsub.impl.CustomObservable
@@ -176,19 +176,15 @@ object Observables {
      * Returns an observable that emits only when the provided [block] of code has completed,
      * This block will be executed whenever a new subscription is made.
      *
-     * @param block The block of code to receive the observer with which to emit downstream.
+     * @param block The block of code to receive the consumer with which to emit values downstream.
      */
     @JvmStatic
     fun <T> callback(
-        block: (Observer<T>) -> Unit
+        block: Consumer<Consumer<T>>
     ): Observable<T> {
         return CallbackObservable { observer ->
-            val subscription = Subscription()
-            block {
-                if (subscription.isDisposed) return@block
-                observer.onNext(it)
-            }
-            subscription
+            block.accept(observer::onNext)
+            Disposables.disposed()
         }
     }
 
@@ -196,12 +192,14 @@ object Observables {
      * Returns an observable that emits only when the provided [block] of code has completed,
      * This block will be executed whenever a new subscription is made.
      *
-     * @param block The block of code to receive the observer with which to emit downstream.
+     * @param block The block of code to receive the consumer with which to emit values downstream.
      */
     @JvmStatic
     fun <T> async(
-        block: (Observer<T>) -> Disposable
+        block: (Consumer<T>) -> Disposable
     ): Observable<T> {
-        return CallbackObservable(block)
+        return CallbackObservable { observer ->
+            block.invoke(observer::onNext)
+        }
     }
 }

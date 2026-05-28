@@ -1,15 +1,17 @@
 package com.tealium.prism.core.internal.pubsub.impl
 
 import com.tealium.prism.core.api.pubsub.Disposable
-import com.tealium.prism.core.internal.pubsub.DisposableContainer
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observer
-import com.tealium.prism.core.api.pubsub.addTo
+import com.tealium.prism.core.internal.pubsub.LinkableObserver
+import com.tealium.prism.core.internal.pubsub.UpstreamLinkable
+import com.tealium.prism.core.internal.pubsub.UpstreamLinkableImpl
+import com.tealium.prism.core.internal.pubsub.subscribeAndLink
 
 /**
  * The [TakeWhileObservable] will emit values that it receives from the [source] until the given
- * [predicate] returns false.
- * Once the [predicate] returns false, then the subscription will be disposed of.
+ * [predicate] returns false. Once the [predicate] returns false the subscription is disposed and
+ * [Observer.onComplete] is called on the downstream observer.
  */
 class TakeWhileObservable<T>(
     private val source: Observable<T>,
@@ -17,34 +19,42 @@ class TakeWhileObservable<T>(
     private val inclusive: Boolean = false
 ) : Observable<T> {
     override fun subscribe(observer: Observer<T>): Disposable {
-        val container = DisposableContainer()
-        val parent = TakeWhileObserver(observer, predicate, container, inclusive)
-
-        source.subscribe(parent)
-            .addTo(container)
-        return container
+        return source.subscribeAndLink {
+            TakeWhileObserver(observer, predicate, inclusive)
+        }
     }
 
     class TakeWhileObserver<T>(
-        private val observer: Observer<T>,
+        private val downstream: Observer<T>,
         private val predicate: (T) -> Boolean,
-        private val container: DisposableContainer,
-        private val inclusive: Boolean = false
-    ): Observer<T> {
+        private val inclusive: Boolean = false,
+        upstream: UpstreamLinkable = UpstreamLinkableImpl()
+    ): LinkableObserver<T>, UpstreamLinkable by upstream {
+
+        private var isTerminating = false
+        private var completed = false
 
         override fun onNext(value: T) {
-            if (container.isDisposed) return
+            if (completed || isTerminating || isDisposed) return // avoid reentrancy
 
             if (predicate.invoke(value)) {
-                observer.onNext(value)
-            } else {
-                if (inclusive) {
-                    observer.onNext(value)
-                }
-                container.dispose()
+                downstream.onNext(value)
+                return
             }
+
+            if (inclusive) {
+                isTerminating = true
+                downstream.onNext(value)
+            }
+            onComplete()
+        }
+
+        override fun onComplete() {
+            if (completed) return
+            completed = true
+
+            downstream.onComplete()
+            dispose()
         }
     }
 }
-
-
