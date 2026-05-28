@@ -20,13 +20,14 @@ class BatchingBarrierSettingsBuilderTests {
     @Test
     fun inheritance_From_Base_Builder_Works() {
         val result = BatchingBarrierSettingsBuilder()
-            .setScopes(setOf(BarrierScope.Dispatcher("test-dispatcher")))
+            .setScope(BarrierScope.Dispatchers("test-dispatcher"))
             .setBatchSize(3)
             .build()
 
-        val scopes = result.getDataList(BarrierSettings.Converter.KEY_SCOPES)!!
-        assertEquals(1, scopes.size)
-        assertEquals("test-dispatcher", scopes.getString(0))
+        val scope = result.get(BarrierSettings.Converter.KEY_SCOPE, BarrierScope.Converter)!!
+        val dispatcherScope = scope as BarrierScope.Dispatchers
+        assertEquals(1, dispatcherScope.dispatcherIds.size)
+        assertEquals("test-dispatcher", dispatcherScope.dispatcherIds[0])
 
         val configuration = result.getDataObject(BarrierSettings.Converter.KEY_CONFIGURATION)!!
         assertEquals(3, configuration.getInt(BatchingBarrier.KEY_BATCH_SIZE))

@@ -28,12 +28,12 @@ fun TransformationScope.matches(dispatchScope: DispatchScope): Boolean =
     }
 
 /**
- * Convenience method for converting a string value to a [BarrierScope]
+ * A [BarrierScope] matches a given dispatcher id if either
+ *  - The [BarrierScope] is [BarrierScope.All]
+ *  - The [BarrierScope] is [BarrierScope.Dispatchers] and the provided dispatcher id is in the list of dispatcher ids for this scope.
  */
-fun barrierScopeFromString(scope: String): BarrierScope {
-    return if (scope == BarrierScope.All.value) {
-        BarrierScope.All
-    } else {
-        BarrierScope.Dispatcher(scope)
+fun BarrierScope.matches(dispatcherId: String): Boolean =
+    when(this) {
+        is BarrierScope.All -> true
+        is BarrierScope.Dispatchers -> this.dispatcherIds.contains(dispatcherId)
     }
-}

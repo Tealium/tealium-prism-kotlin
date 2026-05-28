@@ -3,6 +3,7 @@ package com.tealium.prism.core.internal.pubsub.impl
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observer
+import com.tealium.prism.core.internal.pubsub.subscribeWrapAndLink
 
 /**
  * The [DistinctObservable] only emits downstream when the previous value is not equal to the latest.
@@ -12,9 +13,9 @@ class DistinctObservable<T>(
     private val equals: (T, T) -> Boolean
 ): Observable<T> {
     override fun subscribe(observer: Observer<T>): Disposable {
-        val parent = DistinctObserver(observer, equals)
-
-        return source.subscribe(parent)
+       return source.subscribeWrapAndLink {
+           DistinctObserver(observer, equals)
+       }
     }
 
     class DistinctObserver<T>(
@@ -30,5 +31,7 @@ class DistinctObservable<T>(
                 observer.onNext(value)
             }
         }
+
+        override fun onComplete() = observer.onComplete()
     }
 }

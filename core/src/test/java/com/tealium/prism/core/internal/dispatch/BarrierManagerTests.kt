@@ -32,8 +32,8 @@ class BarrierManagerTests {
     fun setUp() {
         settings = Observables.stateSubject(
             listOf(
-                BarrierSettings(openBarrier.id, setOf(BarrierScope.All)),
-                BarrierSettings(closedBarrier.id, setOf(BarrierScope.Dispatcher("dispatcher")))
+                BarrierSettings(openBarrier.id, BarrierScope.All),
+                BarrierSettings(closedBarrier.id, BarrierScope.Dispatchers("dispatcher"))
             ).associateBy { it.barrierId }
         )
         barrierManager = BarrierManager(settings)
@@ -64,8 +64,8 @@ class BarrierManagerTests {
         val config = DataObject.create { put("key", "value") }
         val mockFactory = spyk(barrierFactory(openBarrier))
 
-        settings.onNext(mapOf(openBarrier.id to BarrierSettings(openBarrier.id, setOf(), config)))
-        barrierManager.initializeBarriers(listOf(mockFactory))
+        settings.onNext(mapOf(openBarrier.id to BarrierSettings(openBarrier.id, BarrierScope.All, config)))
+        barrierManager.initializeBarriers(listOf(mockFactory), mockk(relaxed = true))
 
         verify {
             mockFactory.create(any(), config)
@@ -87,14 +87,15 @@ class BarrierManagerTests {
     fun initializeBarriers_Scopes_Barriers_To_Scopes_From_Settings_When_Available() {
         val verifier = mockk<(List<ScopedBarrier>) -> Unit>(relaxed = true)
         val barrier = barrier("default", Observables.just(BarrierState.Open))
-        val defaultScopes = setOf(BarrierScope.Dispatcher("dispatcher"))
+        val settingsScope = BarrierScope.Dispatchers("settings-dispatcher")
+        val defaultScope = BarrierScope.Dispatchers("default-dispatcher")
 
-        settings.onNext(mapOf(barrier.id to BarrierSettings(barrier.id, emptySet())))
-        barrierManager.initializeBarriers(listOf(barrierFactory(barrier, defaultScopes)))
+        settings.onNext(mapOf(barrier.id to BarrierSettings(barrier.id, settingsScope)))
+        barrierManager.initializeBarriers(listOf(barrierFactory(barrier, defaultScope)), mockk(relaxed = true))
         barrierManager.barriers.subscribe(verifier)
 
         verify {
-            verifier.invoke(match { it.contains(barrier to emptySet()) })
+            verifier.invoke(match { it.contains(barrier to settingsScope) })
         }
     }
 
@@ -102,13 +103,13 @@ class BarrierManagerTests {
     fun initializeBarriers_Scopes_Barriers_To_Default_When_No_Scopes_In_Settings() {
         val verifier = mockk<(List<ScopedBarrier>) -> Unit>(relaxed = true)
         val barrier = barrier("barrier", Observables.just(BarrierState.Open))
-        val defaultScopes = setOf(BarrierScope.Dispatcher("dispatcher"))
+        val defaultScope = BarrierScope.Dispatchers("dispatcher")
 
-        barrierManager.initializeBarriers(listOf(barrierFactory(barrier, defaultScopes)))
+        barrierManager.initializeBarriers(listOf(barrierFactory(barrier, defaultScope)))
         barrierManager.barriers.subscribe(verifier)
 
         verify {
-            verifier.invoke(match { it.contains(barrier to defaultScopes) })
+            verifier.invoke(match { it.contains(barrier to defaultScope) })
         }
     }
 
@@ -121,7 +122,7 @@ class BarrierManagerTests {
         barrierManager.barriers.subscribe(verifier)
 
         verify {
-            verifier.invoke(match { it.contains(barrier to setOf(BarrierScope.All)) })
+            verifier.invoke(match { it.contains(barrier to BarrierScope.All) })
         }
     }
 
@@ -129,10 +130,10 @@ class BarrierManagerTests {
     fun initializeBarriers_Adds_Default_Barriers_With_Provided_Default_Scopes_When_Not_Given_In_Factories() {
         val verifier = mockk<(List<ScopedBarrier>) -> Unit>(relaxed = true)
         val defaultBarrier = barrier("default", Observables.just(BarrierState.Open))
-        val defaultScopes = setOf(BarrierScope.Dispatcher("dispatcher"))
+        val defaultScope = BarrierScope.Dispatchers("dispatcher")
 
         // Add a temporary default barrier for this test
-        val testFactory = barrierFactory(defaultBarrier, defaultScopes)
+        val testFactory = barrierFactory(defaultBarrier, defaultScope)
         try {
             BarrierRegistry.addDefaultBarrier(testFactory)
             
@@ -142,7 +143,7 @@ class BarrierManagerTests {
             barrierManager.barriers.subscribe(verifier)
 
             verify {
-                verifier.invoke(match { it.contains(defaultBarrier to defaultScopes) })
+                verifier.invoke(match { it.contains(defaultBarrier to defaultScope) })
             }
         } finally {
             // Clean up the temporary barrier
@@ -195,50 +196,32 @@ class BarrierManagerTests {
     }
 
     @Test
-    fun registerScopedBarrier_Adds_Barrier_To_All_Barriers() {
+    fun registerScopedBarrier_Adds_Barrier_With_Supplied_Scope() {
         val verifier = mockk<(List<ScopedBarrier>) -> Unit>(relaxed = true)
         val barrier = barrier("barrier", Observables.just(BarrierState.Open))
-
-        barrierManager.barriers.subscribe(verifier)
-        barrierManager.registerScopedBarrier(barrier, setOf(BarrierScope.All))
-
-        verify {
-            verifier.invoke(match { it.containsBarrier(barrier) })
-        }
-    }
-
-    @Test
-    fun registerScopedBarrier_Adds_Barrier_With_Supplied_Scopes() {
-        val verifier = mockk<(List<ScopedBarrier>) -> Unit>(relaxed = true)
-        val barrier = barrier("barrier", Observables.just(BarrierState.Open))
-        val scope = setOf(BarrierScope.Dispatcher("dispatcher"))
+        val scope = BarrierScope.Dispatchers("dispatcher")
 
         barrierManager.barriers.subscribe(verifier)
         barrierManager.registerScopedBarrier(barrier, scope)
 
         verify {
-            verifier.invoke(match {
-                it.contains(barrier to scope)
-            })
+            verifier.invoke(match { it.contains(barrier to scope) })
         }
     }
 
     @Test
-    fun registerScopedBarrier_Updates_Barrier_With_Supplied_Scopes() {
+    fun registerScopedBarrier_Updates_Barrier_Scope() {
         val verifier = mockk<(List<ScopedBarrier>) -> Unit>(relaxed = true)
         val barrier = barrier("barrier", Observables.just(BarrierState.Open))
 
         barrierManager.barriers.subscribe(verifier)
-        barrierManager.registerScopedBarrier(barrier, setOf(BarrierScope.All))
-        barrierManager.registerScopedBarrier(
-            barrier,
-            setOf(BarrierScope.Dispatcher("dispatcher"))
-        )
+        barrierManager.registerScopedBarrier(barrier, BarrierScope.All)
+        barrierManager.registerScopedBarrier(barrier, BarrierScope.Dispatchers("dispatcher"))
 
         verify {
             verifier.invoke(match {
-                !it.contains(barrier to setOf(BarrierScope.All))
-                        && it.contains(barrier to setOf(BarrierScope.Dispatcher("dispatcher")))
+                !it.contains(barrier to BarrierScope.All)
+                        && it.contains(barrier to BarrierScope.Dispatchers("dispatcher"))
             })
         }
     }
@@ -250,7 +233,7 @@ class BarrierManagerTests {
 
         barrierManager.initializeBarriers(emptyList())
         barrierManager.barriers.subscribe(verifier)
-        barrierManager.registerScopedBarrier(barrier, setOf(BarrierScope.All))
+        barrierManager.registerScopedBarrier(barrier, BarrierScope.All)
         barrierManager.unregisterScopedBarrier(barrier)
 
         verifyOrder {
@@ -279,9 +262,9 @@ class BarrierManagerTests {
     fun updatedSdkSettings_Are_Passed_Onto_ConfigurableBarriers() {
         val mockBarrier = spyk(openBarrier)
         val newConfig = DataObject.create { put("key", "value") }
-        val newSettings = BarrierSettings(mockBarrier.id, setOf(), newConfig)
+        val newSettings = BarrierSettings(mockBarrier.id, BarrierScope.All, newConfig)
 
-        barrierManager.initializeBarriers(listOf(barrierFactory(mockBarrier)))
+        barrierManager.initializeBarriers(listOf(barrierFactory(mockBarrier)), mockk(relaxed = true))
         settings.onNext(mapOf(mockBarrier.id to newSettings))
 
         verify {
@@ -293,9 +276,9 @@ class BarrierManagerTests {
     fun updatedSdkSettings_Are_Not_Passed_Onto_Programmatically_Registered_Barriers() {
         val mockBarrier = spyk(openBarrier)
         val newConfig = DataObject.create { put("key", "value") }
-        val newSettings = BarrierSettings(mockBarrier.id, setOf(), newConfig)
+        val newSettings = BarrierSettings(mockBarrier.id, BarrierScope.All, newConfig)
 
-        barrierManager.registerScopedBarrier(mockBarrier, setOf(BarrierScope.All))
+        barrierManager.registerScopedBarrier(mockBarrier, BarrierScope.All)
         settings.onNext(
             mapOf(mockBarrier.id to newSettings)
         )
@@ -308,8 +291,8 @@ class BarrierManagerTests {
     @Test
     fun updatedSdkSettings_Updates_Scopes_For_ConfigurableBarriers() {
         val verifier = mockk<(List<ScopedBarrier>) -> Unit>(relaxed = true)
-        val initialScope = setOf(BarrierScope.All)
-        val updatedScope = setOf(BarrierScope.Dispatcher("dispatcher1"), BarrierScope.Dispatcher("dispatcher2"))
+        val initialScope = BarrierScope.All
+        val updatedScope = BarrierScope.Dispatchers("dispatcher1", "dispatcher2")
 
         barrierManager.initializeBarriers(listOf(barrierFactory(openBarrier, initialScope)))
         barrierManager.barriers.subscribe(verifier)
@@ -342,7 +325,7 @@ class BarrierManagerTests {
         val verifier = mockk<(List<ScopedBarrier>) -> Unit>(relaxed = true)
         barrierManager.initializeBarriers(listOf(barrierFactory(openBarrier)))
         barrierManager.registerScopedBarrier(
-            barrier("registered", Observables.just(BarrierState.Open)), setOf(BarrierScope.All)
+            barrier("registered", Observables.just(BarrierState.Open)), BarrierScope.All
         )
 
         barrierManager.barriers.subscribe(verifier)

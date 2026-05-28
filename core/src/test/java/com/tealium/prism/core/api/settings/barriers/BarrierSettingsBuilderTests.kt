@@ -10,35 +10,35 @@ import org.junit.Test
 class BarrierSettingsBuilderTests {
 
     @Test
-    fun setScopes_Sets_Scopes_Array() {
+    fun setScope_Sets_Scope_List() {
         val builder = BarrierSettingsBuilder()
-        val scopes: Set<BarrierScope> = setOf(BarrierScope.All, BarrierScope.Dispatcher("test-dispatcher"))
-        val result = builder.setScopes(scopes).build()
+        val scope: BarrierScope = BarrierScope.Dispatchers("dispatcher1", "dispatcher2")
+        val result = builder.setScope(scope).build()
 
-        val resultScopes = result.getDataList(BarrierSettings.Converter.KEY_SCOPES)!!
-        assertEquals(2, resultScopes.size)
-        assertEquals(BarrierScope.All.value, resultScopes.getString(0))
-        assertEquals("test-dispatcher", resultScopes.getString(1))
+        val resultScope = result.get(BarrierSettings.Converter.KEY_SCOPE, BarrierScope.Converter)!!
+        val dispatchersScope = resultScope as BarrierScope.Dispatchers
+        assertEquals(2, dispatchersScope.dispatcherIds.size)
+        assertEquals("dispatcher1", dispatchersScope.dispatcherIds[0])
+        assertEquals("dispatcher2", dispatchersScope.dispatcherIds[1])
     }
 
     @Test
-    fun setScopes_With_Empty_Set() {
+    fun setScope_With_Empty_List_Of_DispatcherIds() {
         val builder = BarrierSettingsBuilder()
-        val result = builder.setScopes(emptySet()).build()
+        val result = builder.setScope(BarrierScope.Dispatchers(emptyList())).build()
 
-        val resultScopes = result.getDataList(BarrierSettings.Converter.KEY_SCOPES)!!
-        assertEquals(0, resultScopes.size)
+        val resultScope = result.get(BarrierSettings.Converter.KEY_SCOPE, BarrierScope.Converter)
+        assertEquals(0, (resultScope as BarrierScope.Dispatchers).dispatcherIds.size)
     }
 
     @Test
-    fun setScopes_And_Build_Work_Together() {
+    fun setScope_And_Build_Work_Together() {
         val builder = BarrierSettingsBuilder()
-        val scopes: Set<BarrierScope> = setOf(BarrierScope.All)
-        val result = builder.setScopes(scopes).build()
+        val scopes: BarrierScope = BarrierScope.All
+        val result = builder.setScope(scopes).build()
 
-        val resultScopes = result.getDataList(BarrierSettings.Converter.KEY_SCOPES)!!
-        assertEquals(1, resultScopes.size)
-        assertEquals(BarrierScope.All.value, resultScopes.getString(0))
+        val resultScope = result.get(BarrierSettings.Converter.KEY_SCOPE, BarrierScope.Converter)!!
+        assertEquals(BarrierScope.All, resultScope)
     }
 
     @Test
@@ -49,6 +49,6 @@ class BarrierSettingsBuilderTests {
         val configuration = result.getDataObject(BarrierSettings.Converter.KEY_CONFIGURATION)!!
         assertEquals(DataObject.EMPTY_OBJECT, configuration)
         assertNull(result.getString(BarrierSettings.Converter.KEY_BARRIER_ID))
-        assertNull(result.getDataList(BarrierSettings.Converter.KEY_SCOPES))
+        assertNull(result.get(BarrierSettings.Converter.KEY_SCOPE))
     }
 }

@@ -41,10 +41,10 @@ class MappingsImpl : Mappings {
         }
 
         override fun forAllEvents() =
-            ifValueEquals(key(Dispatch.Keys.TEALIUM_EVENT_TYPE), DispatchType.Event.name)
+            ifValueEquals(key(Dispatch.Keys.TEALIUM_EVENT_TYPE), DispatchType.Event.friendlyName)
 
         override fun forAllViews() =
-            ifValueEquals(key(Dispatch.Keys.TEALIUM_EVENT_TYPE), DispatchType.View.name)
+            ifValueEquals(key(Dispatch.Keys.TEALIUM_EVENT_TYPE), DispatchType.View.friendlyName)
 
         fun build(): MappingOperation {
             return TransformationOperation(destination, MappingParameters(key, filter, mapTo))

@@ -76,14 +76,14 @@ class AsyncProxyImpl<T>(
     override fun <R> executeAsyncTask(task: (T, Callback<TealiumResult<R>>) -> Unit): Single<TealiumResult<R>> {
         val replay = Observables.replaySubject<TealiumResult<R>>()
 
-        onObject.callback { t, observer ->
+        onObject.callback { t, onNext ->
             try {
                 val value = t.getOrThrow()
                 task(value) { result ->
-                    observer.onNext(result)
+                    onNext.accept(result)
                 }
             } catch (e: Exception) {
-                observer.onNext(TealiumResult.failure(e))
+                onNext.accept(TealiumResult.failure(e))
             }
         }.asSingle(scheduler)
             .subscribe(replay)

@@ -9,12 +9,12 @@ package com.tealium.prism.core.api.barriers
 interface BarrierRegistrar {
 
     /**
-     * Registers or updates an additional [Barrier] with the applied [scopes]
+     * Registers or updates an additional [Barrier] with the applied [scope]
      *
      * @param barrier The [Barrier] to add to the list of barriers.
-     * @param scopes The set of [BarrierScope]s that this [barrier] applies to.
+     * @param scope The [BarrierScope] that this [barrier] applies to.
      */
-    fun registerScopedBarrier(barrier: Barrier, scopes: Set<BarrierScope>)
+    fun registerScopedBarrier(barrier: Barrier, scope: BarrierScope)
 
     /**
      * Unregisters the given [barrier] if it's currently registered.

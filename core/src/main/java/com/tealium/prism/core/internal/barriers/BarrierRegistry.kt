@@ -1,8 +1,8 @@
 package com.tealium.prism.core.internal.barriers
 
 import androidx.annotation.VisibleForTesting
-import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.barriers.BarrierFactory
+import com.tealium.prism.core.api.barriers.BarrierScope
 import com.tealium.prism.core.internal.network.ConnectivityBarrier
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -15,7 +15,7 @@ object BarrierRegistry {
      */
     private val _defaultBarriers: List<BarrierFactory> = listOf(
         ConnectivityBarrier.Factory(),
-        BatchingBarrier.Factory(defaultScopes = emptySet())
+        BatchingBarrier.Factory(defaultScope = BarrierScope.Dispatchers(emptyList()))
     )
 
     /**

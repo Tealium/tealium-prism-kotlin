@@ -1,8 +1,10 @@
 package com.tealium.prism.core.internal.persistence
 
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.misc.ActivityManager
 import com.tealium.prism.core.api.persistence.DataStore
 import com.tealium.prism.core.api.pubsub.Observables
+import com.tealium.prism.core.api.pubsub.Observer
 import com.tealium.prism.core.api.pubsub.Subject
 import com.tealium.prism.core.api.settings.CoreSettings
 import com.tealium.prism.core.internal.settings.CoreSettingsImpl
@@ -43,7 +45,7 @@ class IdentityUpdatedObserverTests {
         IdentityUpdatedObserver.subscribeIdentityUpdates(coreSettings, dataLayer, visitorIdProvider)
 
         verify {
-            onDataLayerUpdated.subscribe(any())
+            onDataLayerUpdated.subscribe(any<Observer<DataObject>>())
         }
     }
 
@@ -53,7 +55,7 @@ class IdentityUpdatedObserverTests {
         IdentityUpdatedObserver.subscribeIdentityUpdates(coreSettings, dataLayer, visitorIdProvider)
 
         verify(inverse = true) {
-            onDataLayerUpdated.subscribe(any())
+            onDataLayerUpdated.subscribe(any<Observer<DataObject>>())
         }
     }
 

@@ -1,14 +1,10 @@
 package com.tealium.prism.core.api
 
 import android.app.Application
-import com.tealium.prism.core.api.barriers.BarrierFactory
 import com.tealium.prism.core.api.barriers.BarrierScope
 import com.tealium.prism.core.api.barriers.BarrierState
-import com.tealium.prism.core.api.barriers.ConfigurableBarrier
-import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.consent.CmpAdapter
 import com.tealium.prism.core.api.data.DataObject
-import com.tealium.prism.core.api.misc.Environment
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.rules.Condition.Companion.isDefined
 import com.tealium.prism.core.api.rules.Condition.Companion.isEqual
@@ -109,10 +105,10 @@ class TealiumConfigTests {
     @Test
     fun init_Adds_Barriers_To_Enforced_Settings_Under_Barriers_Key() {
         val barrier = barrier("test-barrier", Observables.just(BarrierState.Open))
-        val scopes = setOf(BarrierScope.All, BarrierScope.Dispatcher("dispatcher"))
+        val scope = BarrierScope.Dispatchers("dispatcher1", "dispatcher2")
         val barrierFactory = barrierFactory(
             barrier,
-            enforcedSettings = BarrierSettings(barrier.id, scopes).asDataItem().getDataObject()!!
+            enforcedSettings = BarrierSettings(barrier.id, scope).asDataItem().getDataObject()!!
         )
 
         val config = getDefaultConfigBuilder(app = mockk())
@@ -122,7 +118,7 @@ class TealiumConfigTests {
         val barriers = config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_BARRIERS)!!
         val barrierSettings = barriers.get(barrier.id, BarrierSettings.Converter)!!
         assertEquals(barrier.id, barrierSettings.barrierId)
-        assertEquals(scopes, barrierSettings.scopes)
+        assertEquals(scope, barrierSettings.scope)
         assertEquals(DataObject.EMPTY_OBJECT, barrierSettings.configuration)
     }
 

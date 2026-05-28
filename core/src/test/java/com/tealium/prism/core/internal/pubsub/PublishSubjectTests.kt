@@ -6,12 +6,13 @@ import com.tealium.prism.core.internal.pubsub.ObservableUtils.assertNoSubscriber
 import io.mockk.mockk
 import io.mockk.verify
 import io.mockk.verifyOrder
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PublishSubjectTests {
 
     @Test
-    fun publishSubject_EmitsToMultipleSubscribers() {
+    fun onNext_Emits_To_Multiple_Subscribers() {
         val subject = Observables.publishSubject<Int>()
         val observer1 = mockk<Observer<Int>>(relaxed = true)
         val observer2 = mockk<Observer<Int>>(relaxed = true)
@@ -28,7 +29,7 @@ class PublishSubjectTests {
     }
 
     @Test
-    fun publishSubject_OnlyEmitsToExistingSubscribers() {
+    fun onNext_Only_Emits_To_Existing_Subscribers() {
         val subject = Observables.publishSubject<Int>()
         val observer1 = mockk<Observer<Int>>(relaxed = true)
         val observer2 = mockk<Observer<Int>>(relaxed = true)
@@ -50,7 +51,7 @@ class PublishSubjectTests {
     }
 
     @Test
-    fun publishSubject_Disposal_DoesNotAffectOtherSubscribers() {
+    fun onNext_Disposal_Does_Not_Affect_Other_Subscribers() {
         val subject = Observables.publishSubject<Int>()
         val observer1 = mockk<Observer<Int>>(relaxed = true)
         val observer2 = mockk<Observer<Int>>(relaxed = true)
@@ -74,7 +75,7 @@ class PublishSubjectTests {
     }
 
     @Test
-    fun publishSubject_Dispose_ClearsSubscription() {
+    fun onNext_Dispose_Clears_Subscription() {
         val subject = Observables.publishSubject<Int>()
         val observer1 = mockk<Observer<Int>>(relaxed = true)
         val observer2 = mockk<Observer<Int>>(relaxed = true)
@@ -96,6 +97,76 @@ class PublishSubjectTests {
         verify(inverse = true) {
             observer1.onNext(2)
             observer2.onNext(2)
+        }
+    }
+
+    @Test
+    fun onComplete_Calls_Subscriber_OnComplete() {
+        val subject = Observables.publishSubject<Int>()
+        val observer1 = mockk<Observer<Int>>(relaxed = true)
+        val observer2 = mockk<Observer<Int>>(relaxed = true)
+
+        subject.subscribe(observer1)
+        subject.subscribe(observer2)
+
+        subject.onComplete()
+
+        verify {
+            observer1.onComplete()
+            observer2.onComplete()
+        }
+    }
+
+    @Test
+    fun onComplete_Removes_Subscribers() {
+        val subject = Observables.publishSubject<Int>()
+        val observer1 = mockk<Observer<Int>>(relaxed = true)
+        val observer2 = mockk<Observer<Int>>(relaxed = true)
+
+        subject.subscribe(observer1)
+        subject.subscribe(observer2)
+
+        subject.onComplete()
+
+        subject.assertNoSubscribers()
+    }
+
+    @Test
+    fun onNext_Does_Not_Emit_Downstream_After_OnComplete() {
+        val subject = Observables.publishSubject<Int>()
+        val observer1 = mockk<Observer<Int>>(relaxed = true)
+
+        subject.subscribe(observer1)
+
+        subject.onComplete()
+        subject.onNext(1)
+
+        verify(inverse = true) {
+            observer1.onNext(any())
+        }
+    }
+
+    @Test
+    fun subscribe_Returns_Disposed_When_Subscribed_After_OnComplete() {
+        val subject = Observables.publishSubject<Int>()
+        val observer1 = mockk<Observer<Int>>(relaxed = true)
+
+        subject.onComplete()
+        val sub = subject.subscribe(observer1)
+
+        assertTrue(sub.isDisposed)
+    }
+
+    @Test
+    fun subscribe_Calls_Observer_OnComplete_When_Subscribed_After_OnComplete() {
+        val subject = Observables.publishSubject<Int>()
+        val observer1 = mockk<Observer<Int>>(relaxed = true)
+
+        subject.onComplete()
+        subject.subscribe(observer1)
+
+        verify {
+            observer1.onComplete()
         }
     }
 }

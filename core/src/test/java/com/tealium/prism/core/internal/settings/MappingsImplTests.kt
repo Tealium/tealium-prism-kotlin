@@ -22,8 +22,7 @@ class MappingsImplTests {
 
     @Test
     fun mapFrom_Builds_Transformation_Operation_When_Using_Simple_Key_And_Destination() {
-        val builder = mappings.mapFrom("source", "destination")
-        assertNotNull(builder)
+        mappings.mapFrom("source", "destination")
 
         val transformations = mappings.build()
         assertEquals(1, transformations.size)
@@ -39,8 +38,7 @@ class MappingsImplTests {
 
     @Test
     fun mapFrom_Builds_Transformation_Operation_When_Using_Key_Path_And_Destination() {
-        val builder = mappings.mapFrom(JsonPath["path"]["to"]["source"], "destination")
-        assertNotNull(builder)
+        mappings.mapFrom(JsonPath["path"]["to"]["source"], "destination")
 
         val transformations = mappings.build()
         assertEquals(1, transformations.size)
@@ -56,8 +54,7 @@ class MappingsImplTests {
 
     @Test
     fun mapFrom_Builds_Transformation_Operation_When_Using_Key_And_Destination_Path() {
-        val builder = mappings.mapFrom("source", JsonPath["path"]["to"]["destination"])
-        assertNotNull(builder)
+        mappings.mapFrom("source", JsonPath["path"]["to"]["destination"])
 
         val transformations = mappings.build()
         assertEquals(1, transformations.size)
@@ -73,9 +70,7 @@ class MappingsImplTests {
 
     @Test
     fun mapFrom_Builds_Transformation_Operation_When_Using_Key_Path_And_Destination_Path() {
-        val builder =
-            mappings.mapFrom(JsonPath["path"]["to"]["source"], JsonPath["dest"]["path"]["destination"])
-        assertNotNull(builder)
+        mappings.mapFrom(JsonPath["path"]["to"]["source"], JsonPath["dest"]["path"]["destination"])
 
         val transformations = mappings.build()
         assertEquals(1, transformations.size)
@@ -105,8 +100,8 @@ class MappingsImplTests {
 
     @Test
     fun ifValueEquals_Sets_Filter_When_Called_On_Builder() {
-        val builder = mappings.mapFrom("source", "destination")
-        builder.ifValueEquals("expected_value")
+        mappings.mapFrom("source", "destination")
+            .ifValueEquals("expected_value")
 
         val transformations = mappings.build()
         assertEquals(1, transformations.size)
@@ -121,7 +116,8 @@ class MappingsImplTests {
     fun build_Returns_All_MappingParameters_When_Multiple_Mappings_Are_Defined() {
         mappings.mapFrom("source1", "destination1")
         mappings.mapFrom("source2", "destination2").ifValueEquals("value2")
-        mappings.mapConstant("mapped3".asDataItem(), "destination3").ifValueEquals("source3", "value3")
+        mappings.mapConstant("mapped3".asDataItem(), "destination3")
+            .ifValueEquals("source3", "value3")
 
         val transformations = mappings.build()
         assertEquals(3, transformations.size)
@@ -147,8 +143,7 @@ class MappingsImplTests {
 
     @Test
     fun mapConstant_Builds_Transformation_Operation_With_Constant_Value() {
-        val builder = mappings.mapConstant("constant_value".asDataItem(), "destination")
-        assertNotNull(builder)
+        mappings.mapConstant("constant_value".asDataItem(), "destination")
 
         val mappingsList = mappings.build()
         assertEquals(1, mappingsList.size)
@@ -163,8 +158,7 @@ class MappingsImplTests {
     @Test
     fun mapConstant_Builds_Transformation_Operation_With_Destination_Path() {
         val destination = JsonPath["path"]["to"]["destination"]
-        val builder = mappings.mapConstant("constant_value".asDataItem(), destination)
-        assertNotNull(builder)
+        mappings.mapConstant("constant_value".asDataItem(), destination)
 
         val mappingsList = mappings.build()
         assertEquals(1, mappingsList.size)
@@ -179,9 +173,8 @@ class MappingsImplTests {
     @Test
     fun mapConstant_Builds_Transformation_Operation_With_Options() {
         val destination = JsonPath["dest"]["path"]["destination"]
-        val builder = mappings.mapConstant("constant_value".asDataItem(), destination)
+        mappings.mapConstant("constant_value".asDataItem(), destination)
             .ifValueEquals("key", "expected")
-        assertNotNull(builder)
 
         val mappingsList = mappings.build()
         assertEquals(1, mappingsList.size)
@@ -195,8 +188,7 @@ class MappingsImplTests {
 
     @Test
     fun keep_Builds_Transformation_Operation_With_Same_Source_And_Destination() {
-        val builder = mappings.keep("key_to_keep")
-        assertNotNull(builder)
+        mappings.keep("key_to_keep")
 
         val mappingsList = mappings.build()
         assertEquals(1, mappingsList.size)
@@ -211,8 +203,7 @@ class MappingsImplTests {
     @Test
     fun keep_Builds_Transformation_Operation_With_Path() {
         val path = JsonPath["path"]["to"]["key_to_keep"]
-        val builder = mappings.keep(path)
-        assertNotNull(builder)
+        mappings.keep(path)
 
         val mappingsList = mappings.build()
         assertEquals(1, mappingsList.size)
@@ -227,9 +218,8 @@ class MappingsImplTests {
     @Test
     fun keep_Builds_Transformation_Operation_With_Options() {
         val path = JsonPath["path"]["to"]["key_to_keep"]
-        val builder = mappings.keep(path)
+        mappings.keep(path)
             .ifValueEquals("expected")
-        assertNotNull(builder)
 
         val mappingsList = mappings.build()
         assertEquals(1, mappingsList.size)
@@ -243,8 +233,7 @@ class MappingsImplTests {
 
     @Test
     fun mapCommand_Builds_Transformation_Operation_With_Command_Name() {
-        val builder = mappings.mapCommand("test_command")
-        assertNotNull(builder)
+        mappings.mapCommand("test_command")
 
         val mappingsList = mappings.build()
         assertEquals(1, mappingsList.size)
@@ -258,9 +247,8 @@ class MappingsImplTests {
 
     @Test
     fun mapCommand_Builds_Transformation_Operation_With_ForAllEvents_Option() {
-        val builder = mappings.mapCommand("event_command")
+        mappings.mapCommand("event_command")
             .forAllEvents()
-        assertNotNull(builder)
 
         val mappingsList = mappings.build()
         assertEquals(1, mappingsList.size)
@@ -268,15 +256,14 @@ class MappingsImplTests {
         val mapping = mappingsList[0]
         assertEquals(JsonPath[Dispatch.Keys.COMMAND_NAME], mapping.destination.path)
         assertEquals(JsonPath[Dispatch.Keys.TEALIUM_EVENT_TYPE], mapping.parameters.reference?.path)
-        assertEquals(DispatchType.Event.name, mapping.parameters.filter?.value)
+        assertEquals(DispatchType.Event.friendlyName, mapping.parameters.filter?.value)
         assertEquals("event_command", mapping.parameters.mapTo?.value?.value)
     }
 
     @Test
     fun mapCommand_Builds_Transformation_Operation_With_ForAllViews_Option() {
-        val builder = mappings.mapCommand("view_command")
+        mappings.mapCommand("view_command")
             .forAllViews()
-        assertNotNull(builder)
 
         val mappingsList = mappings.build()
         assertEquals(1, mappingsList.size)
@@ -284,15 +271,14 @@ class MappingsImplTests {
         val mapping = mappingsList[0]
         assertEquals(JsonPath[Dispatch.Keys.COMMAND_NAME], mapping.destination.path)
         assertEquals(JsonPath[Dispatch.Keys.TEALIUM_EVENT_TYPE], mapping.parameters.reference?.path)
-        assertEquals(DispatchType.View.name, mapping.parameters.filter?.value)
+        assertEquals(DispatchType.View.friendlyName, mapping.parameters.filter?.value)
         assertEquals("view_command", mapping.parameters.mapTo?.value?.value)
     }
 
     @Test
     fun mapCommand_Builds_Transformation_Operation_With_IfValueEquals_Key_Option() {
-        val builder = mappings.mapCommand("conditional_command")
+        mappings.mapCommand("conditional_command")
             .ifValueEquals("custom_key", "expected_value")
-        assertNotNull(builder)
 
         val mappingsList = mappings.build()
         assertEquals(1, mappingsList.size)
@@ -307,9 +293,8 @@ class MappingsImplTests {
     @Test
     fun mapCommand_Builds_Transformation_Operation_With_IfValueEquals_Path_Option() {
         val path = JsonPath["nested"]["path"]["key"]
-        val builder = mappings.mapCommand("path_conditional_command")
+        mappings.mapCommand("path_conditional_command")
             .ifValueEquals(path, "expected_value")
-        assertNotNull(builder)
 
         val mappingsList = mappings.build()
         assertEquals(1, mappingsList.size)
@@ -360,7 +345,7 @@ class MappingsImplTests {
         val mapping4 = transformations[3]
         assertEquals(JsonPath[Dispatch.Keys.COMMAND_NAME], mapping4.destination.path)
         assertEquals(JsonPath[Dispatch.Keys.TEALIUM_EVENT_TYPE], mapping4.parameters.reference?.path)
-        assertEquals(DispatchType.Event.name, mapping4.parameters.filter?.value)
+        assertEquals(DispatchType.Event.friendlyName, mapping4.parameters.filter?.value)
         assertEquals("purchase", mapping4.parameters.mapTo?.value?.value)
 
         // Verify fifth mapping: simple key to nested path with condition
@@ -390,7 +375,7 @@ class MappingsImplTests {
         val mapping1 = transformations[0]
         assertEquals(JsonPath[Dispatch.Keys.COMMAND_NAME], mapping1.destination.path)
         assertEquals(JsonPath[Dispatch.Keys.TEALIUM_EVENT_TYPE], mapping1.parameters.reference?.path)
-        assertEquals(DispatchType.View.name, mapping1.parameters.filter?.value)
+        assertEquals(DispatchType.View.friendlyName, mapping1.parameters.filter?.value)
         assertEquals("view_product", mapping1.parameters.mapTo?.value?.value)
 
         // Verify conditional command with nested path condition

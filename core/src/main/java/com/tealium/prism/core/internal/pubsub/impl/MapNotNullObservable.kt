@@ -3,6 +3,7 @@ package com.tealium.prism.core.internal.pubsub.impl
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observer
+import com.tealium.prism.core.internal.pubsub.subscribeWrapAndLink
 
 /**
  * The [MapNotNullObservable] applies a [transform] to each emission from the [source] observable.
@@ -14,9 +15,9 @@ class MapNotNullObservable<T, L>(
     private val transform: (T) -> L?
 ) : Observable<L> {
     override fun subscribe(observer: Observer<L>): Disposable {
-        val parent = MapNotNullObserver(observer, transform)
-
-        return source.subscribe(parent)
+        return source.subscribeWrapAndLink {
+            MapNotNullObserver(observer, transform)
+        }
     }
 
     class MapNotNullObserver<T, L>(
@@ -30,5 +31,7 @@ class MapNotNullObservable<T, L>(
                 observer.onNext(transformed)
             }
         }
+
+        override fun onComplete() = observer.onComplete()
     }
 }

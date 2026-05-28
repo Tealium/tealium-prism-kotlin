@@ -232,6 +232,8 @@ interface Mappings {
      */
     fun path(root: String): JsonObjectPath = JsonPath[root]
 
+    // TODO: MappingOperation is an internal typealias exposed here through a public interface.
+    //  It should be moved to the api package so callers can reference the return type properly.
     /**
      * Builds and returns the list of mapping [TransformationOperation]s that have been configured.
      *

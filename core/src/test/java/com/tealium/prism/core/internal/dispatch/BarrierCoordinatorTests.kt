@@ -31,7 +31,7 @@ class BarrierCoordinatorTests {
     private lateinit var allState3: Subject<BarrierState>
     private lateinit var dispatcher1State: Subject<BarrierState>
     private lateinit var dispatcher2State: Subject<BarrierState>
-    private lateinit var barriers: List<Pair<ConfigurableBarrier, Set<BarrierScope>>>
+    private lateinit var barriers: List<Pair<ConfigurableBarrier, BarrierScope>>
     private lateinit var barrierSubject: StateSubject<List<ScopedBarrier>>
     private lateinit var barrierCoordinator: BarrierCoordinatorImpl
     private lateinit var queueSize: Subject<Int>
@@ -52,17 +52,17 @@ class BarrierCoordinatorTests {
         dispatcher1State = Observables.stateSubject(BarrierState.Open)
         dispatcher2State = Observables.stateSubject(BarrierState.Open)
         barriers = listOf(
-            barrier("all_1", allState1) to setOf(BarrierScope.All),
-            barrier("all_2", allState2) to setOf(BarrierScope.All),
-            barrier("all_3", allState2) to setOf(BarrierScope.All),
+            barrier("all_1", allState1) to BarrierScope.All,
+            barrier("all_2", allState2) to BarrierScope.All,
+            barrier("all_3", allState2) to BarrierScope.All,
             barrier(
                 "dispatcher_1",
                 dispatcher1State
-            ) to setOf(BarrierScope.Dispatcher("dispatcher_1")),
+            ) to BarrierScope.Dispatchers("dispatcher_1"),
             barrier(
                 "dispatcher_2",
                 dispatcher2State
-            ) to setOf(BarrierScope.Dispatcher("dispatcher_2"))
+            ) to BarrierScope.Dispatchers("dispatcher_2")
         )
         barrierSubject = Observables.stateSubject(barriers)
 
@@ -80,7 +80,7 @@ class BarrierCoordinatorTests {
 
     @Test
     fun onBarrierState_Is_Open_When_All_Barriers_Are_Unscoped() {
-        barrierSubject.onNext(barrierSubject.value.map { (barrier, _) -> barrier to emptySet() })
+        barrierSubject.onNext(barrierSubject.value.map { (barrier, _) -> barrier to BarrierScope.Dispatchers(emptyList()) })
 
         barrierCoordinator.onBarriersState("dispatcher_1").subscribe { isOpen ->
             assertEquals(BarrierState.Open, isOpen)
@@ -202,7 +202,7 @@ class BarrierCoordinatorTests {
     fun onBarrierState_Ignores_Barriers_Not_Scoped_To_Any_Dispatchers() {
         val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
         val unscopedBarrier: ScopedBarrier =
-            barrier("unscoped", Observables.just(BarrierState.Closed)) to emptySet()
+            barrier("unscoped", Observables.just(BarrierState.Closed)) to BarrierScope.Dispatchers(emptyList())
 
         barrierCoordinator.onBarriersState("dispatcher_1").subscribe(verifier)
         barrierSubject.onNext(barrierSubject.value + unscopedBarrier)
@@ -220,7 +220,7 @@ class BarrierCoordinatorTests {
         val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
         val blockingBarrier =
             barrier("blocking", Observables.just(BarrierState.Closed), flushable = true)
-        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, setOf(BarrierScope.All))))
+        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, BarrierScope.All)))
 
         barrierCoordinator.onBarriersState("dispatcher_1")
             .subscribe(verifier)
@@ -240,7 +240,7 @@ class BarrierCoordinatorTests {
         val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
         val blockingBarrier =
             barrier("blocking", Observables.just(BarrierState.Closed), flushable = false)
-        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, setOf(BarrierScope.All))))
+        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, BarrierScope.All)))
 
         barrierCoordinator.onBarriersState("dispatcher_1")
             .subscribe(verifier)
@@ -260,8 +260,8 @@ class BarrierCoordinatorTests {
             barrier("nonFlushable", Observables.just(BarrierState.Closed), flushable = false)
         barrierSubject.onNext(
             listOf(
-                ScopedBarrier(flushable, setOf(BarrierScope.All)),
-                ScopedBarrier(notFlushable, setOf(BarrierScope.All))
+                ScopedBarrier(flushable, BarrierScope.All),
+                ScopedBarrier(notFlushable, BarrierScope.All)
             )
         )
 
@@ -279,7 +279,7 @@ class BarrierCoordinatorTests {
         val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
         val blockingBarrier =
             barrier("blocking", Observables.just(BarrierState.Closed), flushable = true)
-        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, setOf(BarrierScope.All))))
+        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, BarrierScope.All)))
 
         barrierCoordinator.onBarriersState("dispatcher_1")
             .subscribe(verifier)
@@ -303,7 +303,7 @@ class BarrierCoordinatorTests {
         val flushable = Observables.stateSubject(false)
         val blockingBarrier =
             barrier("blocking", Observables.just(BarrierState.Closed), flushable)
-        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, setOf(BarrierScope.All))))
+        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, BarrierScope.All)))
 
         barrierCoordinator.onBarriersState("dispatcher_1")
             .subscribe(verifier)
@@ -326,7 +326,7 @@ class BarrierCoordinatorTests {
         val flushable = Observables.stateSubject(true)
         val blockingBarrier =
             barrier("blocking", Observables.just(BarrierState.Closed), flushable)
-        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, setOf(BarrierScope.All))))
+        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, BarrierScope.All)))
 
         barrierCoordinator.onBarriersState("dispatcher_1")
             .subscribe(verifier)
@@ -350,7 +350,7 @@ class BarrierCoordinatorTests {
         val flushable = Observables.stateSubject(false)
         val blockingBarrier =
             barrier("blocking", Observables.just(BarrierState.Open), flushable)
-        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, setOf(BarrierScope.All))))
+        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, BarrierScope.All)))
 
         barrierCoordinator.onBarriersState("dispatcher_1")
             .subscribe(verifier)
@@ -371,8 +371,8 @@ class BarrierCoordinatorTests {
             barrier("nonFlushable", nonFlushableState, flushable = false)
         barrierSubject.onNext(
             listOf(
-                ScopedBarrier(flushable, setOf(BarrierScope.All)),
-                ScopedBarrier(notFlushable, setOf(BarrierScope.All))
+                ScopedBarrier(flushable, BarrierScope.All),
+                ScopedBarrier(notFlushable, BarrierScope.All)
             )
         )
 
@@ -402,7 +402,7 @@ class BarrierCoordinatorTests {
         val barrierState = Observables.stateSubject(BarrierState.Open)
         val nonFlushable =
             barrier("blocking", barrierState, flushable = false)
-        barrierSubject.onNext(listOf(ScopedBarrier(nonFlushable, setOf(BarrierScope.All))))
+        barrierSubject.onNext(listOf(ScopedBarrier(nonFlushable, BarrierScope.All)))
 
         barrierCoordinator.onBarriersState("dispatcher_1")
             .subscribe(verifier)
@@ -425,7 +425,7 @@ class BarrierCoordinatorTests {
     fun appStatus_Changes_Trigger_Flush() {
         val blockingBarrier =
             barrier("blocking", Observables.just(BarrierState.Closed), flushable = true)
-        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, setOf(BarrierScope.All))))
+        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, BarrierScope.All)))
 
         listOf(
             ActivityManager.ApplicationStatus.Init(),

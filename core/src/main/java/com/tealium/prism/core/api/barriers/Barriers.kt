@@ -11,7 +11,7 @@ import com.tealium.prism.core.internal.network.ConnectivityBarrier
  * Utility object for getting built-in [BarrierFactory] objects when configuring the Tealium instance.
  *
  * Some barriers are added to the system by default, but remain accessible here to allow users to
- * override the "scopes" that they apply to.
+ * override the "scope" that they apply to.
  *
  * @see Barrier
  * @see BarrierScope
@@ -27,7 +27,7 @@ object Barriers {
      * or you can use local/remote settings configuration instead.
      * ```kotlin
      *  config.addBarrier(Barriers.connectivity { enforcedSettings ->
-     *      enforcedSettings.setScopes(emptySet()) // setting empty scopes deactivates the barrier
+     *      enforcedSettings.setScope(BarrierScope.Dispatchers(emptyList())) // setting empty dispatcherIds deactivates the barrier
      *  })
      * ```
      *
@@ -50,7 +50,7 @@ object Barriers {
      * Dispatcher in scope.
      *
      * When the BatchingBarrier is auto-registered from [BarrierRegistry], it is not scoped to any module
-     * and is therefore inactive until scopes are provided via local or remote settings.
+     * and is therefore inactive until a scope is provided via local or remote settings.
      *
      * When you explicitly add this barrier using the helper below, the created [BatchingBarrier]
      * will always have its default scope set to the Collect dispatcher at the factory level:
@@ -63,7 +63,7 @@ object Barriers {
      * Example of programmatic approach to override the default scope via enforced settings:
      * ```kotlin
      *  config.addBarrier(Barriers.batching { enforcedSettings ->
-     *      enforcedSettings.setScopes(setOf(BarrierScope.Dispatcher("MyDispatcher")))
+     *      enforcedSettings.setScope(BarrierScope.Dispatchers("MyDispatcher"))
      *  })
      * ```
      *
@@ -76,7 +76,7 @@ object Barriers {
         val settings = enforcedSettings?.invoke(BatchingBarrierSettingsBuilder())?.build()
             ?: DataObject.EMPTY_OBJECT
         return BatchingBarrier.Factory(
-            defaultScopes = setOf(BarrierScope.Dispatcher(Modules.Types.COLLECT)),
+            defaultScope = BarrierScope.Dispatchers(Modules.Types.COLLECT),
             enforcedSettings = settings
         )
     }

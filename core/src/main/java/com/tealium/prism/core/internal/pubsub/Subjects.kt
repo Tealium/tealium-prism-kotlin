@@ -1,6 +1,7 @@
 package com.tealium.prism.core.internal.pubsub
 
 import com.tealium.prism.core.api.pubsub.Disposable
+import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.pubsub.Observer
@@ -32,6 +33,9 @@ import java.util.*
 abstract class BaseSubjectImpl<T> : Subject<T> {
 
     protected val lock = Any()
+    protected var done = false
+        private set
+
     private val subscribers: MutableList<Observer<T>> = mutableListOf()
 
     override val count: Int
@@ -41,6 +45,8 @@ abstract class BaseSubjectImpl<T> : Subject<T> {
 
     override fun onNext(value: T) {
         synchronized(lock) {
+            if (done) return
+
             onBeforeNext(value)
 
             // can't mutate while iterating
@@ -56,6 +62,14 @@ abstract class BaseSubjectImpl<T> : Subject<T> {
 
     final override fun subscribe(observer: Observer<T>): Disposable {
         synchronized(lock) {
+            if (done) {
+                // temp fix to replay values to subscribers, even if "done"
+                onAfterSubscribed(observer)
+
+                observer.onComplete()
+                return Disposables.disposed()
+            }
+
             onBeforeSubscribed(observer)
             val subscribed = subscribers.add(observer)
 
@@ -65,6 +79,20 @@ abstract class BaseSubjectImpl<T> : Subject<T> {
         }
         return Subscription {
             remove(observer)
+        }
+    }
+
+    override fun onComplete() {
+        if (done) return
+
+        synchronized(lock) {
+            if (done) return
+
+            done = true
+            val subscribersCopy = subscribers.toTypedArray()
+            subscribers.clear()
+
+            subscribersCopy.forEach(Observer<T>::onComplete)
         }
     }
 

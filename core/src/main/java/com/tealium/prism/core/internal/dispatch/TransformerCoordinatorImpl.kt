@@ -2,6 +2,7 @@ package com.tealium.prism.core.internal.dispatch
 
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.logger.logIfWarnEnabled
+import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.pubsub.Observables
@@ -59,6 +60,8 @@ class TransformerCoordinatorImpl(
                 transform(dispatch, dispatchScope) { transformed ->
                     onComplete(transformed)
                 }
+                // TODO: Individual transforms are not yet cancellable.
+                Disposables.disposed()
             }
         }) {
             completion(it.filterNotNull())

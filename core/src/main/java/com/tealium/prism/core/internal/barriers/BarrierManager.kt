@@ -27,7 +27,7 @@ class BarrierManager(
 ): BarrierRegistrar {
     private val extraBarriers: StateSubject<List<ScopedBarrier>> =
         Observables.stateSubject(emptyList())
-    private var defaultBarrierScopes: Map<String, Set<BarrierScope>> = emptyMap()
+    private var defaultBarrierScope: Map<String, BarrierScope> = emptyMap()
 
     constructor(settings: ObservableState<SdkSettings>) : this(
         sdkBarrierSettings = settings.mapState(SdkSettings::barriers)
@@ -39,7 +39,7 @@ class BarrierManager(
 
     val barriers: Observable<List<ScopedBarrier>>
         get() = configBarriers.combine(sdkBarrierSettings) { barriers, settings ->
-            combineBarriersAndSettings(barriers, settings, defaultBarrierScopes)
+            combineBarriersAndSettings(barriers, settings, defaultBarrierScope)
         }.combine(extraBarriers) { configBarriers, extraBarriers ->
             configBarriers + extraBarriers
         }
@@ -55,7 +55,7 @@ class BarrierManager(
         val barriers = allFactories.map { factory ->
             createBarrier(factory, context)
         }
-        defaultBarrierScopes = allFactories.associate { it.id to it.defaultScopes() }
+        defaultBarrierScope = allFactories.associate { it.id to it.defaultScope() }
 
         configBarriers.onNext(barriers)
     }
@@ -77,8 +77,8 @@ class BarrierManager(
         extraBarriers.onNext(emptyList())
     }
 
-    override fun registerScopedBarrier(barrier: Barrier, scopes: Set<BarrierScope>) {
-        val toAdd = barrier to scopes
+    override fun registerScopedBarrier(barrier: Barrier, scope: BarrierScope) {
+        val toAdd = barrier to scope
         val barriers = extraBarriers.value.toMutableList()
 
         val index = barriers.indexOfFirst { (b, _) -> barrier == b }
@@ -100,12 +100,12 @@ class BarrierManager(
         fun combineBarriersAndSettings(
             barriers: List<ConfigurableBarrier>,
             settings: Map<String, BarrierSettings>,
-            defaultBarrierScopes: Map<String, Set<BarrierScope>>
+            defaultBarrierScope: Map<String, BarrierScope>
         ): List<ScopedBarrier> {
             return barriers.map { barrier ->
-                barrier to (settings[barrier.id]?.scopes
-                    ?: defaultBarrierScopes[barrier.id]
-                    ?: setOf(BarrierScope.All))
+                barrier to (settings[barrier.id]?.scope
+                    ?: defaultBarrierScope[barrier.id]
+                    ?: BarrierScope.All)
             }
         }
     }

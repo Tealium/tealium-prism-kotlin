@@ -24,3 +24,19 @@ inline fun <reified T : Throwable> assertThrows(
 
     throw AssertionError("Expected exception of type ${T::class.qualifiedName}, but nothing was thrown")
 }
+
+inline fun assertWithTimeout(
+    timeoutMillis: Long = 1_000L,
+    delay: Long = timeoutMillis / 10,
+    predicate: () -> Boolean
+) {
+    var currentTime = System.currentTimeMillis()
+    val timeoutTime = currentTime + timeoutMillis
+    while (!predicate()) {
+        if (currentTime > timeoutTime)
+            fail("Assertion timed out")
+
+        Thread.sleep(delay)
+        currentTime = System.currentTimeMillis()
+    }
+}

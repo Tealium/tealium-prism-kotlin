@@ -6,6 +6,7 @@ import com.tealium.prism.core.internal.misc.SingleThreadedScheduler
 import com.tealium.prism.core.internal.pubsub.ObservableUtils.assertNoSubscribers
 import com.tealium.prism.core.internal.pubsub.ObservableUtils.getMockObserver
 import com.tealium.prism.core.internal.pubsub.ObservableUtils.getSubject
+import com.tealium.tests.common.assertWithTimeout
 import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.mockk
 import io.mockk.verify
@@ -23,16 +24,14 @@ class ObserveOnObservableTests {
     }
 
     @Test
-    fun observeOn_SubscribesOn_CallingThread() {
+    fun observeOn_Subscribes_On_Calling_Thread() {
         val testThread = Thread.currentThread()
         val assertion: (Observer<Int>) -> Unit = mockk(relaxed = true)
         val subscribeHandler: (Observer<Int>) -> Unit = {
             assertEquals(testThread, Thread.currentThread())
             assertion(it)
         }
-        val subject = getSubject(
-            doSubscribeHandler = subscribeHandler
-        )
+        val subject = getSubject(doSubscribeHandler = subscribeHandler)
 
         val observer = getMockObserver<Int>()
         subject.observeOn(testTealiumScheduler)
@@ -44,7 +43,7 @@ class ObserveOnObservableTests {
     }
 
     @Test
-    fun observeOn_EmitsValues_OnProvidedThread() {
+    fun observeOn_Emits_Values_On_Provided_Thread() {
         val scheduler = SingleThreadedScheduler(observerThreadFactory)
         val assertion: (Int) -> Unit = mockk(relaxed = true)
         val observer = getMockObserver<Int>(onNextHandler = {
@@ -68,7 +67,7 @@ class ObserveOnObservableTests {
     }
 
     @Test
-    fun observeOn_DoesNot_EmitValues_WhenSubscriptionDisposed() {
+    fun observeOn_Does_Not_Emit_Values_When_Subscription_Disposed() {
         val observer = getMockObserver<Int>()
         val subject = Observables.publishSubject<Int>()
         val disposable = subject.observeOn(testTealiumScheduler)
@@ -77,9 +76,61 @@ class ObserveOnObservableTests {
         disposable.dispose()
         subject.onNext(1)
 
-        subject.assertNoSubscribers()
+        assertWithTimeout { subject.count == 0 }
         verify(inverse = true, timeout = 1000) {
             observer.onNext(1)
         }
+    }
+
+    @Test
+    fun observeOn_Completes_When_Source_Completes() {
+        val observer = getMockObserver<Int>()
+        val subject = Observables.publishSubject<Int>()
+        subject.observeOn(testTealiumScheduler)
+            .subscribe(observer)
+
+        subject.onNext(1)
+        subject.onComplete()
+
+        verify(timeout = 1000) {
+            observer.onNext(1)
+            observer.onComplete()
+        }
+    }
+
+    @Test
+    fun observeOn_Emits_onComplete_On_Provided_Thread() {
+        val scheduler = SingleThreadedScheduler(observerThreadFactory)
+        val assertion: () -> Unit = mockk(relaxed = true)
+        val observer = getMockObserver<Int>(onCompleteHandler = {
+            assertEquals(observerThreadFactory.thread, Thread.currentThread())
+            assertion()
+        })
+
+        val subject = Observables.publishSubject<Int>()
+        subject.observeOn(scheduler)
+            .subscribe(observer)
+
+        subject.onNext(1)
+        subject.onComplete()
+
+        verify(timeout = 1000) {
+            observer.onNext(1)
+            observer.onComplete()
+            assertion()
+        }
+    }
+
+    @Test
+    fun observeOn_Disposable_Is_Disposed_After_OnComplete() {
+        val observer = getMockObserver<Int>()
+        val subject = Observables.publishSubject<Int>()
+        val disposable = subject.observeOn(testTealiumScheduler)
+            .subscribe(observer)
+
+        subject.onComplete()
+
+        assertWithTimeout { disposable.isDisposed }
+        assertWithTimeout { subject.count == 0 }
     }
 }

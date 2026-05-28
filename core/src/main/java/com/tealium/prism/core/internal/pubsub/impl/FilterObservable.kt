@@ -3,6 +3,7 @@ package com.tealium.prism.core.internal.pubsub.impl
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observer
+import com.tealium.prism.core.internal.pubsub.subscribeWrapAndLink
 
 /**
  * The [FilterObservable] will only emit values downstream whereby the [predicate] returns true. And
@@ -14,9 +15,9 @@ class FilterObservable<T>(
 ) : Observable<T> {
 
     override fun subscribe(observer: Observer<T>): Disposable {
-        val parent = FilterObserver(observer, predicate)
-
-        return source.subscribe(parent)
+        return source.subscribeWrapAndLink {
+            FilterObserver(observer, predicate)
+        }
     }
 
     class FilterObserver<T>(
@@ -28,5 +29,7 @@ class FilterObservable<T>(
                 observer.onNext(value)
             }
         }
+
+        override fun onComplete() = observer.onComplete()
     }
 }

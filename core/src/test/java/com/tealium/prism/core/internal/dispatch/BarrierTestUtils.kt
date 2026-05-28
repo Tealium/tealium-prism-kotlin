@@ -43,14 +43,14 @@ fun barrier(
  */
 fun barrierFactory(
     barrier: ConfigurableBarrier,
-    defaultScopes: Set<BarrierScope>? = null,
+    defaultScope: BarrierScope? = null,
     enforcedSettings: DataObject? = null
 ): BarrierFactory = object : BarrierFactory {
     override val id: String
         get() = barrier.id
 
-    override fun defaultScopes(): Set<BarrierScope> =
-        defaultScopes ?: super.defaultScopes()
+    override fun defaultScope(): BarrierScope =
+        defaultScope ?: super.defaultScope()
 
     override fun create(context: TealiumContext, configuration: DataObject): ConfigurableBarrier {
         return barrier
