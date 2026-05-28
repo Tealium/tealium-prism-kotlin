@@ -14,21 +14,24 @@ import com.tealium.prism.core.internal.settings.BarrierSettings.Converter.KEY_SC
  * which dispatch scopes it applies to via [scope].
  *
  * @param barrierId The unique identifier for this barrier.
- * @param scope The [BarrierScope] this barrier applies to.
+ * @param scope The [BarrierScope] this barrier applies to, or null to use the barrier's registered
+ * default scope (falling back to [BarrierScope.All]).
  * @param configuration Additional barrier-specific configuration data.
  *
  * @see BarrierScope
  */
 data class BarrierSettings(
     val barrierId: String,
-    val scope: BarrierScope,
+    val scope: BarrierScope? = null,
     val configuration: DataObject = DataObject.EMPTY_OBJECT
 ) : DataItemConvertible {
 
     override fun asDataItem(): DataItem {
         return DataObject.create {
             put(KEY_BARRIER_ID, barrierId)
-            put(KEY_SCOPE, scope)
+            scope?.let {
+                put(KEY_SCOPE, it)
+            }
             put(KEY_CONFIGURATION, configuration)
         }.asDataItem()
     }
@@ -41,11 +44,9 @@ data class BarrierSettings(
         override fun convert(dataItem: DataItem): BarrierSettings? {
             val dataObject = dataItem.getDataObject() ?: return null
 
-            val id = dataObject.getString(KEY_BARRIER_ID)
+            val id = dataObject.getString(KEY_BARRIER_ID) ?: return null
+
             val scope = dataObject.get(KEY_SCOPE, BarrierScope.Converter)
-
-            if (id == null || scope == null) return null
-
             val configuration = dataObject.getDataObject(KEY_CONFIGURATION)
                 ?: DataObject.EMPTY_OBJECT
 

@@ -52,7 +52,7 @@ sealed class BarrierScope : DataItemConvertible {
     object Converter: DataItemConverter<BarrierScope> {
         override fun convert(dataItem: DataItem): BarrierScope? {
             val stringValue = dataItem.getString()
-            if (stringValue == All.STRING_VALUE) return All
+            if (stringValue?.lowercase() == All.STRING_VALUE) return All
 
             if (stringValue != null) return null
 

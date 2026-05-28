@@ -20,6 +20,18 @@ class BarrierScopeTests {
     }
 
     @Test
+    fun convert_Returns_All_When_String_Is_Uppercase_ALL() {
+        val result = converter.convert(DataItem.string("ALL"))
+        assertEquals(BarrierScope.All, result)
+    }
+
+    @Test
+    fun convert_Returns_All_When_String_Is_Mixed_Case() {
+        val result = converter.convert(DataItem.string("All"))
+        assertEquals(BarrierScope.All, result)
+    }
+
+    @Test
     fun convert_Returns_Null_When_String_Is_Invalid() {
         val dataItem = DataItem.string("invalid")
         val result = converter.convert(dataItem)

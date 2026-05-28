@@ -40,9 +40,22 @@ class BarrierSettingsTests {
     }
 
     @Test
-    fun convert_Returns_Null_When_Scope_Is_Missing() {
+    fun convert_Returns_Settings_With_Null_Scope_When_Scope_Is_Missing() {
         val dataObject = createBarrierDataObject(barrierId = "test", scope = null)
-        assertNull(barrierSettingsConverter.convert(dataObject.asDataItem()))
+        val result = barrierSettingsConverter.convert(dataObject.asDataItem())!!
+        assertEquals("test", result.barrierId)
+        assertNull(result.scope)
+    }
+
+    @Test
+    fun convert_Returns_Settings_With_Null_Scope_When_Scope_Is_Invalid() {
+        val dataObject = DataObject.create {
+            put(KEY_BARRIER_ID, "test")
+            put(KEY_SCOPE, "invalid_scope_value")
+        }
+        val result = barrierSettingsConverter.convert(dataObject.asDataItem())!!
+        assertEquals("test", result.barrierId)
+        assertNull(result.scope)
     }
 
     @Test
@@ -84,9 +97,11 @@ class BarrierSettingsTests {
     fun convert_Returns_Equal_Object_When_Converting_AsDataItem_Result() {
         val dispatchersBarrier = BarrierSettings("testId", BarrierScope.Dispatchers("dispatcher1", "dispatcher2"))
         val allBarrier = BarrierSettings("testId", BarrierScope.All)
+        val nullScopeBarrier = BarrierSettings("testId")
 
         assertEquals(dispatchersBarrier, barrierSettingsConverter.convert(dispatchersBarrier.asDataItem()))
         assertEquals(allBarrier, barrierSettingsConverter.convert(allBarrier.asDataItem()))
+        assertEquals(nullScopeBarrier, barrierSettingsConverter.convert(nullScopeBarrier.asDataItem()))
     }
 
 
