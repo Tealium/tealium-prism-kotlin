@@ -45,10 +45,10 @@ class DispatchManagerLoadRuleTests : DispatchManagerTestsBase() {
         val transformation = TransformationSettings(
             "tr-1",
             "transformer",
-            setOf(TransformationScope.Dispatcher(dispatcher1Name))
+            TransformationScope.Dispatchers(dispatcher1Name)
         )
         transformers.onNext(listOf(transformer))
-        transformations.onNext(setOf(transformation))
+        transformations.onNext(listOf(transformation))
 
         dispatchManager.track(dispatch1)
 

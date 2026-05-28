@@ -11,11 +11,10 @@ import com.tealium.prism.core.api.rules.Condition.Companion.isEqual
 import com.tealium.prism.core.api.rules.Rule
 import com.tealium.prism.core.api.settings.ConsentConfigurationBuilder
 import com.tealium.prism.core.api.settings.TestSettingsBuilder
+import com.tealium.prism.core.api.transform.TestTransformationSettingsBuilder
 import com.tealium.prism.core.api.transform.TransformationScope
-import com.tealium.prism.core.api.transform.TransformationSettings
 import com.tealium.prism.core.internal.dispatch.barrier
 import com.tealium.prism.core.internal.dispatch.barrierFactory
-import com.tealium.prism.core.internal.misc.Converters
 import com.tealium.prism.core.internal.modules.ModuleRegistry
 import com.tealium.prism.core.internal.rules.LoadRule
 import com.tealium.prism.core.internal.settings.BarrierSettings
@@ -72,18 +71,19 @@ class TealiumConfigTests {
 
     @Test
     fun init_Adds_Transformations_To_Enforced_Settings_Under_Transformations_Key() {
-        val transformation1 = TransformationSettings(
+        val transformationConfig = DataObject.create { put("key", "value") }
+        val transformation1 = TestTransformationSettingsBuilder(
             "id-1",
             "transformer-1",
-            setOf(TransformationScope.AfterCollectors),
-            configuration = DataObject.create { put("key", "value") }
+            transformationConfig
         )
-        val transformation2 = TransformationSettings(
+            .setScope(TransformationScope.AfterCollectors)
+        val transformation2 = TestTransformationSettingsBuilder(
             "id-2",
             "transformer-2",
-            setOf(TransformationScope.AllDispatchers),
-            configuration = DataObject.create { put("key", "value") }
+            transformationConfig
         )
+            .setScope(TransformationScope.AllDispatchers)
 
         val config = getDefaultConfigBuilder(app = mockk())
             .addTransformation(transformation1)
@@ -93,12 +93,12 @@ class TealiumConfigTests {
         val transformations =
             config.enforcedSdkSettings.getDataObject(SdkSettings.KEY_TRANSFORMATIONS)!!
         assertEquals(
-            transformation1,
-            transformations.get("transformer-1-id-1", Converters.TransformationSettingsConverter)
+            transformation1.build(),
+            transformations.getDataObject("transformer-1-id-1")
         )
         assertEquals(
-            transformation2,
-            transformations.get("transformer-2-id-2", Converters.TransformationSettingsConverter)
+            transformation2.build(),
+            transformations.getDataObject("transformer-2-id-2")
         )
     }
 
@@ -340,4 +340,5 @@ class TealiumConfigTests {
         every { adapter.id } returns id
         return adapter
     }
+
 }

@@ -10,6 +10,7 @@ import androidx.appcompat.widget.SwitchCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
+import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.mobile.databinding.ActivityMainBinding
 import com.tealium.prism.mobile.features.Feature
 import com.tealium.prism.mobile.fragments.FeatureListFragment
@@ -51,7 +52,11 @@ class MainActivity : AppCompatActivity(), FeatureListFragment.FeatureSelectedLis
         loadFragment(FeatureListFragment::class.java)
 
         trackEventButton.setOnClickListener {
-            viewModel.track("ButtonClick")
+            viewModel.track("ButtonClick", DataObject.create {
+                put("event_category", "EXAMPLE")
+                put("event_action", "tap")
+                put("event_label", "Track Event")
+            })
         }
         secondActivityButton.setOnClickListener {
             startActivity(Intent(this@MainActivity, Activity2::class.java))

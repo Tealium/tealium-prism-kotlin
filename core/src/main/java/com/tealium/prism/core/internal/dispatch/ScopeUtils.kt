@@ -6,43 +6,26 @@ import com.tealium.prism.core.api.transform.TransformationScope
 import com.tealium.prism.core.api.transform.TransformationSettings
 
 /**
- * Describes whether or not this [TransformationScope] matches the [DispatchScope].
+ * Describes whether this [TransformationScope] matches the [DispatchScope].
  *
- * The [DispatchScope] does not have a separation of [TransformationScope.AllDispatchers] and [TransformationScope.Dispatcher]
+ * The [DispatchScope] does not have a separation of [TransformationScope.AllDispatchers] and [TransformationScope.Dispatchers]
  * so this method returns true when
  *  - Both scopes a AfterCollectors
  *  - [TransformationScope] is [TransformationScope.AllDispatchers] and the [DispatchScope] is [DispatchScope.Dispatcher]
- *  - [TransformationScope] is [TransformationScope.Dispatcher] and the [DispatchScope] is [DispatchScope.Dispatcher] as well as having a matching dispatcher id.
+ *  - [TransformationScope] is [TransformationScope.Dispatchers] and the [DispatchScope] is [DispatchScope.Dispatcher] as well as having a matching dispatcher id.
  */
-fun TransformationScope.matches(dispatchScope: DispatchScope): Boolean {
-    return ((this is TransformationScope.AfterCollectors && dispatchScope is DispatchScope.AfterCollectors)
-            || (this is TransformationScope.AllDispatchers && dispatchScope is DispatchScope.Dispatcher)
-            || (this is TransformationScope.Dispatcher && dispatchScope is DispatchScope.Dispatcher && this.dispatcher == dispatchScope.dispatcher))
-}
+fun TransformationScope.matches(dispatchScope: DispatchScope): Boolean =
+    when (this) {
+        is TransformationScope.AfterCollectors ->
+            dispatchScope is DispatchScope.AfterCollectors
 
-/**
- * A [TransformationSettings] may match multiple [TransformationScope]s. If the given [dispatchScope]
- * matches the scope of any of the [TransformationScope]s listed in [scope] then it will
- * return true, else false.
- */
-fun TransformationSettings.matchesScope(dispatchScope: DispatchScope): Boolean {
-    return scope.firstOrNull { transformationScope ->
-        transformationScope.matches(dispatchScope)
-    } != null
-}
+        is TransformationScope.AllDispatchers ->
+            dispatchScope is DispatchScope.Dispatcher
 
-/**
- * Convenience method for converting a string value to a [TransformationScope]
- */
-fun transformationScopeFromString(scope: String) : TransformationScope {
-    return if (scope == TransformationScope.AfterCollectors.value) {
-        TransformationScope.AfterCollectors
-    } else if (scope == TransformationScope.AllDispatchers.value) {
-        TransformationScope.AllDispatchers
-    } else {
-        TransformationScope.Dispatcher(scope)
+        is TransformationScope.Dispatchers ->
+            dispatchScope is DispatchScope.Dispatcher &&
+                    this.dispatcherIds.contains(dispatchScope.dispatcher)
     }
-}
 
 /**
  * A [BarrierScope] matches a given dispatcher id if either

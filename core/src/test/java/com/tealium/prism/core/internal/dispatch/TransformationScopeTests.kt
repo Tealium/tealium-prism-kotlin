@@ -31,17 +31,24 @@ class TransformationScopeTests {
 
     @Test
     fun matches_ReturnsTrue_When_SpecificDispatcher_AndDispatchScope_IsDispatcherWithMatchingId() {
-        assertTrue(
-            TransformationScope.Dispatcher("dispatcher_1")
-                .matches(DispatchScope.Dispatcher("dispatcher_1"))
-        )
+        val scope = TransformationScope.Dispatchers("dispatcher_1", "dispatcher_2")
+        assertTrue(scope.matches(DispatchScope.Dispatcher("dispatcher_1")))
+        assertTrue(scope.matches(DispatchScope.Dispatcher("dispatcher_2")))
     }
 
     @Test
     fun matches_ReturnsFalse_When_SpecificDispatcher_AndDispatchScope_DoesNotMatchDispatcherId() {
         assertFalse(
-            TransformationScope.Dispatcher("dispatcher_1")
+            TransformationScope.Dispatchers("dispatcher_1")
                 .matches(DispatchScope.Dispatcher("different"))
+        )
+    }
+
+    @Test
+    fun matches_ReturnsFalse_When_SpecificDispatcher_AndDispatchScope_IsAfterCollectors() {
+        assertFalse(
+            TransformationScope.Dispatchers("dispatcher_1")
+                .matches(DispatchScope.AfterCollectors)
         )
     }
 }

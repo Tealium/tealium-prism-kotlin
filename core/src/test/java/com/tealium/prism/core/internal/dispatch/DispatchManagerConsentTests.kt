@@ -27,6 +27,11 @@ import org.junit.Test
 
 class DispatchManagerConsentTests : DispatchManagerTestsBase() {
 
+    override fun onAfterSetup() {
+        super.onAfterSetup()
+        transformerCoordinator = spyk(transformerCoordinator)
+    }
+
     private fun disableConsent() {
         dispatchManager = createDispatchManager(consentManager = null)
     }

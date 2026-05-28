@@ -5,12 +5,13 @@ import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.rules.Condition.Companion.isEqual
 import com.tealium.prism.core.api.rules.Rule
+import com.tealium.prism.core.api.transform.TestTransformationSettingsBuilder
 import com.tealium.prism.core.api.transform.TransformationScope
 import com.tealium.prism.core.api.transform.TransformationSettings
-import com.tealium.prism.core.internal.misc.Converters.TransformationSettingsConverter.KEY_CONFIGURATION
-import com.tealium.prism.core.internal.misc.Converters.TransformationSettingsConverter.KEY_SCOPES
-import com.tealium.prism.core.internal.misc.Converters.TransformationSettingsConverter.KEY_TRANSFORMATION_ID
-import com.tealium.prism.core.internal.misc.Converters.TransformationSettingsConverter.KEY_TRANSFORMER_ID
+import com.tealium.prism.core.api.transform.TransformationSettings.Converter.KEY_CONFIGURATION
+import com.tealium.prism.core.api.transform.TransformationSettings.Converter.KEY_SCOPE
+import com.tealium.prism.core.api.transform.TransformationSettings.Converter.KEY_TRANSFORMATION_ID
+import com.tealium.prism.core.api.transform.TransformationSettings.Converter.KEY_TRANSFORMER_ID
 import com.tealium.prism.core.internal.rules.LoadRule
 import com.tealium.prism.core.internal.settings.consent.ConsentConfiguration
 import com.tealium.prism.core.internal.settings.consent.ConsentPurpose
@@ -83,7 +84,7 @@ class SdkSettingsTests {
         val expected = TransformationSettings(
             "id",
             "transformer",
-            setOf(TransformationScope.AllDispatchers),
+            TransformationScope.AllDispatchers,
             DataObject.create { put("key", "value") }
         )
         val settingsObject = DataObject.create {
@@ -91,9 +92,7 @@ class SdkSettingsTests {
                 put("transformer-id", DataObject.create {
                     put(KEY_TRANSFORMATION_ID, "id")
                     put(KEY_TRANSFORMER_ID, "transformer")
-                    put(
-                        KEY_SCOPES,
-                        DataList.create { add(TransformationScope.AllDispatchers.value) })
+                    put(KEY_SCOPE, TransformationScope.AllDispatchers)
                     put(KEY_CONFIGURATION, DataObject.create { put("key", "value") })
                 })
             })
@@ -107,16 +106,15 @@ class SdkSettingsTests {
 
     @Test
     fun fromDataObject_With_Transformations_Returns_SdkSettings_Without_Invalid_Transformations() {
-        val validTransformation = DataObject.create {
-            put(KEY_TRANSFORMATION_ID, "id")
-            put(KEY_TRANSFORMER_ID, "transformer")
-            put(KEY_SCOPES, DataList.create { add(TransformationScope.AllDispatchers.value) })
-        }
+        val validTransformation = TestTransformationSettingsBuilder("id")
+            .setScope(TransformationScope.AllDispatchers)
+            .build()
+
         val settingsObject = DataObject.create {
             put(SdkSettings.KEY_TRANSFORMATIONS, DataObject.create {
                 put("missing-id", validTransformation.copy { remove(KEY_TRANSFORMATION_ID) })
                 put("missing-transformer", validTransformation.copy { remove(KEY_TRANSFORMER_ID) })
-                put("missing-scopes", validTransformation.copy { remove(KEY_SCOPES) })
+                put("missing-scope", validTransformation.copy { remove(KEY_SCOPE) })
             })
         }
 

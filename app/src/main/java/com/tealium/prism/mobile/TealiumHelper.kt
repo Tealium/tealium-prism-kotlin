@@ -6,13 +6,17 @@ import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.Tealium
 import com.tealium.prism.core.api.TealiumConfig
 import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
+import com.tealium.prism.core.api.data.DataItemUtils.asDataList
+import com.tealium.prism.core.api.data.DataItemUtils.asDataObject
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.data.ReferenceContainer.Companion.key
 import com.tealium.prism.core.api.logger.LogLevel
-import com.tealium.prism.core.api.logger.logIfErrorEnabled
 import com.tealium.prism.core.api.logger.logIfInfoEnabled
-import com.tealium.prism.core.api.misc.Environment
 import com.tealium.prism.core.api.misc.Callback
+import com.tealium.prism.core.api.misc.Environment
+import com.tealium.prism.core.api.misc.ExpiryPolicy
 import com.tealium.prism.core.api.misc.TealiumResult
+import com.tealium.prism.core.api.misc.TimeFrameUtils.minutes
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
@@ -38,6 +42,12 @@ import com.tealium.prism.core.api.settings.modules.ModuleSettingsBuilder
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
+import com.tealium.prism.core.api.transform.TransformationScope
+import com.tealium.prism.extensions.api.lowercase.LowercaseSettingsBuilder
+import com.tealium.prism.extensions.api.persistdatavalue.PersistDataValueSettingsBuilder
+import com.tealium.prism.extensions.api.persistdatavalue.UpdatePolicy
+import com.tealium.prism.extensions.api.setdatavalues.SetDataValuesSettingsBuilder
+import com.tealium.prism.jstransformer.JavaScriptTransformationSettingsBuilder
 import com.tealium.prism.lifecycle.lifecycle
 import com.tealium.prism.momentsapi.MomentsApiRegion
 import com.tealium.prism.mobile.ExampleCmpAdapter.Purposes
@@ -75,6 +85,51 @@ object TealiumHelper {
                     .addPurpose(Purposes.FUNCTIONAL, setOf("logger"))
                     .setRefireDispatcherIds(setOf(Modules.Types.COLLECT))
             }
+            .addTransformation(
+                SetDataValuesSettingsBuilder("sdv_1")
+                    .setScope(TransformationScope.AfterCollectors)
+                    .setConstant("some_value".asDataItem(), key("some_key"))
+                    .setFrom(key("some_key"), key("other_key"))
+            )
+            .addTransformation(
+                JavaScriptTransformationSettingsBuilder("js_1")
+                    .setScope(TransformationScope.AfterCollectors)
+                    .setJsCode("payload.isVip = true")
+            )
+            .addTransformation(
+                LowercaseSettingsBuilder("lowercase-specific")
+                    .setScope(TransformationScope.AllDispatchers)
+                    .lowercaseVariables(
+                            listOf(
+                                key("event_name"),
+                                key("event_category"),
+                                key("event_label"),
+                                key("user_id")
+                            )
+                    )
+            )
+
+//            .addTransformation(
+//                LowercaseSettingsBuilder("lowercase-all-variables")
+//                    .setScope(TransformationScope.AllDispatchers)
+//                    .lowercaseAllVariables()
+//                    .build()
+//            )
+
+//            .addTransformation(PersistDataValueSettingsBuilder("pdv_1")
+//                .setScope(TransformationScope.AfterCollectors)
+//                .persistConstant("persisted_value", path(JsonPath["persist_object"]["persist_key"]))
+//                .setExpiryPolicy(ExpiryPolicy.FOREVER)
+//                .setUpdatePolicy(UpdatePolicy.ALLOW_UPDATE)
+//            )
+
+            .addTransformation(
+                PersistDataValueSettingsBuilder("pdv_2")
+                .setScope(TransformationScope.AfterCollectors)
+                .persistFrom(key("persisted_value"), key("first_persisted_value"))
+                .setExpiryPolicy(ExpiryPolicy.duration(10.minutes))
+                .setUpdatePolicy(UpdatePolicy.KEEP_FIRST_VALUE)
+            )
 
 //            .addBarrier(Barriers.connectivity(),
 //                setOf(
@@ -101,9 +156,13 @@ object TealiumHelper {
             }
 
             tealium.dataLayer.transactionally { editor ->
-                editor.put("key", "value".asDataItem(), Expiry.SESSION)
-                    .put("key2", "value2".asDataItem(), Expiry.SESSION)
-                    .remove("key2")
+                editor
+                    .put("key", "value".asDataItem(), Expiry.SESSION)
+                    .put("string", "value".asDataItem(), Expiry.SESSION)
+                    .put("int", 1.asDataItem(), Expiry.SESSION)
+                    .put("bool", true.asDataItem(), Expiry.SESSION)
+                    .put("array", listOf(1, 2, 3).asDataList(), Expiry.SESSION)
+                    .put("object", mapOf("key" to "value").asDataObject(), Expiry.SESSION)
                     .commit()
             }.onFailure {
                 Log.d("DataLayer", "Transactional update failed: ${it.message}")

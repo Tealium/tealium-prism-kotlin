@@ -30,16 +30,19 @@ class TealiumBomPlugin : Plugin<Project> {
     }
 
     private fun Project.configureDependencies() {
-        dependencies {
-            constraints {
-                val libraries = getTealiumLibraryProjects()
-                libraries.forEach { project ->
-                    val ext = project.extensions.getByType<TealiumLibraryExtension>()
-                    val groupId = ext.groupId.get()
-                    val artifactId = ext.artifactId.get()
-                    val version = ext.resolvedVersion.get()
+        gradle.projectsEvaluated {
 
-                    add("api", "$groupId:$artifactId:$version")
+            val libraries = getTealiumLibraryProjects()
+            libraries.forEach { project ->
+                val ext = project.extensions.getByType<TealiumLibraryExtension>()
+                val groupId = ext.groupId.get()
+                val artifactId = ext.artifactId.get()
+                val version = ext.resolvedVersion.get()
+
+                dependencies {
+                    constraints {
+                        add("api", "$groupId:$artifactId:$version")
+                    }
                 }
             }
         }

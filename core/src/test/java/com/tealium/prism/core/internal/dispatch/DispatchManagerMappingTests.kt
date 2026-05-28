@@ -36,7 +36,7 @@ class DispatchManagerMappingTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_Does_Not_Map_Dispatch_If_Dropped_By_Transformer() {
-        registerTransformation(scope = setOf(TransformationScope.AllDispatchers)) { _, _, _ -> null }
+        registerTransformation(scope = TransformationScope.AllDispatchers) { _, _, _ -> null }
 
         dispatchManager.track(dispatch1)
 

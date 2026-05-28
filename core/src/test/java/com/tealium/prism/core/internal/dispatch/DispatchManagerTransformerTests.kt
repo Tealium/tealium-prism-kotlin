@@ -10,7 +10,7 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_DoesNotSendDispatchesToDispatcher_WhenTransformersReturnNull() {
-        registerTransformation(scope = setOf(TransformationScope.AllDispatchers)) { _, _, _ -> null }
+        registerTransformation(scope = TransformationScope.AllDispatchers) { _, _, _ -> null }
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1)
@@ -22,7 +22,7 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_DoesNotQueue_WhenTransformersReturnNull() {
-        registerTransformation(scope = setOf(TransformationScope.AfterCollectors)) { _, _, _ -> null }
+        registerTransformation(scope = TransformationScope.AfterCollectors) { _, _, _ -> null }
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1)
@@ -35,7 +35,7 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_Notifies_DispatchDropped_WhenDispatchDropped_AfterCollectors() {
-        registerTransformation(scope = setOf(TransformationScope.AfterCollectors)) { _, _, _ -> null }
+        registerTransformation(scope = TransformationScope.AfterCollectors) { _, _, _ -> null }
         val onComplete: (TrackResult) -> Unit = mockk(relaxed = true)
 
         dispatchManager.startDispatchLoop()

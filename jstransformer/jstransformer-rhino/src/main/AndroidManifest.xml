@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <service android:name="com.tealium.prism.core.internal.misc.ComponentDiscoveryService"
+            android:exported="false">
+            <meta-data
+                android:name="com.tealium.prism.core.api.modules:com.tealium.prism.jstransformer.rhino.RhinoJavaScriptTransformerFactory"
+                android:value="com.tealium.prism.core.api.ModuleFactory" />
+        </service>
+    </application>
+
+</manifest>

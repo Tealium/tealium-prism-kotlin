@@ -65,7 +65,7 @@ open class DispatchManagerTestsBase {
     protected lateinit var inFlightEvents: StateSubject<Map<String, Set<Dispatch>>>
     protected lateinit var transformerCoordinator: TransformerCoordinator
     protected lateinit var transformers: StateSubject<List<Transformer>>
-    protected lateinit var transformations: StateSubject<Set<TransformationSettings>>
+    protected lateinit var transformations: StateSubject<List<TransformationSettings>>
     protected lateinit var coreSettings: StateSubject<CoreSettings>
     protected lateinit var dispatchManager: DispatchManagerImpl
     protected lateinit var mappings: StateSubject<Map<String, List<MappingOperation>>>
@@ -118,12 +118,10 @@ open class DispatchManagerTestsBase {
         barrierFlow = Observables.stateSubject(BarrierState.Open)
         every { barrierCoordinator.onBarriersState(any()) } returns barrierFlow
 
-        transformations = Observables.stateSubject(setOf())
+        transformations = Observables.stateSubject(listOf())
         transformers = Observables.stateSubject(emptyList())
-        transformerCoordinator = spyk(
-            TransformerCoordinatorImpl(
-                transformers, transformations, Scheduler.SYNCHRONOUS, SystemLogger
-            )
+        transformerCoordinator = TransformerCoordinatorImpl(
+            transformers, transformations, Scheduler.SYNCHRONOUS, SystemLogger
         )
 
         mappings = Observables.stateSubject(emptyMap())
@@ -177,14 +175,25 @@ open class DispatchManagerTestsBase {
     protected fun registerTransformation(
         id: String = "test",
         transformerId: String = "test",
-        scope: Set<TransformationScope> = setOf(TransformationScope.AllDispatchers),
+        scope: TransformationScope = TransformationScope.AllDispatchers,
         onTransform: (
             transformation: TransformationSettings,
             dispatch: Dispatch,
             scope: DispatchScope
         ) -> Dispatch?
     ) {
-        transformers.onNext(transformers.value + TestTransformer(transformerId, transformHandler = onTransform))
-        transformations.onNext(transformations.value + TransformationSettings(id, transformerId, scope))
+        transformers.onNext(
+            transformers.value + TestTransformer(
+                transformerId,
+                transformHandler = onTransform
+            )
+        )
+        transformations.onNext(
+            transformations.value + TransformationSettings(
+                id,
+                transformerId,
+                scope
+            )
+        )
     }
 }

@@ -3,6 +3,7 @@ package com.tealium.prism.mobile.viewmodels
 import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.mobile.TealiumHelper
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -38,8 +39,8 @@ class MainActivityViewModel : ViewModel() {
         }
     }
 
-    fun track(eventName: String) {
-        TealiumHelper.track(eventName)
+    fun track(eventName: String, data: DataObject = DataObject.EMPTY_OBJECT) {
+        TealiumHelper.track(eventName, data = data)
     }
 
     fun flush() {

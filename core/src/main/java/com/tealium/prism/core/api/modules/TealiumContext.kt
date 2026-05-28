@@ -54,5 +54,6 @@ class TealiumContext(
     val barrierRegistrar: BarrierRegistrar,
     val moduleManager: ModuleManager,
     val queueMetrics: QueueMetrics,
-    val sessionRegistry: SessionRegistry
+    val sessionRegistry: SessionRegistry,
+    val dataLayer: DataStore
 )

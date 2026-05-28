@@ -22,6 +22,7 @@ import com.tealium.prism.core.api.rules.Condition.Companion.isDefined
 import com.tealium.prism.core.api.rules.Rule
 import com.tealium.prism.core.api.rules.matches
 import com.tealium.prism.core.api.settings.CoreSettingsBuilder
+import com.tealium.prism.core.api.transform.TestTransformationSettingsBuilder
 import com.tealium.prism.core.api.transform.TransformationScope
 import com.tealium.prism.core.api.transform.TransformationSettings
 import com.tealium.prism.core.internal.network.mockGetDataItemConvertibleSuccess
@@ -379,14 +380,22 @@ class SettingsManagerTests {
 
     @Test
     fun mergeSettings_Merges_All_Transformations_From_All_Settings() {
-        val baseSettings =
-            TransformationSettings("0", "0", setOf(TransformationScope.AllDispatchers))
+        fun transformationsObject(
+            transformationId: String,
+            transformerId: String,
+            scope: TransformationScope = TransformationScope.AllDispatchers
+        ): DataObject {
+            return TestTransformationSettingsBuilder(transformationId, transformerId)
+                .setScope(scope)
+                .build()
+        }
+
         val settings1 = DataObject.fromString(
             """
             {
                 "transformations" : {
-                   "transformation1" : ${baseSettings.copy("1", "1").asDataItem()},
-                   "transformation2" : ${baseSettings.copy("2", "2").asDataItem()}
+                   "transformation1" : ${transformationsObject("1", "1")},
+                   "transformation2" : ${transformationsObject("2", "2")}
                 }
             }
         """
@@ -395,8 +404,8 @@ class SettingsManagerTests {
             """
             {
                 "transformations" : {
-                   "transformation3" : ${baseSettings.copy("3", "3").asDataItem()},
-                   "transformation4" : ${baseSettings.copy("4", "4").asDataItem()}
+                   "transformation3" : ${transformationsObject("3", "3")},
+                   "transformation4" : ${transformationsObject("4", "4")}
                 }
             }
         """
@@ -405,8 +414,8 @@ class SettingsManagerTests {
             """
             {
                 "transformations" : {
-                   "transformation5" : ${baseSettings.copy("5", "5").asDataItem()},
-                   "transformation6" : ${baseSettings.copy("6", "6").asDataItem()}
+                   "transformation5" : ${transformationsObject("5", "5")},
+                   "transformation6" : ${transformationsObject("6", "6")}
                 }
             }
         """
@@ -417,7 +426,7 @@ class SettingsManagerTests {
 
         for (i in 1..6) {
             assertEquals(
-                baseSettings.copy("$i", "$i"),
+                TransformationSettings("$i", "$i", TransformationScope.AllDispatchers),
                 sdkSettings.transformations["transformation$i"]
             )
         }
@@ -432,7 +441,7 @@ class SettingsManagerTests {
                     "transformer1-transformation1" : {
                         "transformation_id": "transformation1",
                         "transformer_id": "transformer1",
-                        "scopes": ["all"],
+                        "scope": ["dispatcher"],
                         "configuration" : {
                             "sub-key-1": 1,
                             "sub-obj": {
@@ -451,7 +460,7 @@ class SettingsManagerTests {
                     "transformer1-transformation1" : {
                         "transformation_id": "transformation1",
                         "transformer_id": "transformer1",
-                        "scopes": ["aftercollectors"],
+                        "scope": "aftercollectors",
                         "configuration" : {
                             "sub-key-2": 2,
                             "sub-obj": {
@@ -468,9 +477,7 @@ class SettingsManagerTests {
         val settings = SdkSettings.fromDataObject(merged)
 
         val transformation1 = settings.transformations["transformer1-transformation1"]!!
-        val scopes = transformation1.scope
-        assertEquals(1, transformation1.scope.size)
-        assertEquals(TransformationScope.AfterCollectors, transformation1.scope.elementAt(0))
+        assertEquals(TransformationScope.AfterCollectors, transformation1.scope)
 
         val configuration = transformation1.configuration
         assertEquals(1, configuration.getInt("sub-key-1"))

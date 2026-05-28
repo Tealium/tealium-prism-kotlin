@@ -5,6 +5,8 @@ import com.tealium.prism.core.api.logger.logIfWarnEnabled
 import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.pubsub.ObservableState
+import com.tealium.prism.core.api.pubsub.Observables
+import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.rules.InvalidMatchException
 import com.tealium.prism.core.api.rules.matches
 import com.tealium.prism.core.api.tracking.Dispatch
@@ -12,30 +14,40 @@ import com.tealium.prism.core.api.transform.DispatchScope
 import com.tealium.prism.core.api.transform.TransformationSettings
 import com.tealium.prism.core.api.transform.Transformer
 import com.tealium.prism.core.internal.logger.LogCategory
+import com.tealium.prism.core.internal.pubsub.update
 
 class TransformerCoordinatorImpl(
     private val registeredTransformers: ObservableState<List<Transformer>>,
-    private val transformations: ObservableState<Set<TransformationSettings>>,
+    transformations: ObservableState<List<TransformationSettings>>,
     private val scheduler: Scheduler,
     private val logger: Logger
 ) : TransformerCoordinator {
 
-    private var additionalTransformations: Set<TransformationSettings> = setOf()
+    private var additionalTransformations: StateSubject<List<TransformationSettings>> =
+        Observables.stateSubject(emptyList())
 
-    val allTransformations: Set<TransformationSettings>
-        get() = transformations.value + additionalTransformations
+    var sortedTransformations: List<TransformationSettings> = emptyList()
+        private set
+
+    init {
+        transformations.combine(additionalTransformations) { configured, additional ->
+            (configured + additional)
+                .sortedBy(TransformationSettings::order)
+        }.subscribe { sortedTransformations ->
+            this.sortedTransformations = sortedTransformations
+        }
+    }
 
     override fun transform(
         dispatch: Dispatch,
         dispatchScope: DispatchScope,
         completion: (Dispatch?) -> Unit
     ) {
-        recursiveSerialApply(
-            getTransformations(dispatch, dispatchScope),
-            dispatch,
-            dispatchScope,
-            completion
-        )
+        val transformations = sortedTransformations.filter { transformation ->
+            transformation.scope.matches(dispatchScope)
+        }
+
+        serialApply(transformations, dispatch, dispatchScope, completion)
     }
 
     override fun transform(
@@ -56,17 +68,6 @@ class TransformerCoordinatorImpl(
         }
     }
 
-    private fun getTransformations(
-        dispatch: Dispatch,
-        scope: DispatchScope
-    ): Set<TransformationSettings> {
-        val transformations = allTransformations.filter { transformation ->
-            transformation.matchesScope(scope) && matchesConditions(transformation, dispatch)
-        }
-
-        return transformations.toSet()
-    }
-
     private fun matchesConditions(
         transformation: TransformationSettings,
         dispatch: Dispatch
@@ -83,25 +84,37 @@ class TransformerCoordinatorImpl(
         }
     }
 
+    private fun serialApply(
+        transformations: List<TransformationSettings>,
+        dispatch: Dispatch?,
+        scope: DispatchScope,
+        completion: (Dispatch?) -> Unit
+    ) = recursiveSerialApply(transformations, 0, dispatch, scope, completion)
+
     private fun recursiveSerialApply(
-        transformations: Set<TransformationSettings>,
+        transformations: List<TransformationSettings>,
+        index: Int,
         dispatch: Dispatch?,
         scope: DispatchScope,
         completion: (Dispatch?) -> Unit
     ) {
-        if (transformations.isEmpty() || dispatch == null) {
+        if (dispatch == null || index >= transformations.size) {
             completion(dispatch)
             return
         }
 
-        val firstTransformation = transformations.first()
-        val remainingTransformations =
-            transformations.toMutableSet().apply { remove(firstTransformation) }
+        val nextTransformation = transformations.elementAt(index)
+        val nextIndex = index + 1
 
-        apply(firstTransformation, dispatch, scope) { transformedDispatch ->
-            recursiveSerialApply(remainingTransformations, transformedDispatch, scope, completion)
+        if (!matchesConditions(nextTransformation, dispatch)) {
+            // don't apply, but continue iteration.
+            recursiveSerialApply(transformations, nextIndex, dispatch, scope, completion)
+            return
         }
 
+        apply(nextTransformation, dispatch, scope) { transformedDispatch ->
+            recursiveSerialApply(transformations, nextIndex, transformedDispatch, scope, completion)
+        }
     }
 
     private fun apply(
@@ -118,27 +131,20 @@ class TransformerCoordinatorImpl(
             return
         }
 
-        transformer.applyTransformation(
-            transformation,
-            dispatch,
-            scope,
-            completion
-        )
+        transformer.applyTransformation(transformation, dispatch, scope, completion)
     }
 
     override fun registerTransformation(transformation: TransformationSettings) {
-        if (additionalTransformations.find {
+        if (additionalTransformations.value.find {
                 transformationIdsMatch(it, transformation)
             } != null) return
 
-        additionalTransformations = additionalTransformations.toMutableSet().apply {
-            add(transformation)
-        }
+        additionalTransformations.update { current -> current + transformation }
     }
 
     override fun unregisterTransformation(transformation: TransformationSettings) {
-        additionalTransformations = additionalTransformations.toMutableSet().apply {
-            removeAll { transformationIdsMatch(it, transformation) }
+        additionalTransformations.update { current ->
+            current.filterNot { transformationIdsMatch(it, transformation) }
         }
     }
 
