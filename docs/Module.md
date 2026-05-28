@@ -26,7 +26,7 @@ dependencyResolutionManagement {
 Then add your required tealium-prism dependencies
 
 ```kotlin
-implementation(platform("com.tealium.prism:prism-bom:0.4.0"))
+implementation(platform("com.tealium.prism:prism-bom:0.5.0"))
 implementation("com.tealium.prism:prism-core")
 implementation("com.tealium.prism:prism-lifecycle")
 implementation("com.tealium.prism:prism-moments-api") 
