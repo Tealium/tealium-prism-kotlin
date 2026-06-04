@@ -19,12 +19,12 @@ class TealiumGradlePlugin : Plugin<Project> {
     override fun apply(project: Project) {
         project.pluginManager.apply(DokkaPlugin::class)
         project.configureCompressReportsTask()
-        project.configureUpdatedModulesTask()
 
         project.gradle.projectsEvaluated {
+            project.configureUpdatedModulesTask()
+
             val modifiedProjects = project.getPropertyOrEnvironmentVariable("MODIFIED_PROJECTS", "")
                 .split(",")
-
             project.configureCiTasks(modifiedProjects)
         }
     }

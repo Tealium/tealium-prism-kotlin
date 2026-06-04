@@ -9,7 +9,10 @@ import org.eclipse.jgit.revwalk.RevTree
 import org.eclipse.jgit.revwalk.RevWalk
 import org.eclipse.jgit.treewalk.AbstractTreeIterator
 import org.eclipse.jgit.treewalk.CanonicalTreeParser
+import org.eclipse.jgit.treewalk.filter.AndTreeFilter
+import org.eclipse.jgit.treewalk.filter.NotTreeFilter
 import org.eclipse.jgit.treewalk.filter.PathFilter
+import org.eclipse.jgit.treewalk.filter.TreeFilter
 import org.gradle.api.logging.Logger
 import java.io.File
 import java.io.IOException
@@ -18,7 +21,8 @@ object GitHelper {
 
     fun isModified(
         rootDir: File,
-        projectName: String,
+        projectPath: String,
+        excludedChildPaths: List<String>,
         baseBranch: String,
         incomingBranch: String,
         logger: Logger
@@ -42,7 +46,7 @@ object GitHelper {
         val diff = repo.diff()
             .setNewTree(new)
             .setOldTree(old)
-            .setPathFilter(PathFilter.create("$projectName/"))
+            .setPathFilter(buildPathFilter(projectPath, excludedChildPaths))
             .call()
 
         val changePaths = diff.flatMap(::getChangedPaths)
@@ -51,12 +55,19 @@ object GitHelper {
         }
 
         return if (changePaths.isNotEmpty()) {
-            logger.lifecycle("Found changes for $projectName")
+            logger.lifecycle("Found changes for $projectPath")
             true
         } else {
-            logger.lifecycle("No changes for $projectName; skipping.")
+            logger.lifecycle("No changes for $projectPath; skipping.")
             false
         }
+    }
+
+    private fun buildPathFilter(projectPath: String, excludedChildPaths: List<String>): TreeFilter {
+        val includeFilter = PathFilter.create("$projectPath/")
+        if (excludedChildPaths.isEmpty()) return includeFilter
+        val excludeFilters = excludedChildPaths.map { NotTreeFilter.create(PathFilter.create("$it/")) }
+        return AndTreeFilter.create(listOf(includeFilter) + excludeFilters)
     }
 
     private fun getChangedPaths(change: DiffEntry): List<String> = when (change.changeType) {
