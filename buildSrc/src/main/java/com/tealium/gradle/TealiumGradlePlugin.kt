@@ -204,11 +204,17 @@ class TealiumGradlePlugin : Plugin<Project> {
                 dependsOn.addAll(projectsToPublish.taskNames("publishReleasePublicationTo${repo}Repository"))
             }
         }
+        tasks.register("publishModifiedReleasePublicationToMavenLocal") {
+            group = "Publishing"
+            description =
+                "Publishes release artifacts for modified projects to the MavenLocal repository"
+            dependsOn.addAll(projectsToPublish.taskNames("publishReleasePublicationToMavenLocal"))
+        }
     }
 
     private fun List<Project>.taskNames(task: String) =
         map { project -> project.taskName(task) }
 
     private fun Project.taskName(task: String): String =
-        "${name}:$task"
+        "${path}:$task"
 }
