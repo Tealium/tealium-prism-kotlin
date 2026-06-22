@@ -12,10 +12,10 @@ import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.Observer
+import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.pubsub.Subject
 import com.tealium.prism.core.internal.settings.ModuleSettings
 import com.tealium.prism.core.internal.settings.SdkSettings
-import com.tealium.prism.core.internal.misc.SynchronousScheduler
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestDispatcher
 import com.tealium.tests.common.TestModuleFactory
@@ -216,6 +216,174 @@ class ModuleProxyImplTests {
     }
 
     @Test
+    fun observeModules_Transforms_Observables_From_All_Module_Instances() {
+        val observer = mockk<Observer<Int>>(relaxed = true)
+        val module1 = moduleWithObservable(1, "module1")
+        val module2 = moduleWithObservable(2, "module2")
+        val mockManager = mockModuleManager(listOf(module1, module2))
+
+        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(mockManager))
+
+        proxy.observeModules(::combineAndSum)
+            .subscribe(observer)
+
+        verify {
+            observer.onNext(3) // 1 + 2
+        }
+    }
+
+    @Test
+    fun observeModules_Emits_Updates_From_All_Modules() {
+        val observer = mockk<Observer<Int>>(relaxed = true)
+        val module1 = moduleWithObservable(1, "module1")
+        val module2 = moduleWithObservable(2, "module2")
+        val mockManager = mockModuleManager(listOf(module1, module2))
+
+        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(mockManager))
+
+        proxy.observeModules(::combineAndSum)
+            .subscribe(observer)
+
+        module1.subject.onNext(2)
+        module1.subject.onNext(3)
+
+        verifyOrder {
+            observer.onNext(3) // 1 + 2
+            observer.onNext(4) // 2 + 2
+            observer.onNext(5) // 2 + 3
+        }
+    }
+
+    @Test
+    fun observeModules_Removes_Modules_That_Have_Been_Removed() {
+        val observer = mockk<Observer<Int>>(relaxed = true)
+        val module1 = moduleWithObservable(1, "module1")
+        val module2 = moduleWithObservable(2, "module2")
+        val modules = Observables.stateSubject<List<Module>>(listOf(module1, module2))
+        val mockManager = mockModuleManager(modules)
+
+        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(mockManager))
+
+        proxy.observeModules(::combineAndSum)
+            .subscribe(observer)
+
+        modules.onNext(listOf(module1))
+
+        verifyOrder {
+            observer.onNext(3) // 1 + 2
+            observer.onNext(1) // 1
+        }
+    }
+
+    @Test
+    fun observeModules_Does_Not_Emit_From_Removed_Modules() {
+        val observer = mockk<Observer<Int>>(relaxed = true)
+        val module1 = moduleWithObservable(1, "module1")
+        val module2 = moduleWithObservable(2, "module2")
+        val modules = Observables.stateSubject<List<Module>>(listOf(module1, module2))
+        val mockManager = mockModuleManager(modules)
+
+        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(mockManager))
+
+        proxy.observeModules(::combineAndSum)
+            .subscribe(observer)
+
+        modules.onNext(listOf(module1)) // module2 removed
+        module2.subject.onNext(10)
+
+        verify(inverse = true) {
+            observer.onNext(11) // 1 + 10
+        }
+    }
+
+    @Test
+    fun observeModules_Includes_New_Modules() {
+        val observer = mockk<Observer<Int>>(relaxed = true)
+        val module1 = moduleWithObservable(1, "module1")
+        val module2 = moduleWithObservable(2, "module2")
+        val module3 = moduleWithObservable(3, "module3")
+        val modules = Observables.stateSubject<List<Module>>(listOf(module1, module2))
+        val mockManager = mockModuleManager(modules)
+
+        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(mockManager))
+
+        proxy.observeModules(::combineAndSum)
+            .subscribe(observer)
+
+        modules.onNext(listOf(module1, module2, module3))
+
+        verifyOrder {
+            observer.onNext(3) // 1 + 2
+            observer.onNext(6) // 1 + 2 + 3
+        }
+    }
+
+    @Test
+    fun observeModules_Does_Not_Emit_Again_If_Module_Instances_Have_Not_Changed() {
+        val observer = mockk<Observer<Int>>(relaxed = true)
+        val module1 = moduleWithObservable(1, "module1")
+        val module2 = moduleWithObservable(2, "module2")
+        val modules = Observables.stateSubject<List<Module>>(listOf(module1, module2))
+        val mockManager = mockModuleManager(modules)
+
+        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(mockManager))
+
+        proxy.observeModules(::combineAndSum)
+            .subscribe(observer)
+
+        modules.onNext(listOf(module1, module2))
+
+        verify(exactly = 1) {
+            observer.onNext(3) // 1 + 2
+        }
+    }
+
+    @Test
+    fun observeModules_Does_Emit_Again_If_Module_Instances_Have_Changed() {
+        val observer = mockk<Observer<Int>>(relaxed = true)
+        val module1 = moduleWithObservable(1, "module1")
+        val module2 = moduleWithObservable(2, "module2")
+        val module3 = moduleWithObservable(3, "module3")
+        val modules = Observables.stateSubject<List<Module>>(listOf(module1, module2))
+        val mockManager = mockModuleManager(modules)
+
+        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(mockManager))
+
+        proxy.observeModules(::combineAndSum)
+            .subscribe(observer)
+
+        modules.onNext(listOf(module1, module3)) // remove 2, add 3
+
+        verify(exactly = 1) {
+            observer.onNext(3) // 1 + 2
+            observer.onNext(4) // 1 + 3
+        }
+    }
+
+    @Test
+    fun observeModules_Does_Not_Emit_When_ModuleManager_Becomes_Null() {
+        val observer = mockk<Observer<Int>>(relaxed = true)
+        val module1 = moduleWithObservable(1, "module1")
+        val modules = Observables.stateSubject<List<Module>>(listOf(module1))
+        val mockManager = Observables.stateSubject<ModuleManager?>(mockModuleManager(modules))
+
+        val proxy = createProxy(ModuleWithObservable::class.java, mockManager)
+
+        proxy.observeModules(::combineAndSum)
+            .subscribe(observer)
+
+        mockManager.onNext(null)
+        module1.subject.onNext(2)
+
+        verify {
+            observer.onNext(1)
+        }
+        verify(inverse = true) {
+            observer.onNext(2)
+        }
+    }
+
+    @Test
     fun executeModuleTask_Returns_Single_Failure_When_Tealium_Shutdown() {
         val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
         moduleManagerSubject.onNext(null)
@@ -366,4 +534,31 @@ class ModuleProxyImplTests {
         scheduler: Scheduler = Scheduler.SYNCHRONOUS,
     ): ModuleProxy<T> =
         ModuleProxyImpl(clazz, modules, scheduler)
+
+    private fun moduleWithObservable(initialValue: Int, id: String) : ModuleWithObservable {
+        val moduleSubject = Observables.stateSubject(initialValue)
+        val module = ModuleWithObservable(moduleSubject, id)
+        return module
+    }
+
+    /**
+     * Mocks the [ModuleManager.modules] to only return the provided [modules]
+     */
+    private fun mockModuleManager(modules: List<Module>): ModuleManager =
+        mockModuleManager(Observables.stateSubject(modules))
+
+    /**
+     * Mocks the [ModuleManager.modules] to return the provided [modules]
+     */
+    private fun mockModuleManager(modules: StateSubject<List<Module>>): ModuleManager {
+        val mockManager = mockk<ModuleManager>()
+        every { mockManager.modules } returns modules
+        return mockManager
+    }
+
+    /**
+     * Utility that combines all [ModuleWithObservable.subject]s and sums their values.
+     */
+    private fun combineAndSum(modules: List<ModuleWithObservable>): Observable<Int> =
+        Observables.combine(modules.map { it.subject }, Iterable<Int>::sum)
 }

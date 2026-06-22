@@ -48,6 +48,16 @@ class ModuleProxyImpl<T : Module>(
             manager?.observeModule(clazz, transform) ?: Observables.empty()
         }.subscribeOn(scheduler)
 
+    override fun <R> observeModules(transform: (List<T>) -> Observable<R>): Subscribable<R> =
+        moduleManager.flatMapLatest { manager ->
+            if (manager == null)
+                return@flatMapLatest Observables.empty()
+
+            manager.modules.map { modules -> modules.filterIsInstance(clazz) }
+                .distinct() // uses Object::equals; so same size, elements, and order
+                .flatMapLatest(transform)
+        }.subscribeOn(scheduler)
+
     override fun <R> executeModuleTask(task: (T) -> R): Single<TealiumResult<R>> =
         asyncProxy.executeTask(task)
 

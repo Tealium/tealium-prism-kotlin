@@ -39,6 +39,17 @@ interface ModuleProxy<T: Module> {
     fun <R> observeModule(transform: (T) -> Observable<R>): Subscribable<R>
 
     /**
+     * Observe observables from all [Module] instances of type [T].
+     *
+     * The [transform] is provided with a list of all currently available [Module]s, and should
+     * return an [Observable] that emits values based on the provided list of [Module]s.
+     *
+     * @param transform: The transformation that maps the list of [Module]s to an [Observable].
+     * @return A [Subscribable] for the inner [Observable].
+     */
+    fun <R> observeModules(transform: (List<T>) -> Observable<R>): Subscribable<R>
+
+    /**
      * Eagerly executes a [task] for the Module, with the result returned as a [TealiumResult]
      *
      * @param task The task to execute for the [Module]
