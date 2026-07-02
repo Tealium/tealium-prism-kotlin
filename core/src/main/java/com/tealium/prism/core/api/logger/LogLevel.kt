@@ -1,10 +1,9 @@
 package com.tealium.prism.core.api.logger
 
 import android.util.Log
+import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataItemConverter
 import com.tealium.prism.core.api.data.DataItemConvertible
-import com.tealium.prism.core.api.data.DataItem
-import java.util.Locale
 
 /**
  * The [LogLevel] enum class defines different log levels used for logging messages.
@@ -25,15 +24,18 @@ enum class LogLevel(val level: Int) : DataItemConvertible {
     }
 
     object Converter : DataItemConverter<LogLevel> {
-        override fun convert(dataItem: DataItem): LogLevel {
-            return when (dataItem.getString()?.lowercase(Locale.ROOT)) {
+        override fun convert(dataItem: DataItem): LogLevel? {
+            val logLevelString = dataItem.getString()
+                ?: return null
+
+            return when (logLevelString.lowercase()) {
                 "trace" -> TRACE
                 "debug" -> DEBUG
                 "info" -> INFO
                 "warn" -> WARN
                 "error" -> ERROR
-                "silent" -> SILENT
-                else -> ERROR
+                "silent", "none" -> SILENT
+                else -> null
             }
         }
     }
