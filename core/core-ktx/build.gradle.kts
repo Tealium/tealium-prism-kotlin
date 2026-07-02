@@ -1,0 +1,59 @@
+plugins {
+    alias(libs.plugins.tealium.library)
+}
+
+version = "0.1.0"
+
+tealiumLibrary {
+    groupId = "com.tealium.prism"
+    artifactId = "prism-core-ktx"
+}
+
+android {
+    namespace = "com.tealium.prism.core.ktx"
+    compileSdk = 35
+
+    defaultConfig {
+        minSdk = 23
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles.add(file("consumer-rules.pro"))
+    }
+
+    kotlin {
+        kotlinOptions {
+            freeCompilerArgs += "-Xjvm-default=all"
+        }
+    }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+        unitTests.isIncludeAndroidResources = true
+    }
+    packagingOptions {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            merges += "META-INF/LICENSE.md"
+            merges += "META-INF/LICENSE-notice.md"
+        }
+    }
+}
+
+dependencies {
+
+    api(project(":core"))
+    api(libs.kotlinx.coroutines.core)
+    api(libs.kotlinx.coroutines.android)
+
+    testImplementation(project(":tests-common"))
+    testImplementation(libs.test.androidx.core)
+    testImplementation(libs.test.junit)
+    testImplementation(libs.test.kotlinx.coroutines)
+    testImplementation(libs.test.mockk.jvm)
+    testImplementation(libs.test.robolectric)
+
+    androidTestImplementation(project(":tests-common"))
+    androidTestImplementation(libs.test.androidx.junit)
+    androidTestImplementation(libs.test.androidx.runner)
+    androidTestImplementation(libs.test.kotlinx.coroutines)
+    androidTestImplementation(libs.test.mockk.android)
+}

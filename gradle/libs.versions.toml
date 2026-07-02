@@ -24,6 +24,8 @@ rhino = { module = "org.mozilla:rhino", version.ref = "rhino" }
 test-androidx-core = "androidx.test:core-ktx:1.6.1"
 test-androidx-junit = "androidx.test.ext:junit:1.2.1"
 test-androidx-runner = "androidx.test:runner:1.6.2"
+kotlinx-coroutines-core = "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0"
+kotlinx-coroutines-android = "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0"
 test-kotlinx-coroutines = "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0"
 test-junit = "junit:junit:4.13.2"
 test-mockk-jvm = { module = "io.mockk:mockk", version.ref = "mockk" }
