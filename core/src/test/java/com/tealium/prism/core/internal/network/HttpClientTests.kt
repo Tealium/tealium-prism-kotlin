@@ -512,6 +512,26 @@ class HttpClientTests {
     }
 
     @Test
+    fun shouldRetryCallsCompletionExactlyOnceWhenAllInterceptorsDecline() {
+        val completion = mockk<(Boolean) -> Unit>(relaxed = true)
+        val mockInterceptor1 = mockk<Interceptor>()
+        val mockInterceptor2 = mockk<Interceptor>()
+
+        every { mockInterceptor1.shouldRetry(any(), any(), any()) } returns DoNotRetry
+        every { mockInterceptor2.shouldRetry(any(), any(), any()) } returns DoNotRetry
+
+        httpClient.addInterceptor(mockInterceptor1)
+        httpClient.addInterceptor(mockInterceptor2)
+
+        val httpRequest = HttpRequest.get(urlString).build()
+
+        httpClient.processInterceptorsForDelay(httpRequest, mockk(), 0, completion)
+
+        verify(exactly = 1) { completion(false) }
+        verify(exactly = 0) { completion(true) }
+    }
+
+    @Test
     fun shouldRetryReturnsTrueForSingleInterceptorsAndRemainingIgnored() {
         val completion = mockk<(Boolean) -> Unit>(relaxed = true)
         val mockInterceptor1 = mockk<Interceptor>()

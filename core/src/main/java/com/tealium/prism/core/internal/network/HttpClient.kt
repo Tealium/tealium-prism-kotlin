@@ -133,9 +133,8 @@ class HttpClient(
                 }
                 return
             }
-
-            shouldRetry(false)
         }
+        shouldRetry(false)
     }
 
     private fun delayRequest(interval: Long, completion: () -> Unit) {
@@ -163,6 +162,7 @@ class HttpClient(
     }
 
     companion object {
+        private const val DEFAULT_TIMEOUT = 30_000
         /**
          * Submits the job onto the background queue,
          */
@@ -188,6 +188,8 @@ class HttpClient(
             var connection: HttpURLConnection? = null
             return try {
                 connection = request.url.openConnection() as HttpURLConnection
+                connection.connectTimeout = DEFAULT_TIMEOUT
+                connection.readTimeout = DEFAULT_TIMEOUT
                 with(connection) {
                     requestMethod = request.method.value
                     request.headers.forEach { (key, value) ->

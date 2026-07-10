@@ -148,4 +148,14 @@ class HttpRequestTests {
 
         assertEquals("{}", req.body)
     }
+
+    @Test
+    fun builder_Does_Not_Set_ContentEncoding_When_Gzip_False() {
+        val req = HttpRequest.Builder("http://localhost", HttpMethod.Post)
+            .gzip(false)
+            .build()
+
+        assertNull(req.headers[HttpRequest.Headers.CONTENT_ENCODING])
+    }
+
 }

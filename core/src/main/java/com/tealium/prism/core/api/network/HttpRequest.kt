@@ -3,7 +3,6 @@ package com.tealium.prism.core.api.network
 import com.tealium.prism.core.api.data.DataObject
 import java.net.MalformedURLException
 import java.net.URL
-import java.util.Locale
 
 /**
  * Represents the data for an HTTP request
@@ -97,7 +96,7 @@ class HttpRequest private constructor(
          * @see Headers
          */
         fun header(field: String, value: String): Builder = apply {
-            headers[field.lowercase(Locale.ROOT)] = value
+            headers[field.lowercase()] = value
         }
 
         /**
@@ -165,7 +164,7 @@ class HttpRequest private constructor(
          */
         @Throws(MalformedURLException::class)
         fun build(): HttpRequest {
-            shouldGzip?.let {
+            if (shouldGzip == true) {
                 header(Headers.CONTENT_ENCODING, "gzip")
             }
 
