@@ -10,7 +10,6 @@ import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.internal.command.CommandRegistry
-import com.tealium.prism.core.internal.command.getCommands
 import com.tealium.prism.core.internal.dispatch.CompletableTask
 import com.tealium.prism.core.internal.dispatch.Tasks
 import com.tealium.prism.core.internal.pubsub.DisposableContainer
