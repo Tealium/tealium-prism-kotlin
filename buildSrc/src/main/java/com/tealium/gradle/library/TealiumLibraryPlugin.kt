@@ -10,6 +10,7 @@ import com.tealium.gradle.tests.TestType
 import org.gradle.api.JavaVersion
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.api.file.Directory
 import org.gradle.api.file.FileCollection
 import org.gradle.api.tasks.testing.Test
@@ -54,6 +55,9 @@ class TealiumLibraryPlugin : Plugin<Project> {
      */
     private fun Project.configureAndroidExtensions() {
         val android = extensions.getByType<LibraryExtension>()
+        val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
+        android.compileSdk = libs.findVersion("compileSdk").get().requiredVersion.toInt()
+        android.defaultConfig.minSdk = libs.findVersion("minSdk").get().requiredVersion.toInt()
 
         configureLanguageDefaults(android)
         configureDefaultBuildTypes(android)

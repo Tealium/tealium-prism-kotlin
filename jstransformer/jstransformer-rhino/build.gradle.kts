@@ -11,11 +11,8 @@ tealiumLibrary {
 
 android {
     namespace = "com.tealium.prism.jstransformer.rhino"
-    compileSdk = 35
 
     defaultConfig {
-        minSdk = 23
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
     }

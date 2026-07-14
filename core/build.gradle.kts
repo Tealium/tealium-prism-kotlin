@@ -11,11 +11,8 @@ tealiumLibrary {
 
 android {
     namespace = "com.tealium.prism.core"
-    compileSdk = 35
 
     defaultConfig {
-        minSdk = 23
-
         buildConfigField("String", "TAG", "\"TealiumPrism\"")
         buildConfigField("String", "TEALIUM_LIBRARY_NAME", "\"prism-kotlin\"")
         buildConfigField("String", "TEALIUM_LIBRARY_VERSION", "\"$version\"")

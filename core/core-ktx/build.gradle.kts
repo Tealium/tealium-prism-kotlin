@@ -11,11 +11,8 @@ tealiumLibrary {
 
 android {
     namespace = "com.tealium.prism.core.ktx"
-    compileSdk = 35
 
     defaultConfig {
-        minSdk = 23
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles.add(file("consumer-rules.pro"))
     }

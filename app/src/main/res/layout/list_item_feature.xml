@@ -12,8 +12,7 @@
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
         android:text="@string/feature_name"
-        app:cornerRadius="24dp"
-        style="@style/Widget.Material3.Button.OutlinedButton"
-        />
+        app:materialSizeOverlay="@style/SizeOverlay.Material3Expressive.Button.Medium"
+        style="?attr/materialButtonOutlinedStyle" />
 
 </LinearLayout>

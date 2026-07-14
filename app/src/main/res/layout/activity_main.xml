@@ -1,59 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:id="@+id/main_layout"
+    android:orientation="vertical"
     tools:context="com.tealium.prism.mobile.MainActivity">
 
     <LinearLayout
         android:id="@+id/top_layout"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingBottom="12dp"
-        android:gravity="center_horizontal"
-        app:layout_constraintBottom_toTopOf="@id/fragment_container_scroll"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        android:layout_height="?attr/actionBarSize"
+        android:gravity="center"
+        android:paddingHorizontal="16dp">
 
         <Button
             android:id="@+id/btn_track_event"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/track_event"
-            />
-
-        <Space
-            android:layout_width="24dp"
-            android:layout_height="match_parent" />
+            android:layout_marginEnd="24dp"
+            android:text="@string/track_event" />
 
         <androidx.appcompat.widget.SwitchCompat
             android:id="@+id/switch_tealium_enabled"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/tealium_enabled"
-            app:switchPadding="8dp"/>
+            app:switchPadding="8dp" />
 
     </LinearLayout>
 
-    <View style="@style/Divider"
-        android:layout_margin="12dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/top_layout"
-        app:layout_constraintBottom_toTopOf="@id/fragment_container_scroll"
-        />
+    <com.google.android.material.divider.MaterialDivider
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
 
     <ScrollView
         android:id="@+id/fragment_container_scroll"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="16dp"
-        app:layout_constraintBottom_toTopOf="@id/nav_layout"
-        app:layout_constraintTop_toBottomOf="@id/top_layout"
-        app:layout_constraintVertical_bias="0.0"
+        android:layout_weight="1"
         android:fillViewport="true">
 
         <LinearLayout
@@ -61,43 +47,37 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:gravity="center_horizontal">
-        </LinearLayout>
+            android:gravity="center_horizontal"
+            android:padding="16dp" />
+
     </ScrollView>
 
-    <View style="@style/Divider"
-        android:layout_margin="12dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/fragment_container_scroll"
-        app:layout_constraintBottom_toTopOf="@id/nav_layout"
-        />
+    <com.google.android.material.divider.MaterialDivider
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
 
     <LinearLayout
         android:id="@+id/nav_layout"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingBottom="12dp"
-        android:gravity="center_horizontal"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/fragment_container_scroll">
+        android:layout_height="?attr/actionBarSize"
+        android:gravity="center"
+        android:paddingHorizontal="16dp">
 
         <Button
             android:id="@+id/btn_second_activity"
+            style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginEnd="24dp"
             android:text="@string/activity_2" />
-        <Space
-            android:layout_width="24dp"
-            android:layout_height="match_parent" />
+
         <Button
             android:id="@+id/btn_flush_events"
+            style="?attr/materialButtonTonalStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/flush" />
 
     </LinearLayout>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+</LinearLayout>

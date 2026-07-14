@@ -11,11 +11,8 @@ tealiumLibrary {
 
 android {
     namespace = "com.tealium.prism.jstransformer"
-    compileSdk = 35
 
     defaultConfig {
-        minSdk = 23
-
         buildConfigField("String", "TEALIUM_LIBRARY_VERSION", "\"$version\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

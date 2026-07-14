@@ -1,20 +1,29 @@
 [versions]
-agp = "8.6.1"
+# Android SDK
+#noinspection UnusedVersionCatalogEntry
+compileSdk = "36"
+#noinspection UnusedVersionCatalogEntry
+minSdk = "23"
+#noinspection UnusedVersionCatalogEntry
+targetSdk = "36"
+
+# Dependencies
+agp = "8.13.2"
 dokkaGradlePlugin = "2.0.0"
 kotlin = "2.0.21"
-lint = "27.2.2" # NOTE - this is quite old - need Kotlin version updated to 1.9 though to use later versions
+lint = "31.10.1" # should be agp+23 (31.13.2), but lint 31.11+ was compiled with Kotlin 2.2 — incompatible with Kotlin 2.0.21
 mockk = "1.13.13"
 rhino = "1.8.1"
 
 [libraries]
 android-gradle = { module = "com.android.tools.build:gradle", version.ref = "agp" }
-androidx-annotations = "androidx.annotation:annotation:1.3.0"
-app-androidx-core = "androidx.core:core-ktx:1.7.0"
-app-androidx-appcompat = "androidx.appcompat:appcompat:1.5.1"
-app-androidx-constraintlayout = "androidx.constraintlayout:constraintlayout:2.1.4"
-app-androidx-fragment = "androidx.fragment:fragment-ktx:1.6.0"
-app-androidx-lifecycle-viewmodel = "androidx.lifecycle:lifecycle-viewmodel-ktx:2.2.0"
-app-material = "com.google.android.material:material:1.7.0"
+androidx-annotations = "androidx.annotation:annotation:1.10.0"
+app-androidx-core = "androidx.core:core-ktx:1.18.0" # 1.19.0+ requires AGP 9.1.0+
+app-androidx-appcompat = "androidx.appcompat:appcompat:1.7.1"
+app-androidx-constraintlayout = "androidx.constraintlayout:constraintlayout:2.2.1"
+app-androidx-fragment = "androidx.fragment:fragment-ktx:1.8.9"
+app-androidx-lifecycle-viewmodel = "androidx.lifecycle:lifecycle-viewmodel-ktx:2.11.0"
+app-material = "com.google.android.material:material:1.14.0"
 dokka-gradle-plugin = { module = "org.jetbrains.dokka:dokka-gradle-plugin", version.ref = "dokkaGradlePlugin" }
 eclipse-jgit = "org.eclipse.jgit:org.eclipse.jgit:6.10.0.202406032230-r"
 kotlin-gradle-jvm = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }

@@ -4,9 +4,12 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.LinearLayout
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
@@ -30,9 +33,15 @@ class MainActivity : AppCompatActivity(), FeatureListFragment.FeatureSelectedLis
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        ViewCompat.setOnApplyWindowInsetsListener(binding.mainLayout) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            insets
+        }
 
         trackEventButton = binding.btnTrackEvent
         secondActivityButton = binding.btnSecondActivity
@@ -49,7 +58,7 @@ class MainActivity : AppCompatActivity(), FeatureListFragment.FeatureSelectedLis
             }
         }
 
-        loadFragment(FeatureListFragment::class.java)
+        loadFragment(FeatureListFragment::class.java, addToBackStack = false)
 
         trackEventButton.setOnClickListener {
             viewModel.track("ButtonClick", DataObject.create {
@@ -68,11 +77,11 @@ class MainActivity : AppCompatActivity(), FeatureListFragment.FeatureSelectedLis
         subscribeSnackbarNotifications()
     }
 
-    private fun loadFragment(fragment: Class<out Fragment>) {
+    private fun loadFragment(fragment: Class<out Fragment>, addToBackStack: Boolean = true) {
         supportFragmentManager
             .beginTransaction()
             .replace(R.id.fragment_container, fragment, null)
-            .addToBackStack(null)
+            .apply { if (addToBackStack) addToBackStack(null) }
             .commit()
     }
 
