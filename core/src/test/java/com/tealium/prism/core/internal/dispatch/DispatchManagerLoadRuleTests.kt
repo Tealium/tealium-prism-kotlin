@@ -1,10 +1,13 @@
 package com.tealium.prism.core.internal.dispatch
 
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.transform.TransformationScope
 import com.tealium.prism.core.api.transform.TransformationSettings
+import com.tealium.tests.common.TestDispatcher
 import com.tealium.tests.common.TestTransformer
 import io.mockk.every
+import io.mockk.spyk
 import io.mockk.verify
 import org.junit.Test
 
@@ -69,6 +72,48 @@ class DispatchManagerLoadRuleTests : DispatchManagerTestsBase() {
 
         verify {
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+        }
+    }
+
+    @Test
+    fun dispatchManager_DeletesAllDispatches_WhenSomeFailLoadRules_AndSomeAreDispatched() {
+        dispatcher1 = spyk(TestDispatcher(dispatcher1Name, dispatchLimit = 2))
+        modules.onNext(listOf(dispatcher1))
+        every { loadRuleEngine.evaluateLoadRules(dispatcher1, any()) } answers {
+            val all = arg<List<Dispatch>>(1)
+            DispatchSplit(all.filter { it.id == dispatch2.id }, all.filter { it.id == dispatch1.id })
+        }
+        queue[dispatcher1.id] = mutableSetOf(dispatch1, dispatch2)
+        dispatchManager = createDispatchManager()
+        dispatchManager.startDispatchLoop()
+
+        verify(timeout = 1000) {
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
+        }
+        verify(timeout = 1000) {
+            dispatcher1.dispatch(listOf(dispatch2), any())
+        }
+        verify(inverse = true) {
+            dispatcher1.dispatch(match { it.contains(dispatch1) }, any())
+        }
+    }
+
+    @Test
+    fun dispatchManager_DeletesAllDispatches_WhenAllFailLoadRules_AndDoesNotCallDispatcher() {
+        every { loadRuleEngine.evaluateLoadRules(any(), any()) } answers {
+            DispatchSplit(emptyList(), arg(1))
+        }
+
+        dispatchManager.track(dispatch1)
+        dispatchManager.track(dispatch2)
+
+        verify(timeout = 1000) {
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
+        }
+        verify(inverse = true) {
+            dispatcher1.dispatch(any(), any())
         }
     }
 }

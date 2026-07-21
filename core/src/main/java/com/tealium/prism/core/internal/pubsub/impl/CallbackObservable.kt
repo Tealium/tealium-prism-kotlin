@@ -33,15 +33,19 @@ class CallbackObservable<T>(
 
         override fun onNext(value: T) {
             if (completed || isDisposed) return
-
+            completed = true
             observer.onNext(value)
-            onComplete()
+            complete()
         }
 
         override fun onComplete() {
             if (completed || isDisposed) return
             completed = true
+            complete()
+        }
 
+        private fun complete() {
+            if (isDisposed) return
             observer.onComplete()
             dispose()
         }

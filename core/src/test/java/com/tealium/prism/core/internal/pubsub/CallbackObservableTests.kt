@@ -1,6 +1,7 @@
 package com.tealium.prism.core.internal.pubsub
 
 import com.tealium.prism.core.api.pubsub.Consumer
+import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.Observer
@@ -253,5 +254,34 @@ class CallbackObservableTests {
         innerObserver!!.accept(1)
 
         assertTrue(sub.isDisposed)
+    }
+
+    @Test
+    fun callback_DoesNotEmitOnComplete_WhenDownstreamDisposesReentrantlyInsideOnNext() {
+        val subject = Observables.publishSubject<Int>()
+        var subscription: Disposable? = null
+        val testObserver = object : Observer<Int> {
+            var nextCount = 0
+            var completeCount = 0
+
+            override fun onNext(value: Int) {
+                nextCount++
+                subscription?.dispose()
+            }
+
+            override fun onComplete() {
+                completeCount++
+            }
+        }
+
+        subscription = subject.callback { value, onNext ->
+            onNext.accept(value)
+        }.subscribe(testObserver)
+
+        subject.onNext(1)
+
+        assertTrue(subscription.isDisposed)
+        assertTrue(testObserver.nextCount == 1)
+        assertTrue(testObserver.completeCount == 0)
     }
 }

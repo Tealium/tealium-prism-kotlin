@@ -190,6 +190,39 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
     }
 
     @Test
+    fun startDispatchLoop_DeletesBothAcceptedAndRejectedEvents_InMixedConsentBatch() {
+        val consentInspector = ConsentInspector(
+            ConsentConfiguration(
+                "tealium",
+                emptySet(),
+                mapOf("purpose1" to ConsentPurpose("purpose1", setOf(dispatcher1Name)))
+            ),
+            ConsentDecision(ConsentDecision.DecisionType.Explicit, setOf("purpose1")),
+            setOf("purpose1")
+        )
+        val cmpSelector = mockk<CmpConfigurationSelector>()
+        every { cmpSelector.isDisposed } returns false
+        every { cmpSelector.consentInspector } returns Observables.stateSubject(consentInspector)
+        every { cmpSelector.configuration } returns Observables.stateSubject(consentInspector.configuration)
+        enableConsent(ConsentIntegrationManager(modules, queueManager, cmpSelector, SystemLogger))
+        // dispatch1 is accepted (has the matching consent purpose), dispatch2 and dispatch3 are rejected
+        dispatch1.addAll(DataObject.create { put(Dispatch.Keys.ALL_CONSENTED_PURPOSES, listOf("purpose1").asDataList()) })
+        val dispatch3 = testDispatch("test3")
+        queueManager.storeDispatches(
+            listOf(dispatch1, dispatch2, dispatch3),
+            modules.value.map(Module::id).toSet()
+        )
+
+        dispatchManager.startDispatchLoop()
+
+        verify(timeout = 1000) {
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch3), dispatcher1Name)
+        }
+    }
+
+    @Test
     fun startDispatchLoop_Deletes_Events_That_Are_Dropped_By_Consent() {
         val consentInspector = ConsentInspector(
             ConsentConfiguration("tealium", emptySet(), emptyMap()),

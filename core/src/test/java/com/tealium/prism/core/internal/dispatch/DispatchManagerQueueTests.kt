@@ -4,6 +4,7 @@ import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
+import com.tealium.prism.core.internal.pubsub.CompletedDisposable
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.Ordering
 import io.mockk.mockk
@@ -173,6 +174,26 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
         verify(timeout = 1000, inverse = true) {
             dispatcher1.dispatch(listOf(dispatch2), any())
             dispatcher2.dispatch(listOf(dispatch1), any())
+        }
+    }
+
+    @Test
+    fun dispatchManager_DeletesAllBatches_WhenDispatcherCompletesInMultipleBatches() {
+        dispatcher1 = TestDispatcher.mock(dispatcher1Name, dispatchLimit = 2) { dispatches, callback ->
+            // Simulates a dispatcher (e.g. Collect) completing each dispatch separately
+            dispatches.forEach { callback.onComplete(listOf(it)) }
+            CompletedDisposable
+        }
+        modules.onNext(listOf(dispatcher1))
+        queue[dispatcher1.id] = mutableSetOf(dispatch1, dispatch2)
+
+        dispatchManager.startDispatchLoop()
+        dispatchManager.track(dispatch3)
+
+        verify(timeout = 1000) {
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
+            queueManager.deleteDispatches(listOf(dispatch3), dispatcher1Name)
         }
     }
 
