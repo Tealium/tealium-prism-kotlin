@@ -114,29 +114,8 @@ class DispatchManagerImpl(
             }.flatMap { dispatcher ->
                 ensureBarriersOpen(dispatcher)
                     .flatMap { dispatches ->
-                        Observables.create { observer ->
-                            if (dispatches.unsuccessful.isNotEmpty()) {
-                                logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
-                                    "Dispatches discarded due to consent: ${dispatches.unsuccessful.logDescriptions()}"
-                                }
-                                observer.onNext(dispatcher to dispatches.unsuccessful)
-                            }
-
-                            logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
-                                "Sending events to dispatcher ${dispatcher.id}: ${dispatches.successful.logDescriptions()}"
-                            }
-
-                            var remainingDispatches = dispatches.successful
-                            transformAndDispatch(dispatches.successful, dispatcher) { completedDispatches ->
-                                remainingDispatches = remainingDispatches.filter { dispatch ->
-                                    completedDispatches.none { it.id == dispatch.id }
-                                }
-                                observer.onNext(dispatcher to completedDispatches)
-                                if (remainingDispatches.isEmpty()) {
-                                    observer.onComplete()
-                                }
-                            }
-                        }
+                        transformAndDispatch(dispatches, dispatcher)
+                            .map { completedDispatches -> dispatcher to completedDispatches }
                     }
             }.subscribe { (dispatcher, completedDispatches) ->
                 queueManager.deleteDispatches(
@@ -208,65 +187,75 @@ class DispatchManagerImpl(
 
     /**
      * Transforms the provided [dispatches] according to the current set of transformers available
-     * to the [transformerCoordinator].
+     * to the [transformerCoordinator], then sends the transformed dispatches to the [dispatcher].
      *
-     * Any dispatches where the [transformerCoordinator] returns null, will be dropped from the batch.
-     * Dropped dispatches will not be replaced in the batch to make up the numbers.
+     * Dispatches in [DispatchSplit.unsuccessful] are emitted downstream as-is, without being
+     * transformed. Of the [DispatchSplit.successful] dispatches, any dropped by the
+     * [transformerCoordinator] or disallowed by the [loadRuleEngine] for this [dispatcher] are also
+     * emitted downstream rather than being sent to the [dispatcher]. Dropped dispatches will not be
+     * replaced in the batch to make up the numbers.
      */
     private fun transformAndDispatch(
-        dispatches: List<Dispatch>,
-        dispatcher: Dispatcher,
-        onProcessedDispatches: (List<Dispatch>) -> Unit
-    ): Disposable {
-        if (dispatches.isEmpty()) {
-            onProcessedDispatches(emptyList())
-            return CompletedDisposable
+        dispatches: DispatchSplit,
+        dispatcher: Dispatcher
+    ): Observable<List<Dispatch>> = Observables.create { observer ->
+        if (dispatches.unsuccessful.isNotEmpty()) {
+            logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
+                "Dispatches discarded due to consent: ${dispatches.unsuccessful.logDescriptions()}"
+            }
+            observer.onNext(dispatches.unsuccessful)
         }
 
+        val successful = dispatches.successful
+        if (successful.isEmpty()) {
+            observer.onComplete()
+            return@create CompletedDisposable
+        }
+
+        logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
+            "Sending events to dispatcher ${dispatcher.id}: ${successful.logDescriptions()}"
+        }
+
+        val remainingIds = successful.map { it.id }.toMutableSet()
         val container = DisposableContainer()
+
+        fun emitProcessed(processed: List<Dispatch>) {
+            if (container.isDisposed) return
+            processed.forEach { remainingIds.remove(it.id) }
+            observer.onNext(processed)
+            if (remainingIds.isEmpty()) {
+                observer.onComplete()
+            }
+        }
+
         transformerCoordinator.transform(
-            dispatches,
+            successful,
             DispatchScope.Dispatcher(dispatcher.id)
         ) { transformedDispatches ->
             if (container.isDisposed) return@transform
 
             val (passed, _) = loadRuleEngine.evaluateLoadRules(dispatcher, transformedDispatches)
-            deleteMissingDispatches(
-                dispatches,
-                passed,
-                dispatcher.id,
-                onProcessedDispatches
-            )
+
+            val missingDispatches = successful.filter { original ->
+                passed.none { it.id == original.id }
+            }
+            if (missingDispatches.isNotEmpty()) {
+                logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
+                    "Dispatching disallowed for Dispatcher(${dispatcher.id}) and Dispatches (${missingDispatches.logDescriptions()})"
+                }
+                emitProcessed(missingDispatches)
+            }
 
             if (passed.isEmpty()) return@transform
 
             val mapped = passed.map { dispatch -> mappingsEngine.map(dispatcher.id, dispatch) }
 
             dispatcher.dispatch(mapped) { completed ->
-                if (container.isDisposed) return@dispatch
-                onProcessedDispatches(completed)
+                emitProcessed(completed)
             }.addTo(container)
         }
 
-        return container
-    }
-
-    private fun deleteMissingDispatches(
-        original: List<Dispatch>,
-        transformedDispatches: List<Dispatch>,
-        dispatcherId: String,
-        onProcessedDispatches: (List<Dispatch>) -> Unit
-    ) {
-        val missingDispatches = original.filter { oldDispatch ->
-            transformedDispatches.firstOrNull { transformedDispatch -> oldDispatch.id == transformedDispatch.id } == null
-        }
-
-        if (missingDispatches.isNotEmpty()) {
-            logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
-                "Dispatching disallowed for Dispatcher(${dispatcherId}) and Dispatches (${missingDispatches.logDescriptions()})"
-            }
-            onProcessedDispatches(missingDispatches)
-        }
+        container
     }
 
     private fun isLessThanMaxInFlight(count: Int): Boolean =

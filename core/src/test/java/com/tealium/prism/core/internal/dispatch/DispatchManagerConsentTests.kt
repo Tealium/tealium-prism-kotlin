@@ -220,6 +220,12 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
             queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
             queueManager.deleteDispatches(listOf(dispatch3), dispatcher1Name)
         }
+        verify(timeout = 1000) {
+            dispatcher1.dispatch(listOf(dispatch1), any())
+        }
+        verify(inverse = true, timeout = 1000) {
+            dispatcher1.dispatch(match { it.contains(dispatch2) || it.contains(dispatch3) }, any())
+        }
     }
 
     @Test
