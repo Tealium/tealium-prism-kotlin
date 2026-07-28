@@ -6,6 +6,7 @@ import com.tealium.prism.core.internal.misc.SingleThreadedScheduler
 import com.tealium.prism.core.internal.pubsub.ObservableUtils.assertNoSubscribers
 import com.tealium.prism.core.internal.pubsub.ObservableUtils.getMockObserver
 import com.tealium.prism.core.internal.pubsub.ObservableUtils.getSubject
+import com.tealium.tests.common.ManualScheduler
 import com.tealium.tests.common.assertWithTimeout
 import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.mockk
@@ -118,6 +119,24 @@ class ObserveOnObservableTests {
             observer.onNext(1)
             observer.onComplete()
             assertion()
+        }
+    }
+
+    @Test
+    fun observeOn_Does_Not_Emit_OnComplete_When_Disposed_Before_Delivery() {
+        // Holds the queued onComplete task so dispose() can run before it's delivered.
+        val scheduler = ManualScheduler()
+        val observer = getMockObserver<Int>()
+        val subject = Observables.publishSubject<Int>()
+        val disposable = subject.observeOn(scheduler)
+            .subscribe(observer)
+
+        subject.onComplete()
+        disposable.dispose()
+        scheduler.runAll()
+
+        verify(exactly = 0) {
+            observer.onComplete()
         }
     }
 

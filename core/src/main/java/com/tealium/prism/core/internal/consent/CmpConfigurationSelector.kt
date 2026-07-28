@@ -32,8 +32,8 @@ class CmpConfigurationSelector(
         configuration = consentSettings.mapState(::extractConsentConfiguration)
 
         val consentDecisions = cmpAdapter.consentDecision
-            .distinct()
             .observeOn(scheduler)
+            .distinct()
         configuration.combine(consentDecisions) { config, decision ->
             if (config != null && decision != null) {
                 ConsentInspector(config, decision, cmpAdapter.allPurposes)

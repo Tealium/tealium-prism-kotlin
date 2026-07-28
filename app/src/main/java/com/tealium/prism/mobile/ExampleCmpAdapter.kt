@@ -5,6 +5,7 @@ import android.content.Context.MODE_PRIVATE
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import com.tealium.prism.core.api.consent.ConsentDecision
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.StateSubject
@@ -15,7 +16,7 @@ class ExampleCmpAdapter(
 
     constructor(context: Context) : this(context.getSharedPreferences("tealium-cmp", MODE_PRIVATE))
 
-    private val _consentDecision: StateSubject<ConsentDecision?>
+    private val _consentDecision: StateSubject<ConsentDecision>
 
     override val allPurposes: Set<String>
         get() = setOf(Purposes.TEALIUM, Purposes.TRACKING, Purposes.FUNCTIONAL)
@@ -32,7 +33,9 @@ class ExampleCmpAdapter(
         get() = "ExampleCmpAdapter"
 
     override val consentDecision: Observable<ConsentDecision?>
-        get() = _consentDecision.asObservableState()
+        get() = _consentDecision.asObservable()
+            .map<ConsentDecision?> { it }
+            .subscribeOn(Scheduler.MAIN)
 
     override fun setConsentDecision(consentDecision: ConsentDecision) {
         saveDecision(consentDecision)

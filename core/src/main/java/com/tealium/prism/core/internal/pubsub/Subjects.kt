@@ -208,7 +208,9 @@ class ReplaySubjectImpl<T>(
     }
 
     override fun last(): T? =
-        cache.lastOrNull()
+        synchronized(lock) {
+            cache.lastOrNull()
+        }
 
     /**
      * Returns a non-negative value for the given [size].

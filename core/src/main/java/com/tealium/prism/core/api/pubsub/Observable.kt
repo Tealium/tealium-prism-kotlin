@@ -124,14 +124,83 @@ interface Observable<T> : Subscribable<T> {
     }
 
     /**
-     * Returns an observable that performs the subscription on the given [scheduler]
+     * Ensures that the subscription to the source observable happens on the provided [scheduler].
+     *
+     * The source **must** emit on this same [scheduler] (see the first warning below); this operator
+     * moves only the *subscription*, not the emission thread. It is useful to consume (via
+     * [observeOn]) an [Observable] that emits from a thread different from the consumer's.
+     *
+     * Example:
+     *
+     * ```kotlin
+     * // sourceScheduler: the scheduler the subject emits on
+     * // consumerScheduler: the scheduler the consumer wants its values on
+     * val subject = Observables.publishSubject<Int>()
+     *
+     * consumerScheduler.execute {
+     *     subject.asObservable()
+     *         .subscribeOn(sourceScheduler)   // subscribe to `subject` on the scheduler it emits from
+     *         .observeOn(consumerScheduler)   // hop the emissions over to the consumer
+     *         .take(1)
+     *         .map { it * 10 }
+     *         .subscribe { println(it) }      // must run on consumerScheduler, see the second warning
+     * }
+     *
+     * sourceScheduler.execute {
+     *     subject.onNext(1)
+     * }
+     * ```
+     *
+     * **Warning.** This method is intended for observables that emit from the same scheduler as the
+     * one provided here. Calling this method on an [Observable] that emits from a different scheduler
+     * will cause race conditions.
+     *
+     * You can [subscribe] to this [Observable] directly and you will receive `onNext` and `onComplete`
+     * from the source scheduler (which must be the same as the provided scheduler) and you can dispose
+     * from any thread.
+     *
+     * **Warning.** You can't chain any operator to the returned [Observable] other than [observeOn]
+     * with the scheduler on which the consumer runs. After doing that you can chain any other
+     * operator, as long as it also works from that same scheduler.
      */
     fun subscribeOn(scheduler: Scheduler): Observable<T> {
         return SubscribeOnObservable(this, scheduler)
     }
 
     /**
-     * Returns an observable that propagates emissions downstream on the given [scheduler]
+     * Ensures that downstream observers receive events on the provided [scheduler].
+     *
+     * This is useful to consume an [Observable] that emits from a thread different from the
+     * consumer's: the source keeps emitting on its own thread, while `onNext`/`onComplete` are
+     * re-delivered downstream on this [scheduler].
+     *
+     * Example:
+     *
+     * ```kotlin
+     * // sourceScheduler: the scheduler the subject emits on
+     * // consumerScheduler: the scheduler the consumer wants its values on
+     * val subject = Observables.publishSubject<Int>()
+     *
+     * consumerScheduler.execute {
+     *     subject.asObservable()
+     *         .subscribeOn(sourceScheduler)   // subscribe to `subject` on the scheduler it emits from
+     *         .observeOn(consumerScheduler)   // hop the emissions over to the consumer
+     *         .take(1)
+     *         .map { it * 10 }
+     *         .subscribe { println(it) }
+     * }
+     *
+     * sourceScheduler.execute {
+     *     subject.onNext(1)
+     * }
+     * ```
+     *
+     * **Warning.** Disposing of a subscription to the returned [Observable] must happen from the same
+     * [scheduler]. Disposing from a different scheduler races with event delivery on this [scheduler].
+     *
+     * **Warning.** Immediately before [observeOn] you must [subscribeOn] the producer scheduler, and
+     * you must not chain any operator onto that [subscribeOn] before calling [observeOn]. See
+     * [subscribeOn] for the full contract.
      */
     fun observeOn(scheduler: Scheduler): Observable<T> {
         return ObserveOnObservable(this, scheduler)

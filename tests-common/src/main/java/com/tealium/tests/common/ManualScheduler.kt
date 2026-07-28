@@ -34,6 +34,14 @@ class ManualScheduler : Scheduler {
         return disposableRunnable
     }
 
+    /**
+     * Runs all queued tasks in order until the [queue] is empty, including any tasks that are
+     * scheduled by the tasks being run (they are appended to the [queue] and drained in turn).
+     */
+    fun runAll() {
+        generateSequence { queue.poll() }.forEach { it.runnable.run() }
+    }
+
     class ScheduledRunnable(
         val runnable: DisposableRunnable,
         val delayMs: Long,

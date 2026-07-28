@@ -40,7 +40,7 @@ class ObserveOnObservable<T>(
 
         override fun onComplete() {
             scheduler.execute {
-                if (completed) return@execute
+                if (completed || isDisposed) return@execute
                 completed = true
 
                 observer.onComplete()

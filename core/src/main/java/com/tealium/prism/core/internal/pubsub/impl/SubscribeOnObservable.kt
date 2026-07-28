@@ -19,10 +19,16 @@ class SubscribeOnObservable<T>(
     override fun subscribe(observer: Observer<T>) : Disposable {
         val subscription = AsyncDisposableContainer(disposeOn = scheduler)
         scheduler.execute {
+            if (subscription.isDisposed) return@execute
+
             source.subscribe(object : Observer<T> {
-                override fun onNext(value: T) = observer.onNext(value)
+                override fun onNext(value: T) {
+                    if (subscription.isDisposed) return
+                    observer.onNext(value)
+                }
 
                 override fun onComplete() {
+                    if (subscription.isDisposed) return
                     observer.onComplete()
                     subscription.dispose()
                 }
