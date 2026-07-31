@@ -21,11 +21,6 @@ android {
         consumerProguardFiles.add(file("consumer-rules.pro"))
     }
 
-    kotlin {
-        kotlinOptions {
-            freeCompilerArgs += "-Xjvm-default=all"
-        }
-    }
     testOptions {
         unitTests.isReturnDefaultValues = true
         unitTests.isIncludeAndroidResources = true

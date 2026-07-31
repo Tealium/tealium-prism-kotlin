@@ -2,6 +2,7 @@ package com.tealium.gradle.library
 
 import com.android.build.gradle.LibraryExtension
 import com.android.build.gradle.LibraryPlugin
+import com.tealium.gradle.configureKotlinVersionDefaults
 import com.tealium.gradle.dokka.DokkaLibraryPlugin
 import com.tealium.gradle.publish.TealiumPublishPlugin
 import com.tealium.gradle.tests.JacocoCoverageType
@@ -24,6 +25,7 @@ import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
 import org.gradle.testing.jacoco.tasks.JacocoCoverageVerification
 import org.gradle.testing.jacoco.tasks.JacocoReport
 import org.gradle.testing.jacoco.tasks.JacocoReportBase
+import org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 import org.jetbrains.kotlin.gradle.plugin.KotlinAndroidPluginWrapper
@@ -60,12 +62,29 @@ class TealiumLibraryPlugin : Plugin<Project> {
         android.defaultConfig.minSdk = libs.findVersion("minSdk").get().requiredVersion.toInt()
 
         configureLanguageDefaults(android)
+        configurePublishingVariant(android)
         configureDefaultBuildTypes(android)
         configureCodeCoverage(android)
     }
 
     /**
-     * Sets JVM compatibility to 1.8, but sets tests to execute using Java 17 for Robolectric support.
+     * Required: without it KGP wraps AGP's `release` component instead of publishing it
+     * natively, and the Gradle metadata loses its variant attributes — the symptom is
+     * KGP's "Android Publication 'Release' Misconfigured" warning at configuration time.
+     *
+     * See https://developer.android.com/build/publish-library/configure-pub-variants#single-pub-var
+     */
+    private fun configurePublishingVariant(android: LibraryExtension) {
+        android.publishing {
+            singleVariant("release") {
+                withSourcesJar()
+            }
+        }
+    }
+
+    /**
+     * Sets JVM compatibility to 1.8 (but tests execute using Java 17, for Robolectric support),
+     * and pins `jvmDefault` to [JvmDefaultMode.NO_COMPATIBILITY] for every library module.
      */
     private fun Project.configureLanguageDefaults(android: LibraryExtension) {
         with(android) {
@@ -83,8 +102,14 @@ class TealiumLibraryPlugin : Plugin<Project> {
                 jvmToolchain {
                     languageVersion.set(JavaLanguageVersion.of(17))
                 }
+                compilerOptions {
+                    // Real default methods, no DefaultImpls bridge. Set explicitly since
+                    // our languageVersion=2.0 pin means this wouldn't happen by default.
+                    jvmDefault.set(JvmDefaultMode.NO_COMPATIBILITY)
+                }
             }
         }
+        configureKotlinVersionDefaults()
     }
 
     private fun Project.configureDefaultBuildTypes(android: LibraryExtension) {

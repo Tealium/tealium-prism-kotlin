@@ -19,12 +19,6 @@ android {
         consumerProguardFiles.add(file("consumer-rules.pro"))
     }
 
-    kotlin {
-
-        kotlinOptions {
-            freeCompilerArgs += "-Xjvm-default=all"
-        }
-    }
     packagingOptions {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"

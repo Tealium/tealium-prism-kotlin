@@ -10,8 +10,12 @@ targetSdk = "36"
 # Dependencies
 agp = "8.13.2"
 dokkaGradlePlugin = "2.0.0"
-kotlin = "2.0.21"
-lint = "31.10.1" # should be agp+23 (31.13.2), but lint 31.11+ was compiled with Kotlin 2.2 — incompatible with Kotlin 2.0.21
+kgp = "2.2.21"
+# languageVersion/apiVersion are pinned separately — see
+# buildSrc/src/main/java/com/tealium/gradle/KotlinVersionDefaults.kt
+#noinspection UnusedVersionCatalogEntry
+kotlinCoreLibs = "2.0.21" # pins coreLibrariesVersion (stdlib/reflect/test); deliberately independent of kgp
+lint = "31.13.2"
 mockk = "1.13.13"
 rhino = "1.8.1"
 
@@ -26,7 +30,7 @@ app-androidx-lifecycle-viewmodel = "androidx.lifecycle:lifecycle-viewmodel-ktx:2
 app-material = "com.google.android.material:material:1.14.0"
 dokka-gradle-plugin = { module = "org.jetbrains.dokka:dokka-gradle-plugin", version.ref = "dokkaGradlePlugin" }
 eclipse-jgit = "org.eclipse.jgit:org.eclipse.jgit:6.10.0.202406032230-r"
-kotlin-gradle-jvm = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+kotlin-gradle-jvm = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kgp" }
 lint-api = { module = "com.android.tools.lint:lint-api", version.ref = "lint" }
 lint-tests = { module = "com.android.tools.lint:lint-tests", version.ref = "lint" }
 rhino = { module = "org.mozilla:rhino", version.ref = "rhino" }

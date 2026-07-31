@@ -1,3 +1,4 @@
+import com.tealium.gradle.configureKotlinVersionDefaults
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -16,6 +17,8 @@ kotlin {
         jvmTarget.set(JvmTarget.JVM_17)
     }
 }
+
+configureKotlinVersionDefaults()
 
 tasks.jar {
     manifest {
