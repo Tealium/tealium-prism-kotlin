@@ -28,5 +28,7 @@ tasks.jar {
 
 dependencies {
     compileOnly(libs.lint.api)
+    testImplementation(libs.lint.api)
     testImplementation(libs.lint.tests)
+    testImplementation(libs.test.junit)
 }

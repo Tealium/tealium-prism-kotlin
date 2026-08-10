@@ -10,20 +10,39 @@ import com.android.tools.lint.detector.api.Issue
 import com.android.tools.lint.detector.api.JavaContext
 import com.android.tools.lint.detector.api.Scope
 import com.android.tools.lint.detector.api.Severity
+import com.intellij.psi.PsiArrayType
+import com.intellij.psi.PsiClassType
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiType
+import com.intellij.psi.PsiWildcardType
 import org.jetbrains.uast.UCallExpression
 import org.jetbrains.uast.UClass
 import org.jetbrains.uast.UElement
+import org.jetbrains.uast.ULocalVariable
 import org.jetbrains.uast.UMethod
 import org.jetbrains.uast.UVariable
 import org.jetbrains.uast.getContainingUClass
 
 /**
- * This issue looks for usage of classes from `com.tealium.prism.core.internal` in any package that isn't
- * `com.tealium.prism.core.internal` and flags a lint warning.
- * There may be some cases where a class in that package should remain un-obfuscated, and in which case
- * this issue implementation will need to be amended to consider that.
+ * This issue looks for references to any Tealium type declared under a `*.internal.*` package
+ * (any module, not just `core`'s) and flags a lint warning in two cases:
+ *  - the internal type is from a *different* module than the reference — always flagged, since a
+ *    consuming module can't rely on another module's internal package staying stable/unobfuscated.
+ *  - the internal type is from *this* module, but the reference itself sits on the public API
+ *    (e.g. a public class's constructor param or a public method's return type) — flagged because
+ *    it leaks the internal type to external consumers who can't see it's meant to be private.
+ * A reference to a same-module internal type from other code whose containing class is itself in
+ * an internal package is allowed. NOTE: this is narrower than "any non-public code" — a `private`
+ * member of a class in a *non*-internal package is still flagged today, which is a known
+ * imprecision (the check inspects only the containing class's package, not member visibility —
+ * see [InternalClassOnPublicApiVisitor.isInInternalClass] before attempting a visibility-based
+ * fix; the obvious approach is wrong).
+ *
+ * A few internal-package classes are deliberately kept un-obfuscated by explicit keep rules (e.g.
+ * `ComponentDiscoveryService`, looked up by name from the manifest), and this check has no way to
+ * know that — it would need amending to exempt them. Note that such an exemption would only mean
+ * "this name survives R8", NOT "this class is safe to depend on": internal packages carry no
+ * API-stability guarantee, and nothing in this check enforces that separate concern.
  */
 object InternalClassOnPublicApiIssue {
     private const val ID = "InternalClassOnPublicApiIssue"
@@ -39,9 +58,6 @@ object InternalClassOnPublicApiIssue {
 
     private val CATEGORY = Category.CUSTOM_LINT_CHECKS
 
-    /**
-     * The default severity of the issue
-     */
     private val SEVERITY = Severity.WARNING
 
     val ISSUE = Issue.create(
@@ -74,7 +90,13 @@ class InternalClassOnPublicApiVisitor(private val context: JavaContext) : UEleme
     private val internalPackageRegex = Regex("com\\.tealium[.a-zA-Z]*\\.internal\\..*")
 
     override fun visitVariable(node: UVariable) {
-        // UVariable covers a lot of ares: e.g. Fields and Parameters, as well as local variable types
+        // UVariable covers a lot of areas: e.g. Fields and Parameters, as well as local variable
+        // types. A method-local variable can never be part of the public API regardless of its
+        // visibility, so it's never a LocalLeak or worth flagging as one — skip it outright rather
+        // than let it fall through to the (containing-class-only) isInInternalClass check, which
+        // has no way to know this declaration itself is local to a method body.
+        if (node is ULocalVariable) return
+
         val type = node.type
         val source = node.typeReference?.sourcePsi ?: return
 
@@ -95,27 +117,29 @@ class InternalClassOnPublicApiVisitor(private val context: JavaContext) : UEleme
             .forEach { type ->
                 val source = node.sourcePsi ?: return
 
-                // Call expressions are ok when referencing an internal class
-                // as long as it's within this module, so we're only interested in references to
-                // internal classes of other modules.
-                if (type.isInternalAndNonLocal) {
-                    reportReferenceToNonLocalInternalClass(
-                        node,
-                        type,
-                        source,
-                        TypeDescription.Element
-                    )
+                // Call expressions are ok when referencing an internal class as long as it's
+                // within this module, so we only report the non-local classification here — never
+                // the local-leak one (a call expression is not itself "the public API").
+                type.internalTypeNames.forEach { bareTypeName ->
+                    if (classify(node, bareTypeName) == InternalRef.NonLocal) {
+                        reportReferenceToNonLocalInternalClass(
+                            node,
+                            bareTypeName,
+                            source,
+                            TypeDescription.Element
+                        )
+                    }
                 }
             }
     }
 
     /**
-     * Checks for the following two cases:
-     *  - The [reference] is an internal type and IS from this module, but the [scope] is exposing it on the public API
-     *  - The [reference] is an internal type, but it IS NOT from this module
+     * Reports once per internal type name found in [reference] (not once per call site) — a type
+     * like `Map<LocalInternal, ForeignInternal>` can contain both a same-module leak and a
+     * different-module reference at once, and each deserves its own warning naming its own type.
      *
-     *  This check is useful for cases where the [scope] will form a part of the public API
-     *  e.g. Method Return Types and parameters.
+     *  - a name IS from this module, but [scope] is exposing it on the public API → local leak
+     *  - a name IS NOT from this module → always flagged, regardless of [scope]
      */
     private fun assertReferencingIssue(
         scope: UElement,
@@ -123,35 +147,112 @@ class InternalClassOnPublicApiVisitor(private val context: JavaContext) : UEleme
         source: PsiElement,
         typeDescription: TypeDescription
     ) {
-        if (isInternalAndLocal(scope, reference)) {
-            reportReferenceToLocalInternalClass(scope, reference, source, typeDescription)
-        } else if (reference.isInternalAndNonLocal) {
-            reportReferenceToNonLocalInternalClass(scope, reference, source, typeDescription)
+        reference.internalTypeNames.forEach { bareTypeName ->
+            when (classify(scope, bareTypeName)) {
+                InternalRef.LocalLeak ->
+                    reportReferenceToLocalInternalClass(scope, bareTypeName, source, typeDescription)
+                InternalRef.NonLocal ->
+                    reportReferenceToNonLocalInternalClass(scope, bareTypeName, source, typeDescription)
+                null -> Unit
+            }
         }
     }
 
-    private fun isInternalAndLocal(scope: UElement, type: PsiType): Boolean =
-        type.isInternal && !scope.isInInternalClass && type.isFromThisModule
+    private enum class InternalRef { LocalLeak, NonLocal }
 
-    private val PsiType.isInternalAndNonLocal: Boolean
-        get() = isInternal
-                && isTealiumOwned // needed to filter out references to `java.*` and `kotlin.*` etc.
-                && !isFromThisModule
+    /**
+     * Classifies a single internal type name as a local leak (from this module, but [scope] is on
+     * the public API), a non-local reference (from a different module — always flagged), or
+     * neither (from this module, referenced from non-public same-module code — allowed; or module
+     * identity couldn't be determined at all, see [isFromThisModule]).
+     */
+    private fun classify(scope: UElement, bareTypeName: String): InternalRef? {
+        val fromThisModule = isFromThisModule(bareTypeName) ?: return null
+        return when {
+            fromThisModule -> InternalRef.LocalLeak.takeUnless { scope.isInInternalClass }
+            // "com.tealium." filters out references to `java.*` and `kotlin.*` etc.
+            bareTypeName.startsWith("com.tealium.") -> InternalRef.NonLocal
+            else -> null
+        }
+    }
 
-    private val PsiType.isTealiumOwned: Boolean
-        get() = canonicalText.startsWith("com.tealium.")
+    /**
+     * True if [bareTypeName] is declared in this module, or `null` if this module's own package
+     * couldn't be determined ([JavaContext.getProject]'s `package` is `@Nullable` — e.g. a project
+     * with no manifest package). `null` here means "can't tell," and callers must treat that as
+     * "skip classification," never as `false`: `bareTypeName.startsWith("$pkg.")` with a null [pkg]
+     * would silently compare against the literal string `"null."`, which is always false and would
+     * misclassify every same-module internal type as foreign — a confidently wrong answer instead
+     * of an honest "unknown."
+     *
+     * [bareTypeName] must be a single unparameterized FQN (e.g. one entry from [internalTypeNames])
+     * — passing a whole, possibly-parameterized [PsiType.canonicalText] here would let a generic
+     * argument's own package get shadowed by its container's package (see [internalTypeNames]).
+     *
+     * Comparison is by package prefix, which relies on module namespaces not nesting one inside
+     * another in the direction of a dependency. This repo's nested modules (`core` / `core.ktx`,
+     * `jstransformer` / `jstransformer.rhino`) only ever depend child → parent, and a child's
+     * namespace is longer than its parent's, so the prefix test is correct for every real pair
+     * today. If a module ever depends on another whose namespace is nested inside its own, this
+     * would misread it as local — `context.project.allLibraries` (the resolved dependency graph,
+     * available in real builds though not under `TestLintTask`) would be the way to detect that.
+     */
+    private fun isFromThisModule(bareTypeName: String): Boolean? {
+        val pkg = context.project.`package` ?: return null
+        return bareTypeName == pkg || bareTypeName.startsWith("$pkg.")
+    }
 
-    private val PsiType.isFromThisModule: Boolean
-        get() = canonicalText.startsWith(context.project.`package`)
+    /**
+     * This type's own name plus every generic type argument's name, recursively.
+     *
+     * GAP: for an inner-class type `Outer<T>.Inner`, `T` lives on the outer qualifier — `Inner`'s
+     * own [PsiClassType.parameters] are empty — so `T` is never visited. No SDK module declares
+     * that shape today, so it's left unfixed; a fix would need the qualifier's arguments via
+     * `resolveGenerics()`.
+     */
+    private val PsiType.referencedTypeNames: List<String>
+        get() = when (this) {
+            is PsiClassType -> listOf(rawType().canonicalText) + parameters.flatMap { it.referencedTypeNames }
+            is PsiArrayType -> componentType.referencedTypeNames
+            is PsiWildcardType -> bound?.referencedTypeNames.orEmpty()
+            else -> listOf(canonicalText)
+        }
+
+    /**
+     * [referencedTypeNames] filtered down to the ones that are actually from an `internal` package.
+     *
+     * [assertReferencingIssue] and [classify] both decide per name in this list, rather than on the
+     * whole (possibly-parameterized) type as one string. That distinction matters twice over: a
+     * generic argument's own package can otherwise be shadowed by its container's package — e.g.
+     * `ModuleProxy<T>` is declared in `core`, so a naive whole-string check on
+     * `ModuleProxy<MomentsIqModule>` would judge `MomentsIqModule` (from `momentsiq.internal`) by
+     * `ModuleProxy`'s package instead of its own — and a single type can contain more than one
+     * internal name at once (e.g. `Map<LocalInternal, ForeignInternal>`), each needing its own,
+     * independent classification and report rather than one verdict for the whole type.
+     */
+    private val PsiType.internalTypeNames: List<String>
+        get() = referencedTypeNames.filter { it.contains(internalPackageRegex) }
 
     private val UClass.isInternal: Boolean
         get() = qualifiedName?.contains(internalPackageRegex) ?: false
 
+    /**
+     * Whether this element sits inside a class in an internal package — the detector's
+     * approximation of "this reference is not on the public API". Deliberately coarse: it
+     * inspects only the containing class's package, never the declaration's own visibility.
+     *
+     * WARNING FOR ANYONE TIGHTENING THIS: the obvious fix — "skip if `UDeclaration.visibility ==
+     * PRIVATE`" — is wrong. On Kotlin sources a property compiles to *two* UAST nodes (a backing
+     * field visited via [UVariable], its accessor via [UMethod]), and `UVariable.visibility` on
+     * the backing field is **always `PRIVATE`** regardless of the property's declared visibility
+     * — so filtering `visitVariable` on it would suppress every Kotlin property, public ones
+     * included. Kotlin `internal` is a further trap: it compiles to a JVM-public, name-mangled
+     * accessor (e.g. `getFoo$module_name`), so `UastVisibility` can't identify it either; a real
+     * fix must read visibility from the accessor and handle `internal` separately. (Verified by
+     * probing `UastVisibility` on Kotlin sources under `TestLintTask`.)
+     */
     private val UElement.isInInternalClass: Boolean
         get() = getContainingUClass()?.isInternal ?: false
-
-    private val PsiType.isInternal: Boolean
-        get() = canonicalText.contains(internalPackageRegex)
 
     private val nonLocalMessageTemplate = """
             %s is referencing a class from an internal package in another module and may be obfuscated when built for release.
@@ -164,23 +265,23 @@ class InternalClassOnPublicApiVisitor(private val context: JavaContext) : UEleme
 
     private fun reportReferenceToLocalInternalClass(
         scope: UElement,
-        referenceType: PsiType,
+        bareTypeName: String,
         element: PsiElement,
         type: TypeDescription
     ) {
         reportIssue(
-            scope, element, localMessageTemplate, type.string, referenceType.canonicalText
+            scope, element, localMessageTemplate, type.string, bareTypeName
         )
     }
 
     private fun reportReferenceToNonLocalInternalClass(
         scope: UElement,
-        referenceType: PsiType,
+        bareTypeName: String,
         element: PsiElement,
         type: TypeDescription
     ) {
         reportIssue(
-            scope, element, nonLocalMessageTemplate, type.string, referenceType.canonicalText
+            scope, element, nonLocalMessageTemplate, type.string, bareTypeName
         )
     }
 
