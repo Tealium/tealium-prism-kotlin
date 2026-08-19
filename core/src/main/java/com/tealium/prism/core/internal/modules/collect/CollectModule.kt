@@ -13,7 +13,8 @@ import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
 import com.tealium.prism.core.api.modules.TealiumContext
-import com.tealium.prism.core.api.network.NetworkHelper
+import com.tealium.prism.core.api.network.HttpRequest
+import com.tealium.prism.core.api.network.NetworkClient
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.internal.logger.LogCategory
@@ -30,7 +31,7 @@ class CollectModule(
     override val id: String,
     private val config: TealiumConfig,
     private val logger: Logger,
-    private val networkHelper: NetworkHelper,
+    private val networkClient: NetworkClient,
     private var collectModuleConfiguration: CollectModuleConfiguration,
 ) : Dispatcher, Module {
 
@@ -42,7 +43,7 @@ class CollectModule(
         id,
         tealiumContext.config,
         tealiumContext.logger,
-        tealiumContext.network.networkHelper,
+        tealiumContext.network.networkClient,
         collectModuleConfiguration
     )
 
@@ -112,9 +113,7 @@ class CollectModule(
 
         val url = appendTraceIdToUrl(collectModuleConfiguration.batchUrl, batch)
 
-        return networkHelper.post(url, compressed) {
-            onProcessed.onComplete(batch)
-        }
+        return send(url, compressed.toString(), batch, onProcessed)
     }
 
     private fun sendSingle(
@@ -129,8 +128,29 @@ class CollectModule(
 
         val url = appendTraceIdToUrl(collectModuleConfiguration.url, listOf(dispatch))
 
-        return networkHelper.post(url, dispatch.payload()) {
-            onProcessed.onComplete(listOf(dispatch))
+        return send(url, dispatch.payload().toString(), listOf(dispatch), onProcessed)
+    }
+
+    /**
+     * POSTs the [payload] to the [url], GZIP compressed, notifying [onProcessed] with the
+     * [dispatches] the payload was built from once the request completes.
+     *
+     * The unbuilt request is handed to the [NetworkClient] so that it owns the build, and with it
+     * any [java.net.MalformedURLException] - guaranteeing [onProcessed] is called even for a url
+     * that fails to build.
+     */
+    private fun send(
+        url: URL,
+        payload: String,
+        dispatches: List<Dispatch>,
+        onProcessed: Callback<List<Dispatch>>
+    ): Disposable {
+        val request = HttpRequest
+            .post(url, payload)
+            .gzip(true)
+
+        return networkClient.sendRequest(request) {
+            onProcessed.onComplete(dispatches)
         }
     }
 

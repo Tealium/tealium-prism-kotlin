@@ -16,6 +16,10 @@ typealias DeserializedNetworkCallback<T> = NetworkCallback<TealiumResult<Network
 /**
  * Utility interface for making basic async network requests. For more complex requirements, use the
  * [NetworkClient] instead.
+ *
+ * This is a short-circuit for standard, uncompressed requests only, so request bodies are never
+ * compressed. Anything beyond that, GZIP included, should go through the [NetworkClient] with a
+ * [HttpRequest] built for the purpose.
  */
 interface NetworkHelper {
 
@@ -42,6 +46,9 @@ interface NetworkHelper {
     /**
      * Asynchronously POSTs the [payload] to the given [url].
      *
+     * The [payload] is always sent uncompressed. For GZIP compression, or any other non-standard
+     * request requirements, use the [NetworkClient] directly.
+     *
      * @param url The Url to POST to
      * @param payload The body to be POSTed
      * @param additionalHeaders Optional map of additional headers to add to the request
@@ -50,6 +57,9 @@ interface NetworkHelper {
 
     /**
      * Asynchronously POSTs the [payload] to the given [url].
+     *
+     * The [payload] is always sent uncompressed. For GZIP compression, or any other non-standard
+     * request requirements, use the [NetworkClient] directly.
      *
      * @param url The Url to POST to
      * @param payload The body to be POSTed

@@ -1,5 +1,6 @@
 package com.tealium.prism.core.internal.network
 
+import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.network.HttpRequest
@@ -15,6 +16,7 @@ import com.tealium.prism.core.api.network.RetryPolicy.DoNotRetry
 import com.tealium.prism.core.api.network.RetryPolicy.RetryAfterDelay
 import com.tealium.prism.core.api.network.RetryPolicy.RetryAfterEvent
 import com.tealium.prism.core.api.pubsub.Observables
+import com.tealium.prism.core.internal.logger.LogCategory
 import com.tealium.tests.common.testNetworkScheduler
 import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.Runs
@@ -655,6 +657,62 @@ class HttpClientTests {
                         && it.httpResponse.body.contentEquals(bytes)
                         && it.httpResponse.bodyText() == text
             })
+        }
+    }
+
+    @Test
+    fun sendRequest_Builds_And_Sends_Request_When_Url_Is_Valid() {
+        startMockWebServer(MockResponse().setResponseCode(200).setBody("result"))
+
+        val callback = mockk<Callback<NetworkResult>>(relaxed = true)
+        httpClient.sendRequest(HttpRequest.get(urlString), callback)
+
+        verify(timeout = 1000) {
+            callback.onComplete(match {
+                it is Success && it.httpResponse.bodyText() == "result"
+            })
+        }
+    }
+
+    @Test
+    fun sendRequest_Builder_Completes_With_Failure_When_Url_Is_Malformed() {
+        val callback = mockk<Callback<NetworkResult>>(relaxed = true)
+
+        val disposable = httpClient.sendRequest(HttpRequest.get("not a url"), callback)
+
+        assertTrue(disposable.isDisposed)
+        verify {
+            callback.onComplete(match {
+                it is Failure && it.networkException is UnexpectedException
+            })
+        }
+    }
+
+    @Test
+    fun sendRequest_Builder_Logs_Error_When_Url_Is_Malformed() {
+        every { mockLogger.shouldLog(LogLevel.ERROR) } returns true
+        val callback = mockk<Callback<NetworkResult>>(relaxed = true)
+
+        httpClient.sendRequest(HttpRequest.get("not a url"), callback)
+
+        verify {
+            mockLogger.error(LogCategory.HTTP_CLIENT, any<String>())
+        }
+    }
+
+    @Test
+    fun sendRequest_Builder_Does_Not_Log_When_Error_Logging_Disabled() {
+        every { mockLogger.shouldLog(LogLevel.ERROR) } returns false
+        val callback = mockk<Callback<NetworkResult>>(relaxed = true)
+
+        httpClient.sendRequest(HttpRequest.get("not a url"), callback)
+
+        verify(exactly = 0) {
+            mockLogger.error(any<String>(), any<String>())
+        }
+        // the caller is still notified regardless of log level
+        verify {
+            callback.onComplete(match { it is Failure })
         }
     }
 

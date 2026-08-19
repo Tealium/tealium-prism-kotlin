@@ -14,7 +14,7 @@ import com.tealium.prism.core.api.network.NetworkResult
 import com.tealium.prism.core.api.network.NetworkResult.Failure
 import com.tealium.prism.core.api.network.NetworkResult.Success
 import com.tealium.prism.core.api.pubsub.Disposable
-import com.tealium.tests.common.SystemLogger
+import io.mockk.MockKMatcherScope
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -35,7 +35,7 @@ class NetworkHelperTests {
     @Before
     fun setup() {
         networkClient = mockk(relaxed = true)
-        networkHelper = NetworkHelperImpl(networkClient, SystemLogger)
+        networkHelper = NetworkHelperImpl(networkClient)
     }
 
     @Test
@@ -48,7 +48,7 @@ class NetworkHelperTests {
         networkHelper.get(request.url.toString(), null, null, callback)
 
         verify(exactly = 2) {
-            networkClient.sendRequest(request, any())
+            networkClient.sendRequest(buildsRequest(request), any())
         }
     }
 
@@ -89,7 +89,7 @@ class NetworkHelperTests {
     @Test
     fun post_Makes_Network_Request() {
         val payload: DataObject = DataObject.EMPTY_OBJECT
-        val request = HttpRequest.post("http://localhost", payload.toString()).gzip(true).build()
+        val request = HttpRequest.post("http://localhost", payload.toString()).build()
         val callback = mockCallback<NetworkResult>()
         mockRequest(request, success())
 
@@ -97,14 +97,29 @@ class NetworkHelperTests {
         networkHelper.post(request.url.toString(), payload, null, callback)
 
         verify(exactly = 2) {
-            networkClient.sendRequest(request, any())
+            networkClient.sendRequest(buildsRequest(request), any())
+        }
+    }
+
+    @Test
+    fun post_Never_Compresses_Payload() {
+        val payload: DataObject = DataObject.EMPTY_OBJECT
+        val request = HttpRequest.post("http://localhost", payload.toString()).build()
+        val callback = mockCallback<NetworkResult>()
+        mockRequest(request, success())
+
+        networkHelper.post(request.url, payload, null, callback)
+        networkHelper.post(request.url.toString(), payload, null, callback)
+
+        verify(exactly = 2) {
+            networkClient.sendRequest(match<HttpRequest.Builder> { !it.build().isGzip }, any())
         }
     }
 
     @Test
     fun post_Completes_With_Success() {
         val payload: DataObject = DataObject.EMPTY_OBJECT
-        val request = HttpRequest.post("http://localhost", payload.toString()).gzip(true).build()
+        val request = HttpRequest.post("http://localhost", payload.toString()).build()
         val callback = mockCallback<NetworkResult>()
         mockRequest(request, success(body = "result"))
 
@@ -122,7 +137,7 @@ class NetworkHelperTests {
     @Test
     fun post_Completes_With_Failure() {
         val payload: DataObject = DataObject.EMPTY_OBJECT
-        val request = HttpRequest.post("http://localhost", payload.toString()).gzip(true).build()
+        val request = HttpRequest.post("http://localhost", payload.toString()).build()
         val callback = mockCallback<NetworkResult>()
         mockRequest(request, failure())
 
@@ -137,6 +152,20 @@ class NetworkHelperTests {
     }
 
     @Test
+    fun malformedUrl_Delegates_Unbuilt_Request_To_NetworkClient() {
+        val callback = mockCallback<NetworkResult>()
+
+        // The url is only parsed by HttpRequest.Builder.build(), so an unbuildable url must still
+        // reach the client - it owns building, and therefore owns the MalformedURLException.
+        // See HttpClientTests for the failure/logging behaviour itself.
+        networkHelper.get("not a url", null, null, callback)
+
+        verify(exactly = 1) {
+            networkClient.sendRequest(any<HttpRequest.Builder>(), callback)
+        }
+    }
+
+    @Test
     fun getJson_Makes_Network_Request() {
         val request = HttpRequest.get("http://localhost", null).build()
         val callback = mockDeserializedCallback<JSONObject>()
@@ -146,7 +175,7 @@ class NetworkHelperTests {
         networkHelper.getJson(request.url.toString(), null, null, callback)
 
         verify(exactly = 2) {
-            networkClient.sendRequest(request, any())
+            networkClient.sendRequest(buildsRequest(request), any())
         }
     }
 
@@ -208,7 +237,7 @@ class NetworkHelperTests {
         networkHelper.getDataObject(request.url.toString(), null, null, callback)
 
         verify(exactly = 2) {
-            networkClient.sendRequest(request, any())
+            networkClient.sendRequest(buildsRequest(request), any())
         }
     }
 
@@ -256,7 +285,7 @@ class NetworkHelperTests {
         networkHelper.getDataItemConvertible(request.url.toString(), null, null, converter, callback)
 
         verify(exactly = 2) {
-            networkClient.sendRequest(request, any())
+            networkClient.sendRequest(buildsRequest(request), any())
         }
     }
 
@@ -325,7 +354,7 @@ class NetworkHelperTests {
         networkHelper.getDeserializable(request.url.toString(), null, null, String::toInt, callback)
 
         verify(exactly = 2) {
-            networkClient.sendRequest(request, any())
+            networkClient.sendRequest(buildsRequest(request), any())
         }
     }
 
@@ -390,11 +419,18 @@ class NetworkHelperTests {
         returns: Disposable = mockk()
     ) {
         val responseCapture = slot<Callback<NetworkResult>>()
-        every { networkClient.sendRequest(request, capture(responseCapture)) } answers {
+        every { networkClient.sendRequest(buildsRequest(request), capture(responseCapture)) } answers {
             responseCapture.captured.onComplete(response)
             returns
         }
     }
+
+    /**
+     * Matches the [HttpRequest.Builder] overload of [NetworkClient.sendRequest] - which is what
+     * [NetworkHelperImpl] delegates to - against the [expected] request the builder produces.
+     */
+    private fun MockKMatcherScope.buildsRequest(expected: HttpRequest): HttpRequest.Builder =
+        match { it.build() == expected }
 
     private fun success(
         url: URL = URL("http://localhost/"),

@@ -4,7 +4,7 @@ import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.TealiumConfig
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.modules.TealiumContext
-import com.tealium.prism.core.api.network.NetworkHelper
+import com.tealium.prism.core.api.network.NetworkClient
 import com.tealium.prism.core.api.network.NetworkUtilities
 import com.tealium.tests.common.SystemLogger
 import io.mockk.MockKAnnotations
@@ -24,7 +24,7 @@ class CollectModuleFactoryTests {
     @MockK
     lateinit var config: TealiumConfig
     @MockK
-    lateinit var networkHelper: NetworkHelper
+    lateinit var networkClient: NetworkClient
 
     @Before
     fun setUp() {
@@ -36,7 +36,7 @@ class CollectModuleFactoryTests {
         every { context.logger } returns SystemLogger
 
         val networking = mockk<NetworkUtilities>()
-        every { networking.networkHelper } returns networkHelper
+        every { networking.networkClient } returns networkClient
         every { context.network } returns networking
     }
 

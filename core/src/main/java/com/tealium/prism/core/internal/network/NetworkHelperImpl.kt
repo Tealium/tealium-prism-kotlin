@@ -4,25 +4,18 @@ import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataItemConverter
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.Deserializer
-import com.tealium.prism.core.api.logger.LogLevel
-import com.tealium.prism.core.api.logger.Logger
-import com.tealium.prism.core.api.logger.logIfTraceEnabled
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.network.DeserializedNetworkCallback
 import com.tealium.prism.core.api.network.HttpRequest
 import com.tealium.prism.core.api.network.NetworkCallback
 import com.tealium.prism.core.api.network.NetworkClient
-import com.tealium.prism.core.api.network.NetworkException
 import com.tealium.prism.core.api.network.NetworkException.UnexpectedException
 import com.tealium.prism.core.api.network.NetworkHelper
 import com.tealium.prism.core.api.network.NetworkResult
 import com.tealium.prism.core.api.network.NetworkResult.Failure
 import com.tealium.prism.core.api.network.NetworkResult.Success
 import com.tealium.prism.core.api.pubsub.Disposable
-import com.tealium.prism.core.internal.logger.LogCategory
-import com.tealium.prism.core.internal.pubsub.CompletedDisposable
 import org.json.JSONObject
-import java.net.MalformedURLException
 import java.net.URL
 
 /**
@@ -30,43 +23,12 @@ import java.net.URL
  */
 class NetworkHelperImpl(
     private val networkClient: NetworkClient,
-    private val logger: Logger,
 ) : NetworkHelper {
-
-    private fun loggedCompletion(completion: NetworkCallback<NetworkResult>): NetworkCallback<NetworkResult> =
-        NetworkCallback { result ->
-            logger.log(
-                if (result is Success) LogLevel.TRACE else LogLevel.ERROR,
-                LogCategory.NETWORK_HELPER,
-                "Completed request with %s", result
-            )
-
-            completion.onComplete(result)
-        }
 
     private fun send(
         builder: HttpRequest.Builder,
         completion: NetworkCallback<NetworkResult>
-    ): Disposable {
-        val loggedCompletion = loggedCompletion(completion)
-
-        return try {
-            logger.logIfTraceEnabled(LogCategory.NETWORK_HELPER) {
-                "Building request\n${builder.description()}"
-            }
-            val httpRequest = builder.build()
-            logger.logIfTraceEnabled(LogCategory.NETWORK_HELPER) {
-                "Built request $httpRequest"
-            }
-
-            networkClient.sendRequest(httpRequest, loggedCompletion)
-        } catch (e: MalformedURLException) {
-            logger.error(LogCategory.NETWORK_HELPER, "Failed to build request")
-
-            loggedCompletion.onComplete(Failure(UnexpectedException(e)))
-            CompletedDisposable
-        }
-    }
+    ): Disposable = networkClient.sendRequest(builder, completion)
 
     override fun get(
         url: String,
@@ -89,14 +51,16 @@ class NetworkHelperImpl(
         payload: DataObject?,
         additionalHeaders: Map<String, String>?,
         completion: NetworkCallback<NetworkResult>
-    ): Disposable = send(HttpRequest.post(url, payload.toString()).gzip(true).additionalHeaders(additionalHeaders), completion)
+    ): Disposable =
+        send(HttpRequest.post(url, payload.toString()).additionalHeaders(additionalHeaders), completion)
 
     override fun post(
         url: URL,
         payload: DataObject?,
         additionalHeaders: Map<String, String>?,
         completion: NetworkCallback<NetworkResult>
-    ): Disposable = send(HttpRequest.post(url, payload.toString()).gzip(true).additionalHeaders(additionalHeaders), completion)
+    ): Disposable =
+        send(HttpRequest.post(url, payload.toString()).additionalHeaders(additionalHeaders), completion)
 
     override fun getJson(
         url: String,
@@ -160,7 +124,6 @@ class NetworkHelperImpl(
         HttpRequest.get(url, etag).additionalHeaders(additionalHeaders)
     ) { networkResult ->
         val result = deserializeResult(networkResult, deserializer)
-
         completion.onComplete(result)
     }
 
@@ -174,7 +137,6 @@ class NetworkHelperImpl(
         HttpRequest.get(url, etag).additionalHeaders(additionalHeaders)
     ) { networkResult ->
         val result = deserializeResult(networkResult, deserializer)
-
         completion.onComplete(result)
     }
 
@@ -202,6 +164,6 @@ class NetworkHelperImpl(
             }
         }
 
-        return TealiumResult.failure(NetworkException.UnexpectedException(error))
+        return TealiumResult.failure(UnexpectedException(error))
     }
 }

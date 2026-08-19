@@ -196,7 +196,6 @@ class HttpRequest private constructor(
          *
          * @param destination The url to be POSTed to
          * @param payload The body of the POST request
-         * @param gzip true to gzip compress the [payload]; otherwise false
          */
         @JvmStatic
         @Throws(MalformedURLException::class)
@@ -224,7 +223,6 @@ class HttpRequest private constructor(
          *
          * @param destination The url to be POSTed to
          * @param payload The body of the POST request
-         * @param gzip true to gzip compress the [payload]; otherwise false
          */
         @JvmStatic
         fun post(destination: URL, payload: String): Builder {

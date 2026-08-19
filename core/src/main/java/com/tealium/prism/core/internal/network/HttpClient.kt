@@ -2,6 +2,7 @@ package com.tealium.prism.core.internal.network
 
 import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.Logger
+import com.tealium.prism.core.api.logger.logIfErrorEnabled
 import com.tealium.prism.core.api.logger.logIfTraceEnabled
 import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.misc.Callback
@@ -24,12 +25,14 @@ import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.internal.logger.LogCategory
 import com.tealium.prism.core.internal.pubsub.AsyncDisposableContainer
+import com.tealium.prism.core.internal.pubsub.CompletedDisposable
 import com.tealium.prism.core.api.pubsub.addTo
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
+import java.net.MalformedURLException
 import java.util.concurrent.TimeUnit
 import java.util.zip.GZIPOutputStream
 
@@ -64,6 +67,34 @@ class HttpClient(
 
             completion.onComplete(result)
         }
+    }
+
+    override fun sendRequest(
+        request: HttpRequest.Builder,
+        completion: Callback<NetworkResult>
+    ): Disposable {
+        val built = try {
+            logger.logIfTraceEnabled(LogCategory.HTTP_CLIENT) {
+                "Building request\n${request.description()}"
+            }
+
+            val httpRequest = request.build()
+
+            logger.logIfTraceEnabled(LogCategory.HTTP_CLIENT) {
+                "Built request $httpRequest"
+            }
+            
+            httpRequest
+        } catch (e: MalformedURLException) {
+            logger.logIfErrorEnabled(LogCategory.HTTP_CLIENT) {
+                "Failed to build request (malformed URL)"
+            }
+
+            completion.onComplete(Failure(UnexpectedException(e)))
+            return CompletedDisposable
+        }
+
+        return sendRequest(built, completion)
     }
 
     private fun sendRetryableRequest(

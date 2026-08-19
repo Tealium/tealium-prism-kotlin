@@ -22,6 +22,22 @@ interface NetworkClient {
     fun sendRequest(request: HttpRequest, completion: Callback<NetworkResult>): Disposable
 
     /**
+     * Builds the [request] and sends it asynchronously, returning the result to the provided
+     * [completion] block.
+     *
+     * Unlike [sendRequest], this overload takes an unbuilt [HttpRequest.Builder] and so absorbs
+     * the [MalformedURLException] that [HttpRequest.Builder.build] may throw for an invalid url.
+     * In that case no request is made, [completion] is called with a [NetworkResult.Failure]
+     * wrapping a [NetworkException.UnexpectedException], and a disposed [Disposable] is returned.
+     *
+     * @param request The [HttpRequest.Builder] representing the request to be built and sent.
+     * @param completion The block to receive the result of the network request. This will be called
+     * on Tealium's background thread.
+     * @return A [Disposable] that can be used to cancel the request.
+     */
+    fun sendRequest(request: HttpRequest.Builder, completion: Callback<NetworkResult>): Disposable
+
+    /**
      * Adds an interceptor to the client's list of interceptors.
      *
      * @param interceptor The [Interceptor] to be added.

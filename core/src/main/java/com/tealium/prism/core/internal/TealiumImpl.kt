@@ -409,7 +409,7 @@ class TealiumImpl(
             return NetworkUtilities(
                 connectivity = connectivity,
                 networkClient = networkClient,
-                networkHelper = NetworkHelperImpl(networkClient, logger),
+                networkHelper = NetworkHelperImpl(networkClient),
                 logger = logger
             )
         }

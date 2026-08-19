@@ -4,16 +4,20 @@ import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.TealiumConfig
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.logger.Logger
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.modules.TealiumContext
+import com.tealium.prism.core.api.network.HttpRequest
 import com.tealium.prism.core.api.network.HttpResponse
-import com.tealium.prism.core.api.network.NetworkCallback
-import com.tealium.prism.core.api.network.NetworkHelper
+import com.tealium.prism.core.api.network.NetworkClient
+import com.tealium.prism.core.api.network.NetworkException
 import com.tealium.prism.core.api.network.NetworkResult
 import com.tealium.prism.core.api.network.NetworkResult.Success
 import com.tealium.prism.core.api.network.NetworkUtilities
+import com.tealium.prism.core.internal.pubsub.CompletedDisposable
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.tests.common.SystemLogger
 import io.mockk.MockKAnnotations
+import io.mockk.MockKMatcherScope
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.mockk
@@ -26,13 +30,14 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.net.MalformedURLException
 import java.net.URL
 
 @RunWith(RobolectricTestRunner::class)
 class CollectModuleTests {
 
     @MockK
-    lateinit var networkHelper: NetworkHelper
+    lateinit var networkClient: NetworkClient
 
     @MockK
     lateinit var context: TealiumContext
@@ -58,11 +63,13 @@ class CollectModuleTests {
         every { context.logger } returns logger
 
         val networking = mockk<NetworkUtilities>()
-        every { networking.networkHelper } returns networkHelper
+        every { networking.networkClient } returns networkClient
         every { context.network } returns networking
 
-        val completionCapture = slot<NetworkCallback<NetworkResult>>()
-        every { networkHelper.post(any<URL>(), any(), any(), capture(completionCapture)) } answers {
+        val completionCapture = slot<Callback<NetworkResult>>()
+        every {
+            networkClient.sendRequest(any<HttpRequest.Builder>(), capture(completionCapture))
+        } answers {
             completionCapture.captured.onComplete(
                 Success(
                     HttpResponse(
@@ -85,15 +92,68 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(
-                defaultConfiguration.url,
-                dispatch.payload(),
-                any(),
-                any()
-            )
+            networkClient.sendRequest(matchRequest { request ->
+                request.url == defaultConfiguration.url
+                        && request.body == dispatch.payload().toString()
+            }, any())
             observer(match {
                 it.first().id == dispatch.id
             })
+        }
+    }
+
+    @Test
+    fun dispatch_Sends_UnbuiltRequest_So_NetworkClient_Owns_The_Build() {
+        collectModule = createCollectDispatcher()
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
+
+        collectModule.dispatch(listOf(createTestDispatch("test")), observer)
+
+        // The Builder overload is the one that absorbs MalformedURLException, so passing an
+        // unbuilt request is what guarantees the observer is notified for any url.
+        verify(timeout = 1000, exactly = 1) {
+            networkClient.sendRequest(any<HttpRequest.Builder>(), any())
+        }
+        verify(exactly = 0) {
+            networkClient.sendRequest(any<HttpRequest>(), any())
+        }
+    }
+
+    @Test
+    fun dispatch_Notifies_Observer_When_Request_Fails_To_Build() {
+        // The client owns the build, so a url that cannot build still completes with a Failure
+        val completionCapture = slot<Callback<NetworkResult>>()
+        every {
+            networkClient.sendRequest(any<HttpRequest.Builder>(), capture(completionCapture))
+        } answers {
+            completionCapture.captured.onComplete(
+                NetworkResult.Failure(NetworkException.UnexpectedException(MalformedURLException()))
+            )
+            CompletedDisposable
+        }
+
+        collectModule = createCollectDispatcher()
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
+        val dispatch = createTestDispatch("test")
+
+        collectModule.dispatch(listOf(dispatch), observer)
+
+        verify(timeout = 1000) {
+            observer(match { it.first().id == dispatch.id })
+        }
+    }
+
+    @Test
+    fun dispatch_Individually_GzipsPayload() {
+        collectModule = createCollectDispatcher()
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
+
+        val dispatch = createTestDispatch("test")
+
+        collectModule.dispatch(listOf(dispatch), observer)
+
+        verify(timeout = 1000) {
+            networkClient.sendRequest(matchRequest { it.isGzip }, any())
         }
     }
 
@@ -109,7 +169,7 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(localhost, any(), any(), any())
+            networkClient.sendRequest(matchRequest { it.url == localhost }, any())
             observer(match {
                 it.first().id == dispatch.id
             })
@@ -129,9 +189,11 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultConfiguration.url, match {
-                it.getString(Dispatch.Keys.TEALIUM_PROFILE) == "override"
-            }, any(), any())
+            networkClient.sendRequest(matchRequest { request ->
+                request.url == defaultConfiguration.url
+                        && request.bodyAsDataObject()
+                    .getString(Dispatch.Keys.TEALIUM_PROFILE) == "override"
+            }, any())
             observer(match {
                 it.first().id == dispatch.id
             })
@@ -148,10 +210,10 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(match<URL> {
-                it.toString() == defaultConfiguration.url.toString() &&
-                        !it.toString().contains("tealium_trace_id")
-            }, any(), any(), any())
+            networkClient.sendRequest(matchRequest {
+                it.url.toString() == defaultConfiguration.url.toString() &&
+                        !it.url.toString().contains("tealium_trace_id")
+            }, any())
         }
     }
 
@@ -167,9 +229,9 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(match<URL> {
-                it.toString().contains("tealium_trace_id=12345")
-            }, any(), any(), any())
+            networkClient.sendRequest(matchRequest {
+                it.url.toString().contains("tealium_trace_id=12345")
+            }, any())
         }
     }
 
@@ -185,9 +247,9 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(match<URL> {
-                !it.toString().contains("tealium_trace_id=")
-            }, any(), any(), any())
+            networkClient.sendRequest(matchRequest {
+                !it.url.toString().contains("tealium_trace_id=")
+            }, any())
         }
     }
 
@@ -207,10 +269,10 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(match<URL> {
-                it.toString().contains("tealium_trace_id=12345") &&
-                        it.toString().contains("existing_param=value")
-            }, any(), any(), any())
+            networkClient.sendRequest(matchRequest {
+                it.url.toString().contains("tealium_trace_id=12345") &&
+                        it.url.toString().contains("existing_param=value")
+            }, any())
         }
     }
 
@@ -225,10 +287,10 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(match<URL> {
-                it.toString() == defaultConfiguration.batchUrl.toString() &&
-                        !it.toString().contains("tealium_trace_id")
-            }, any(), any(), any())
+            networkClient.sendRequest(matchRequest {
+                it.url.toString() == defaultConfiguration.batchUrl.toString() &&
+                        !it.url.toString().contains("tealium_trace_id")
+            }, any())
         }
     }
 
@@ -245,9 +307,9 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(match<URL> {
-                it.toString().contains("tealium_trace_id=12345")
-            }, any(), any(), any())
+            networkClient.sendRequest(matchRequest {
+                it.url.toString().contains("tealium_trace_id=12345")
+            }, any())
         }
     }
 
@@ -267,10 +329,10 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1, dispatch2, dispatch3), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(match<URL> {
-                it.toString().contains("tealium_trace_id=12345") &&
-                        !it.toString().contains("tealium_trace_id=67890")
-            }, any(), any(), any())
+            networkClient.sendRequest(matchRequest {
+                it.url.toString().contains("tealium_trace_id=12345") &&
+                        !it.url.toString().contains("tealium_trace_id=67890")
+            }, any())
         }
     }
 
@@ -287,9 +349,9 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(match<URL> {
-                !it.toString().contains("tealium_trace_id=")
-            }, any(), any(), any())
+            networkClient.sendRequest(matchRequest {
+                !it.url.toString().contains("tealium_trace_id=")
+            }, any())
         }
     }
 
@@ -304,11 +366,29 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultConfiguration.batchUrl, any(), any(), any())
+            networkClient.sendRequest(
+                matchRequest { it.url == defaultConfiguration.batchUrl },
+                any()
+            )
             observer(match {
                 it[0].id == dispatch1.id
                         && it[1].id == dispatch2.id
             })
+        }
+    }
+
+    @Test
+    fun dispatch_Batches_GzipsPayload() {
+        collectModule = createCollectDispatcher()
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
+
+        val dispatch1 = createTestDispatch("test")
+        val dispatch2 = createTestDispatch("test")
+
+        collectModule.dispatch(listOf(dispatch1, dispatch2), observer)
+
+        verify(timeout = 1000) {
+            networkClient.sendRequest(matchRequest { it.isGzip }, any())
         }
     }
 
@@ -322,12 +402,10 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(
-                defaultConfiguration.url,
-                dispatch.payload(),
-                any(),
-                any()
-            )
+            networkClient.sendRequest(matchRequest { request ->
+                request.url == defaultConfiguration.url
+                        && request.body == dispatch.payload().toString()
+            }, any())
             observer(match {
                 it.first().id == dispatch.id
             })
@@ -347,7 +425,7 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(localhost, any(), any(), any())
+            networkClient.sendRequest(matchRequest { it.url == localhost }, any())
             observer(match {
                 it[0].id == dispatch1.id
                         && it[1].id == dispatch2.id
@@ -369,10 +447,12 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultConfiguration.batchUrl, match {
-                it.getDataObject(CollectModule.KEY_SHARED)!!
+            networkClient.sendRequest(matchRequest { request ->
+                request.url == defaultConfiguration.batchUrl
+                        && request.bodyAsDataObject()
+                    .getDataObject(CollectModule.KEY_SHARED)!!
                     .getString(Dispatch.Keys.TEALIUM_PROFILE) == "override"
-            }, any(), any())
+            }, any())
             observer(match {
                 it[0].id == dispatch1.id
                         && it[1].id == dispatch2.id
@@ -397,9 +477,12 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultConfiguration.batchUrl, match {
-                val shared = it.getDataObject(CollectModule.KEY_SHARED)!!
-                val events = it.getDataList(CollectModule.KEY_EVENTS)!!
+            networkClient.sendRequest(matchRequest { request ->
+                if (request.url != defaultConfiguration.batchUrl) return@matchRequest false
+
+                val payload = request.bodyAsDataObject()
+                val shared = payload.getDataObject(CollectModule.KEY_SHARED)!!
+                val events = payload.getDataList(CollectModule.KEY_EVENTS)!!
                 val event1 = events.getDataObject(0)!!
                 val event2 = events.getDataObject(1)!!
 
@@ -413,7 +496,7 @@ class CollectModuleTests {
                         && event1.getString("key_2") == "string2"
                         && event2.getString("key_3") == "string3"
                         && event2.getString("key_4") == "string4"
-            }, any(), any())
+            }, any())
         }
     }
 
@@ -437,16 +520,19 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1, dispatch2), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultConfiguration.batchUrl, match {
-                val shared = it.getDataObject(CollectModule.KEY_SHARED)!!
-                val events = it.getDataList(CollectModule.KEY_EVENTS)!!
+            networkClient.sendRequest(matchRequest { request ->
+                if (request.url != defaultConfiguration.batchUrl) return@matchRequest false
+
+                val payload = request.bodyAsDataObject()
+                val shared = payload.getDataObject(CollectModule.KEY_SHARED)!!
+                val events = payload.getDataList(CollectModule.KEY_EVENTS)!!
                 val event1 = events.getDataObject(0)!!
                 val event2 = events.getDataObject(1)!!
 
                 shared.getString(Dispatch.Keys.TEALIUM_PROFILE) == "override"
                         && event1.get(Dispatch.Keys.TEALIUM_PROFILE) == null
                         && event2.get(Dispatch.Keys.TEALIUM_PROFILE) == null
-            }, any(), any())
+            }, any())
         }
     }
 
@@ -462,13 +548,17 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1, dispatch2, dispatch3), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultConfiguration.url, match {
-                it.getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_1"
-            }, any(), any())
-            networkHelper.post(defaultConfiguration.batchUrl, match {
-                it.getDataObject(CollectModule.KEY_SHARED)!!
+            networkClient.sendRequest(matchRequest { request ->
+                request.url == defaultConfiguration.url
+                        && request.bodyAsDataObject()
+                    .getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_1"
+            }, any())
+            networkClient.sendRequest(matchRequest { request ->
+                request.url == defaultConfiguration.batchUrl
+                        && request.bodyAsDataObject()
+                    .getDataObject(CollectModule.KEY_SHARED)!!
                     .getString(Dispatch.Keys.TEALIUM_VISITOR_ID) == "visitor_2"
-            }, any(), any())
+            }, any())
 
             observer(match { dispatches ->
                 dispatches.first().payload()
@@ -492,7 +582,10 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultConfiguration.url, any(), any(), any())
+            networkClient.sendRequest(
+                matchRequest { it.url == defaultConfiguration.url },
+                any()
+            )
         }
 
         collectModule.updateConfiguration(
@@ -501,7 +594,7 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(localhost, any(), any(), any())
+            networkClient.sendRequest(matchRequest { it.url == localhost }, any())
         }
     }
 
@@ -515,7 +608,10 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1, dispatch1), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultConfiguration.batchUrl, any(), any(), any())
+            networkClient.sendRequest(
+                matchRequest { it.url == defaultConfiguration.batchUrl },
+                any()
+            )
         }
 
         collectModule.updateConfiguration(
@@ -524,7 +620,7 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1, dispatch1), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(localhost, any(), any(), any())
+            networkClient.sendRequest(matchRequest { it.url == localhost }, any())
         }
     }
 
@@ -542,9 +638,11 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(defaultConfiguration.url, match {
-                it.getString(Dispatch.Keys.TEALIUM_PROFILE) == "default"
-            }, any(), any())
+            networkClient.sendRequest(matchRequest { request ->
+                request.url == defaultConfiguration.url
+                        && request.bodyAsDataObject()
+                    .getString(Dispatch.Keys.TEALIUM_PROFILE) == "default"
+            }, any())
         }
 
         val overrideProfile = "override"
@@ -554,9 +652,10 @@ class CollectModuleTests {
         collectModule.dispatch(listOf(dispatch1), observer)
 
         verify(timeout = 1000) {
-            networkHelper.post(any<URL>(), match {
-                it.getString(Dispatch.Keys.TEALIUM_PROFILE) == overrideProfile
-            }, any(), any())
+            networkClient.sendRequest(matchRequest { request ->
+                request.bodyAsDataObject()
+                    .getString(Dispatch.Keys.TEALIUM_PROFILE) == overrideProfile
+            }, any())
         }
     }
 
@@ -596,6 +695,25 @@ class CollectModuleTests {
     }
 
     /**
+     * Matches the [HttpRequest.Builder] overload of [NetworkClient.sendRequest] - which is what
+     * [CollectModule] delegates to, so that the client owns the build - by applying [predicate]
+     * to the [HttpRequest] the builder produces.
+     */
+    private fun MockKMatcherScope.matchRequest(
+        predicate: (HttpRequest) -> Boolean
+    ): HttpRequest.Builder = match { predicate(it.build()) }
+
+    /**
+     * Parses the JSON [HttpRequest.body] back into a [DataObject] so that assertions can be made
+     * against the payload structurally rather than against raw JSON text.
+     *
+     * Returns [DataObject.EMPTY_OBJECT] if the body is missing or unparseable, so that a bad
+     * payload surfaces as a failed match rather than an exception inside a `match` block.
+     */
+    private fun HttpRequest.bodyAsDataObject(): DataObject =
+        body?.let(DataObject::fromString) ?: DataObject.EMPTY_OBJECT
+
+    /**
      * Creates a new [CollectModule] with reasonable defaults in case of parameter omission.
      */
     private fun createCollectDispatcher(
@@ -605,7 +723,7 @@ class CollectModuleTests {
             Modules.Types.COLLECT,
             config,
             logger,
-            networkHelper,
+            networkClient,
             collectConfig,
         )
     }
