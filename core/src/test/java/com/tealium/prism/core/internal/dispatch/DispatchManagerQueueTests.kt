@@ -198,6 +198,19 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
     }
 
     @Test
+    fun startDispatchLoop_DoesNotDeleteDispatches_WhenDequeuedBatchIsEmpty() {
+        dispatchManager.startDispatchLoop()
+        dispatchManager.track(dispatch1)
+
+        verify(timeout = 1000) {
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+        }
+        verify(inverse = true) {
+            queueManager.deleteDispatches(emptyList(), any())
+        }
+    }
+
+    @Test
     fun track_Notifies_DispatchAccepted_WhenDispatch_IsQueued() {
         val onComplete: (TrackResult) -> Unit = mockk(relaxed = true)
 
