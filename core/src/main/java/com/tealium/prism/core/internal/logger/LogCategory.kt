@@ -4,7 +4,7 @@ object LogCategory {
     const val COLLECT = "Collect"
     const val CONSENT = "Consent"
     const val DISPATCH_MANAGER = "DispatchManager"
-    const val HTTP_CLIENT = "HTTPClient"
+    const val HTTP_CLIENT = "HttpClient"
     const val LOAD_RULES = "LoadRules"
     const val QUEUE_MANAGER = "QueueManager"
     const val RESOURCE_REFRESHER = "ResourceRefresher"

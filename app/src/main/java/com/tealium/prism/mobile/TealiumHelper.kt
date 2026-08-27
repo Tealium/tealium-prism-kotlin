@@ -313,7 +313,13 @@ class CustomInterceptor(private val delayInterval: Long) : Interceptor {
             is Success -> println("Successful request : ${result.httpResponse.statusCode}")
             is Failure -> {
                 when (val error = result.networkException) {
-                    is Non200Exception -> println("Failed request with status code: ${error.statusCode}")
+                    is Non200Exception -> {
+                        // bodyText() can throw, e.g. on a mismatched content-encoding
+                        val body = error.httpResponse?.let {
+                            runCatching { it.bodyText() }.getOrNull()
+                        }
+                        println("Failed request with status code: ${error.statusCode}, response: $body")
+                    }
                     is NetworkIOException -> println("Failed request - cause: ${error.cause?.cause}, message: ${error.cause?.message}")
                     is UnexpectedException -> println("Failed request - cause: ${error.cause?.cause}, message: ${error.cause?.message}")
                     is CancelledException -> println("Failed request - cancelled")
