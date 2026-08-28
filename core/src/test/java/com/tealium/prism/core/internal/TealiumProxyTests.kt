@@ -117,11 +117,11 @@ class TealiumProxyTests {
     }
 
     @Test
-    fun getDeeplink_Returns_Same_Instance() {
-        val deeplink1 = tealiumProxy.deeplink
-        val deeplink2 = tealiumProxy.deeplink
+    fun getDeepLink_Returns_Same_Instance() {
+        val deepLink1 = tealiumProxy.deepLink
+        val deepLink2 = tealiumProxy.deepLink
 
-        assertSame(deeplink1, deeplink2)
+        assertSame(deepLink1, deepLink2)
     }
 
     @Test

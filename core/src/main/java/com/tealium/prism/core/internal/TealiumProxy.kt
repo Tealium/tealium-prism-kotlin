@@ -23,7 +23,6 @@ import com.tealium.prism.core.internal.modules.deeplink.DeepLinkHandlerWrapper
 import com.tealium.prism.core.internal.modules.trace.TraceWrapper
 import com.tealium.prism.core.internal.pubsub.AsyncDisposableContainer
 
-
 /**
  * The [TealiumProxy] is the default [Tealium] implementation. It is a lightweight wrapper around
  * an underlying [TealiumImpl] instance.
@@ -50,7 +49,7 @@ class TealiumProxy(
     private val asyncProxy = AsyncProxyImpl(tealiumScheduler, onTealiumImplReady)
 
     override val trace: Trace = TraceWrapper(this)
-    override val deeplink: DeepLinkHandler = DeepLinkHandlerWrapper(this)
+    override val deepLink: DeepLinkHandler = DeepLinkHandlerWrapper(this)
     override val dataLayer: DataLayer = DataLayerWrapper(this)
 
     private val disposable = AsyncDisposableContainer(disposeOn = tealiumScheduler)

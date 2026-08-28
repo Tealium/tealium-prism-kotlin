@@ -43,9 +43,9 @@ interface Tealium {
      * The [DeepLinkHandler] is responsible for tracking incoming deep links, managing attribution, and
      * handling trace parameters when present in the URL.
      *
-     * DeepLink handling is automatically called unless explicitly disabled.
+     * Deep link handling is automatically called unless explicitly disabled.
      */
-    val deeplink: DeepLinkHandler
+    val deepLink: DeepLinkHandler
 
     /**
      * The [DataLayer] is available to store key-value data that should be present on every event

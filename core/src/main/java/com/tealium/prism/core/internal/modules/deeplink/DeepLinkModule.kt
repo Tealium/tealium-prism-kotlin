@@ -108,11 +108,11 @@ class DeepLinkModule(
             ) { result ->
                 if (result.status == TrackResult.Status.Accepted) {
                     logger.logIfTraceEnabled(id) {
-                        "DeepLink event accepted for dispatch."
+                        "Deep link event accepted for dispatch."
                     }
                 } else {
                     logger.logIfWarnEnabled(id) {
-                        "Failed to send DeepLink event: dispatch was dropped"
+                        "Failed to send deep link event: dispatch was dropped"
                     }
                 }
             }
