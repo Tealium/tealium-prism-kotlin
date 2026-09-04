@@ -38,6 +38,10 @@ interface ModuleManager {
     /**
      * Observe an observable of the [Module] regardless of if the [Module] is currently enabled or not.
      *
+     * While [modules] is still being loaded, a subscriber receives no value at all rather than a
+     * premature `null`. Once this starts emitting, `null` means the [Module] is not enabled — it
+     * never means that modules are still being loaded.
+     *
      * @param clazz The [Class] to use to match the specific [Module]
      *
      * @return An [Observable] for monitoring status changes of a specific [Module].
@@ -46,6 +50,8 @@ interface ModuleManager {
 
     /**
      * Observe an observable of the [Module] regardless of if the [Module] is currently enabled or not.
+     *
+     * As with [observeModule], nothing is emitted while [modules] is still being loaded.
      *
      * @param clazz The [Class] to use to match the specific [Module]
      * @param transform: The transformation that maps the [Module] to one of it's [Observable]s.

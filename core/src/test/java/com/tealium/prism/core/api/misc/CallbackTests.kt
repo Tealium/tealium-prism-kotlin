@@ -9,7 +9,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
-class CallbackUtilsTests {
+class CallbackTests {
 
     @RelaxedMockK
     private lateinit var callback: Callback<TealiumResult<Boolean>>

@@ -3,11 +3,11 @@ package com.tealium.prism.core.internal.logger
 import com.tealium.prism.core.api.tracking.Dispatch
 
 /**
- * Returns an [Exception]'s message, or the [default] provided.
+ * Returns a [Throwable]'s message, or the [default] provided.
  *
  * If no [default] is provided then the string "null" will be returned.
  */
-fun Exception.nonNullMessage(default: String = "null"): String {
+fun Throwable.nonNullMessage(default: String = "null"): String {
     return message ?: default
 }
 

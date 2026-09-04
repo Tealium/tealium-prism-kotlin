@@ -21,7 +21,7 @@ class DeepLinkHandlerWrapper(
         link: Uri,
         referrer: Uri?
     ): Single<TealiumResult<Unit>> =
-        moduleProxy.executeModuleTask { deepLinkHandler ->
-            deepLinkHandler.handle(link, referrer)
+        moduleProxy.executeAsyncModuleTask { deepLinkHandler, callback ->
+            deepLinkHandler.handle(link, referrer, callback)
         }
 }

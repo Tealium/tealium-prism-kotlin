@@ -7,17 +7,21 @@ import android.os.Build
 import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.misc.ActivityManager
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.Scheduler
+import com.tealium.prism.core.api.misc.TealiumException
+import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleManager
 import com.tealium.prism.core.api.modules.ModuleNotEnabledException
+import com.tealium.prism.core.api.modules.ModuleShutdownException
 import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.persistence.DataStore
 import com.tealium.prism.core.api.persistence.Expiry
 import com.tealium.prism.core.api.persistence.ModuleStoreProvider
 import com.tealium.prism.core.api.persistence.PersistenceException
-import com.tealium.prism.core.api.pubsub.Consumer
 import com.tealium.prism.core.api.pubsub.Disposable
+import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.Observer
 import com.tealium.prism.core.api.pubsub.ReplaySubject
@@ -34,6 +38,7 @@ import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.buildConfiguration
 import com.tealium.tests.common.mockkEditor
 import io.mockk.MockKAnnotations
+import io.mockk.MockKMatcherScope
 import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
@@ -89,14 +94,7 @@ class DeepLinkModuleTests {
 
         uri = Uri.parse("https://example.com/path?param1=value1&param2=value2")
 
-        deepLinkModule = DeepLinkModule(
-            dataStore,
-            tracker,
-            moduleManager,
-            activities,
-            configuration,
-            SystemLogger
-        )
+        deepLinkModule = createDeepLinkModule()
     }
 
     @Test
@@ -126,14 +124,18 @@ class DeepLinkModuleTests {
     }
 
     @Test
-    fun handle_Does_Nothing_When_Uri_Is_Opaque() {
+    fun handle_Reports_Success_And_Does_Nothing_When_Uri_Is_Opaque() {
         uri = Uri.parse("mailto:someone@test.com")
+        val callback = mockk<Callback<TealiumResult<Unit>>>(relaxed = true)
 
-        deepLinkModule.handle(uri)
+        deepLinkModule.handle(uri, callback = callback)
 
         verify(exactly = 0) {
             dataStore.edit()
             tracker.track(any(), any())
+        }
+        verify(exactly = 1) {
+            callback.onComplete(match { it.isSuccess })
         }
     }
 
@@ -150,6 +152,17 @@ class DeepLinkModuleTests {
             dataStoreEditor.clear()
             dataStoreEditor.putAll(match { it == expected }, Expiry.SESSION)
             dataStoreEditor.commit()
+        }
+    }
+
+    @Test
+    fun handle_Reports_Success_When_No_TraceId_Present() {
+        val callback = mockk<Callback<TealiumResult<Unit>>>(relaxed = true)
+
+        deepLinkModule.handle(uri, callback = callback)
+
+        verify(exactly = 1) {
+            callback.onComplete(match { it.isSuccess })
         }
     }
 
@@ -247,7 +260,7 @@ class DeepLinkModuleTests {
     }
 
     @Test
-    fun handle_Does_Not_Call_TraceModule_Join_When_TraceId_Present() {
+    fun handle_Does_Not_Call_TraceModule_Join_When_Trace_Disabled() {
         val configuration = DeepLinkSettingsBuilder()
             .setDeepLinkTraceEnabled(false)
             .buildConfiguration()
@@ -293,8 +306,8 @@ class DeepLinkModuleTests {
         }
     }
 
-    @Test(expected = ModuleNotEnabledException::class)
-    fun handle_Trace_Throws_ModuleNotEnabledException_When_TraceModule_Not_Available() {
+    @Test
+    fun handle_Trace_Reports_ModuleNotEnabledException_When_TraceModule_Not_Available() {
         modules.onNext(emptyList()) // disable trace
         val traceId = "test_trace_id"
         uri = uri.buildUpon()
@@ -302,32 +315,189 @@ class DeepLinkModuleTests {
             .appendQueryParameter(DeepLinkModule.FORCE_END_OF_VISIT, "true")
             .build()
 
-        deepLinkModule.handle(uri)
+        val callback = mockk<Callback<TealiumResult<Unit>>>(relaxed = true)
+        deepLinkModule.handle(uri, callback = callback)
+
+        verify {
+            callback.onComplete(match { it.exceptionOrNull() is ModuleNotEnabledException })
+        }
     }
 
     @Test
-    fun handle_Trace_Throws_Exception_When_ForceEndVisit_Fails() {
-        val callback = slot<TrackResultListener>()
-        every { traceModule.forceEndOfVisit(capture(callback)) } answers {
-            callback.captured.onTrackResultReady(TrackResult.dropped(mockk(), ""))
-        }
+    fun handle_Trace_Does_Not_Persist_Or_Track_DeepLink_When_TraceModule_Not_Available() {
+        modules.onNext(emptyList()) // disable trace
+        val traceId = "test_trace_id"
         uri = uri.buildUpon()
-            .appendQueryParameter(DeepLinkModule.TRACE_ID_QUERY_PARAM, "test_trace_id")
-            .appendQueryParameter(DeepLinkModule.FORCE_END_OF_VISIT, "true")
+            .appendQueryParameter(DeepLinkModule.TRACE_ID_QUERY_PARAM, traceId)
             .build()
 
         deepLinkModule.handle(uri)
-    }
 
-    @Test(expected = PersistenceException::class)
-    fun handle_DeepLink_Throws_Exception_When_Persistence_Fails() {
-        every { dataStoreEditor.commit() } throws PersistenceException("", mockk())
-
-        deepLinkModule.handle(uri)
+        verify(exactly = 0) {
+            dataStoreEditor.commit()
+            tracker.track(any(), any(), any())
+        }
     }
 
     @Test
-    fun onActivityStatus_Handles_DeepLink_When_Activity_Created_With_ViewIntent() {
+    fun handle_Trace_Joins_Before_Persisting_DeepLink() {
+        val traceId = "test_trace_id"
+
+        deepLinkModule.handle(traceUri(traceId))
+
+        // the deep_link event has to land inside the joined trace
+        verifyOrder {
+            traceModule.join(traceId)
+            dataStoreEditor.commit()
+        }
+    }
+
+    @Test
+    fun handle_Trace_Joins_And_Persists_When_Modules_Become_Ready() {
+        // empty seed: the module system has not finished a settings pass yet
+        val freshModules = Observables.stateSubject(listOf<Module>())
+        val freshDeepLinkModule = createDeepLinkModule(
+            moduleManager = ModuleManagerImpl(Scheduler.SYNCHRONOUS, freshModules)
+        )
+        val traceId = "test_trace_id"
+        val callback = mockk<Callback<TealiumResult<Unit>>>(relaxed = true)
+
+        freshDeepLinkModule.handle(traceUri(traceId), callback = callback)
+
+        // nothing may resolve while the trace module can't be looked up yet
+        verify(exactly = 0) {
+            traceModule.join(any())
+            dataStoreEditor.commit()
+            callback.onComplete(any())
+        }
+
+        freshModules.onNext(listOf(traceModule))
+
+        // the deep_link event has to land inside the joined trace
+        verifyOrder {
+            traceModule.join(traceId)
+            dataStoreEditor.commit()
+        }
+        verify(exactly = 1) {
+            callback.onComplete(match { it.isSuccess })
+        }
+    }
+
+    @Test
+    fun handle_Trace_Joins_And_Succeeds_When_ForceEndVisit_Is_Dropped() {
+        val traceId = "test_trace_id"
+        val trackResult = slot<TrackResultListener>()
+        every { traceModule.forceEndOfVisit(capture(trackResult)) } answers {
+            trackResult.captured.onTrackResultReady(TrackResult.dropped(mockk(), ""))
+        }
+        val link = traceUri(traceId).buildUpon()
+            .appendQueryParameter(DeepLinkModule.FORCE_END_OF_VISIT, "true")
+            .build()
+        val callback = mockk<Callback<TealiumResult<Unit>>>(relaxed = true)
+
+        deepLinkModule.handle(link, callback = callback)
+
+        // a dropped forceEndOfVisit only logs a warning - the trace is still joined
+        verify {
+            traceModule.join(traceId)
+            dataStoreEditor.commit()
+        }
+        verify(exactly = 1) {
+            callback.onComplete(match { it.isSuccess })
+        }
+    }
+
+    @Test
+    fun handle_DeepLink_Reports_Failure_When_Persistence_Fails() {
+        // a real cause, not mockk(): a mocked cause makes the failure report unreadable, and a
+        // genuinely failing test then shows as passing
+        val persistenceFailure = PersistenceException("", Exception())
+        every { dataStoreEditor.commit() } throws persistenceFailure
+        val callback = mockk<Callback<TealiumResult<Unit>>>(relaxed = true)
+
+        // reported through the callback, never propagated
+        deepLinkModule.handle(uri, callback = callback)
+
+        verify(exactly = 1) {
+            callback.onComplete(match { it.exceptionOrNull() === persistenceFailure })
+        }
+    }
+
+    @Test
+    fun onDeepLink_Does_Not_Let_A_Persistence_Failure_Escape() {
+        every { dataStoreEditor.commit() } throws PersistenceException("", Exception())
+
+        // an escape here reaches the scheduler task, where nothing catches it
+        activities.onNext(
+            ActivityManager.ActivityStatus(
+                activity = mockActivity(Intent.ACTION_VIEW),
+                type = ActivityManager.ActivityLifecycleType.Created
+            )
+        )
+
+        verify { dataStoreEditor.commit() }
+    }
+
+    @Test
+    fun handle_Trace_Reports_Failure_When_Join_Fails() {
+        val traceId = "test_trace_id"
+        val joinFailure = TealiumException("join failed")
+        every { traceModule.join(traceId) } throws joinFailure
+        val callback = mockk<Callback<TealiumResult<Unit>>>(relaxed = true)
+
+        // reported through the callback, never propagated
+        deepLinkModule.handle(traceUri(traceId), callback = callback)
+
+        verify(exactly = 1) {
+            callback.onComplete(match { it.exceptionOrNull() === joinFailure })
+        }
+        verify(exactly = 0) {
+            dataStoreEditor.commit()
+            tracker.track(any(), any(), any())
+        }
+    }
+
+    @Test
+    fun handle_Trace_Reports_Failure_When_ForceEndOfVisit_Fails() {
+        // the ordinary first-use case: forceEndOfVisit runs before join, and throws when
+        // no trace is already persisted
+        val forceEndOfVisitFailure = TealiumException("Not in an active Trace")
+        every { traceModule.forceEndOfVisit(any()) } throws forceEndOfVisitFailure
+        val traceId = "test_trace_id"
+        val link = traceUri(traceId).buildUpon()
+            .appendQueryParameter(DeepLinkModule.FORCE_END_OF_VISIT, "true")
+            .build()
+        val callback = mockk<Callback<TealiumResult<Unit>>>(relaxed = true)
+
+        // reported through the callback, never propagated
+        deepLinkModule.handle(link, callback = callback)
+
+        verify(exactly = 1) {
+            callback.onComplete(match { it.exceptionOrNull() === forceEndOfVisitFailure })
+        }
+        verify(exactly = 0) {
+            traceModule.join(any())
+        }
+    }
+
+    @Test
+    fun onDeepLink_Does_Not_Let_A_Trace_Failure_Escape() {
+        val traceId = "test_trace_id"
+        every { traceModule.join(traceId) } throws TealiumException("join failed")
+
+        // an escape here reaches the scheduler task, where nothing catches it
+        activities.onNext(
+            ActivityManager.ActivityStatus(
+                activity = mockActivity(Intent.ACTION_VIEW, uri = traceUri(traceId)),
+                type = ActivityManager.ActivityLifecycleType.Created
+            )
+        )
+
+        verify { traceModule.join(traceId) }
+    }
+
+    @Test
+    fun onDeepLink_Persists_DeepLink_Data_When_Activity_Created_With_ViewIntent() {
         val activity = mockActivity(Intent.ACTION_VIEW)
         val activityStatus = ActivityManager.ActivityStatus(
             activity = activity,
@@ -343,7 +513,7 @@ class DeepLinkModuleTests {
     }
 
     @Test
-    fun onActivityStatus_Adds_Referrer_When_Referrer_Available() {
+    fun onDeepLink_Adds_Referrer_When_Referrer_Available() {
         val activity = mockActivity(referrer = Uri.parse("com.example.referrer"))
         val activityStatus = ActivityManager.ActivityStatus(
             activity = activity,
@@ -362,7 +532,7 @@ class DeepLinkModuleTests {
     }
 
     @Test
-    fun onActivityStatus_Does_Not_Add_Referrer_When_No_Referrer_Info() {
+    fun onDeepLink_Does_Not_Add_Referrer_When_No_Referrer_Info() {
         val activity = mockActivity(referrer = null)
         val activityStatus = ActivityManager.ActivityStatus(
             activity = activity,
@@ -381,7 +551,7 @@ class DeepLinkModuleTests {
     }
 
     @Test
-    fun onActivityStatus_Does_Nothing_When_Activity_Not_Created() {
+    fun onDeepLink_Is_Not_Called_When_Activity_Not_Created() {
         val activity = mockActivity(Intent.ACTION_VIEW)
         val activityStatus = ActivityManager.ActivityStatus(
             activity = activity,
@@ -397,7 +567,7 @@ class DeepLinkModuleTests {
     }
 
     @Test
-    fun onActivityStatus_Does_Nothing_When_Intent_Not_ViewAction() {
+    fun onDeepLink_Is_Not_Called_When_Intent_Not_ViewAction() {
         val activity = mockActivity(Intent.ACTION_DIAL)
         val activityStatus = ActivityManager.ActivityStatus(
             activity = activity,
@@ -413,68 +583,116 @@ class DeepLinkModuleTests {
     }
 
     @Test
-    fun updateConfiguration_Updates_Configuration_And_Subscription() {
-        val disposable = mockk<Disposable>(relaxed = true)
-        activities = mockk()
-        every { activities.subscribe(any<Consumer<ActivityManager.ActivityStatus>>()) } returns disposable
+    fun updateConfiguration_Disposes_And_Recreates_Subscription_When_Automatic_Tracking_Toggles() {
+        val activitiesSource = Observables.publishSubject<ActivityManager.ActivityStatus>()
+        val counting = CountingObservable(activitiesSource)
 
-        // Start with automatic tracking enabled
-        deepLinkModule = DeepLinkModule(
-            dataStore,
-            tracker,
-            moduleManager,
-            activities,
-            DeepLinkModuleConfiguration(automaticDeepLinkTracking = true),
-            SystemLogger
+        deepLinkModule = createDeepLinkModule(
+            activities = counting,
+            configuration = DeepLinkModuleConfiguration(automaticDeepLinkTracking = true)
         )
+        assertEquals(1, counting.activeSubscriptions)
 
-        // Update to disable automatic tracking
-        val newConfig = DeepLinkSettingsBuilder()
+        val disabledConfig = DeepLinkSettingsBuilder()
             .setAutomaticDeepLinkTrackingEnabled(false)
             .buildConfiguration()
+        deepLinkModule.updateConfiguration(disabledConfig)
 
-        deepLinkModule.updateConfiguration(newConfig)
+        assertEquals(0, counting.activeSubscriptions)
 
-        // Should dispose the subscription
-        verify {
-            disposable.dispose()
-        }
-
-        // Update to re-enable automatic tracking
         val enabledConfig = DeepLinkSettingsBuilder()
             .setAutomaticDeepLinkTrackingEnabled(true)
             .buildConfiguration()
-
         deepLinkModule.updateConfiguration(enabledConfig)
 
-        // Should create a new subscription
-        verify(exactly = 2) {
-            activities.subscribe(any<Consumer<ActivityManager.ActivityStatus>>())
+        // a new subscription, not the disposed one revived
+        assertEquals(1, counting.activeSubscriptions)
+        assertEquals(2, counting.subscribeCalls)
+
+        // already subscribed; the guard must not create a third
+        deepLinkModule.updateConfiguration(enabledConfig)
+
+        assertEquals(2, counting.subscribeCalls)
+    }
+
+    @Test
+    fun onShutdown_Fails_Pending_Trace_Callback_And_Does_Not_Join_Trace() {
+        val freshModules = Observables.stateSubject(listOf<Module>()) // TraceModule not yet ready
+        val freshModuleManager = ModuleManagerImpl(Scheduler.SYNCHRONOUS, freshModules)
+        val freshDeepLinkModule = createDeepLinkModule(moduleManager = freshModuleManager)
+        val traceId = "test_trace_id"
+        val callback = mockk<Callback<TealiumResult<Unit>>>(relaxed = true)
+
+        freshDeepLinkModule.handle(traceUri(traceId), callback = callback)
+        freshDeepLinkModule.onShutdown()
+
+        // a later settings pass must not resolve the abandoned lookup
+        freshModules.onNext(listOf(traceModule))
+
+        verify(exactly = 1) {
+            callback.onComplete(any())
+        }
+        verify {
+            callback.onComplete(shutdownFailure())
+        }
+        verify(exactly = 0) {
+            traceModule.join(any())
+        }
+    }
+
+    @Test
+    fun onShutdown_Does_Not_Complete_Callback_Again_When_Trace_Already_Resolved() {
+        val traceId = "test_trace_id"
+        val callback = mockk<Callback<TealiumResult<Unit>>>(relaxed = true)
+
+        deepLinkModule.handle(traceUri(traceId), callback = callback)
+        deepLinkModule.onShutdown()
+
+        verify(exactly = 1) {
+            callback.onComplete(any())
+        }
+        verify {
+            callback.onComplete(match { it.isSuccess })
+        }
+        verify {
+            traceModule.join(traceId)
+        }
+    }
+
+    @Test
+    fun handle_Fails_Callback_Once_When_Module_Shut_Down_And_Trace_Already_Ready() {
+        val traceId = "test_trace_id"
+        val callback = mockk<Callback<TealiumResult<Unit>>>(relaxed = true)
+
+        deepLinkModule.onShutdown()
+        deepLinkModule.handle(traceUri(traceId), callback = callback)
+
+        verify(exactly = 1) {
+            callback.onComplete(any())
+        }
+        verify {
+            callback.onComplete(shutdownFailure())
+        }
+        verify(exactly = 0) {
+            traceModule.join(any())
+            tracker.track(any(), any(), any())
         }
     }
 
     @Test
     fun onShutdown_Disposes_Activity_Subscription() {
-        val disposable = mockk<Disposable>(relaxed = true)
-        activities = mockk()
-        every { activities.subscribe(any<Consumer<ActivityManager.ActivityStatus>>()) } returns disposable
+        val activitiesSource = Observables.publishSubject<ActivityManager.ActivityStatus>()
+        val counting = CountingObservable(activitiesSource)
 
-        deepLinkModule = DeepLinkModule(
-            dataStore,
-            tracker,
-            moduleManager,
-            activities,
-            DeepLinkModuleConfiguration(automaticDeepLinkTracking = true),
-            SystemLogger
+        deepLinkModule = createDeepLinkModule(
+            activities = counting,
+            configuration = DeepLinkModuleConfiguration(automaticDeepLinkTracking = true)
         )
 
         deepLinkModule.onShutdown()
 
-        // Should dispose the subscription
-        verifyOrder {
-            activities.subscribe(any<Consumer<ActivityManager.ActivityStatus>>())
-            disposable.dispose()
-        }
+        assertEquals(1, counting.subscribeCalls)
+        assertEquals(0, counting.activeSubscriptions)
     }
 
     @Test
@@ -531,6 +749,30 @@ class DeepLinkModuleTests {
         assertEquals(Modules.Types.DEEP_LINK, module?.id)
     }
 
+    private fun createDeepLinkModule(
+        activities: Observable<ActivityManager.ActivityStatus> = this.activities,
+        moduleManager: ModuleManager = this.moduleManager,
+        configuration: DeepLinkModuleConfiguration = this.configuration
+    ): DeepLinkModule = DeepLinkModule(
+        dataStore,
+        tracker,
+        moduleManager,
+        activities,
+        configuration,
+        SystemLogger
+    )
+
+    private fun traceUri(traceId: String): Uri =
+        uri.buildUpon()
+            .appendQueryParameter(DeepLinkModule.TRACE_ID_QUERY_PARAM, traceId)
+            .build()
+
+    private fun MockKMatcherScope.shutdownFailure(): TealiumResult<Unit> =
+        match {
+            it.isFailure && (it.exceptionOrNull() as? ModuleShutdownException)
+                ?.moduleId == Modules.Types.DEEP_LINK
+        }
+
     private fun mockActivity(
         action: String = Intent.ACTION_VIEW,
         uri: Uri = this.uri,
@@ -552,5 +794,15 @@ class DeepLinkModuleTests {
         every { intent.getStringExtra(Intent.EXTRA_REFERRER_NAME) } returns referrer?.toString()
 
         return activity
+    }
+
+    private class CountingObservable<T>(private val source: Observable<T>) : Observable<T> {
+        private val disposables = mutableListOf<Disposable>()
+
+        val subscribeCalls get() = disposables.size
+        val activeSubscriptions get() = disposables.count { !it.isDisposed }
+
+        override fun subscribe(observer: Observer<T>): Disposable =
+            source.subscribe(observer).also(disposables::add)
     }
 }

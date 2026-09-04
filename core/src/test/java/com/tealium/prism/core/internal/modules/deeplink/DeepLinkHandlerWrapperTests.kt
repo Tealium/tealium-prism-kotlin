@@ -3,8 +3,11 @@ package com.tealium.prism.core.internal.modules.deeplink
 import android.net.Uri
 import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.Tealium
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.misc.TealiumResult
+import com.tealium.prism.core.api.misc.failure
+import com.tealium.prism.core.api.misc.success
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleManager
 import com.tealium.prism.core.api.modules.ModuleNotEnabledException
@@ -16,9 +19,12 @@ import com.tealium.prism.core.api.pubsub.Subject
 import com.tealium.prism.core.internal.modules.ModuleManagerImpl
 import com.tealium.prism.core.internal.modules.ModuleProxyImpl
 import io.mockk.MockKAnnotations
+import io.mockk.Runs
 import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import org.junit.Before
 import org.junit.Test
@@ -47,6 +53,9 @@ class DeepLinkHandlerWrapperTests {
         MockKAnnotations.init(this)
 
         every { deepLinkModule.id } returns Modules.Types.DEEP_LINK
+        every { deepLinkModule.handle(any(), any(), any()) } answers {
+            thirdArg<Callback<TealiumResult<Unit>>>().success(Unit)
+        }
         modules = Observables.stateSubject(listOf(deepLinkModule))
         moduleManager = ModuleManagerImpl(scheduler, modules)
         onModuleManager = Observables.replaySubject(1)
@@ -92,11 +101,46 @@ class DeepLinkHandlerWrapperTests {
     }
 
     @Test
+    fun handle_Returns_Failure_When_Module_Fails() {
+        // deliberately not a type the proxy can produce, so the failure can only be the module's
+        val failure = IllegalStateException("from the module")
+        every { deepLinkModule.handle(any(), any(), any()) } answers {
+            thirdArg<Callback<TealiumResult<Unit>>>().failure(failure)
+        }
+
+        deepLinkHandlerWrapper.handle(uri)
+            .subscribe(observer)
+
+        verify {
+            observer.onNext(match { it.exceptionOrNull() === failure })
+        }
+    }
+
+    @Test
+    fun handle_Waits_For_The_Module_To_Complete_The_Callback() {
+        val moduleCallback = slot<Callback<TealiumResult<Unit>>>()
+        every { deepLinkModule.handle(any(), any(), capture(moduleCallback)) } just Runs
+
+        deepLinkHandlerWrapper.handle(uri)
+            .subscribe(observer)
+
+        verify(exactly = 0) {
+            observer.onNext(any())
+        }
+
+        moduleCallback.captured.success(Unit)
+
+        verify(exactly = 1) {
+            observer.onNext(match { it.isSuccess })
+        }
+    }
+
+    @Test
     fun handle_Calls_Module_Implementation_When_Module_Enabled() {
         deepLinkHandlerWrapper.handle(uri)
 
         verify {
-            deepLinkModule.handle(uri, null)
+            deepLinkModule.handle(uri, null, any())
         }
     }
 
@@ -115,7 +159,7 @@ class DeepLinkHandlerWrapperTests {
         deepLinkHandlerWrapper.handle(uri, uri)
 
         verify {
-            deepLinkModule.handle(uri, uri)
+            deepLinkModule.handle(uri, uri, any())
         }
     }
 

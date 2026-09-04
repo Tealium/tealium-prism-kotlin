@@ -20,6 +20,28 @@ class ModuleManagerImpl(
 
     private val moduleFactories: MutableMap<String, ModuleFactory> = linkedMapOf()
 
+    /**
+     * [_modules] gated so that nothing is emitted until a module-creation settings pass has run.
+     * An empty result from a pass counts as ready: it means nothing was configured, not that the
+     * pass is still running.
+     *
+     * TODO: should probably be the default, exported like a PendingObservableState (nullable value)
+     *  so that [modules] doesn't emit an empty List during initialization either.
+     */
+    private val modulesOnReady = Observables.replaySubject<List<Module>>(1)
+
+    init {
+        // a StateSubject replays its seed on subscribe: ready only if it already holds modules,
+        // otherwise wait for the first settings pass, empty list included
+        var isSeed = true
+        _modules.subscribe { modules ->
+            if (!isSeed || modules.isNotEmpty()) {
+                modulesOnReady.onNext(modules)
+            }
+            isSeed = false
+        }
+    }
+
     override val modules: ObservableState<List<Module>>
         get() = _modules.asObservableState()
 
@@ -54,7 +76,7 @@ class ModuleManagerImpl(
     }
 
     override fun <T : Module> observeModule(clazz: Class<T>): Observable<T?> =
-        _modules.map { modules ->
+        modulesOnReady.map { modules ->
             modules.filterIsInstance(clazz).firstOrNull()
         }.distinct()
             .subscribeOn(scheduler)
@@ -80,6 +102,10 @@ class ModuleManagerImpl(
     }
 
     override fun updateModuleSettings(context: TealiumContext, settings: SdkSettings) {
+        // close the gate for the duration of the pass: the cached list is stale from here on, and
+        // modules created below may subscribe from their own constructor
+        modulesOnReady.clear()
+
         val oldModules = _modules.value.associateBy(Module::id)
 
         val allModuleSettings = prepareModuleSettings(settings)

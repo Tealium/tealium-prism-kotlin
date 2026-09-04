@@ -171,6 +171,75 @@ class ModuleManagerImplTests {
     }
 
     @Test
+    fun observeModule_Emits_Immediately_When_Modules_Are_Preloaded() {
+        val preloaded = ModuleManagerImpl(
+            Scheduler.SYNCHRONOUS,
+            Observables.stateSubject(listOf(testDispatcher))
+        )
+
+        val observer = mockk<Observer<TestDispatcher?>>(relaxed = true)
+        preloaded.observeModule(TestDispatcher::class.java).subscribe(observer)
+
+        verify { observer.onNext(testDispatcher) }
+    }
+
+    @Test
+    fun observeModule_Emits_Module_Created_Later_In_The_Same_Settings_Pass() {
+        val manager = freshModuleManager()
+        var observed: TestDispatcher? = null
+
+        // Resolves a dependency from its own constructor, so it subscribes mid-pass.
+        manager.addModuleFactory(
+            TestModuleFactory.singleInstance("ctor_observer") { moduleId, _, _ ->
+                manager.observeModule(TestDispatcher::class.java).subscribeOnce { dispatcher ->
+                    observed = dispatcher
+                }
+                TestModule(moduleId)
+            }
+        )
+        manager.addModuleFactory(TestModuleFactory.forModule(testDispatcher))
+        manager.addModuleFactory(TestModuleFactory.forModule(testModule))
+
+        // First pass: no dispatcher configured, so the gate ends up holding a list without one.
+        manager.updateModuleSettings(
+            context,
+            SdkSettings(modules = mapOf(testModule.id to ModuleSettings(testModule.id, order = 0)))
+        )
+        // Second pass: the observer is ordered before the dispatcher, so it is created first.
+        manager.updateModuleSettings(
+            context,
+            SdkSettings(
+                modules = mapOf(
+                    "ctor_observer" to ModuleSettings("ctor_observer", order = 0),
+                    testDispatcher.id to ModuleSettings(testDispatcher.id, order = 1)
+                )
+            )
+        )
+
+        assertSame(testDispatcher, observed)
+    }
+
+    @Test
+    fun observeModule_Does_Not_Emit_Before_Modules_Are_Loaded() {
+        val freshManager = freshModuleManager()
+        defaultFactories.forEach(freshManager::addModuleFactory)
+
+        val observer = mockk<Observer<TestDispatcher?>>(relaxed = true)
+        freshManager.observeModule(TestDispatcher::class.java)
+            .subscribe(observer)
+
+        verify(inverse = true) {
+            observer.onNext(any())
+        }
+
+        freshManager.updateModuleSettings(context, SdkSettings(modules = defaultSettings))
+
+        verify {
+            observer.onNext(testDispatcher)
+        }
+    }
+
+    @Test
     fun observeModule_Emits_Module_When_The_Module_Is_Available() {
         val observer = mockk<Observer<TestDispatcher?>>(relaxed = true)
 
@@ -210,6 +279,19 @@ class ModuleManagerImplTests {
             observer.onNext(testDispatcher)
             observer.onNext(null)
             observer.onNext(testDispatcher)
+        }
+    }
+
+    @Test
+    fun observeModule_Emits_Null_After_Shutdown() {
+        val observer = mockk<Observer<TestDispatcher?>>(relaxed = true)
+
+        moduleManager.observeModule(TestDispatcher::class.java).subscribe(observer)
+        moduleManager.shutdown()
+
+        verifyOrder {
+            observer.onNext(testDispatcher)
+            observer.onNext(null)
         }
     }
 
@@ -572,4 +654,7 @@ class ModuleManagerImplTests {
             creator = creator
         )
     }
+
+    private fun freshModuleManager(): InternalModuleManager =
+        ModuleManagerImpl(Scheduler.SYNCHRONOUS, Observables.stateSubject(listOf()))
 }
