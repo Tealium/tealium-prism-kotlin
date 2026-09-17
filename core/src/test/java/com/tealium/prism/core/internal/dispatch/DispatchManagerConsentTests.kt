@@ -106,6 +106,21 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
     }
 
     @Test
+    fun track_Does_Not_Transform_Or_Store_When_Tealium_Consent_Explicitly_Blocked() {
+        val consentManager = mockConsentManager(tealiumExplicitlyBlocked = true)
+        enableConsent(consentManager)
+
+        dispatchManager.track(dispatch1)
+
+        // The dispatch is dropped up front, before it reaches any stage of the pipeline.
+        verify(exactly = 0) {
+            transformerCoordinator.transform(any<Dispatch>(), any(), any())
+            queueManager.storeDispatches(any(), any())
+            consentManager.applyConsent(any())
+        }
+    }
+
+    @Test
     fun track_Runs_Transformations_When_Tealium_Purpose_Is_Not_Blocked() {
         enableConsent(mockConsentManager(accepted = true))
 
@@ -147,7 +162,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
 
         dispatchManager.startDispatchLoop()
 
-        verify(inverse = true) {
+        verify(exactly = 0) {
             queueManager.dequeueDispatches(any(), any())
             dispatcher1.dispatch(listOf(dispatch1), any())
             dispatcher1.dispatch(listOf(dispatch2), any())
@@ -223,7 +238,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
         verify(timeout = 1000) {
             dispatcher1.dispatch(listOf(dispatch1), any())
         }
-        verify(inverse = true, timeout = 1000) {
+        verify(exactly = 0) {
             dispatcher1.dispatch(match { it.contains(dispatch2) || it.contains(dispatch3) }, any())
         }
     }
@@ -251,7 +266,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
             queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
         }
-        verify(inverse = true) {
+        verify(exactly = 0) {
             dispatcher1.dispatch(listOf(dispatch1), any())
             dispatcher1.dispatch(listOf(dispatch2), any())
         }

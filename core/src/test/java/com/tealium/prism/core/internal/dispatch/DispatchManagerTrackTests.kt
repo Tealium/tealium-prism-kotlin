@@ -5,7 +5,6 @@ import com.tealium.prism.core.api.misc.TimeFrame
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.tests.common.TestDispatcher
-import io.mockk.coVerify
 import io.mockk.verify
 import org.junit.Test
 import java.util.concurrent.TimeUnit
@@ -40,7 +39,7 @@ class DispatchManagerTrackTests : DispatchManagerTestsBase() {
             dispatchManager.track(dispatch3)
         }
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             dispatcher1.dispatch(listOf(dispatch1), any())
             dispatcher1.dispatch(listOf(dispatch2), any())
             dispatcher1.dispatch(listOf(dispatch3), any())
@@ -79,7 +78,7 @@ class DispatchManagerTrackTests : DispatchManagerTestsBase() {
             dispatchManager.track(dispatch3)
         }
 
-        coVerify(timeout = 1000) {
+        verify(timeout = 1000) {
             dispatcher1.dispatch(listOf(dispatch1), any())
             dispatcher1.dispatch(listOf(dispatch2), any())
             dispatcher1.dispatch(listOf(dispatch3), any())

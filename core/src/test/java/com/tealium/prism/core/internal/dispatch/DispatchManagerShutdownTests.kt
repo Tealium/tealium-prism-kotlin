@@ -11,16 +11,20 @@ import com.tealium.tests.common.TestDispatcher
 import io.mockk.every
 import io.mockk.spyk
 import io.mockk.verify
+import org.junit.Assert.assertFalse
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_StopsDispatching_WhenLoopCancelled() {
+        val completed = CountDownLatch(1)
         dispatcher1 = TestDispatcher.mock("dispatcher1") { dispatches, callback ->
             scheduler.schedule(TimeFrame(500, TimeUnit.MILLISECONDS)) {
                 callback.onComplete(dispatches)
+                completed.countDown()
             }
         }
         modules.onNext(listOf(dispatcher1))
@@ -36,8 +40,13 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
             dispatchManager.stopDispatchLoop()
         }
 
-        verify(inverse = true, timeout = 5000) {
+        verify(timeout = 5000) {
             dispatcher1.dispatch(listOf(dispatch1), any())
+        }
+        // Stopping the loop disposes the in-flight dispatch, which cancels the scheduled
+        // callback, so completion must never arrive.
+        assertFalse(completed.await(1, TimeUnit.SECONDS))
+        verify(exactly = 0) {
             dispatcher1.dispatch(listOf(dispatch2), any())
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
             queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
@@ -46,11 +55,13 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_CancelsDispatches_WhenScopeCancelled() {
+        val completed = CountDownLatch(1)
         dispatcher1 = TestDispatcher.mock("dispatcher1") { dispatches, callback ->
             dispatchManager.stopDispatchLoop()
 
             scheduler.schedule(TimeFrame(500, TimeUnit.MILLISECONDS)) {
                 callback.onComplete(dispatches)
+                completed.countDown()
             }
         }
         modules.onNext(listOf(dispatcher1))
@@ -66,10 +77,14 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
         // TODO - maybe a better test than this.
 //        scheduler.shutdownNow()
 
-        verify(inverse = true, timeout = 5000) {
+        verify(timeout = 5000) {
             dispatcher1.dispatch(listOf(dispatch1), any())
+        }
+        // The stop issued from inside dispatch() is honored even though the loop subscription is
+        // still being set up, so the in-flight dispatch is disposed and its callback never fires.
+        assertFalse(completed.await(1, TimeUnit.SECONDS))
+        verify(exactly = 0) {
             dispatcher1.dispatch(listOf(dispatch2), any())
-
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
             queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
         }
@@ -95,7 +110,7 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
         dispatchManager.stopDispatchLoop()
         lateCallback?.onComplete(listOf(dispatch1))
 
-        verify(inverse = true) {
+        verify(exactly = 0) {
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
         }
     }
@@ -128,7 +143,7 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
         dispatchManager.stopDispatchLoop()
         lateCallback?.onComplete(listOf(dispatch3))
 
-        verify(inverse = true) {
+        verify(exactly = 0) {
             queueManager.deleteDispatches(listOf(dispatch3), dispatcher1Name)
         }
     }
@@ -163,6 +178,55 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
         lateCallback?.onComplete(listOf(dispatch1))
 
         verify(exactly = 1) {
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+        }
+    }
+
+    /**
+     * Stopping the loop must leave the manager restartable. [DispatchManagerImpl.stopDispatchLoop]
+     * clears the loop handle, so the next [DispatchManagerImpl.startDispatchLoop] is not mistaken
+     * for a duplicate call and makes a fresh subscription that drains what was queued while stopped.
+     */
+    @Test
+    fun startDispatchLoop_Resumes_Dispatching_When_Called_After_Stop() {
+        modules.onNext(listOf(dispatcher1))
+
+        dispatchManager.startDispatchLoop()
+        dispatchManager.stopDispatchLoop()
+
+        dispatchManager.track(dispatch1) // queued while the loop is stopped
+
+        verify(exactly = 0) {
+            dispatcher1.dispatch(listOf(dispatch1), any())
+        }
+
+        dispatchManager.startDispatchLoop()
+
+        verify {
+            dispatcher1.dispatch(listOf(dispatch1), any())
+            queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
+        }
+        // One barrier subscription per start proves the second start built a fresh chain.
+        verify(exactly = 2) {
+            barrierCoordinator.onBarriersState(dispatcher1Name)
+        }
+    }
+
+    /**
+     * A stop issued before any start must be a harmless no-op. If it threw, or left the manager in a
+     * state where a later start was ignored, a premature shutdown call would poison the manager.
+     */
+    @Test
+    fun stopDispatchLoop_Does_Nothing_When_Loop_Was_Never_Started() {
+        modules.onNext(listOf(dispatcher1))
+        queue[dispatcher1Name] = mutableSetOf(dispatch1)
+
+        dispatchManager.stopDispatchLoop() // never started; must not throw
+
+        dispatchManager.startDispatchLoop()
+
+        verify {
+            dispatcher1.dispatch(listOf(dispatch1), any())
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
         }
     }

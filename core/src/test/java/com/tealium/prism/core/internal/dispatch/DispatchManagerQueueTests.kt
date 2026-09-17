@@ -171,7 +171,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
             queueManager.deleteDispatches(listOf(dispatch2), dispatcher2Name)
             queueManager.deleteDispatches(listOf(dispatch3), dispatcher2Name)
         }
-        verify(timeout = 1000, inverse = true) {
+        verify(exactly = 0) {
             dispatcher1.dispatch(listOf(dispatch2), any())
             dispatcher2.dispatch(listOf(dispatch1), any())
         }
@@ -205,7 +205,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
         verify(timeout = 1000) {
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
         }
-        verify(inverse = true) {
+        verify(exactly = 0) {
             queueManager.deleteDispatches(emptyList(), any())
         }
     }

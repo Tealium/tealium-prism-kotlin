@@ -40,7 +40,7 @@ class DispatchManagerMappingTests : DispatchManagerTestsBase() {
 
         dispatchManager.track(dispatch1)
 
-        verify(inverse = true) {
+        verify(exactly = 0) {
             mappingsEngine.map(dispatcher1Name, dispatch1)
             mappingsEngine.map(dispatcher2Name, dispatch1)
         }

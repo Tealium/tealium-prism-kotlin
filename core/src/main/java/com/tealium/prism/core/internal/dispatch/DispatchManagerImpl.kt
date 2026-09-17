@@ -6,7 +6,6 @@ import com.tealium.prism.core.api.logger.logIfDebugEnabled
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observable
-import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.addTo
 import com.tealium.prism.core.api.tracking.Dispatch
@@ -34,8 +33,17 @@ class DispatchManagerImpl(
     private val maxInFlightPerDispatcher: Int = MAXIMUM_INFLIGHT_EVENTS_PER_DISPATCHER
 ) : DispatchManager {
 
-    private val dispatchers: ObservableState<Set<Dispatcher>>
-        get() = moduleManager.modules.mapState { it.filterIsInstance<Dispatcher>().toSet() }
+    private val dispatchers: List<Dispatcher>
+        get() = moduleManager.modules.value.filterIsInstance<Dispatcher>()
+
+    /**
+     * The active [Dispatcher]s, re-emitted only when that list actually changes, so that an unrelated
+     * module change does not make [startDispatchLoop] rebuild every dequeue loop.
+     */
+    private val onDispatchers: Observable<List<Dispatcher>>
+        get() = moduleManager.modules
+            .map { modules -> modules.filterIsInstance<Dispatcher>() }
+            .distinct(::isSameDispatchers)
 
     private var dispatchLoop: Disposable? = null
 
@@ -89,7 +97,7 @@ class DispatchManagerImpl(
                     "Event ${transformed.logDescription()} accepted for processing"
                 }
 
-                val dispatcherIds = dispatchers.value.map(Dispatcher::id).toSet()
+                val dispatcherIds = dispatchers.map(Dispatcher::id).toSet()
                 queueManager.storeDispatches(listOf(transformed), dispatcherIds)
 
                 onComplete?.onTrackResultReady(
@@ -104,39 +112,91 @@ class DispatchManagerImpl(
 
     internal fun stopDispatchLoop() {
         dispatchLoop?.dispose()
+        dispatchLoop = null
     }
 
+    /**
+     * Subscribes the dispatch pipeline: for each active [Dispatcher], wait for its barriers to open,
+     * dequeue its queued [Dispatch]es, transform them, and hand them over to be sent.
+     *
+     * Calling this while a loop is already running is a no-op; [stopDispatchLoop] must be called first
+     * for a fresh subscription to be made. A [stopDispatchLoop] issued while the subscription is still
+     * being set up, such as from within a [Dispatcher.dispatch] triggered by the initial dequeue, is
+     * honored and leaves the loop stopped.
+     *
+     * Where each stage sits relative to the outer [Observable.flatMapLatest] decides what a change to
+     * the dispatcher list cancels, so the placement is load bearing.
+     *
+     * Everything a [Dispatcher] needs in order to *acquire* work, meaning its barrier subscription and
+     * its dequeue loop, is built inside the `flatMapLatest` and is therefore disposable. A new emission
+     * from [onDispatchers] replaces that whole set of loops at once, which gives two guarantees:
+     *   - a dispatcher that is no longer in the list has no loop, so it neither drains what is still queued
+     *   for it nor stays alive through a subscription that outlives it;
+     *   - and a dispatcher that remains in the list has exactly one loop, so at most
+     *   [maxInFlightPerDispatcher] dispatches are ever in flight for it regardless of how often the list changes.
+     *
+     * Work that has already been acquired is deliberately kept out of that scope.
+     * [transformAndDispatch] is applied downstream of the `flatMapLatest`, so dispatches already handed
+     * to a [Dispatcher] are untouched by a list change and still get to report completion.
+     *
+     * The cost is that enabled dispatchers are rebuilt too, since the list is replaced wholesale rather
+     * than diffed. Repeating a dequeue is harmless, because [QueueManager.dequeueDispatches] never
+     * returns a dispatch that is already in-flight and so cannot send one twice. [onDispatchers] also
+     * drops emissions that leave the list untouched, keeping rebuilds to the changes that genuinely
+     * alter the set of dispatchers.
+     */
     internal fun startDispatchLoop() {
-        dispatchLoop =
-            dispatchers.flatMapLatest { dispatchers ->
-                Observables.fromIterable(dispatchers)
-            }.flatMap { dispatcher ->
-                ensureBarriersOpen(dispatcher)
-                    .flatMap { dispatchSplit ->
-                        if (dispatchSplit.unsuccessful.isNotEmpty()) {
-                            logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
-                                "Dispatches discarded due to consent: ${dispatchSplit.unsuccessful.logDescriptions()}"
-                            }
-                        }
+        if (dispatchLoop != null) {
+            logger.debug(LogCategory.DISPATCH_MANAGER, "Dispatch loop already started; ignoring.")
+            return
+        }
 
-                        transformAndDispatch(dispatchSplit.successful, dispatcher)
-                            .startWith(dispatchSplit.unsuccessful)
-                            .filter { it.isNotEmpty() }
-                            .map { completedDispatches -> dispatcher to completedDispatches }
-                    }
-            }.subscribe { (dispatcher, completedDispatches) ->
-                queueManager.deleteDispatches(
-                    completedDispatches,
-                    dispatcher.id
-                )
+        /*
+         * Assigned before subscribing so that a stopDispatchLoop() re-entered from within the
+         * synchronous subscribe (e.g. from a Dispatcher's dispatch) is honored: by the time the
+         * subscription is added below the container is already disposed, and add() disposes it.
+         */
+        val loop = DisposableContainer()
+        dispatchLoop = loop
 
+        onDispatchers.flatMapLatest { dispatchers ->
+            Observables.fromIterable(dispatchers)
+                .flatMap { dispatcher ->
+                    dequeueWhileBarriersOpen(dispatcher)
+                        .map { dispatchSplit -> dispatcher to dispatchSplit }
+                }
+        }.flatMap { (dispatcher, dispatchSplit) ->
+            if (dispatchSplit.unsuccessful.isNotEmpty()) {
                 logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
-                    "Dispatcher: ${dispatcher.id} processed events: ${completedDispatches.logDescriptions()}"
+                    "Dispatches discarded due to consent: ${dispatchSplit.unsuccessful.logDescriptions()}"
                 }
             }
+
+            transformAndDispatch(dispatchSplit.successful, dispatcher)
+                .startWith(dispatchSplit.unsuccessful)
+                .filter { it.isNotEmpty() }
+                .map { completedDispatches -> dispatcher to completedDispatches }
+        }.subscribe { (dispatcher, completedDispatches) ->
+            queueManager.deleteDispatches(
+                completedDispatches,
+                dispatcher.id
+            )
+
+            logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
+                "Dispatcher: ${dispatcher.id} processed events: ${completedDispatches.logDescriptions()}"
+            }
+        }.addTo(loop)
     }
 
-    private fun ensureBarriersOpen(dispatcher: Dispatcher): Observable<DispatchSplit> =
+    /**
+     * Compares dispatcher lists by instance identity and order, not by [Dispatcher.id]: a dispatcher
+     * replaced by a new instance keeps its id, yet still needs its chain rebuilt, and a reorder counts
+     * as a change rather than being collapsed.
+     */
+    private fun isSameDispatchers(old: List<Dispatcher>, new: List<Dispatcher>): Boolean =
+        old.size == new.size && old.indices.all { index -> old[index] === new[index] }
+
+    private fun dequeueWhileBarriersOpen(dispatcher: Dispatcher): Observable<DispatchSplit> =
         barrierCoordinator.onBarriersState(dispatcher.id)
             .flatMapLatest { active ->
                 logger.debug(

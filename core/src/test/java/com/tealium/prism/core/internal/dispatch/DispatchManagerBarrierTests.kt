@@ -35,7 +35,7 @@ class DispatchManagerBarrierTests : DispatchManagerTestsBase() {
 
         dispatchManager.track(dispatch1)
 
-        verify(timeout = 5000, inverse = true) {
+        verify(exactly = 0) {
             dispatcher1.dispatch(listOf(dispatch1), any())
             queueManager.deleteDispatches(listOf(dispatch1), any())
         }
@@ -73,7 +73,7 @@ class DispatchManagerBarrierTests : DispatchManagerTestsBase() {
             dispatcher1.dispatch(listOf(dispatch1), any())
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
         }
-        verify(inverse = true) {
+        verify(exactly = 0) {
             dispatcher1.dispatch(listOf(dispatch2), any())
             queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
         }
@@ -114,8 +114,8 @@ class DispatchManagerBarrierTests : DispatchManagerTestsBase() {
             dispatcher1.dispatch(listOf(dispatch1), any())
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
         }
-        verify(timeout = 5000, inverse = true) {
-            dispatcher2.dispatch(listOf(dispatch2), any())
+        verify(exactly = 0) {
+            dispatcher2.dispatch(listOf(dispatch1), any())
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher2Name)
         }
     }

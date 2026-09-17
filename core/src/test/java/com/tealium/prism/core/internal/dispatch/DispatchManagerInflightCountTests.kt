@@ -30,7 +30,7 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
         verify {
             dispatcher1.dispatch(listOf(dispatch1), any())
         }
-        verify(inverse = true) {
+        verify(exactly = 0) {
             dispatcher1.dispatch(listOf(dispatch2), any())
         }
     }
@@ -49,7 +49,7 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1)
 
-        verify(inverse = true) {
+        verify(exactly = 0) {
             queueManager.dequeueDispatches(1, dispatcher1Name)
             dispatcher1.dispatch(listOf(dispatch1), any())
             dispatcher1.dispatch(listOf(dispatch2), any())
@@ -69,7 +69,7 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1)
-        verify(inverse = true) {
+        verify(exactly = 0) {
             dispatcher1.dispatch(listOf(dispatch1), any())
         }
 

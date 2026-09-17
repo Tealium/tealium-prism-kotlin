@@ -33,7 +33,7 @@ class DispatchManagerLoadRuleTests : DispatchManagerTestsBase() {
         }
         dispatchManager.track(dispatch1)
 
-        verify(inverse = true) {
+        verify(exactly = 0) {
             dispatcher1.dispatch(listOf(dispatch1), any())
         }
     }
@@ -94,7 +94,7 @@ class DispatchManagerLoadRuleTests : DispatchManagerTestsBase() {
         verify(timeout = 1000) {
             dispatcher1.dispatch(listOf(dispatch2), any())
         }
-        verify(inverse = true) {
+        verify(exactly = 0) {
             dispatcher1.dispatch(match { it.contains(dispatch1) }, any())
         }
     }
@@ -112,7 +112,7 @@ class DispatchManagerLoadRuleTests : DispatchManagerTestsBase() {
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
             queueManager.deleteDispatches(listOf(dispatch2), dispatcher1Name)
         }
-        verify(inverse = true) {
+        verify(exactly = 0) {
             dispatcher1.dispatch(any(), any())
         }
     }

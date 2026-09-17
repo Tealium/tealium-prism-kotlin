@@ -15,7 +15,7 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1)
 
-        verify(timeout = 5000, inverse = true) {
+        verify(exactly = 0) {
             dispatcher1.dispatch(listOf(dispatch1), any())
         }
     }
@@ -27,7 +27,7 @@ class DispatchManagerTransformerTests : DispatchManagerTestsBase() {
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1)
 
-        verify(timeout = 5000, inverse = true) {
+        verify(exactly = 0) {
             dispatcher1.dispatch(listOf(dispatch1), any())
             queueManager.storeDispatches(listOf(dispatch1), any())
         }
