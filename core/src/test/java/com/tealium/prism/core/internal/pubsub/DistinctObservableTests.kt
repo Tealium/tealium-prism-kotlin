@@ -10,6 +10,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import kotlin.math.abs
 
 class DistinctObservableTests {
 
@@ -51,6 +52,57 @@ class DistinctObservableTests {
             observer.onNext(3)
             observer.onNext(3)
             observer.onNext(4)
+        }
+    }
+
+    @Test
+    fun distinct_Does_Not_Re_Emit_Null_When_Previous_Value_Was_Null() {
+        val nullableObserver = mockk<Observer<Int?>>(relaxed = true)
+
+        Observables.just(null, null, 1)
+            .distinct()
+            .subscribe(nullableObserver)
+
+        verify(exactly = 1) {
+            nullableObserver.onNext(null)
+        }
+        verify(exactly = 1) {
+            nullableObserver.onNext(1)
+        }
+    }
+
+    @Test
+    fun distinct_Emits_Null_After_Non_Null_Value() {
+        val nullableObserver = mockk<Observer<Int?>>(relaxed = true)
+
+        Observables.just(1, null, null, 1)
+            .distinct()
+            .subscribe(nullableObserver)
+
+        verifyOrder {
+            nullableObserver.onNext(1)
+            nullableObserver.onNext(null)
+            nullableObserver.onNext(1)
+        }
+        verify(exactly = 1) {
+            nullableObserver.onNext(null)
+        }
+        verify(exactly = 2) {
+            nullableObserver.onNext(1)
+        }
+    }
+
+    @Test
+    fun distinct_Compares_With_Previous_Element_When_Previous_Was_Suppressed() {
+        Observables.just(0, 1, 2, 3)
+            .distinct(::isWithinOne)
+            .subscribe(observer)
+
+        verify(exactly = 1) {
+            observer.onNext(0)
+        }
+        verify(exactly = 1) {
+            observer.onNext(any())
         }
     }
 
@@ -102,4 +154,10 @@ class DistinctObservableTests {
         subject.onComplete()
         assertTrue(disposable.isDisposed)
     }
+
+    /**
+     * Not transitive: 0 ~ 1 and 1 ~ 2, but not 0 ~ 2.
+     */
+    private fun isWithinOne(a: Int, b: Int): Boolean =
+        abs(a - b) <= 1
 }

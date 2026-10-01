@@ -265,6 +265,22 @@ class ModuleManagerImplTests {
     }
 
     @Test
+    fun observeModule_Emits_Null_Once_When_Module_Stays_Absent_Across_Passes() {
+        val observer = mockk<Observer<TestDispatcher?>>(relaxed = true)
+        moduleManager.updateModuleSettings(context, disableModuleSettings(testDispatcher.id))
+
+        moduleManager.observeModule(TestDispatcher::class.java).subscribe(observer)
+        moduleManager.updateModuleSettings(context, enableModuleSettings(testModule.id))
+        assertEquals(listOf(testModule), moduleManager.modules.value)
+        moduleManager.updateModuleSettings(context, enableModuleSettings(testCollector.id))
+        assertEquals(listOf(testCollector), moduleManager.modules.value)
+
+        verify(exactly = 1) {
+            observer.onNext(null)
+        }
+    }
+
+    @Test
     fun observeModule_Emits_Updated_Module_When_Enabled_And_Disabled() {
         val observer = mockk<Observer<TestDispatcher?>>(relaxed = true)
         moduleManager.updateModuleSettings(context, disableModuleSettings(testDispatcher.id))

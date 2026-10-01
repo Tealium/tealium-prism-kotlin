@@ -98,7 +98,8 @@ interface Observable<T> : Subscribable<T> {
     /**
      * Returns an observable that only emits downstream when the newest emissions is not equal to
      * the previous emission.
-     * Emissions will be compared using the provided [isEquals] function
+     * Emissions will be compared using the provided [isEquals] function, always against the
+     * upstream emission immediately before, even if that one was not emitted downstream.
      */
     fun distinct(isEquals: (T, T) -> Boolean): Observable<T> {
         return DistinctObservable(this, isEquals)
