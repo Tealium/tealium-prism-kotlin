@@ -15,6 +15,7 @@ import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.api.file.Directory
 import org.gradle.api.file.FileCollection
 import org.gradle.api.tasks.testing.Test
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.kotlin.dsl.apply
 import org.gradle.kotlin.dsl.getByType
@@ -146,6 +147,10 @@ class TealiumLibraryPlugin : Plugin<Project> {
             val jacocoTask = extensions.getByType(JacocoTaskExtension::class.java)
             jacocoTask.isIncludeNoLocationClasses = true
             jacocoTask.excludes = listOf("jdk.internal.*")
+
+            testLogging {
+                exceptionFormat = TestExceptionFormat.FULL
+            }
         }
     }
 

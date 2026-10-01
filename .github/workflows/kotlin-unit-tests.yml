@@ -36,6 +36,7 @@ jobs:
         run: ./gradlew testModifiedDebugUnitTest -PMODIFIED_PROJECTS=${{ steps.unit-test-modules.outputs.unit-tests }}
 
       - uses: ./.github/actions/upload-reports
+        if: ${{ always() }}
         with:
           artifact-name: Reports-Unit-Tests
   instrumented-test:
@@ -92,5 +93,6 @@ jobs:
           script: ./gradlew testModifiedDebugInstrumentedTest -PMODIFIED_PROJECTS=${{ needs.unit-test.outputs.inst-tests }}
 
       - uses: ./.github/actions/upload-reports
+        if: ${{ always() }}
         with:
           artifact-name: Reports-${{ matrix.api-level }}
