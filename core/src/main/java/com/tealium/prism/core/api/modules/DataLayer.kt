@@ -47,7 +47,7 @@ interface DataLayer {
      * @param expiry The expiration policy for these [DataItem]s
      * @return A Single which can be used to subscribe a block of code to receive any errors that occur
      */
-    fun put(data: DataObject, expiry: Expiry): Single<TealiumResult<Unit>>
+    fun putAll(data: DataObject, expiry: Expiry): Single<TealiumResult<Unit>>
 
     /**
      * Attempts to update all key-value pairs from the [data] and inserts them into the [DataStore].
@@ -57,7 +57,7 @@ interface DataLayer {
      * @param data The [DataObject] containing multiple items to be stored.
      * @return A Single which can be used to subscribe a block of code to receive any errors that occur
      */
-    fun put(data: DataObject): Single<TealiumResult<Unit>>
+    fun putAll(data: DataObject): Single<TealiumResult<Unit>>
 
     /**
      * Puts a single key-value pair into the [DataStore]

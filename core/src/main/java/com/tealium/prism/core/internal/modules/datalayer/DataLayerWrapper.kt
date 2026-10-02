@@ -29,10 +29,10 @@ class DataLayerWrapper(
             Unit
         }
 
-    override fun put(data: DataObject) =
+    override fun putAll(data: DataObject) =
         putAllInternal(data, null)
 
-    override fun put(data: DataObject, expiry: Expiry) =
+    override fun putAll(data: DataObject, expiry: Expiry) =
         putAllInternal(data, expiry)
 
     private fun putAllInternal(data: DataObject, expiry: Expiry?) =
