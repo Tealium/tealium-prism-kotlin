@@ -163,7 +163,7 @@ class DataLayerWrapperTests {
     @Test
     fun putAll_Adds_All_Values_To_DataStore() {
         val data = DataObject.create { put("key", "value") }
-        dataLayerWrapper.putAll(data, Expiry.SESSION)
+        dataLayerWrapper.put(data, Expiry.SESSION)
 
         verify {
             editor.putAll(data, Expiry.SESSION)
@@ -174,7 +174,7 @@ class DataLayerWrapperTests {
     @Test
     fun putAll_Uses_Default_Expiry_When_Omitted() {
         val data = DataObject.create { put("key", "value") }
-        dataLayerWrapper.putAll(data)
+        dataLayerWrapper.put(data)
 
         verify {
             editor.putAll(data, defaultExpiry)
@@ -356,7 +356,7 @@ class DataLayerWrapperTests {
     fun put_Does_Nothing_When_ModuleManager_Shutdown() {
         moduleManager.shutdown()
 
-        dataLayerWrapper.putAll(DataObject.create { put("key", "value") }, Expiry.SESSION)
+        dataLayerWrapper.put(DataObject.create { put("key", "value") }, Expiry.SESSION)
         dataLayerWrapper.put("key", "value", Expiry.SESSION)
         dataLayerWrapper.put("key", 1, Expiry.SESSION)
         dataLayerWrapper.put("key", 1.1, Expiry.SESSION)
@@ -367,7 +367,7 @@ class DataLayerWrapperTests {
             add("value")
         }, Expiry.SESSION)
         dataLayerWrapper.put("key", DataObject.create { put("key", "value") }, Expiry.SESSION)
-        dataLayerWrapper.putAll(DataObject.create { put("key", "value") })
+        dataLayerWrapper.put(DataObject.create { put("key", "value") })
         dataLayerWrapper.put("key", "value")
         dataLayerWrapper.put("key", 1)
         dataLayerWrapper.put("key", 1.1)
