@@ -61,7 +61,7 @@ class DispatchManagerBarrierTests : DispatchManagerTestsBase() {
     @Test
     fun dispatchManager_StopsSendingDispatchesToDispatcher_WhenBarriersGetClosed() {
         dispatcher1 = spyk(TestDispatcher("dispatcher_1"))
-        modules.onNext(listOf(dispatcher1))
+        dispatchers.onNext(listOf(dispatcher1))
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1) // closes after first dispatch
@@ -88,7 +88,7 @@ class DispatchManagerBarrierTests : DispatchManagerTestsBase() {
                 callback.onComplete(dispatches)
             }
         })
-        modules.onNext(listOf(dispatcher1))
+        dispatchers.onNext(listOf(dispatcher1))
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1)
@@ -105,7 +105,7 @@ class DispatchManagerBarrierTests : DispatchManagerTestsBase() {
         every { barrierCoordinator.onBarriersState("dispatcher_2") } returns Observables.stateSubject(
             BarrierState.Closed
         )
-        modules.onNext(listOf(dispatcher1, dispatcher2))
+        dispatchers.onNext(listOf(dispatcher1, dispatcher2))
 
         dispatchManager.startDispatchLoop()
         dispatchManager.track(dispatch1)

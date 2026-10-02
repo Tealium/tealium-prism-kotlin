@@ -21,7 +21,7 @@ class DispatchManagerInflightCountTests : DispatchManagerTestsBase() {
             // never completes; should stay at 1 in-flight
             Subscription()
         })
-        modules.onNext(listOf(dispatcher1))
+        dispatchers.onNext(listOf(dispatcher1))
         queue[dispatcher1.id] = mutableSetOf(dispatch1, dispatch2)
 
         dispatchManager = createDispatchManager(maxInFlight = 1)

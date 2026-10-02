@@ -542,19 +542,17 @@ class ModuleProxyImplTests {
     }
 
     /**
-     * Mocks the [ModuleManager.modules] to only return the provided [modules]
+     * Returns a [ModuleManager] preloaded with the given [modules]
      */
     private fun mockModuleManager(modules: List<Module>): ModuleManager =
         mockModuleManager(Observables.stateSubject(modules))
 
     /**
-     * Mocks the [ModuleManager.modules] to return the provided [modules]
+     * Returns a [ModuleManager] backed by the given [modules], which can be updated afterwards.
+     * Preloaded modules count as ready, so the lookups emit without waiting for a settings pass.
      */
-    private fun mockModuleManager(modules: StateSubject<List<Module>>): ModuleManager {
-        val mockManager = mockk<ModuleManager>()
-        every { mockManager.modules } returns modules
-        return mockManager
-    }
+    private fun mockModuleManager(modules: StateSubject<List<Module>>): ModuleManager =
+        ModuleManagerImpl(Scheduler.SYNCHRONOUS, modules)
 
     /**
      * Utility that combines all [ModuleWithObservable.subject]s and sums their values.

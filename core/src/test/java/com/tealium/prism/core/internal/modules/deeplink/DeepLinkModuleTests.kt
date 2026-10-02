@@ -34,9 +34,14 @@ import com.tealium.prism.core.api.tracking.TrackResultListener
 import com.tealium.prism.core.api.tracking.Tracker
 import com.tealium.prism.core.internal.modules.ModuleManagerImpl
 import com.tealium.prism.core.internal.modules.trace.TraceModule
+import com.tealium.prism.core.internal.modules.enableModuleSettings
+import com.tealium.prism.core.internal.modules.mockReady
+import com.tealium.tests.common.ModuleSettingRow
 import com.tealium.tests.common.SystemLogger
+import com.tealium.tests.common.TestModuleFactory
 import com.tealium.tests.common.buildConfiguration
 import com.tealium.tests.common.mockkEditor
+import com.tealium.tests.common.settingsPass
 import io.mockk.MockKAnnotations
 import io.mockk.MockKMatcherScope
 import io.mockk.every
@@ -353,12 +358,13 @@ class DeepLinkModuleTests {
     }
 
     @Test
-    fun handle_Trace_Joins_And_Persists_When_Modules_Become_Ready() {
+    fun handle_Trace_Joins_When_Url_Arrives_Before_The_First_Settings_Pass() {
         // empty seed: the module system has not finished a settings pass yet
-        val freshModules = Observables.stateSubject(listOf<Module>())
-        val freshDeepLinkModule = createDeepLinkModule(
-            moduleManager = ModuleManagerImpl(Scheduler.SYNCHRONOUS, freshModules)
+        val freshManager = ModuleManagerImpl(Scheduler.SYNCHRONOUS, Observables.stateSubject(listOf()))
+        freshManager.addModuleFactory(
+            TestModuleFactory.singleInstance(Modules.Types.TRACE) { _, _, _ -> traceModule }
         )
+        val freshDeepLinkModule = createDeepLinkModule(moduleManager = freshManager)
         val traceId = "test_trace_id"
         val callback = mockk<Callback<TealiumResult<Unit>>>(relaxed = true)
 
@@ -371,7 +377,10 @@ class DeepLinkModuleTests {
             callback.onComplete(any())
         }
 
-        freshModules.onNext(listOf(traceModule))
+        // the first settings pass completes: only now is the lookup answered
+        val context = mockk<TealiumContext>()
+        every { context.logger } returns SystemLogger
+        freshManager.updateModuleSettings(context, enableModuleSettings(Modules.Types.TRACE))
 
         // the deep_link event has to land inside the joined trace
         verifyOrder {
@@ -379,6 +388,49 @@ class DeepLinkModuleTests {
             dataStoreEditor.commit()
         }
         verify(exactly = 1) {
+            callback.onComplete(match { it.isSuccess })
+        }
+    }
+
+    @Test
+    fun handle_Trace_Joins_When_Url_Arrives_Between_Two_Settings_Passes() {
+        // empty seed: the module system has not finished a settings pass yet
+        val freshManager = ModuleManagerImpl(Scheduler.SYNCHRONOUS, Observables.stateSubject(listOf()))
+        val traceId = "test_trace_id"
+        val callback = mockk<Callback<TealiumResult<Unit>>>(relaxed = true)
+        freshManager.addModuleFactory(
+            TestModuleFactory.singleInstance(Modules.Types.TRACE) { _, _, _ -> traceModule }
+        )
+        // the link arrives on creation: ordered before Trace, so the trace module does not exist
+        // yet, and the lookup subscribes while the pass that creates both is still running
+        freshManager.addModuleFactory(
+            TestModuleFactory.singleInstance(Modules.Types.DEEP_LINK) { _, _, _ ->
+                createDeepLinkModule(moduleManager = freshManager).also { module ->
+                    module.handle(traceUri(traceId), callback = callback)
+                }
+            }
+        )
+        val context = mockk<TealiumContext>()
+        every { context.logger } returns SystemLogger
+
+        // first pass: neither Trace nor DeepLink is configured
+        freshManager.mockReady(context)
+        // second pass: DeepLink and Trace arrive together, the way remote settings deliver them
+        freshManager.updateModuleSettings(
+            context,
+            settingsPass(
+                ModuleSettingRow(Modules.Types.DEEP_LINK, order = 0),
+                ModuleSettingRow(Modules.Types.TRACE, order = 1)
+            )
+        )
+
+        // the settled answer of the first pass (no trace module) must not be replayed mid-pass:
+        // that would report ModuleNotEnabledException instead of joining
+        verify(exactly = 0) {
+            callback.onComplete(match { it.isFailure })
+        }
+        verify(exactly = 1) {
+            traceModule.join(traceId)
             callback.onComplete(match { it.isSuccess })
         }
     }

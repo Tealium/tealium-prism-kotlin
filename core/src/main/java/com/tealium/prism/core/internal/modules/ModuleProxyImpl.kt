@@ -20,7 +20,7 @@ import com.tealium.prism.core.internal.misc.AsyncProxyImpl
  * to access from the main [Tealium] implementation.
  *
  * Any external [Module] implementation that provides functionality expected to be used by an
- * developer should wrap their access to [Tealium] through through a [ModuleProxy]
+ * developer should wrap their access to [Tealium] through a [ModuleProxy]
  *
  * @param clazz The class to retrieve from the Tealium modules list
  * @param moduleManager the moduleManager used to retrieve the module.
@@ -45,7 +45,10 @@ class ModuleProxyImpl<T : Module>(
         transform: (T) -> Observable<R>
     ): Subscribable<R> =
         moduleManager.flatMapLatest { manager ->
-            manager?.observeModule(clazz, transform) ?: Observables.empty()
+            if (manager == null)
+                return@flatMapLatest Observables.empty()
+            manager.observeModule(clazz)
+                .flatMapLatest { module -> if (module != null) transform(module) else Observables.empty() }
         }.subscribeOn(scheduler)
 
     override fun <R> observeModules(transform: (List<T>) -> Observable<R>): Subscribable<R> =
@@ -53,8 +56,7 @@ class ModuleProxyImpl<T : Module>(
             if (manager == null)
                 return@flatMapLatest Observables.empty()
 
-            manager.modules.map { modules -> modules.filterIsInstance(clazz) }
-                .distinct() // uses Object::equals; so same size, elements, and order
+            manager.observeModules(clazz)
                 .flatMapLatest(transform)
         }.subscribeOn(scheduler)
 

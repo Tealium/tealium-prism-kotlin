@@ -5,7 +5,7 @@ import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.misc.QueueMetrics
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.pubsub.Observables
-import com.tealium.prism.core.api.pubsub.StateSubject
+import com.tealium.prism.core.api.pubsub.ReplaySubject
 import com.tealium.prism.core.api.pubsub.Subject
 import com.tealium.tests.common.TestDispatcher
 import io.mockk.MockKAnnotations
@@ -33,7 +33,7 @@ class BatchingBarrierTests {
     private lateinit var queueSize1: Subject<Int>
     private lateinit var queueSize2: Subject<Int>
     private lateinit var queueSize10: Subject<Int>
-    private lateinit var dispatchers: StateSubject<List<Dispatcher>>
+    private lateinit var dispatchers: ReplaySubject<List<Dispatcher>>
 
     private lateinit var batchingBarrier: BatchingBarrier
 
@@ -44,7 +44,8 @@ class BatchingBarrierTests {
         dispatcher1 = TestDispatcher("dispatcher1", dispatchLimit = 1)
         dispatcher2 = TestDispatcher("dispatcher2", dispatchLimit = 2)
         dispatcher10 = TestDispatcher("dispatcher10", dispatchLimit = 10)
-        dispatchers = Observables.stateSubject(listOf(dispatcher1, dispatcher2, dispatcher10))
+        dispatchers = Observables.replaySubject(1)
+        dispatchers.onNext(listOf(dispatcher1, dispatcher2, dispatcher10))
         queueSize1 = Observables.replaySubject(1)
         queueSize2 = Observables.replaySubject(1)
         queueSize10 = Observables.replaySubject(1)
@@ -273,6 +274,50 @@ class BatchingBarrierTests {
         assertEquals(1, BatchingBarrier(queueMetrics, dispatchers, 0).batchSize)
         assertEquals(1, BatchingBarrier(queueMetrics, dispatchers, -1).batchSize)
         assertEquals(1, BatchingBarrier(queueMetrics, dispatchers, Int.MIN_VALUE).batchSize)
+    }
+
+    /**
+     * A [Dispatcher] missing from the list falls back to [BatchingBarrier.DEFAULT_BATCH_SIZE], which
+     * opens the barrier on a single queued event. Nothing may therefore be published before the
+     * dispatchers are known, or a batching configuration would send its first events unbatched.
+     */
+    @Test
+    fun onState_Does_Not_Emit_Before_The_Dispatchers_Are_Known() {
+        val unknownDispatchers: ReplaySubject<List<Dispatcher>> = Observables.replaySubject(1)
+        val barrier = BatchingBarrier(queueMetrics, unknownDispatchers, 10)
+        queueSize1.onNext(1)
+
+        barrier.onState("dispatcher1")
+            .subscribe(stateVerifier)
+
+        verify(inverse = true) {
+            stateVerifier.invoke(any())
+        }
+    }
+
+    @Test
+    fun onState_Uses_The_DispatchLimit_Of_The_Dispatchers_That_Arrive_After_The_Subscription() {
+        val lateDispatchers: ReplaySubject<List<Dispatcher>> = Observables.replaySubject(1)
+        val barrier = BatchingBarrier(queueMetrics, lateDispatchers, null)
+        queueSize1.onNext(1)
+
+        barrier.onState("dispatcher1")
+            .subscribe(stateVerifier)
+        // dispatchLimit 2 with a single queued event: the barrier stays closed, where an unknown
+        // dispatcher would have opened it on the default batch size of 1.
+        lateDispatchers.onNext(listOf(TestDispatcher("dispatcher1", dispatchLimit = 2)))
+
+        verify {
+            stateVerifier.invoke(BarrierState.Closed)
+        }
+        verify(inverse = true) {
+            stateVerifier.invoke(BarrierState.Open)
+        }
+
+        queueSize1.onNext(2)
+        verify {
+            stateVerifier.invoke(BarrierState.Open)
+        }
     }
 
     private fun setBatchSize(size: Int?) {

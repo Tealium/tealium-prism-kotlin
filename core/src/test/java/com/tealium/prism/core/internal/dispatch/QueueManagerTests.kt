@@ -372,4 +372,20 @@ class QueueManagerTests {
             deleted.invoke(setOf("reduced", "removed"))
         }
     }
+
+    /**
+     * A teardown clears the modules, and the empty processor set that follows would otherwise read as
+     * "these processors are gone" and delete the dispatches still waiting to be sent on the next launch.
+     */
+    @Test
+    fun shutdown_Stops_Deleting_The_Dispatches_Of_The_Processors_That_Go_Away() {
+        processors.onNext(allProcessors)
+
+        queueManager.shutdown()
+        processors.onNext(emptySet())
+
+        verify(exactly = 0) {
+            queueRepository.deleteQueues(forProcessorsNotIn = emptySet())
+        }
+    }
 }

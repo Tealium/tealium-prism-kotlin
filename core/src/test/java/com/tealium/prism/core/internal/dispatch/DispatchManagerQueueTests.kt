@@ -37,7 +37,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
     @Test
     fun dispatchManager_SendsBatchesOfDispatchesToDispatcher_WhenQueued() {
         dispatcher1 = TestDispatcher.mock(dispatcher1Name, dispatchLimit = 2)
-        modules.onNext(listOf(dispatcher1))
+        dispatchers.onNext(listOf(dispatcher1))
         queue[dispatcher1.id] = mutableSetOf(
             dispatch1,
             dispatch2,
@@ -65,7 +65,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
     @Test
     fun dispatchManager_SendsBatchesOfDispatchesToDispatcher_WhenMultipleSent() {
         dispatcher1 = TestDispatcher.mock(dispatcher1Name, dispatchLimit = 2)
-        modules.onNext(listOf(dispatcher1))
+        dispatchers.onNext(listOf(dispatcher1))
         queue[dispatcher1.id] = mutableSetOf(
             dispatch1,
             dispatch2,
@@ -124,7 +124,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
     @Test
     fun dispatchManager_SendsBatchesToDispatcher_InOrder() {
         dispatcher1 = TestDispatcher.mock(dispatcher1Name, dispatchLimit = 2)
-        modules.onNext(listOf(dispatcher1))
+        dispatchers.onNext(listOf(dispatcher1))
         queue[dispatcher1.id] = mutableSetOf(
             dispatch1,
             dispatch2,
@@ -184,7 +184,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
             dispatches.forEach { callback.onComplete(listOf(it)) }
             CompletedDisposable
         }
-        modules.onNext(listOf(dispatcher1))
+        dispatchers.onNext(listOf(dispatcher1))
         queue[dispatcher1.id] = mutableSetOf(dispatch1, dispatch2)
 
         dispatchManager.startDispatchLoop()

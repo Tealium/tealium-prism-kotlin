@@ -78,7 +78,7 @@ class DispatchManagerLoadRuleTests : DispatchManagerTestsBase() {
     @Test
     fun dispatchManager_DeletesAllDispatches_WhenSomeFailLoadRules_AndSomeAreDispatched() {
         dispatcher1 = spyk(TestDispatcher(dispatcher1Name, dispatchLimit = 2))
-        modules.onNext(listOf(dispatcher1))
+        dispatchers.onNext(listOf(dispatcher1))
         every { loadRuleEngine.evaluateLoadRules(dispatcher1, any()) } answers {
             val all = arg<List<Dispatch>>(1)
             DispatchSplit(all.filter { it.id == dispatch2.id }, all.filter { it.id == dispatch1.id })

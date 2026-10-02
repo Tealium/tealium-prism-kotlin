@@ -17,12 +17,18 @@ import com.tealium.prism.core.internal.consent.ConsentManager
 import com.tealium.prism.core.internal.consent.matchesConfiguration
 import com.tealium.prism.core.internal.logger.LogCategory
 import com.tealium.prism.core.internal.logger.logDescriptions
-import com.tealium.prism.core.internal.modules.InternalModuleManager
 import com.tealium.prism.core.internal.pubsub.DisposableContainer
 import com.tealium.prism.core.internal.rules.LoadRuleEngine
 
 class DispatchManagerImpl(
-    private val moduleManager: InternalModuleManager,
+    /**
+     * The enabled [Dispatcher]s, emitting only once the modules of a settings pass are all created,
+     * and re-emitting only when that list actually changes.
+     *
+     * The dequeue loops are rebuilt on every emission, so this relies on the source de-duplicating by
+     * identity and order - which `ModuleManager.observeModules` does.
+     */
+    private val onDispatchers: Observable<List<Dispatcher>>,
     private val barrierCoordinator: BarrierCoordinator,
     private val transformerCoordinator: TransformerCoordinator,
     private val queueManager: QueueManager,
@@ -32,18 +38,6 @@ class DispatchManagerImpl(
     private val logger: Logger,
     private val maxInFlightPerDispatcher: Int = MAXIMUM_INFLIGHT_EVENTS_PER_DISPATCHER
 ) : DispatchManager {
-
-    private val dispatchers: List<Dispatcher>
-        get() = moduleManager.modules.value.filterIsInstance<Dispatcher>()
-
-    /**
-     * The active [Dispatcher]s, re-emitted only when that list actually changes, so that an unrelated
-     * module change does not make [startDispatchLoop] rebuild every dequeue loop.
-     */
-    private val onDispatchers: Observable<List<Dispatcher>>
-        get() = moduleManager.modules
-            .map { modules -> modules.filterIsInstance<Dispatcher>() }
-            .distinct(::isSameDispatchers)
 
     private var dispatchLoop: Disposable? = null
 
@@ -93,19 +87,35 @@ class DispatchManagerImpl(
                 val result = consentManager.applyConsent(transformed)
                 onComplete?.onTrackResultReady(result)
             } else {
-                logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
-                    "Event ${transformed.logDescription()} accepted for processing"
-                }
+                // Enqueue for the dispatchers of the settings pass that is current when the dispatch
+                // is ready, rather than for whichever list happened to be published beforehand.
+                onDispatchers.subscribeOnce { dispatchers ->
+                    val dispatcherIds = dispatchers.map(Dispatcher::id).toSet()
+                    if (dispatcherIds.isEmpty()) {
+                        // Storing for no processor at all would drop the dispatch silently.
+                        val trackResult =
+                            TrackResult.dropped(transformed, "No dispatcher is enabled.")
+                        logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
+                            "Event ${transformed.logDescription()} dropped: ${trackResult.description}"
+                        }
 
-                val dispatcherIds = dispatchers.map(Dispatcher::id).toSet()
-                queueManager.storeDispatches(listOf(transformed), dispatcherIds)
+                        onComplete?.onTrackResultReady(trackResult)
+                        return@subscribeOnce
+                    }
 
-                onComplete?.onTrackResultReady(
-                    TrackResult.accepted(
-                        transformed,
-                        "Enqueued for processors: $dispatcherIds"
+                    logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
+                        "Event ${transformed.logDescription()} accepted for processing"
+                    }
+
+                    queueManager.storeDispatches(listOf(transformed), dispatcherIds)
+
+                    onComplete?.onTrackResultReady(
+                        TrackResult.accepted(
+                            transformed,
+                            "Enqueued for processors: $dispatcherIds"
+                        )
                     )
-                )
+                }
             }
         }
     }
@@ -141,9 +151,9 @@ class DispatchManagerImpl(
      *
      * The cost is that enabled dispatchers are rebuilt too, since the list is replaced wholesale rather
      * than diffed. Repeating a dequeue is harmless, because [QueueManager.dequeueDispatches] never
-     * returns a dispatch that is already in-flight and so cannot send one twice. [onDispatchers] also
-     * drops emissions that leave the list untouched, keeping rebuilds to the changes that genuinely
-     * alter the set of dispatchers.
+     * returns a dispatch that is already in-flight and so cannot send one twice. The source of
+     * [onDispatchers] also drops emissions that leave the list untouched, keeping rebuilds to the
+     * changes that genuinely alter the set of dispatchers.
      */
     internal fun startDispatchLoop() {
         if (dispatchLoop != null) {
@@ -187,14 +197,6 @@ class DispatchManagerImpl(
             }
         }.addTo(loop)
     }
-
-    /**
-     * Compares dispatcher lists by instance identity and order, not by [Dispatcher.id]: a dispatcher
-     * replaced by a new instance keeps its id, yet still needs its chain rebuilt, and a reorder counts
-     * as a change rather than being collapsed.
-     */
-    private fun isSameDispatchers(old: List<Dispatcher>, new: List<Dispatcher>): Boolean =
-        old.size == new.size && old.indices.all { index -> old[index] === new[index] }
 
     private fun dequeueWhileBarriersOpen(dispatcher: Dispatcher): Observable<DispatchSplit> =
         barrierCoordinator.onBarriersState(dispatcher.id)

@@ -27,7 +27,7 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
                 completed.countDown()
             }
         }
-        modules.onNext(listOf(dispatcher1))
+        dispatchers.onNext(listOf(dispatcher1))
         queue[dispatcher1.id] = mutableSetOf(
             dispatch1
         )
@@ -64,7 +64,7 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
                 completed.countDown()
             }
         }
-        modules.onNext(listOf(dispatcher1))
+        dispatchers.onNext(listOf(dispatcher1))
         queue[dispatcher1.id] = mutableSetOf(
             dispatch1
         )
@@ -97,7 +97,7 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
             lateCallback = callback
             Subscription()
         })
-        modules.onNext(listOf(dispatcher1))
+        dispatchers.onNext(listOf(dispatcher1))
         queue[dispatcher1Name] = mutableSetOf(dispatch1)
 
         dispatchManager = createDispatchManager(maxInFlight = 1)
@@ -124,7 +124,7 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
             lateCallback = callback
             Subscription()
         })
-        modules.onNext(listOf(dispatcher1))
+        dispatchers.onNext(listOf(dispatcher1))
 
         every { loadRuleEngine.evaluateLoadRules(dispatcher1, any()) } answers {
             val all = arg<List<Dispatch>>(1)
@@ -158,7 +158,7 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
             lateCallback = callback
             CompletedDisposable
         })
-        modules.onNext(listOf(dispatcher1))
+        dispatchers.onNext(listOf(dispatcher1))
 
         every { loadRuleEngine.evaluateLoadRules(dispatcher1, any()) } answers {
             val all = arg<List<Dispatch>>(1)
@@ -189,7 +189,7 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
      */
     @Test
     fun startDispatchLoop_Resumes_Dispatching_When_Called_After_Stop() {
-        modules.onNext(listOf(dispatcher1))
+        dispatchers.onNext(listOf(dispatcher1))
 
         dispatchManager.startDispatchLoop()
         dispatchManager.stopDispatchLoop()
@@ -218,7 +218,7 @@ class DispatchManagerShutdownTests : DispatchManagerTestsBase() {
      */
     @Test
     fun stopDispatchLoop_Does_Nothing_When_Loop_Was_Never_Started() {
-        modules.onNext(listOf(dispatcher1))
+        dispatchers.onNext(listOf(dispatcher1))
         queue[dispatcher1Name] = mutableSetOf(dispatch1)
 
         dispatchManager.stopDispatchLoop() // never started; must not throw

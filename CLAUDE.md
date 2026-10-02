@@ -40,6 +40,8 @@ Module system:
 - `Module` is the base interface; `Dispatcher` extends it for modules that participate in the dispatch pipeline
 - Modules can be dynamically enabled/disabled via remote or local settings
 - `allowsMultipleInstances = true` on a factory allows multiple concurrent instances (e.g. multiple Collect module instances with different endpoints/profiles)
+- `ModuleManager` lookups are gated: `observeModule(clazz)`, `observeModules(clazz)` and `getModuleOfType(clazz, callback)` emit nothing while a settings pass is creating or updating modules, then `null`/`emptyList()` means not enabled. There is no synchronous module lookup in the public API; the raw list is `internal` on `ModuleManagerImpl` and reachable only via `TealiumContext.unsafeModules`, which is safe to read only at collect or dispatch time
+- Departed modules (disabled, `null` from `updateConfiguration()`, omitted from settings) are shut down once per pass by identity, before the new list is published
 
 ### Settings
 
@@ -55,7 +57,7 @@ Later sources override earlier ones via a deep merge. Enforced settings can neve
 How settings reach modules:
 - `SettingsManager` merges all sources and emits updates via `sdkSettings: ObservableState<SdkSettings>`
 - `ModuleManagerImpl` subscribes and either calls `ModuleFactory.create()` for new modules or `module.updateConfiguration()` for existing ones
-- A module returns itself from `updateConfiguration()` to stay enabled, or `null` to be disabled
+- A module returns itself from `updateConfiguration()` to stay enabled or `null` to be disabled
 
 Key classes:
 - `SettingsManager` — merge orchestration and remote refresh

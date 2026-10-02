@@ -4,30 +4,41 @@ import android.app.Activity
 import android.app.Application
 import com.tealium.prism.core.api.consent.ConsentDecision
 import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
+import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.JsonPath
 import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.misc.ActivityManager
 import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.misc.TealiumException
+import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
 import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.Observer
+import com.tealium.prism.core.api.pubsub.ReplaySubject
 import com.tealium.prism.core.api.settings.modules.ModuleSettingsBuilder
+import com.tealium.prism.core.api.tracking.Dispatch
+import com.tealium.prism.core.api.tracking.DispatchType
+import com.tealium.prism.core.internal.consent.ConsentIntegrationManager
 import com.tealium.prism.core.internal.consent.MockCmpAdapter
 import com.tealium.prism.core.internal.misc.ActivityManagerImpl
 import com.tealium.prism.core.internal.misc.SchedulersImpl
+import com.tealium.prism.core.internal.persistence.database.FileDatabaseProvider
+import com.tealium.prism.core.internal.persistence.repositories.QueueRepository
+import com.tealium.prism.core.internal.persistence.repositories.SQLQueueRepository
 import com.tealium.prism.core.internal.modules.InternalModuleManager
 import com.tealium.prism.core.internal.modules.ModuleManagerImpl
 import com.tealium.prism.core.internal.modules.TealiumDataModule
 import com.tealium.prism.core.internal.modules.datalayer.DataLayerModule
+import com.tealium.prism.core.internal.settings.CoreSettingsImpl
 import com.tealium.prism.core.internal.settings.MappingsImpl
 import com.tealium.prism.core.internal.settings.ModuleSettings
 import com.tealium.prism.core.internal.settings.SdkSettings
 import com.tealium.tests.common.SystemLogger
+import com.tealium.tests.common.TestDispatcher
 import com.tealium.tests.common.TestModule
 import com.tealium.tests.common.TestModuleFactory
 import com.tealium.tests.common.assertThrows
@@ -329,4 +340,80 @@ class TealiumImplTests {
 
     private class DelegateModuleFactory(private val delegate: ModuleFactory) :
         ModuleFactory by delegate
+
+    /**
+     * Every emission makes the queue delete the queues of the processors that are not in the list, so
+     * nothing may be published before the modules are ready: the readiness gate is what supplies that
+     * "not yet" answer, and nothing here may add one of its own.
+     */
+    @Test
+    fun createQueueManager_Processors_Do_Not_Emit_Until_The_Dispatchers_Do() {
+        val queueRepository = mockk<QueueRepository>(relaxed = true)
+        val onDispatchers: ReplaySubject<List<Dispatcher>> = Observables.replaySubject(1)
+
+        TealiumImpl.createQueueManager(
+            queueRepository,
+            Observables.stateSubject(CoreSettingsImpl()),
+            onDispatchers,
+            addConsent = false,
+            logger = SystemLogger
+        )
+
+        verify(exactly = 0) {
+            queueRepository.deleteQueues(any())
+        }
+    }
+
+    /**
+     * No dispatcher enabled is an answer, unlike no emission at all: those queues genuinely have no
+     * owner left, so they are cleared down to the consent queue.
+     */
+    @Test
+    fun createQueueManager_Processors_Emit_Only_The_Consent_Manager_When_No_Dispatcher_Is_Enabled() {
+        val queueRepository = mockk<QueueRepository>(relaxed = true)
+        val onDispatchers: ReplaySubject<List<Dispatcher>> = Observables.replaySubject(1)
+        onDispatchers.onNext(emptyList())
+
+        TealiumImpl.createQueueManager(
+            queueRepository,
+            Observables.stateSubject(CoreSettingsImpl()),
+            onDispatchers,
+            addConsent = true,
+            logger = SystemLogger
+        )
+
+        verify {
+            queueRepository.deleteQueues(forProcessorsNotIn = setOf(ConsentIntegrationManager.ID))
+        }
+    }
+
+    /**
+     * A shutdown is not a configuration change: the empty module list it publishes must not reach the
+     * queue, or the dispatches still waiting for their dispatcher would be deleted instead of being
+     * sent on the next launch.
+     */
+    @Test
+    fun shutdown_Does_Not_Delete_The_Dispatches_Left_In_The_Queue() {
+        val dispatcher = TestDispatcher("test_dispatcher")
+        val dispatcherFactory = TestModuleFactory(
+            dispatcher.id,
+            config = listOf(ModuleSettingsBuilder(dispatcher.id).build())
+        ) { _, _, _ -> dispatcher }
+        val config = getDefaultConfig(app, modules = listOf(dispatcherFactory))
+        val tealium = TealiumImpl(config, testSchedulers)
+
+        // Nothing may dequeue the dispatch before the shutdown.
+        tealium.dispatchManager.stopDispatchLoop()
+        tealium.queueManager.storeDispatches(
+            listOf(Dispatch.create("event", DispatchType.Event, DataObject.EMPTY_OBJECT)),
+            setOf(dispatcher.id)
+        )
+
+        tealium.shutdown()
+
+        // Read back from the persisted file, as the next launch would.
+        val queued = SQLQueueRepository(FileDatabaseProvider(config))
+            .getQueuedDispatches(-1, dispatcher.id)
+        assertEquals(1, queued.size)
+    }
 }

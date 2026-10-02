@@ -8,7 +8,6 @@ import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.modules.Collector
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
-import com.tealium.prism.core.api.modules.ModuleManager
 import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.settings.modules.TealiumDataSettingsBuilder
@@ -21,12 +20,12 @@ import kotlin.math.abs
 class TealiumDataModule(
     private val config: TealiumConfig,
     private val visitorId: ObservableState<String>,
-    private val moduleManager: ModuleManager
+    private val unsafeModules: ObservableState<List<Module>>
 ) : Module, Collector {
 
     constructor(
         context: TealiumContext,
-    ) : this(context.config, context.visitorId, context.moduleManager)
+    ) : this(context.config, context.visitorId, context.unsafeModules)
 
     private val secureRandom = SecureRandom()
     private val random: String
@@ -51,7 +50,9 @@ class TealiumDataModule(
             put(Dispatch.Keys.TEALIUM_RANDOM, random)
             put(Dispatch.Keys.TEALIUM_VISITOR_ID, visitorId.value)
 
-            val modules = moduleManager.modules.value
+            // Read at collect time: the tracker has already waited for the modules, so the list is
+            // the one of the completed settings pass rather than a premature empty one.
+            val modules = unsafeModules.value
             put(Dispatch.Keys.ENABLED_MODULES, modules.map(Module::id).asDataList())
             put(Dispatch.Keys.ENABLED_MODULES_VERSIONS, modules.map(Module::version).asDataList())
         }

@@ -8,8 +8,8 @@ import com.tealium.prism.core.api.logger.logIfWarnEnabled
 import com.tealium.prism.core.api.misc.ActivityManager
 import com.tealium.prism.core.api.misc.Schedulers
 import com.tealium.prism.core.api.misc.TealiumException
+import com.tealium.prism.core.api.modules.Collector
 import com.tealium.prism.core.api.modules.Dispatcher
-import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
 import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.network.Connectivity
@@ -74,7 +74,7 @@ class TealiumImpl(
     private val config: TealiumConfig,
     private val schedulers: Schedulers,
     private val dbProvider: DatabaseProvider = FileDatabaseProvider(config),
-    val moduleManager: InternalModuleManager = ModuleManagerImpl(
+    val moduleManager: ModuleManagerImpl = ModuleManagerImpl(
         schedulers.tealium
     ),
     activityManager: ActivityManager = ActivityManagerImpl.getInstance(config.application),
@@ -89,8 +89,9 @@ class TealiumImpl(
         config.enforcedSdkSettings.getDataObject(CoreSettingsImpl.MODULE_NAME)
             ?.get(CoreSettingsImpl.KEY_LOG_LEVEL, LogLevel.Converter)
     )
-    private val dispatchManager: DispatchManagerImpl
+    internal val dispatchManager: DispatchManagerImpl
     private val barrierCoordinator: BarrierCoordinator
+    internal val queueManager: QueueManager
     private val tracker: TrackerImpl
     private val connectivityRetriever: ConnectivityRetriever
     private val visitorIdProvider: VisitorIdProvider
@@ -146,7 +147,7 @@ class TealiumImpl(
 
         val transformerCoordinator =
             createTransformationsCoordinator(
-                moduleManager.modules,
+                moduleManager.observeModules(Transformer::class.java),
                 settingsManager.sdkSettings,
                 schedulers,
                 logger
@@ -158,11 +159,11 @@ class TealiumImpl(
             coreSettings.value.maxQueueSize,
             coreSettings.value.expiration
         )
-        val queueManager =
+        queueManager =
             createQueueManager(
                 queueRepository,
                 coreSettings,
-                moduleManager.modules,
+                moduleManager.observeModules(Dispatcher::class.java),
                 config.cmpAdapter != null,
                 logger
             )
@@ -188,7 +189,7 @@ class TealiumImpl(
         )?.addTo(disposables)
 
         dispatchManager = DispatchManagerImpl(
-            moduleManager = moduleManager,
+            onDispatchers = moduleManager.observeModules(Dispatcher::class.java),
             barrierCoordinator = barrierCoordinator,
             transformerCoordinator = transformerCoordinator,
             queueManager = queueManager,
@@ -198,7 +199,7 @@ class TealiumImpl(
             logger = logger
         )
         tracker = TrackerImpl(
-            moduleManager.modules,
+            moduleManager.observeModules(Collector::class.java),
             dispatchManager,
             loadRuleEngine,
             sessionManager,
@@ -210,7 +211,7 @@ class TealiumImpl(
 
         val dataLayerDataStore = storage.getModuleStore(Modules.Types.DATA_LAYER)
         val tealiumContext =
-            TealiumContext(
+            TealiumContext.create(
                 config.application,
                 config,
                 logger = logger,
@@ -226,7 +227,8 @@ class TealiumImpl(
                 moduleManager = moduleManager,
                 queueMetrics = queueMetrics,
                 sessionRegistry = SessionRegistryImpl(sessionManager),
-                dataLayer = dataLayerDataStore
+                dataLayer = dataLayerDataStore,
+                unsafeModules = moduleManager.modules
             )
 
         try {
@@ -325,7 +327,13 @@ class TealiumImpl(
         logger.info(LogCategory.TEALIUM, "Instance %s shutting down.", config.key)
 
         disposables.dispose()
+        /*
+         The consumers of the modules stop before the modules are cleared: the empty list published by
+         ModuleManager.shutdown() is then a teardown, and is never mistaken for a configuration that
+         leaves the queues without an owner - which would delete the dispatches still to be sent.
+         */
         dispatchManager.stopDispatchLoop()
+        queueManager.shutdown()
         moduleManager.shutdown()
         connectivityRetriever.unsubscribe()
         sessionManager.shutdown()
@@ -415,15 +423,13 @@ class TealiumImpl(
         }
 
         fun createTransformationsCoordinator(
-            modules: ObservableState<List<Module>>,
+            onTransformers: Observable<List<Transformer>>,
             sdkSettings: ObservableState<SdkSettings>,
             schedulers: Schedulers,
             logger: Logger
         ): TransformerCoordinator {
             return TransformerCoordinatorImpl(
-                modules.mapState { modules ->
-                    modules.filterIsInstance<Transformer>()
-                },
+                onTransformers,
                 sdkSettings.mapState { settings ->
                     settings.transformations.values.toList()
                 },
@@ -432,10 +438,19 @@ class TealiumImpl(
             )
         }
 
+        /**
+         * Builds the [QueueManager] whose processors are the ids of the queues the dispatches have to
+         * be stored for.
+         *
+         * Every emission makes the queue delete the queues of the processors that are not in it, so
+         * nothing may be published before the modules are ready - the gate on [onDispatchers] supplies
+         * that. An empty list, on the other hand, is an answer: with no [Dispatcher] enabled those
+         * queues genuinely have no owner left.
+         */
         fun createQueueManager(
             queueRepository: QueueRepository,
             coreSettings: Observable<CoreSettings>,
-            allModules: ObservableState<List<Module>>,
+            onDispatchers: Observable<List<Dispatcher>>,
             addConsent: Boolean,
             logger: Logger
         ): QueueManager {
@@ -443,11 +458,9 @@ class TealiumImpl(
             return QueueManagerImpl(
                 queueRepository,
                 coreSettings,
-                allModules.filter { modules -> modules.isNotEmpty() }
-                    .map { modules -> modules.filterIsInstance<Dispatcher>() }
-                    .map { processors ->
-                        processors.map { it.id }.toSet() + maybeConsent
-                    },
+                onDispatchers.map { dispatchers ->
+                    dispatchers.map { it.id }.toSet() + maybeConsent
+                }.distinct(),
                 logger = logger
             )
         }

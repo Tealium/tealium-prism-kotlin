@@ -2,7 +2,9 @@ package com.tealium.prism.core.internal.dispatch
 
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.misc.Scheduler
+import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observables
+import com.tealium.prism.core.api.pubsub.ReplaySubject
 import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.rules.Condition
 import com.tealium.prism.core.api.rules.Condition.Companion.isDefined
@@ -46,7 +48,7 @@ class TransformerCoordinatorTests {
     private lateinit var mockTransformer2: Transformer
     private lateinit var mockTransformer3: Transformer
     private lateinit var mockTransformer4: Transformer
-    private lateinit var registeredTransformers: StateSubject<List<Transformer>>
+    private lateinit var registeredTransformers: ReplaySubject<List<Transformer>>
     private lateinit var transformationsSettings: StateSubject<List<TransformationSettings>>
     private lateinit var transformerCoordinator: TransformerCoordinatorImpl
 
@@ -63,6 +65,9 @@ class TransformerCoordinatorTests {
         "dispatcher_1_and_2", "transformer1",
         TransformationScope.Dispatchers("dispatcher_1", "dispatcher_2"),
     )
+    private val defaultTransformers: List<Transformer>
+        get() = listOf(mockTransformer1, mockTransformer2, mockTransformer3, mockTransformer4)
+
     private val defaultTransformationSettings: List<TransformationSettings> = listOf(
         afterCollectors,
         allDispatchers,
@@ -79,9 +84,8 @@ class TransformerCoordinatorTests {
         mockTransformer3 = TestTransformer.mock("transformer3")
         mockTransformer4 = TestTransformer.mock("transformer4")
 
-        registeredTransformers = Observables.stateSubject(
-            listOf(mockTransformer1, mockTransformer2, mockTransformer3, mockTransformer4)
-        )
+        registeredTransformers = Observables.replaySubject(1)
+        registeredTransformers.onNext(defaultTransformers)
 
         transformationsSettings = Observables.stateSubject(defaultTransformationSettings)
 
@@ -279,7 +283,7 @@ class TransformerCoordinatorTests {
                 )
             )
         )
-        registeredTransformers.onNext(registeredTransformers.value + mockTransformerDuplicate)
+        registeredTransformers.onNext(defaultTransformers + mockTransformerDuplicate)
 
         transformerCoordinator.transform(
             mockDispatch, DispatchScope.AfterCollectors, onTransformed
@@ -802,5 +806,127 @@ class TransformerCoordinatorTests {
             val completion = arg<(Dispatch?) -> Unit>(3)
             completion.invoke(transformedDispatch)
         }
+    }
+
+    /**
+     * The transformers arrive with the settings pass that creates the module implementing them, which
+     * can be after the dispatch has been handed over. The transformation must wait for them rather than
+     * be skipped against a premature empty list.
+     */
+    @Test
+    fun transform_Applies_The_Transformation_Arriving_With_The_Transformers() {
+        registeredTransformers = Observables.replaySubject(1)
+        transformerCoordinator = TransformerCoordinatorImpl(
+            registeredTransformers, transformationsSettings, Scheduler.SYNCHRONOUS, SystemLogger
+        )
+
+        transformerCoordinator.transform(
+            mockDispatch, DispatchScope.AfterCollectors, onTransformed
+        )
+
+        verify(inverse = true) {
+            mockTransformer1.applyTransformation(
+                afterCollectors, mockDispatch, DispatchScope.AfterCollectors, any()
+            )
+        }
+
+        registeredTransformers.onNext(defaultTransformers)
+
+        verify {
+            mockTransformer1.applyTransformation(
+                afterCollectors, mockDispatch, DispatchScope.AfterCollectors, any()
+            )
+        }
+    }
+
+    /**
+     * An unresolved transformer id is not a decision to discard the event: the transformation is passed
+     * over and the dispatch is reported as it is.
+     */
+    @Test
+    fun transform_Reports_The_Untransformed_Dispatch_When_No_Transformer_Implements_It() {
+        registeredTransformers.onNext(emptyList())
+
+        transformerCoordinator.transform(
+            mockDispatch, DispatchScope.AfterCollectors, onTransformed
+        )
+
+        verify {
+            onTransformed(mockDispatch)
+        }
+    }
+
+    /**
+     * A dequeued batch shares one transformer snapshot: the gate on the transformers is paid once per
+     * batch, not once per dispatch.
+     */
+    @Test
+    fun transform_Resolves_Transformers_Once_When_Transforming_A_Batch() {
+        val countingTransformers = countingSubscriptions(registeredTransformers)
+        transformerCoordinator = TransformerCoordinatorImpl(
+            countingTransformers.observable, transformationsSettings, Scheduler.SYNCHRONOUS, SystemLogger
+        )
+        val dispatches = listOf<Dispatch>(
+            mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true)
+        )
+
+        transformerCoordinator.transform(
+            dispatches, DispatchScope.Dispatcher("dispatcher_1"), onTransformedList
+        )
+
+        assertEquals(1, countingTransformers.subscriptionCount)
+        verify(exactly = 1) { onTransformedList(dispatches) }
+    }
+
+    /**
+     * The snapshot taken for the batch is the one every dispatch in it is transformed against, even
+     * when the transformers change again before the batch completes.
+     */
+    @Test
+    fun transform_Applies_The_Same_Transformer_Snapshot_To_Every_Dispatch_In_A_Batch() {
+        registeredTransformers = Observables.replaySubject(1)
+        transformerCoordinator = TransformerCoordinatorImpl(
+            registeredTransformers, transformationsSettings, Scheduler.SYNCHRONOUS, SystemLogger
+        )
+        val dispatches = listOf<Dispatch>(
+            mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true)
+        )
+        val scope = DispatchScope.Dispatcher("dispatcher_1")
+
+        transformerCoordinator.transform(dispatches, scope, onTransformedList)
+        registeredTransformers.onNext(listOf(mockTransformer3))
+        registeredTransformers.onNext(defaultTransformers)
+
+        dispatches.forEach { dispatch ->
+            verify(exactly = 1) {
+                mockTransformer3.applyTransformation(dispatcher1, dispatch, scope, any())
+            }
+            verify(exactly = 0) {
+                mockTransformer2.applyTransformation(allDispatchers, dispatch, scope, any())
+                mockTransformer1.applyTransformation(dispatcher1And2, dispatch, scope, any())
+            }
+        }
+        verify(exactly = 1) { onTransformedList(dispatches) }
+    }
+
+    private class CountingSubscriptions<T>(
+        val observable: Observable<T>,
+        private val count: () -> Int
+    ) {
+        val subscriptionCount: Int
+            get() = count()
+    }
+
+    /**
+     * Wraps [source] so that each subscription to the returned observable is counted before being
+     * forwarded to [source].
+     */
+    private fun <T> countingSubscriptions(source: Observable<T>): CountingSubscriptions<T> {
+        var subscriptions = 0
+        val observable = Observables.create<T> { observer ->
+            subscriptions++
+            source.subscribe(observer)
+        }
+        return CountingSubscriptions(observable) { subscriptions }
     }
 }

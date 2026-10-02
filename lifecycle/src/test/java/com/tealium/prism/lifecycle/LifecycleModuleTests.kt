@@ -16,6 +16,7 @@ import com.tealium.prism.lifecycle.internal.LifecycleModule
 import com.tealium.prism.lifecycle.internal.LifecycleService
 import com.tealium.prism.lifecycle.internal.StateKey
 import io.mockk.MockKAnnotations
+import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
@@ -457,6 +458,25 @@ class LifecycleModuleTests {
         assertEquals(10, data.getInt(StateKey.LIFECYCLE_TOTALLAUNCHCOUNT))
         assertEquals(11, data.getInt(StateKey.LIFECYCLE_TOTALSLEEPCOUNT))
         assertEquals(12, data.getInt(StateKey.LIFECYCLE_TOTALWAKECOUNT))
+    }
+
+    @Test
+    fun onShutdown_Stops_Tracking_Application_Status_Changes() {
+        every { mockConfiguration.autoTrackingEnabled } returns true
+        every { mockConfiguration.trackedLifecycleEvents } returns LifecycleConfiguration.DEFAULT_TRACKED_EVENTS
+        every { mockLifecycleService.lastLifecycleEvent } returns null andThen LifecycleEvent.Launch
+        applicationStatus.onNext(ActivityManager.ApplicationStatus.Init())
+        // precondition: the subscription is live, so the statuses below would track without the dispose
+        verify(exactly = 1) { tracker.track(any(), any()) }
+
+        lifecycleModule.onShutdown()
+        // keep the stubs, forget the launch: only the tracks issued after the shutdown are asserted on
+        clearMocks(tracker, answers = false)
+
+        applicationStatus.onNext(ActivityManager.ApplicationStatus.Backgrounded())
+        applicationStatus.onNext(ActivityManager.ApplicationStatus.Foregrounded())
+
+        verify(inverse = true) { tracker.track(any(), any()) }
     }
 
     @Test

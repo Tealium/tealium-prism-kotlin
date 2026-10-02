@@ -4,6 +4,7 @@ import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.logger.logIfWarnEnabled
 import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.misc.Scheduler
+import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.StateSubject
@@ -17,7 +18,14 @@ import com.tealium.prism.core.internal.logger.LogCategory
 import com.tealium.prism.core.internal.pubsub.update
 
 class TransformerCoordinatorImpl(
-    private val registeredTransformers: ObservableState<List<Transformer>>,
+    /**
+     * The registered [Transformer]s, emitting only once the modules of a settings pass are all created.
+     *
+     * An unresolved [TransformationSettings.transformerId] is not an error - the transformation is
+     * passed over and the dispatch goes on untransformed - so reading a premature empty list would
+     * silently skip a transformation whose module simply had not been created yet.
+     */
+    private val onTransformers: Observable<List<Transformer>>,
     transformations: ObservableState<List<TransformationSettings>>,
     private val scheduler: Scheduler,
     private val logger: Logger
@@ -43,11 +51,14 @@ class TransformerCoordinatorImpl(
         dispatchScope: DispatchScope,
         completion: (Dispatch?) -> Unit
     ) {
-        val transformations = sortedTransformations.filter { transformation ->
-            transformation.scope.matches(dispatchScope)
+        // Resolved once per dispatch, then threaded through the whole apply chain, so that a single
+        // dispatch is transformed against a single snapshot of the transformers. The transformations
+        // are read at the same moment, so a call held back by a settings pass applies the settings
+        // and the transformers of the same pass.
+        onTransformers.subscribeOnce { transformers ->
+            val transformations = scopedTransformations(dispatchScope)
+            serialApply(transformers, transformations, dispatch, dispatchScope, completion)
         }
-
-        serialApply(transformations, dispatch, dispatchScope, completion)
     }
 
     override fun transform(
@@ -55,18 +66,33 @@ class TransformerCoordinatorImpl(
         dispatchScope: DispatchScope,
         completion: (List<Dispatch>) -> Unit
     ) {
-        Tasks.execute(scheduler, dispatches.map { dispatch ->
-            CompletableTask { onComplete: (Dispatch?) -> Unit ->
-                transform(dispatch, dispatchScope) { transformed ->
-                    onComplete(transformed)
+        if (dispatches.isEmpty()) {
+            completion(emptyList())
+            return
+        }
+
+        // Resolved once per batch rather than once per dispatch: every dispatch in the batch is
+        // transformed against the same snapshot of the transformers, and the gate on
+        // [onTransformers] is only paid a single time. The transformations are read at the same
+        // moment, for the same reason as in the single-dispatch overload.
+        onTransformers.subscribeOnce { transformers ->
+            val transformations = scopedTransformations(dispatchScope)
+            Tasks.execute(scheduler, dispatches.map { dispatch ->
+                CompletableTask { onComplete: (Dispatch?) -> Unit ->
+                    serialApply(transformers, transformations, dispatch, dispatchScope, onComplete)
+                    // TODO: Individual transforms are not yet cancellable.
+                    Disposables.disposed()
                 }
-                // TODO: Individual transforms are not yet cancellable.
-                Disposables.disposed()
+            }) {
+                completion(it.filterNotNull())
             }
-        }) {
-            completion(it.filterNotNull())
         }
     }
+
+    private fun scopedTransformations(dispatchScope: DispatchScope): List<TransformationSettings> =
+        sortedTransformations.filter { transformation ->
+            transformation.scope.matches(dispatchScope)
+        }
 
     private fun matchesConditions(
         transformation: TransformationSettings,
@@ -85,13 +111,15 @@ class TransformerCoordinatorImpl(
     }
 
     private fun serialApply(
+        transformers: List<Transformer>,
         transformations: List<TransformationSettings>,
         dispatch: Dispatch?,
         scope: DispatchScope,
         completion: (Dispatch?) -> Unit
-    ) = recursiveSerialApply(transformations, 0, dispatch, scope, completion)
+    ) = recursiveSerialApply(transformers, transformations, 0, dispatch, scope, completion)
 
     private fun recursiveSerialApply(
+        transformers: List<Transformer>,
         transformations: List<TransformationSettings>,
         index: Int,
         dispatch: Dispatch?,
@@ -108,22 +136,34 @@ class TransformerCoordinatorImpl(
 
         if (!matchesConditions(nextTransformation, dispatch)) {
             // don't apply, but continue iteration.
-            recursiveSerialApply(transformations, nextIndex, dispatch, scope, completion)
+            recursiveSerialApply(
+                transformers, transformations, nextIndex, dispatch, scope, completion
+            )
             return
         }
 
-        apply(nextTransformation, dispatch, scope) { transformedDispatch ->
-            recursiveSerialApply(transformations, nextIndex, transformedDispatch, scope, completion)
+        apply(transformers, nextTransformation, dispatch, scope) { transformedDispatch ->
+            recursiveSerialApply(
+                transformers, transformations, nextIndex, transformedDispatch, scope, completion
+            )
         }
     }
 
+    /**
+     * Applies the [transformation] with the [Transformer] that implements it, taken from the
+     * [transformers] resolved for this dispatch or batch.
+     *
+     * When no transformer implements it, the dispatch is reported untransformed rather than dropped:
+     * a transformation nobody can apply is not a decision to discard the event.
+     */
     private fun apply(
+        transformers: List<Transformer>,
         transformation: TransformationSettings,
         dispatch: Dispatch,
         scope: DispatchScope,
         completion: (Dispatch?) -> Unit
     ) {
-        val transformer = registeredTransformers.value.firstOrNull {
+        val transformer = transformers.firstOrNull {
             it.id == transformation.transformerId
         }
         if (transformer == null) {

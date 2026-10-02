@@ -9,13 +9,18 @@ import com.tealium.prism.core.api.misc.QueueMetrics
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.pubsub.Observable
-import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.StateSubject
 
 class BatchingBarrier(
     private val queueMetrics: QueueMetrics,
-    private val dispatchers: ObservableState<List<Dispatcher>>,
+    /**
+     * The enabled [Dispatcher]s, emitting only once the modules of a settings pass are all created.
+     *
+     * No state is published before they are known: a [Dispatcher] missing from a premature empty list
+     * would fall back to [DEFAULT_BATCH_SIZE] and open the barrier on every single event.
+     */
+    private val onDispatchers: Observable<List<Dispatcher>>,
     initialBatchSize: Int?
 ) : ConfigurableBarrier {
 
@@ -30,8 +35,7 @@ class BatchingBarrier(
         configuration: DataObject
     ) : this(
         context.queueMetrics,
-        context.moduleManager.modules
-            .mapState { it.filterIsInstance<Dispatcher>() },
+        context.moduleManager.observeModules(Dispatcher::class.java),
         configuration.batchSize,
     )
 
@@ -54,7 +58,7 @@ class BatchingBarrier(
             }.distinct()
 
     private fun dispatcherBatchSize(dispatcherId: String): Observable<Int> =
-        _batchSize.combine(dispatchers) { configuredBatchSize, dispatchers ->
+        _batchSize.combine(onDispatchers) { configuredBatchSize, dispatchers ->
             val dispatchLimit = dispatchers.find { it.id == dispatcherId }
                 ?.dispatchLimit
                 ?.coerceAtLeast(1)

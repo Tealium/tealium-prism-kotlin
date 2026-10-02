@@ -39,7 +39,7 @@ import com.tealium.prism.core.api.transform.TransformerRegistrar
  * @property queueMetrics A utility to allow receiving notifications of changes to the number of queued events
  * @property sessionRegistry A utility to allow subscribing to updates to the current [Session]
  */
-class TealiumContext(
+class TealiumContext private constructor(
     val context: Context,
     val config: TealiumConfig,
     val logger: Logger,
@@ -55,5 +55,55 @@ class TealiumContext(
     val moduleManager: ModuleManager,
     val queueMetrics: QueueMetrics,
     val sessionRegistry: SessionRegistry,
-    val dataLayer: DataStore
-)
+    val dataLayer: DataStore,
+    /**
+     * The modules of the last completed settings pass, seeded with an empty list. A synchronous read
+     * cannot tell "no such module" from "not created yet", so read it only at collect or dispatch
+     * time, when the tracker has already waited for the modules. For anything else use
+     * [moduleManager].observeModule(s).
+     */
+    @get:JvmSynthetic internal val unsafeModules: ObservableState<List<Module>>
+) {
+    companion object {
+        @JvmSynthetic
+        internal fun create(
+            context: Context,
+            config: TealiumConfig,
+            logger: Logger,
+            visitorId: ObservableState<String>,
+            storageProvider: ModuleStoreProvider,
+            network: NetworkUtilities,
+            coreSettings: ObservableState<CoreSettings>,
+            tracker: Tracker,
+            schedulers: Schedulers,
+            activityManager: ActivityManager,
+            transformerRegistrar: TransformerRegistrar,
+            barrierRegistrar: BarrierRegistrar,
+            moduleManager: ModuleManager,
+            queueMetrics: QueueMetrics,
+            sessionRegistry: SessionRegistry,
+            dataLayer: DataStore,
+            unsafeModules: ObservableState<List<Module>>
+        ): TealiumContext {
+            return TealiumContext(
+                context = context,
+                config = config,
+                logger = logger,
+                visitorId = visitorId,
+                storageProvider = storageProvider,
+                network = network,
+                coreSettings = coreSettings,
+                tracker = tracker,
+                schedulers = schedulers,
+                activityManager = activityManager,
+                transformerRegistrar = transformerRegistrar,
+                barrierRegistrar = barrierRegistrar,
+                moduleManager = moduleManager,
+                queueMetrics = queueMetrics,
+                sessionRegistry = sessionRegistry,
+                dataLayer = dataLayer,
+                unsafeModules = unsafeModules
+            )
+        }
+    }
+}

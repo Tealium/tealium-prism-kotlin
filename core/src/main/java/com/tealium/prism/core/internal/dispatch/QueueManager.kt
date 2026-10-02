@@ -5,10 +5,12 @@ import com.tealium.prism.core.api.logger.logIfDebugEnabled
 import com.tealium.prism.core.api.logger.logIfErrorEnabled
 import com.tealium.prism.core.api.misc.TimeFrame
 import com.tealium.prism.core.api.persistence.PersistenceException
+import com.tealium.prism.core.api.pubsub.CompositeDisposable
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.pubsub.Subject
+import com.tealium.prism.core.api.pubsub.addTo
 import com.tealium.prism.core.api.settings.CoreSettings
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.internal.logger.LogCategory
@@ -16,6 +18,7 @@ import com.tealium.prism.core.internal.logger.ids
 import com.tealium.prism.core.internal.logger.logDescriptions
 import com.tealium.prism.core.internal.logger.nonNullMessage
 import com.tealium.prism.core.internal.persistence.repositories.QueueRepository
+import com.tealium.prism.core.internal.pubsub.DisposableContainer
 
 interface QueueManager {
 
@@ -93,6 +96,16 @@ interface QueueManager {
      * @param processor The name of the processor to clear all stored dispatches.
      */
     fun deleteAllDispatches(processor: String)
+
+    /**
+     * Stops reacting to configuration changes, leaving the queued [Dispatch]es untouched.
+     *
+     * The queues outlive the instance, so this has to be called before the configuration is torn
+     * down: the empty processor set published by a teardown would otherwise read as a configuration
+     * whose processors have no owner any more, and the dispatches still waiting to be sent on the
+     * next launch would be deleted.
+     */
+    fun shutdown()
 }
 
 class QueueManagerImpl(
@@ -107,10 +120,17 @@ class QueueManagerImpl(
 ) : QueueManager {
 
     private val _deletedDispatches: Subject<Set<String>> = Observables.publishSubject()
+    private val disposables: CompositeDisposable = DisposableContainer()
 
     init {
         settings.subscribe(::handleSettingsUpdate)
+            .addTo(disposables)
         processors.subscribe(::deleteQueues)
+            .addTo(disposables)
+    }
+
+    override fun shutdown() {
+        disposables.dispose()
     }
 
     override val enqueuedDispatchesForProcessors: Observable<Set<String>>

@@ -1,6 +1,7 @@
 package com.tealium.prism.core.internal.modules
 
 import com.tealium.prism.core.api.modules.Module
+import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.pubsub.Subject
 import com.tealium.prism.core.api.settings.TestSettingsBuilder
 import com.tealium.prism.core.internal.settings.ModuleSettings
@@ -35,6 +36,13 @@ fun enableModuleSettings(moduleId: String, moduleType: String = moduleId): SdkSe
  */
 fun disableModuleSettings(moduleId: String, moduleType: String = moduleId): SdkSettings =
     enableDisableModuleSettings(moduleId, moduleType, false)
+
+/**
+ * Runs an empty settings pass, so that the manager counts as ready without creating any module: a
+ * lookup then resolves to "not enabled" rather than being withheld.
+ */
+fun InternalModuleManager.mockReady(context: TealiumContext) =
+    updateModuleSettings(context, SdkSettings())
 
 /**
  * Test Module implementation with an observable property

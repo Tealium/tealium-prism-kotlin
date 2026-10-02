@@ -5,7 +5,6 @@ import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.logger.logIfDebugEnabled
 import com.tealium.prism.core.api.logger.logIfTraceEnabled
 import com.tealium.prism.core.api.modules.Collector
-import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchContext
@@ -18,7 +17,13 @@ import com.tealium.prism.core.internal.logger.LogCategory
 import com.tealium.prism.core.internal.rules.LoadRuleEngine
 
 class TrackerImpl(
-    private val modules: Observable<List<Module>>,
+    /**
+     * The enabled [Collector]s, emitting only once the modules of a settings pass are all created.
+     *
+     * An empty emission is an answer: a configuration without any collector dispatches the event
+     * rather than holding it back.
+     */
+    private val onCollectors: Observable<List<Collector>>,
     private val dispatchManager: DispatchManager,
     private val loadRuleEngine: LoadRuleEngine,
     private val sessionManager: SessionManager,
@@ -48,8 +53,7 @@ class TrackerImpl(
             "Event data: ${dispatch.payload()}"
         }
         // collection
-        modules.filter { modules -> modules.isNotEmpty() }
-            .map { modules -> modules.filterIsInstance<Collector>() }
+        onCollectors
             .map { collectors -> evaluateLoadRules(collectors, dispatch) }
             .subscribeOnce { collectors ->
                 sessionManager.registerDispatch(dispatch)

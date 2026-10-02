@@ -6,6 +6,8 @@ import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.Module
+import com.tealium.prism.core.api.pubsub.Observable
+import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.pubsub.Subject
@@ -18,9 +20,9 @@ import com.tealium.prism.core.api.transform.TransformationSettings
 import com.tealium.prism.core.api.transform.Transformer
 import com.tealium.prism.core.internal.barriers.BarrierCoordinator
 import com.tealium.prism.core.internal.consent.ConsentManager
-import com.tealium.prism.core.internal.modules.InternalModuleManager
 import com.tealium.prism.core.internal.persistence.repositories.QueueRepository
 import com.tealium.prism.core.internal.persistence.repositories.VolatileQueueRepository
+import com.tealium.prism.core.internal.modules.sameModules
 import com.tealium.prism.core.internal.rules.LoadRuleEngine
 import com.tealium.prism.core.internal.settings.CoreSettingsImpl
 import com.tealium.tests.common.SystemLogger
@@ -44,9 +46,6 @@ open class DispatchManagerTestsBase {
     protected lateinit var barrierCoordinator: BarrierCoordinator
 
     @MockK
-    protected lateinit var moduleManager: InternalModuleManager
-
-    @MockK
     protected lateinit var loadRuleEngine: LoadRuleEngine
 
     protected var consentManager: ConsentManager? = null
@@ -56,7 +55,7 @@ open class DispatchManagerTestsBase {
     protected lateinit var dispatcher2Name: String
     protected lateinit var dispatcher1: Dispatcher
     protected lateinit var dispatcher2: Dispatcher
-    protected lateinit var modules: StateSubject<List<Module>>
+    protected lateinit var dispatchers: StateSubject<List<Dispatcher>>
     protected lateinit var barrierFlow: Subject<BarrierState>
     protected lateinit var processors: Subject<Set<String>>
     protected lateinit var queueManager: QueueManager
@@ -70,6 +69,13 @@ open class DispatchManagerTestsBase {
     protected lateinit var dispatchManager: DispatchManagerImpl
     protected lateinit var mappings: StateSubject<Map<String, List<MappingOperation>>>
     protected lateinit var mappingsEngine: MappingsEngine
+
+    /**
+     * The dispatchers seen as plain modules, for the consumers that still take the raw module list -
+     * [com.tealium.prism.core.internal.consent.ConsentIntegrationManager].
+     */
+    protected val modules: ObservableState<List<Module>>
+        get() = dispatchers.mapState { it }
 
     protected val dispatch1: Dispatch =
         Dispatch.create("test1", DispatchType.Event, DataObject.EMPTY_OBJECT)
@@ -89,9 +95,7 @@ open class DispatchManagerTestsBase {
         dispatcher2Name = "dispatcher_2" // but direct string values dont.
         dispatcher1 = spyk(TestDispatcher(dispatcher1Name))
         dispatcher2 = spyk(TestDispatcher(dispatcher2Name))
-        modules = Observables.stateSubject(listOf(dispatcher1, dispatcher2))
-        every { moduleManager.modules } returns modules
-        every { moduleManager.getModulesOfType(Dispatcher::class.java) } answers { modules.value.filterIsInstance<Dispatcher>() }
+        dispatchers = Observables.stateSubject(listOf(dispatcher1, dispatcher2))
 
         every { loadRuleEngine.evaluateLoadRules(any(), any()) } answers {
             DispatchSplit(arg(1), emptyList())
@@ -140,8 +144,13 @@ open class DispatchManagerTestsBase {
     protected open fun onAfterSetup() {
     }
 
+    /**
+     * The fixture feeds the dispatchers through the same `distinct` that
+     * `ModuleManagerImpl.observeModules` applies, since [DispatchManagerImpl] relies on its source
+     * de-duplicating by identity and order rather than doing it itself.
+     */
     protected fun createDispatchManager(
-        moduleManager: InternalModuleManager = this.moduleManager,
+        onDispatchers: Observable<List<Dispatcher>> = this.dispatchers.distinct(::sameModules),
         barrierCoordinator: BarrierCoordinator = this.barrierCoordinator,
         transformerCoordinator: TransformerCoordinator = this.transformerCoordinator,
         queueManager: QueueManager = this.queueManager,
@@ -151,7 +160,7 @@ open class DispatchManagerTestsBase {
         logger: Logger = this.logger,
         maxInFlight: Int = DispatchManagerImpl.MAXIMUM_INFLIGHT_EVENTS_PER_DISPATCHER
     ): DispatchManagerImpl = DispatchManagerImpl(
-        moduleManager,
+        onDispatchers,
         barrierCoordinator,
         transformerCoordinator,
         queueManager,

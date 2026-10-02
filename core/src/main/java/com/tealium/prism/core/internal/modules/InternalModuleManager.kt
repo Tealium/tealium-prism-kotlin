@@ -4,7 +4,6 @@ import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
 import com.tealium.prism.core.api.modules.ModuleManager
 import com.tealium.prism.core.api.modules.TealiumContext
-import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.internal.settings.SdkSettings
 
 /**
@@ -34,13 +33,6 @@ interface InternalModuleManager : ModuleManager {
      * @param settings The latest set of [SdkSettings]
      */
     fun updateModuleSettings(context: TealiumContext, settings: SdkSettings)
-
-    /**
-     * Returns all [Module] implementations that implement or extend the given [Class].
-     *
-     * @param clazz The Class or Interface to look for
-     */
-    fun <T : Module> getModulesOfType(clazz: Class<T>): List<T>
 
     /**
      * Initiates the shutdown of all [Module] implementations and removes any references to them.

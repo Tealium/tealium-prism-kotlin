@@ -2,9 +2,8 @@ package com.tealium.prism.core.internal.misc
 
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.modules.Collector
-import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.pubsub.Observables
-import com.tealium.prism.core.api.pubsub.StateSubject
+import com.tealium.prism.core.api.pubsub.ReplaySubject
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchContext
 import com.tealium.prism.core.api.tracking.TrackResult
@@ -14,7 +13,6 @@ import com.tealium.prism.core.internal.rules.LoadRuleEngine
 import com.tealium.prism.core.internal.session.SessionManager
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestCollector
-import com.tealium.tests.common.TestDispatcher
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
@@ -39,7 +37,7 @@ class TrackerImplTest {
     private lateinit var loadRuleEngine: LoadRuleEngine
 
     private lateinit var dispatch: Dispatch
-    private lateinit var modules: StateSubject<List<Module>>
+    private lateinit var onCollectors: ReplaySubject<List<Collector>>
     private lateinit var source: DispatchContext.Source
     private lateinit var tracker: TrackerImpl
 
@@ -47,7 +45,7 @@ class TrackerImplTest {
     fun setUp() {
         MockKAnnotations.init(this)
 
-        modules = Observables.stateSubject(listOf())
+        onCollectors = Observables.replaySubject(1)
         dispatch = Dispatch.create("test", dataObject = DataObject.EMPTY_OBJECT)
         source = DispatchContext.Source.application()
 
@@ -57,7 +55,8 @@ class TrackerImplTest {
         // default tealium purpose not blocked
         every { dispatchManager.tealiumPurposeExplicitlyBlocked } returns false
 
-        tracker = TrackerImpl(modules, dispatchManager, loadRuleEngine, sessionManager, SystemLogger)
+        tracker =
+            TrackerImpl(onCollectors, dispatchManager, loadRuleEngine, sessionManager, SystemLogger)
     }
 
     @Test
@@ -72,17 +71,20 @@ class TrackerImplTest {
         }
     }
 
+    /**
+     * An empty list is an answer, not an absence of one: a configuration without any collector has
+     * nothing to enrich the dispatch with, so it goes on to the dispatch manager as it is.
+     */
     @Test
-    fun track_Waits_When_Modules_Empty_For_Init_And_Shutdown() {
+    fun track_Dispatches_When_The_Modules_Are_Ready_Without_Any_Collector() {
         val originalPayload = dispatch.payload()
-        modules.onNext(emptyList())
+        onCollectors.onNext(emptyList())
 
         tracker.track(dispatch, source)
 
         assertEquals(originalPayload, dispatch.payload())
-        verify(inverse = true) {
-            dispatchManager.track(any())
-            dispatchManager.track(any(), any())
+        verify {
+            dispatchManager.track(dispatch, any())
         }
     }
 
@@ -92,7 +94,7 @@ class TrackerImplTest {
 
         val collectedData = DataObject.Builder().put("key", "value").build()
         val collector = collector(collectedData)
-        modules.onNext(listOf(collector))
+        onCollectors.onNext(listOf(collector))
 
         assertEquals("value", dispatch.payload().getString("key"))
         verify {
@@ -104,7 +106,7 @@ class TrackerImplTest {
     fun track_Enriches_Dispatch_With_Collected_Data_When_Collectors_Are_Available() {
         val collectedData = DataObject.Builder().put("key", "value").build()
         val collector = collector(collectedData)
-        modules.onNext(listOf(collector))
+        onCollectors.onNext(listOf(collector))
 
         tracker.track(dispatch, source)
 
@@ -113,7 +115,7 @@ class TrackerImplTest {
 
     @Test
     fun track_Calls_Dispatch_Manager_Even_With_No_Collectors() {
-        modules.onNext(listOf(TestDispatcher("dispatcher")))
+        onCollectors.onNext(listOf())
 
         tracker.track(dispatch, source)
 
@@ -126,7 +128,7 @@ class TrackerImplTest {
     fun track_Enriches_Data_From_All_Collectors() {
         val collector1 = collector(DataObject.Builder().put("key_1", "value_1").build())
         val collector2 = collector(DataObject.Builder().put("key_2", "value_2").build())
-        modules.onNext(listOf(collector1, collector2))
+        onCollectors.onNext(listOf(collector1, collector2))
 
         tracker.track(dispatch, source)
 
@@ -143,7 +145,7 @@ class TrackerImplTest {
                 .put("key_2", "value_2")
                 .build()
         )
-        modules.onNext(listOf(collector1, collector2))
+        onCollectors.onNext(listOf(collector1, collector2))
 
         tracker.track(dispatch, source)
 
@@ -155,7 +157,7 @@ class TrackerImplTest {
     fun track_Passes_The_Source_To_Collectors() {
         val collector = mockk<Collector>()
         every { collector.collect(any()) } returns DataObject.EMPTY_OBJECT
-        modules.onNext(listOf(collector))
+        onCollectors.onNext(listOf(collector))
 
         tracker.track(dispatch, source)
 
@@ -168,7 +170,7 @@ class TrackerImplTest {
     fun track_Does_Enrich_From_Collectors_That_Pass_Load_Rules() {
         val collector = TestCollector.mock("test")
         every { loadRuleEngine.rulesAllow(collector, dispatch) } returns true
-        modules.onNext(listOf( collector))
+        onCollectors.onNext(listOf(collector))
 
         tracker.track(dispatch, source)
 
@@ -181,7 +183,7 @@ class TrackerImplTest {
     fun track_Does_Not_Enrich_From_Collectors_That_Fail_Load_Rules() {
         val collector = TestCollector.mock("test")
         every { loadRuleEngine.rulesAllow(collector, dispatch) } returns false
-        modules.onNext(listOf( collector))
+        onCollectors.onNext(listOf(collector))
 
         tracker.track(dispatch, source)
 
@@ -203,7 +205,7 @@ class TrackerImplTest {
     fun track_Registers_New_Dispatch_With_Session_Manager_When_Modules_Have_Been_Emitted() {
         val collector = TestCollector.mock("test")
         tracker.track(dispatch, source)
-        modules.onNext(listOf(collector))
+        onCollectors.onNext(listOf(collector))
 
         verify {
             sessionManager.registerDispatch(dispatch)
@@ -213,7 +215,7 @@ class TrackerImplTest {
     @Test
     fun track_Registers_New_Dispatch_With_Session_Manager_Before_Collection() {
         val collector = TestCollector.mock("test")
-        modules.onNext(listOf( collector))
+        onCollectors.onNext(listOf(collector))
 
         tracker.track(dispatch, source)
 
