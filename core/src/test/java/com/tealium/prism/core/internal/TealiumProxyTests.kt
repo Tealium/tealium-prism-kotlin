@@ -15,16 +15,14 @@ import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.api.tracking.TrackResultListener
 import io.mockk.MockKAnnotations
-import io.mockk.Runs
 import io.mockk.every
-import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.RelaxedMockK
-import io.mockk.just
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,8 +32,7 @@ import org.robolectric.RuntimeEnvironment
 @RunWith(RobolectricTestRunner::class)
 class TealiumProxyTests {
 
-    @MockK
-    private lateinit var onShutdown: (String) -> Unit
+    private val shutdownRequests = mutableListOf<TealiumImpl>()
 
     @RelaxedMockK
     private lateinit var tealiumImpl: TealiumImpl
@@ -60,7 +57,7 @@ class TealiumProxyTests {
             arg<TrackResultListener>(2).onTrackResultReady(TrackResult.accepted(arg(1), "accepted"))
         }
 
-        tealiumProxy = TealiumProxy(key, scheduler, onTealiumImplReady, onShutdown)
+        tealiumProxy = TealiumProxy(key, scheduler, onTealiumImplReady) { shutdownRequests.add(it) }
     }
 
     @Test
@@ -284,14 +281,56 @@ class TealiumProxyTests {
     }
 
     @Test
-    fun shutdown_Calls_OnShutdown() {
-        every { onShutdown.invoke(any()) } just Runs
+    fun createModuleProxy_Forwards_Initialization_Exception_To_Module_Proxy() {
+        val initException = TealiumException("Failed to initialize")
+        val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
+        onTealiumImplReady.onNext(TealiumResult.failure(initException))
+
+        tealiumProxy.createModuleProxy(Dispatcher::class.java)
+            .executeModuleTask(Dispatcher::id)
+            .subscribe(observer)
+
+        verify {
+            observer.onNext(match { it.exceptionOrNull() === initException })
+        }
+    }
+
+    @Test
+    fun shutdown_Calls_OnShutdown_With_Bound_Instance_When_Ready() {
+        onTealiumImplReady.onNext(TealiumResult.success(tealiumImpl))
 
         tealiumProxy.shutdown()
 
-        verify {
-            onShutdown(key)
-        }
+        assertEquals(listOf(tealiumImpl), shutdownRequests)
+    }
+
+    @Test
+    fun shutdown_Calls_OnShutdown_Once_Ready_When_Called_Before_Ready() {
+        tealiumProxy.shutdown()
+        assertTrue(shutdownRequests.isEmpty())
+
+        onTealiumImplReady.onNext(TealiumResult.success(tealiumImpl))
+
+        assertEquals(listOf(tealiumImpl), shutdownRequests)
+    }
+
+    @Test
+    fun shutdown_Does_Not_Call_OnShutdown_When_Already_Shutdown() {
+        onTealiumImplReady.onNext(TealiumResult.success(tealiumImpl))
+        onTealiumImplReady.onNext(TealiumResult.failure(Tealium.TealiumShutdownException("")))
+
+        tealiumProxy.shutdown()
+
+        assertTrue(shutdownRequests.isEmpty())
+    }
+
+    @Test
+    fun shutdown_Does_Not_Call_OnShutdown_When_Instance_Failed_To_Initialize() {
+        onTealiumImplReady.onNext(TealiumResult.failure(TealiumException("Failed to initialize")))
+
+        tealiumProxy.shutdown()
+
+        assertTrue(shutdownRequests.isEmpty())
     }
 
     @Test

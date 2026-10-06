@@ -33,18 +33,26 @@ import com.tealium.prism.core.internal.pubsub.AsyncDisposableContainer
  * @param key The key that identifies the underlying [TealiumImpl] instance.
  * @param tealiumScheduler The [Scheduler] to synchronize all work on
  * @param onTealiumImplReady The [Observable] to inform this [TealiumProxy] of when the [TealiumImpl] has been created, or the error
- * @param onShutdown The callback to call when the [shutdown] method is called.
+ * @param onShutdown The callback to call with the bound [TealiumImpl] when the [shutdown] method is called.
  */
 class TealiumProxy(
     override val key: String,
     private val tealiumScheduler: Scheduler,
     private val onTealiumImplReady: Observable<TealiumResult<TealiumImpl>>,
-    private val onShutdown: (String) -> Unit = {}
+    private val onShutdown: (TealiumImpl) -> Unit = {}
 ) : Tealium {
 
-    private val moduleManager: Observable<ModuleManager?> =
+    private val moduleManagerResult: Observable<TealiumResult<ModuleManager>> =
         onTealiumImplReady.map { result ->
-            result.getOrNull()?.moduleManager
+            val tealium = result.getOrNull()
+            if (tealium != null) {
+                TealiumResult.success(tealium.moduleManager)
+            } else {
+                TealiumResult.failure(
+                    result.exceptionOrNull()
+                        ?: IllegalStateException("TealiumImpl result was neither success nor failure.")
+                )
+            }
         }
     private val asyncProxy = AsyncProxyImpl(tealiumScheduler, onTealiumImplReady)
 
@@ -102,13 +110,22 @@ class TealiumProxy(
     }
 
     override fun <T : Module> createModuleProxy(clazz: Class<T>): ModuleProxy<T> =
-        ModuleProxyImpl(clazz, moduleManager, tealiumScheduler)
+        ModuleProxyImpl(clazz, moduleManagerResult, tealiumScheduler)
 
     private fun doShutdown() {
         disposable.dispose()
     }
 
+    /**
+     * Shuts down only the [TealiumImpl] this proxy is bound to: if it was already shut down, failed
+     * to initialize, or a different instance has since been created with the same [key], this
+     * does nothing.
+     */
     override fun shutdown() {
-        onShutdown(key)
+        asyncProxy.getProxiedObject { tealium ->
+            if (tealium != null) {
+                onShutdown(tealium)
+            }
+        }
     }
 }

@@ -42,7 +42,7 @@ class DeepLinkHandlerWrapperTests {
 
     private lateinit var modules: StateSubject<List<Module>>
     private lateinit var moduleManager: ModuleManager
-    private lateinit var onModuleManager: Subject<ModuleManager?>
+    private lateinit var onModuleManager: Subject<TealiumResult<ModuleManager>>
     private lateinit var proxy: ModuleProxy<DeepLinkModule>
 
     private lateinit var deepLinkHandlerWrapper: DeepLinkHandlerWrapper
@@ -59,7 +59,7 @@ class DeepLinkHandlerWrapperTests {
         modules = Observables.stateSubject(listOf(deepLinkModule))
         moduleManager = ModuleManagerImpl(scheduler, modules)
         onModuleManager = Observables.replaySubject(1)
-        onModuleManager.onNext(moduleManager)
+        onModuleManager.onNext(TealiumResult.success(moduleManager))
 
         proxy = ModuleProxyImpl(DeepLinkModule::class.java, onModuleManager, scheduler)
         deepLinkHandlerWrapper = DeepLinkHandlerWrapper(proxy)
@@ -80,7 +80,7 @@ class DeepLinkHandlerWrapperTests {
 
     @Test
     fun methods_Report_Tealium_Shutdown_When_No_ModuleManager() {
-        onModuleManager.onNext(null)
+        onModuleManager.onNext(TealiumResult.failure(Tealium.TealiumShutdownException("Tealium Instance has been shutdown.")))
 
         deepLinkHandlerWrapper.handle(uri).subscribe(observer)
         deepLinkHandlerWrapper.handle(uri, uri).subscribe(observer)

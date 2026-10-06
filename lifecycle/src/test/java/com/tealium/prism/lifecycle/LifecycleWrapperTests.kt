@@ -2,6 +2,7 @@ package com.tealium.prism.lifecycle
 
 import com.tealium.prism.core.api.Tealium
 import com.tealium.prism.core.api.misc.Callback
+import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleManager
@@ -31,7 +32,7 @@ class LifecycleWrapperTests {
 
     private lateinit var modules: StateSubject<List<Module>>
     private lateinit var moduleManager: ModuleManager
-    private lateinit var onModuleManager: Subject<ModuleManager?>
+    private lateinit var onModuleManager: Subject<TealiumResult<ModuleManager>>
     private lateinit var proxy: ModuleProxy<LifecycleModule>
 
     private lateinit var lifecycleWrapper: LifecycleWrapper
@@ -44,7 +45,7 @@ class LifecycleWrapperTests {
         modules = Observables.stateSubject(listOf(lifecycleModule))
         moduleManager = ModuleManagerImpl(scheduler, modules)
         onModuleManager = Observables.replaySubject(1)
-        onModuleManager.onNext(moduleManager)
+        onModuleManager.onNext(TealiumResult.success(moduleManager))
 
         proxy = ModuleProxyImpl(LifecycleModule::class.java, onModuleManager, scheduler)
         lifecycleWrapper = LifecycleWrapper(proxy)
@@ -64,7 +65,7 @@ class LifecycleWrapperTests {
 
     @Test
     fun methods_Report_TealiumShutdown_WhenNoModuleManager() {
-        onModuleManager.onNext(null)
+        onModuleManager.onNext(TealiumResult.failure(Tealium.TealiumShutdownException("Tealium Instance has been shutdown.")))
 
         val completion = mockk<Callback<Exception>>(relaxed = true)
         lifecycleWrapper.launch().onFailure(completion)

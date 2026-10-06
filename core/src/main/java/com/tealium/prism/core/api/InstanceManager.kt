@@ -52,6 +52,10 @@ interface InstanceManager {
      * After calling this method, no further input will be processed and future method calls to the
      * [tealium] instance will fail.
      *
+     * Implementations should only shut down the instance that [tealium] is bound to, doing nothing
+     * if a different instance has since been created with the same [Tealium.key]. The default
+     * implementation shuts down by key.
+     *
      * @param tealium The [Tealium] instance to shutdown.
      */
     fun shutdown(tealium: Tealium) = shutdown(tealium.key)

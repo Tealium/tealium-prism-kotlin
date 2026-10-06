@@ -32,7 +32,7 @@ fun createTealiumProxy(
     config: TealiumConfig,
     tealiumScheduler: Scheduler = testTealiumScheduler,
     onTealiumImplReady: Observable<TealiumResult<TealiumImpl>>,
-    onShutdown: (String) -> Unit
+    onShutdown: (TealiumImpl) -> Unit
 ): Tealium {
         return TealiumProxy(
             config.key,

@@ -147,6 +147,9 @@ interface Tealium {
      * After calling this method, no further input will be processed and future method calls to the
      * [Tealium] instance will fail.
      *
+     * If this instance was already shut down, this does nothing, even if a new instance has since
+     * been created with the same [key].
+     *
      * @see Tealium.shutdown
      */
     fun shutdown()
@@ -165,6 +168,10 @@ interface Tealium {
             onReady: Callback<TealiumResult<Tealium>>?
         ): Tealium =
             instanceManager.create(config, onReady)
+
+        @JvmStatic
+        override fun shutdown(tealium: Tealium) =
+            instanceManager.shutdown(tealium)
 
         @JvmStatic
         override fun shutdown(instanceKey: String) =

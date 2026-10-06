@@ -8,6 +8,7 @@ import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.TestDataObjectConvertible
 import com.tealium.prism.core.api.misc.Callback
+import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.misc.TealiumException
 import com.tealium.prism.core.api.modules.Module
@@ -56,7 +57,7 @@ class DataLayerWrapperTests {
     private lateinit var context: TealiumContext
 
     private lateinit var moduleManager: ModuleManagerImpl
-    private lateinit var moduleManagerSubject: ReplaySubject<ModuleManager?>
+    private lateinit var moduleManagerSubject: ReplaySubject<TealiumResult<ModuleManager>>
     private lateinit var onDataUpdated: Subject<DataObject>
     private lateinit var onDataRemoved: Subject<List<String>>
     private lateinit var moduleProxy: ModuleProxy<DataLayerModule>
@@ -87,7 +88,7 @@ class DataLayerWrapperTests {
 
         // default to pre-enabled
         moduleManagerSubject = Observables.replaySubject()
-        moduleManagerSubject.onNext(moduleManager)
+        moduleManagerSubject.onNext(TealiumResult.success(moduleManager))
 
         moduleProxy = ModuleProxyImpl(
             DataLayerModule::class.java,

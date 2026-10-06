@@ -35,7 +35,7 @@ class ContextApiWrapperTests {
 
     private lateinit var modules: StateSubject<List<Module>>
     private lateinit var moduleManager: ModuleManager
-    private lateinit var onModuleManager: Subject<ModuleManager?>
+    private lateinit var onModuleManager: Subject<TealiumResult<ModuleManager>>
     private lateinit var proxy: ModuleProxy<ContextApiModule>
 
     private lateinit var contextApiWrapper: ContextApiWrapper
@@ -48,7 +48,7 @@ class ContextApiWrapperTests {
         modules = Observables.stateSubject(listOf(contextApiModule))
         moduleManager = ModuleManagerImpl(scheduler, modules)
         onModuleManager = Observables.replaySubject(1)
-        onModuleManager.onNext(moduleManager)
+        onModuleManager.onNext(TealiumResult.success(moduleManager))
 
         proxy = ModuleProxyImpl(ContextApiModule::class.java, onModuleManager, scheduler)
         contextApiWrapper = ContextApiWrapper(proxy)
@@ -66,7 +66,7 @@ class ContextApiWrapperTests {
 
     @Test
     fun fetchEngineResponse_Reports_TealiumShutdown_WhenNoModuleManager() {
-        onModuleManager.onNext(null)
+        onModuleManager.onNext(TealiumResult.failure(Tealium.TealiumShutdownException("Tealium Instance has been shutdown.")))
 
         val completion = mockk<Callback<Exception>>(relaxed = true)
         contextApiWrapper.fetchEngineResponse("engine-id").onFailure(completion)

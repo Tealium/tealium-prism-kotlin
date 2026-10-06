@@ -2,6 +2,7 @@ package com.tealium.prism.core.internal.modules
 
 import com.tealium.prism.core.api.Tealium
 import com.tealium.prism.core.api.misc.Scheduler
+import com.tealium.prism.core.api.misc.TealiumException
 import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.modules.Module
@@ -23,6 +24,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import io.mockk.verifyOrder
+import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Test
 
@@ -39,7 +41,7 @@ class ModuleProxyImplTests {
     }.associateBy(ModuleSettings::moduleType)
     private lateinit var context: TealiumContext
     private lateinit var moduleManager: ModuleManagerImpl
-    private lateinit var moduleManagerSubject: Subject<ModuleManager?>
+    private lateinit var moduleManagerSubject: Subject<TealiumResult<ModuleManager>>
     private lateinit var dispatcherProxy: ModuleProxy<TestDispatcher>
 
     @Before
@@ -70,7 +72,7 @@ class ModuleProxyImplTests {
         val listener = mockk<Callback<TestDispatcher?>>(relaxed = true)
 
         dispatcherProxy.getModule(listener)
-        moduleManagerSubject.onNext(moduleManager)
+        moduleManagerSubject.onNext(TealiumResult.success(moduleManager))
         dispatcherProxy.getModule(listener)
 
         verify {
@@ -83,7 +85,7 @@ class ModuleProxyImplTests {
         val listener = mockk<Callback<TestDispatcher?>>(relaxed = true)
         moduleManager.updateModuleSettings(context, disableModuleSettings(dispatcher.id))
 
-        moduleManagerSubject.onNext(moduleManager)
+        moduleManagerSubject.onNext(TealiumResult.success(moduleManager))
         dispatcherProxy.getModule(listener)
 
         verify {
@@ -106,7 +108,7 @@ class ModuleProxyImplTests {
     fun observeModule_Emits_Module_When_The_Module_Is_Available() {
         val observer = mockk<Observer<TestDispatcher?>>(relaxed = true)
 
-        moduleManagerSubject.onNext(moduleManager)
+        moduleManagerSubject.onNext(TealiumResult.success(moduleManager))
         dispatcherProxy.observeModule().subscribe(observer)
 
         verify {
@@ -119,7 +121,7 @@ class ModuleProxyImplTests {
         val observer = mockk<Observer<TestDispatcher?>>(relaxed = true)
         moduleManager.updateModuleSettings(context, disableModuleSettings(dispatcher.id))
 
-        moduleManagerSubject.onNext(moduleManager)
+        moduleManagerSubject.onNext(TealiumResult.success(moduleManager))
         dispatcherProxy.observeModule().subscribe(observer)
 
         verify {
@@ -132,7 +134,7 @@ class ModuleProxyImplTests {
         val observer = mockk<Observer<TestDispatcher?>>(relaxed = true)
         moduleManager.updateModuleSettings(context, disableModuleSettings(dispatcher.id))
 
-        moduleManagerSubject.onNext(moduleManager)
+        moduleManagerSubject.onNext(TealiumResult.success(moduleManager))
         dispatcherProxy.observeModule().subscribe(observer)
         moduleManager.updateModuleSettings(context, enableModuleSettings(dispatcher.id))
         moduleManager.updateModuleSettings(context, disableModuleSettings(dispatcher.id))
@@ -162,7 +164,7 @@ class ModuleProxyImplTests {
     fun observeModule_Emits_Transformed_Module_When_The_Module_Is_Available() {
         val observer = mockk<Observer<Int>>(relaxed = true)
 
-        moduleManagerSubject.onNext(moduleManager)
+        moduleManagerSubject.onNext(TealiumResult.success(moduleManager))
         val proxy = createProxy(ModuleWithObservable::class.java)
         proxy.observeModule { it.subject }.subscribe(observer)
         module.subject.onNext(1)
@@ -179,7 +181,7 @@ class ModuleProxyImplTests {
         val observer = mockk<Observer<Int>>(relaxed = true)
         moduleManager.updateModuleSettings(context, disableModuleSettings(module.id))
 
-        moduleManagerSubject.onNext(moduleManager)
+        moduleManagerSubject.onNext(TealiumResult.success(moduleManager))
         val proxy = createProxy(ModuleWithObservable::class.java)
         proxy.observeModule { it.subject }.subscribe(observer)
         module.subject.onNext(1)
@@ -194,7 +196,7 @@ class ModuleProxyImplTests {
         val observer = mockk<Observer<Int>>(relaxed = true)
         moduleManager.updateModuleSettings(context, disableModuleSettings(module.id))
 
-        moduleManagerSubject.onNext(moduleManager)
+        moduleManagerSubject.onNext(TealiumResult.success(moduleManager))
         val proxy = createProxy(ModuleWithObservable::class.java)
         proxy.observeModule { it.subject }.subscribe(observer)
         module.subject.onNext(1)
@@ -222,7 +224,7 @@ class ModuleProxyImplTests {
         val module2 = moduleWithObservable(2, "module2")
         val mockManager = mockModuleManager(listOf(module1, module2))
 
-        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(mockManager))
+        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(TealiumResult.success(mockManager)))
 
         proxy.observeModules(::combineAndSum)
             .subscribe(observer)
@@ -239,7 +241,7 @@ class ModuleProxyImplTests {
         val module2 = moduleWithObservable(2, "module2")
         val mockManager = mockModuleManager(listOf(module1, module2))
 
-        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(mockManager))
+        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(TealiumResult.success(mockManager)))
 
         proxy.observeModules(::combineAndSum)
             .subscribe(observer)
@@ -262,7 +264,7 @@ class ModuleProxyImplTests {
         val modules = Observables.stateSubject<List<Module>>(listOf(module1, module2))
         val mockManager = mockModuleManager(modules)
 
-        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(mockManager))
+        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(TealiumResult.success(mockManager)))
 
         proxy.observeModules(::combineAndSum)
             .subscribe(observer)
@@ -283,7 +285,7 @@ class ModuleProxyImplTests {
         val modules = Observables.stateSubject<List<Module>>(listOf(module1, module2))
         val mockManager = mockModuleManager(modules)
 
-        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(mockManager))
+        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(TealiumResult.success(mockManager)))
 
         proxy.observeModules(::combineAndSum)
             .subscribe(observer)
@@ -305,7 +307,7 @@ class ModuleProxyImplTests {
         val modules = Observables.stateSubject<List<Module>>(listOf(module1, module2))
         val mockManager = mockModuleManager(modules)
 
-        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(mockManager))
+        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(TealiumResult.success(mockManager)))
 
         proxy.observeModules(::combineAndSum)
             .subscribe(observer)
@@ -326,7 +328,7 @@ class ModuleProxyImplTests {
         val modules = Observables.stateSubject<List<Module>>(listOf(module1, module2))
         val mockManager = mockModuleManager(modules)
 
-        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(mockManager))
+        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(TealiumResult.success(mockManager)))
 
         proxy.observeModules(::combineAndSum)
             .subscribe(observer)
@@ -347,7 +349,7 @@ class ModuleProxyImplTests {
         val modules = Observables.stateSubject<List<Module>>(listOf(module1, module2))
         val mockManager = mockModuleManager(modules)
 
-        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(mockManager))
+        val proxy = createProxy(ModuleWithObservable::class.java, Observables.just(TealiumResult.success(mockManager)))
 
         proxy.observeModules(::combineAndSum)
             .subscribe(observer)
@@ -361,18 +363,20 @@ class ModuleProxyImplTests {
     }
 
     @Test
-    fun observeModules_Does_Not_Emit_When_ModuleManager_Becomes_Null() {
+    fun observeModules_Does_Not_Emit_When_ModuleManager_Result_Becomes_Failure() {
         val observer = mockk<Observer<Int>>(relaxed = true)
         val module1 = moduleWithObservable(1, "module1")
         val modules = Observables.stateSubject<List<Module>>(listOf(module1))
-        val mockManager = Observables.stateSubject<ModuleManager?>(mockModuleManager(modules))
+        val mockManager = Observables.stateSubject<TealiumResult<ModuleManager>>(
+            TealiumResult.success(mockModuleManager(modules))
+        )
 
         val proxy = createProxy(ModuleWithObservable::class.java, mockManager)
 
         proxy.observeModules(::combineAndSum)
             .subscribe(observer)
 
-        mockManager.onNext(null)
+        mockManager.onNext(TealiumResult.failure(shutdownException()))
         module1.subject.onNext(2)
 
         verify {
@@ -386,7 +390,7 @@ class ModuleProxyImplTests {
     @Test
     fun executeModuleTask_Returns_Single_Failure_When_Tealium_Shutdown() {
         val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
-        moduleManagerSubject.onNext(null)
+        moduleManagerSubject.onNext(TealiumResult.failure(shutdownException()))
 
         dispatcherProxy.executeModuleTask(TestDispatcher::id)
             .subscribe(observer)
@@ -405,7 +409,7 @@ class ModuleProxyImplTests {
     fun executeModuleTask_Returns_Single_Failure_When_Module_Unavailable() {
         val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
         moduleManager.updateModuleSettings(context, disableModuleSettings(dispatcher.id))
-        moduleManagerSubject.onNext(moduleManager)
+        moduleManagerSubject.onNext(TealiumResult.success(moduleManager))
 
         dispatcherProxy.executeModuleTask(TestDispatcher::id)
             .subscribe(observer)
@@ -424,7 +428,7 @@ class ModuleProxyImplTests {
     fun executeModuleTask_Returns_Single_Failure_When_Task_Throws() {
         val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
         val exception = IllegalStateException()
-        moduleManagerSubject.onNext(moduleManager)
+        moduleManagerSubject.onNext(TealiumResult.success(moduleManager))
 
         dispatcherProxy.executeModuleTask<String> { _ -> throw exception }
             .subscribe(observer)
@@ -442,7 +446,7 @@ class ModuleProxyImplTests {
     @Test
     fun executeModuleTask_Returns_Single_Success_When_Module_Enabled() {
         val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
-        moduleManagerSubject.onNext(moduleManager)
+        moduleManagerSubject.onNext(TealiumResult.success(moduleManager))
 
         dispatcherProxy.executeModuleTask(TestDispatcher::id)
             .subscribe(observer)
@@ -460,7 +464,7 @@ class ModuleProxyImplTests {
     @Test
     fun executeModuleTask_Returns_Single_That_Replays_Result() {
         val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
-        moduleManagerSubject.onNext(moduleManager)
+        moduleManagerSubject.onNext(TealiumResult.success(moduleManager))
 
         listOf(
             dispatcherProxy.executeModuleTask(TestDispatcher::id),
@@ -482,7 +486,7 @@ class ModuleProxyImplTests {
     fun executeModuleTask_Eagerly_Fetches_Value_Regardless_Of_Subscription_Order() {
         val observer1 = mockk<Observer<TealiumResult<Int>>>(relaxed = true)
         val observer2 = mockk<Observer<TealiumResult<Int>>>(relaxed = true)
-        moduleManagerSubject.onNext(moduleManager)
+        moduleManagerSubject.onNext(TealiumResult.success(moduleManager))
         val proxy = createProxy(ModuleWithObservable::class.java)
 
         val result1 = proxy.executeModuleTask { module ->
@@ -504,7 +508,7 @@ class ModuleProxyImplTests {
     fun executeAsyncModuleTask_With_Callback_Eagerly_Fetches_Value_Regardless_Of_Subscription_Order() {
         val observer1 = mockk<Observer<TealiumResult<Int>>>(relaxed = true)
         val observer2 = mockk<Observer<TealiumResult<Int>>>(relaxed = true)
-        moduleManagerSubject.onNext(moduleManager)
+        moduleManagerSubject.onNext(TealiumResult.success(moduleManager))
         val proxy = createProxy(ModuleWithObservable::class.java)
 
         val result1 = proxy.executeAsyncModuleTask { module, callback ->
@@ -523,6 +527,163 @@ class ModuleProxyImplTests {
         }
     }
 
+    @Test
+    fun executeAsyncModuleTask_Does_Not_Fail_With_ModuleNotEnabled_When_Module_Disabled_While_Task_Running() {
+        val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
+        moduleManagerSubject.onNext(TealiumResult.success(moduleManager))
+        var capturedCallback: Callback<TealiumResult<String>>? = null
+
+        dispatcherProxy.executeAsyncModuleTask<String> { _, callback -> capturedCallback = callback }
+            .subscribe(observer)
+        moduleManager.updateModuleSettings(context, disableModuleSettings(dispatcher.id))
+
+        assertNotNull(capturedCallback)
+        verify(inverse = true) { observer.onNext(any()) }
+
+        capturedCallback!!.onComplete(TealiumResult.success("done"))
+
+        verify(exactly = 1) { observer.onNext(any()) }
+        verify { observer.onNext(match { it.getOrNull() == "done" }) }
+    }
+
+    @Test
+    fun observeModuleResult_Emits_Success_With_Transformed_Value_When_Module_Enabled() {
+        val observer = mockk<Observer<TealiumResult<Int>>>(relaxed = true)
+
+        moduleManagerSubject.onNext(TealiumResult.success(moduleManager))
+        val proxy = createProxy(ModuleWithObservable::class.java)
+        proxy.observeModuleResult { it.subject }.subscribe(observer)
+        module.subject.onNext(1)
+        module.subject.onNext(2)
+
+        verifyOrder {
+            observer.onNext(match { it.getOrNull() == 1 })
+            observer.onNext(match { it.getOrNull() == 2 })
+        }
+        verify(exactly = 2) { observer.onNext(any()) }
+    }
+
+    @Test
+    fun observeModuleResult_Emits_Nothing_Until_Modules_Ready() {
+        val observer = mockk<Observer<TealiumResult<Int>>>(relaxed = true)
+        val notReadyManager = ModuleManagerImpl(Scheduler.SYNCHRONOUS)
+        moduleFactories.forEach(notReadyManager::addModuleFactory)
+
+        val proxy = createProxy(
+            ModuleWithObservable::class.java,
+            Observables.just(TealiumResult.success(notReadyManager))
+        )
+        proxy.observeModuleResult { it.subject }.subscribe(observer)
+
+        verify(exactly = 0) {
+            observer.onNext(any())
+            observer.onComplete()
+        }
+
+        notReadyManager.updateModuleSettings(context, SdkSettings(modules = defaultSettings))
+        module.subject.onNext(1)
+
+        verify(exactly = 1) { observer.onNext(any()) }
+        verify { observer.onNext(match { it.getOrNull() == 1 }) }
+    }
+
+    @Test
+    fun observeModuleResult_Emits_Success_Then_ModuleNotEnabled_Then_Success_When_Module_Disabled_And_Re_Enabled() {
+        val observer = mockk<Observer<TealiumResult<Int>>>(relaxed = true)
+        val moduleSubject = Observables.stateSubject(1)
+        val statefulModule = ModuleWithObservable(moduleSubject, "stateful")
+        val manager = ModuleManagerImpl(Scheduler.SYNCHRONOUS)
+        manager.addModuleFactory(TestModuleFactory.forModule(statefulModule))
+        manager.updateModuleSettings(context, enableModuleSettings(statefulModule.id))
+
+        val proxy = createProxy(
+            ModuleWithObservable::class.java,
+            Observables.just(TealiumResult.success(manager))
+        )
+        proxy.observeModuleResult { it.subject }.subscribe(observer)
+        manager.updateModuleSettings(context, disableModuleSettings(statefulModule.id))
+        manager.updateModuleSettings(context, enableModuleSettings(statefulModule.id))
+
+        verifyOrder {
+            observer.onNext(match { it.getOrNull() == 1 })
+            observer.onNext(match { it.exceptionOrNull() is ModuleNotEnabledException })
+            observer.onNext(match { it.getOrNull() == 1 })
+        }
+        verify(exactly = 3) { observer.onNext(any()) }
+    }
+
+    @Test
+    fun observeModuleResult_Emits_Failure_Then_Completes_When_Tealium_Failed_To_Initialize() {
+        val observer = mockk<Observer<TealiumResult<Int>>>(relaxed = true)
+        val initException = TealiumException("Failed to initialize")
+
+        val proxy = createProxy(ModuleWithObservable::class.java)
+        proxy.observeModuleResult { it.subject }.subscribe(observer)
+        moduleManagerSubject.onNext(TealiumResult.failure(initException))
+        moduleManagerSubject.onComplete()
+
+        verifyOrder {
+            observer.onNext(match { it.exceptionOrNull() === initException })
+            observer.onComplete()
+        }
+        verify(exactly = 1) { observer.onNext(any()) }
+    }
+
+    @Test
+    fun observeModuleResult_Emits_Failure_Then_Completes_When_Tealium_Shutdown() {
+        val observer = mockk<Observer<TealiumResult<Int>>>(relaxed = true)
+        val shutdownException = shutdownException()
+
+        val proxy = createProxy(ModuleWithObservable::class.java)
+        proxy.observeModuleResult { it.subject }.subscribe(observer)
+        moduleManagerSubject.onNext(TealiumResult.success(moduleManager))
+        module.subject.onNext(1)
+        moduleManagerSubject.onNext(TealiumResult.failure(shutdownException))
+        moduleManagerSubject.onComplete()
+        module.subject.onNext(2)
+
+        verifyOrder {
+            observer.onNext(match { it.getOrNull() == 1 })
+            observer.onNext(match { it.exceptionOrNull() === shutdownException })
+            observer.onComplete()
+        }
+        verify(exactly = 2) { observer.onNext(any()) }
+    }
+
+    @Test
+    fun executeModuleTask_Returns_Failure_Then_Success_When_Module_Disabled_Then_Re_Enabled() {
+        val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
+        moduleManager.updateModuleSettings(context, disableModuleSettings(dispatcher.id))
+        moduleManagerSubject.onNext(TealiumResult.success(moduleManager))
+
+        dispatcherProxy.executeModuleTask(TestDispatcher::id)
+            .subscribe(observer)
+        moduleManager.updateModuleSettings(context, enableModuleSettings(dispatcher.id))
+        dispatcherProxy.executeModuleTask(TestDispatcher::id)
+            .subscribe(observer)
+
+        verifyOrder {
+            observer.onNext(match { it.exceptionOrNull() is ModuleNotEnabledException })
+            observer.onNext(match { it.getOrNull() == dispatcher.id })
+        }
+    }
+
+    @Test
+    fun executeModuleTask_Returns_Initialization_Exception_When_Tealium_Failed_To_Initialize() {
+        val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
+        val initException = TealiumException("Failed to initialize")
+        moduleManagerSubject.onNext(TealiumResult.failure(initException))
+
+        dispatcherProxy.executeModuleTask(TestDispatcher::id)
+            .subscribe(observer)
+        dispatcherProxy.executeAsyncModuleTask(callbackDispatcherTask)
+            .subscribe(observer)
+
+        verify(exactly = 2) {
+            observer.onNext(match { it.exceptionOrNull() === initException })
+        }
+    }
+
     private val callbackDispatcherTask: (TestDispatcher, Callback<TealiumResult<String>>) -> Unit =
         { dispatcher, callback ->
             callback.onComplete(TealiumResult.success(dispatcher.id))
@@ -530,10 +691,13 @@ class ModuleProxyImplTests {
 
     private fun <T : Module> createProxy(
         clazz: Class<T>,
-        modules: Observable<ModuleManager?> = moduleManagerSubject,
+        modules: Observable<TealiumResult<ModuleManager>> = moduleManagerSubject,
         scheduler: Scheduler = Scheduler.SYNCHRONOUS,
     ): ModuleProxy<T> =
         ModuleProxyImpl(clazz, modules, scheduler)
+
+    private fun shutdownException() =
+        Tealium.TealiumShutdownException("Tealium Instance has been shutdown.")
 
     private fun moduleWithObservable(initialValue: Int, id: String) : ModuleWithObservable {
         val moduleSubject = Observables.stateSubject(initialValue)
