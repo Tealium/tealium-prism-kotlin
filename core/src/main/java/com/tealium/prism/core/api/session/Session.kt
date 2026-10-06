@@ -4,7 +4,7 @@ package com.tealium.prism.core.api.session
  * Model of data required to keep track of the current session.
  *
  * @param status The status of this session
- * @param sessionId Unique session id, typically the time in seconds at the time the session started
+ * @param sessionId Unique session id, typically the time in milliseconds at the time the session started
  * @param lastEventTimeMilliseconds The time in milliseconds of the latest event of this session.
  * @param eventCount The number of events that have occurred in this session
  */

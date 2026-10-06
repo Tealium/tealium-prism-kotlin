@@ -474,7 +474,7 @@ class Dispatch private constructor(
         // Session info
 
         /**
-         * A [Long] value containing the time, measured in seconds, since midnight 01-01-1970
+         * A [Long] value containing the time, measured in milliseconds, since midnight 01-01-1970
          */
         const val TEALIUM_SESSION_ID = "tealium_session_id"
 

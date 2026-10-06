@@ -36,6 +36,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import kotlin.ranges.contains
 
 class SessionManagerTests {
 
@@ -387,6 +388,41 @@ class SessionManagerTests {
         sessionManager.registerDispatch(dispatch)
 
         assertEquals(true, dispatch.payload().getBoolean(Dispatch.Keys.IS_NEW_SESSION))
+    }
+
+    @Test
+    fun registerDispatch_Creates_Session_With_Id_In_Milliseconds() {
+        val beforeMs = getTimestampMilliseconds()
+        val dispatch = Dispatch.create("event")
+
+        sessionManager = createSessionManager()
+        sessionManager.registerDispatch(dispatch)
+
+        val afterMs = getTimestampMilliseconds()
+        sessionManager.session.subscribe(observer)
+
+        verify {
+            observer.onNext(match { session ->
+                session.sessionId in beforeMs..afterMs
+            })
+        }
+        assertTrue(dispatch.payload().getLong(Dispatch.Keys.TEALIUM_SESSION_ID) in beforeMs..afterMs)
+    }
+
+    @Test
+    fun registerDispatch_Creates_Session_With_Id_From_Dispatch_Timestamp() {
+        val dispatch = Dispatch.create("event")
+
+        sessionManager = createSessionManager()
+        sessionManager.registerDispatch(dispatch)
+        sessionManager.session.subscribe(observer)
+
+        verify {
+            observer.onNext(match { session ->
+                session.sessionId == dispatch.timestamp
+            })
+        }
+        assertEquals(dispatch.timestamp, dispatch.payload().getLong(Dispatch.Keys.TEALIUM_SESSION_ID))
     }
 
     @Test

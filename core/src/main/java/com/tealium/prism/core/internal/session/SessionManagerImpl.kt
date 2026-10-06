@@ -166,7 +166,7 @@ class SessionManagerImpl(
         if (session == null || session.status == Session.Status.Ended) {
             val newSession = Session(
                 status = Session.Status.Started,
-                sessionId = newEventTimestamp.div(1000),
+                sessionId = newEventTimestamp,
                 lastEventTimeMilliseconds = newEventTimestamp,
                 eventCount = 1
             )
