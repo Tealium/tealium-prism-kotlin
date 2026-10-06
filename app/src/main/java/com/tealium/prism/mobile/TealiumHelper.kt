@@ -49,9 +49,9 @@ import com.tealium.prism.extensions.api.persistdatavalue.UpdatePolicy
 import com.tealium.prism.extensions.api.setdatavalues.SetDataValuesSettingsBuilder
 import com.tealium.prism.jstransformer.JavaScriptTransformationSettingsBuilder
 import com.tealium.prism.lifecycle.lifecycle
-import com.tealium.prism.momentsapi.MomentsApiRegion
+import com.tealium.prism.contextapi.ContextApiRegion
 import com.tealium.prism.mobile.ExampleCmpAdapter.Purposes
-import com.tealium.prism.momentsapi.momentsApi
+import com.tealium.prism.contextapi.contextApi
 
 object TealiumHelper {
 
@@ -219,7 +219,7 @@ object TealiumHelper {
             Modules.deepLink(),
             configureTrace(),
             configureLifecycle(),
-            configureMomentsApi(),
+            configureContextApi(),
             configureLoggingDispatcher("logger")
         )
     }
@@ -247,10 +247,10 @@ object TealiumHelper {
 //        }
     }
 
-    private fun configureMomentsApi(): ModuleFactory {
-        return Modules.momentsApi { settings ->
+    private fun configureContextApi(): ModuleFactory {
+        return Modules.contextApi { settings ->
             settings
-                .setRegion(MomentsApiRegion.UsEast)
+                .setRegion(ContextApiRegion.UsEast)
 //                .setReferrer("https://example.com")
         }
     }

@@ -17,7 +17,7 @@ The SDK is organized as a multi-module Gradle project. The `core` module defines
 Top-level modules (authoritative list: settings.gradle.kts):
 - `core` — tracking engine, dispatch pipeline, persistence, networking, settings
   - `core:core-ktx` — Kotlin extensions for core
-- `momentsapi` — Moments API integration
+- `contextapi` — Context API integration
 - `jstransformer` — JavaScript evaluation for transformations
   - `jstransformer:jstransformer-rhino` — Rhino engine adapter
 - `lifecycle` — app lifecycle tracking

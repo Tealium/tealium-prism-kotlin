@@ -29,7 +29,7 @@ Then add your required tealium-prism dependencies
 implementation(platform("com.tealium.prism:prism-bom:0.6.0"))
 implementation("com.tealium.prism:prism-core")
 implementation("com.tealium.prism:prism-lifecycle")
-implementation("com.tealium.prism:prism-moments-api") 
+implementation("com.tealium.prism:prism-context-api") 
 ```
 
 And re-sync your Gradle projects

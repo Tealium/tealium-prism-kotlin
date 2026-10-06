@@ -1,0 +1,45 @@
+plugins {
+    alias(libs.plugins.tealium.library)
+}
+
+version = "0.2.1"
+
+tealiumLibrary {
+    groupId = "com.tealium.prism"
+    artifactId = "prism-context-api"
+}
+
+android {
+    namespace = "com.tealium.prism.contextapi"
+
+    defaultConfig {
+        buildConfigField ("String", "TEALIUM_LIBRARY_VERSION", "\"$version\"")
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles.add(file("consumer-rules.pro"))
+    }
+
+    packagingOptions {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            merges += "META-INF/LICENSE.md"
+            merges += "META-INF/LICENSE-notice.md"
+        }
+    }
+}
+
+dependencies {
+
+    implementation(project(":core"))
+
+    testImplementation(libs.test.androidx.core)
+    testImplementation(libs.test.junit)
+    testImplementation(libs.test.robolectric)
+    testImplementation(libs.test.mockk.jvm)
+    testImplementation(project(":tests-common"))
+
+    androidTestImplementation(libs.test.androidx.junit)
+    androidTestImplementation(libs.test.androidx.runner)
+    androidTestImplementation(project(":core"))
+    androidTestImplementation(project(":tests-common"))
+}

@@ -55,7 +55,7 @@ dependencies {
     implementation(libs.app.material)
     implementation(project (":core"))
     implementation(project (":lifecycle"))
-    implementation(project (":momentsapi"))
+    implementation(project (":contextapi"))
     implementation(project (":extensions"))
     implementation(project (":jstransformer"))
     implementation(project (":jstransformer:jstransformer-rhino"))
