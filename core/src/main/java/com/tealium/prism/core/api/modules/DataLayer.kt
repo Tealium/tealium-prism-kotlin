@@ -39,25 +39,25 @@ interface DataLayer {
     fun transactionally(block: Callback<DataStore.Editor>): Single<TealiumResult<Unit>>
 
     /**
-     * Attempts to update all key-value pairs from the [data] and inserts them into the [DataStore].
+     * Attempts to update all key-value pairs from the [dataObject] and inserts them into the [DataStore].
      *
      * The data will be expired according to the given [Expiry]
      *
-     * @param data The [DataObject] containing multiple items to be stored.
+     * @param dataObject The [DataObject] containing multiple items to be stored.
      * @param expiry The expiration policy for these [DataItem]s
      * @return A Single which can be used to subscribe a block of code to receive any errors that occur
      */
-    fun put(data: DataObject, expiry: Expiry): Single<TealiumResult<Unit>>
+    fun putAll(dataObject: DataObject, expiry: Expiry): Single<TealiumResult<Unit>>
 
     /**
-     * Attempts to update all key-value pairs from the [data] and inserts them into the [DataStore].
+     * Attempts to update all key-value pairs from the [dataObject] and inserts them into the [DataStore].
      *
      * The data will be expired according to the default [Expiry]
      *
-     * @param data The [DataObject] containing multiple items to be stored.
+     * @param dataObject The [DataObject] containing multiple items to be stored.
      * @return A Single which can be used to subscribe a block of code to receive any errors that occur
      */
-    fun put(data: DataObject): Single<TealiumResult<Unit>>
+    fun putAll(dataObject: DataObject): Single<TealiumResult<Unit>>
 
     /**
      * Puts a single key-value pair into the [DataStore]

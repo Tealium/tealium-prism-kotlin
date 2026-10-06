@@ -29,16 +29,16 @@ class DataLayerWrapper(
             Unit
         }
 
-    override fun put(data: DataObject) =
-        putAllInternal(data, null)
+    override fun putAll(dataObject: DataObject) =
+        putAllInternal(dataObject, null)
 
-    override fun put(data: DataObject, expiry: Expiry) =
-        putAllInternal(data, expiry)
+    override fun putAll(dataObject: DataObject, expiry: Expiry) =
+        putAllInternal(dataObject, expiry)
 
-    private fun putAllInternal(data: DataObject, expiry: Expiry?) =
+    private fun putAllInternal(dataObject: DataObject, expiry: Expiry?) =
         moduleProxy.executeModuleTask { dataLayer ->
             dataLayer.dataStore.edit()
-                .putAll(data, expiry ?: dataLayer.defaultExpiry)
+                .putAll(dataObject, expiry ?: dataLayer.defaultExpiry)
                 .commit()
         }
 
