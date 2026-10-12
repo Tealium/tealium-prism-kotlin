@@ -12,5 +12,5 @@ object LogCategory {
     const val SETTINGS_MANAGER = "SettingsManager"
     const val TEALIUM = "Tealium"
     const val TRANSFORMATIONS = "Transformations"
-    const val VISITOR_ID_PROVIDER = "VisitorIdProvider"
+    const val VISITOR_ID = "VisitorId"
 }

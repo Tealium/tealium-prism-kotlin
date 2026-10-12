@@ -26,7 +26,6 @@ import com.tealium.prism.core.api.transform.TransformerRegistrar
  * @property context The Android [Context]
  * @property config The [TealiumConfig] used to initialize the Tealium SDK instance
  * @property logger The [Logger] used by this [Tealium] instance
- * @property visitorId An observable with which to subscribe to changes in visitor id.
  * @property storageProvider A utility that can be used to fetch a [Module]'s [DataStore]
  * @property network A utility class for easily making asynchronous network requests
  * @property coreSettings An observable to subscribing to changes to the [CoreSettings]
@@ -43,7 +42,6 @@ class TealiumContext private constructor(
     val context: Context,
     val config: TealiumConfig,
     val logger: Logger,
-    val visitorId: ObservableState<String>,
     val storageProvider: ModuleStoreProvider,
     val network: NetworkUtilities,
     val coreSettings: ObservableState<CoreSettings>,
@@ -70,7 +68,6 @@ class TealiumContext private constructor(
             context: Context,
             config: TealiumConfig,
             logger: Logger,
-            visitorId: ObservableState<String>,
             storageProvider: ModuleStoreProvider,
             network: NetworkUtilities,
             coreSettings: ObservableState<CoreSettings>,
@@ -89,7 +86,6 @@ class TealiumContext private constructor(
                 context = context,
                 config = config,
                 logger = logger,
-                visitorId = visitorId,
                 storageProvider = storageProvider,
                 network = network,
                 coreSettings = coreSettings,

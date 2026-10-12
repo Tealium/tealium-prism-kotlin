@@ -26,6 +26,11 @@ abstract class DokkaLibraryPlugin : Plugin<Project> {
             
             dokkaSourceSets.named("main") {
                 includes.from("Module.md", "Packages.md")
+                // Feature guides are any other *.md next to Module.md; each must start with "# Module <name>"
+                includes.from(fileTree(projectDir) {
+                    include("*.md")
+                    exclude("Module.md", "Packages.md", "README.md", "CHANGELOG.md")
+                })
                 // source link currently not functioning as expected for Android projects
                 sourceLink {
                     localDirectory.set(file("src/main/java"))

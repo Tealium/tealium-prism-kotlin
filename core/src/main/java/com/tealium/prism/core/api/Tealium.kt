@@ -10,6 +10,7 @@ import com.tealium.prism.core.api.modules.DeepLinkHandler
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleProxy
 import com.tealium.prism.core.api.modules.Trace
+import com.tealium.prism.core.api.modules.VisitorIdManager
 import com.tealium.prism.core.api.pubsub.Single
 import com.tealium.prism.core.api.pubsub.SingleResult
 import com.tealium.prism.core.api.tracking.DispatchType
@@ -55,6 +56,9 @@ interface Tealium {
      * on the Tealium thread.
      */
     val dataLayer: DataLayer
+
+    /** Visitor ID operations and Visitor Switching state. See [VisitorIdManager]. */
+    val visitorId: VisitorIdManager
 
     /**
      * Executes the provided [callback] when [Tealium] is ready for use, from the [Tealium] internal thread.
@@ -123,23 +127,6 @@ interface Tealium {
      *      The returned [Single], in case of success, completes when the flush request is accepted, not when all the events have been flushed.
      */
     fun flushEventQueue(): SingleResult<Unit>
-
-    /**
-     * Resets the current visitor id to a new anonymous one.
-     *
-     * Note. the new anonymous id will be associated to any identity currently set.
-     *
-     * @return A [SingleResult] which can be subscribed to to get the new `visitorId`, if successful, or an error
-     */
-    fun resetVisitorId(): SingleResult<String>
-
-    /**
-     * Removes all stored visitor identifiers as hashed identities, and generates a new
-     * anonymous visitor id.
-     *
-     * @return A [SingleResult] which can be subscribed to to get the new `visitorId`, if successful, or an error
-     */
-    fun clearStoredVisitorIds(): SingleResult<String>
 
     /**
      * Shuts this instance of [Tealium] down and frees up all memory usage.

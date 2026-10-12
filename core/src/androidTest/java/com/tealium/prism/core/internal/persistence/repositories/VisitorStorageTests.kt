@@ -2,11 +2,15 @@ package com.tealium.prism.core.internal.persistence.repositories
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.tealium.prism.core.api.data.DataItem
+import com.tealium.prism.core.api.persistence.DataStore
+import com.tealium.prism.core.api.persistence.Expiry
 import com.tealium.prism.core.internal.persistence.database.DatabaseProvider
 import com.tealium.prism.core.internal.persistence.ModuleStoreProviderImpl
 import com.tealium.prism.core.internal.persistence.database.InMemoryDatabaseProvider
 import com.tealium.prism.core.internal.persistence.stores.VisitorStorage
 import com.tealium.prism.core.internal.persistence.stores.VisitorStorageImpl
+import com.tealium.prism.core.internal.utils.sha256
 import com.tealium.tests.common.getDefaultConfig
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -19,6 +23,7 @@ class VisitorStorageTests {
     private val context: Application = ApplicationProvider.getApplicationContext() as Application
     private val config = getDefaultConfig(context)
 
+    private lateinit var dataStore: DataStore
     private lateinit var visitorStorage: VisitorStorage
     private lateinit var dbProvider: DatabaseProvider
 
@@ -27,7 +32,7 @@ class VisitorStorageTests {
         dbProvider = InMemoryDatabaseProvider(config)
         val modulesRepository = SQLModulesRepository(dbProvider)
         val moduleStoreProvider = ModuleStoreProviderImpl(dbProvider, modulesRepository)
-        val dataStore = moduleStoreProvider.getSharedDataStore()
+        dataStore = moduleStoreProvider.getSharedDataStore()
 
         visitorStorage = VisitorStorageImpl(dataStore)
     }
@@ -43,8 +48,8 @@ class VisitorStorageTests {
     }
 
     @Test
-    fun currentIdentity_Returns_Null_When_No_Entry() {
-        assertNull(visitorStorage.currentIdentity)
+    fun ownerIdentity_Returns_Null_When_No_Entry() {
+        assertNull(visitorStorage.ownerIdentity)
     }
 
     @Test
@@ -55,10 +60,10 @@ class VisitorStorageTests {
     }
 
     @Test
-    fun currentIdentity_Returns_NewIdentity_After_ChangingVisitor() {
+    fun ownerIdentity_Returns_NewIdentity_After_ChangingVisitor() {
         visitorStorage.changeVisitor("visitor", "identity")
 
-        assertEquals("identity", visitorStorage.currentIdentity)
+        assertEquals("identity", visitorStorage.ownerIdentity)
     }
 
     @Test
@@ -78,16 +83,16 @@ class VisitorStorageTests {
     }
 
     @Test
-    fun changeVisitor_Replaces_Only_VisitorId_And_Associates_With_CurrentIdentity() {
+    fun changeVisitor_Replaces_Only_VisitorId_And_Associates_With_OwnerIdentity() {
         visitorStorage.changeVisitor("visitor", "identity")
         visitorStorage.changeVisitor("new_visitor")
 
         assertEquals("new_visitor", visitorStorage.visitorId)
-        assertEquals("identity", visitorStorage.currentIdentity)
+        assertEquals("identity", visitorStorage.ownerIdentity)
     }
 
     @Test
-    fun changeVisitor_Replaces_Only_VisitorId_And_Associates_OnlyLatest_With_CurrentIdentity() {
+    fun changeVisitor_Replaces_Only_VisitorId_And_Associates_OnlyLatest_With_OwnerIdentity() {
         visitorStorage.changeVisitor("visitor", "identity")
         visitorStorage.changeVisitor("new_visitor")
 
@@ -98,11 +103,11 @@ class VisitorStorageTests {
     fun changeVisitor_Replaces_Both_VisitorId_And_Identity() {
         visitorStorage.changeVisitor("visitor", "identity")
         assertEquals("visitor", visitorStorage.visitorId)
-        assertEquals("identity", visitorStorage.currentIdentity)
+        assertEquals("identity", visitorStorage.ownerIdentity)
 
         visitorStorage.changeVisitor("new_visitor", "new_identity")
         assertEquals("new_visitor", visitorStorage.visitorId)
-        assertEquals("new_identity", visitorStorage.currentIdentity)
+        assertEquals("new_identity", visitorStorage.ownerIdentity)
     }
 
     @Test
@@ -110,7 +115,7 @@ class VisitorStorageTests {
         visitorStorage.changeVisitor("visitor", "identity")
         visitorStorage.changeIdentity("new_identity")
         assertEquals("visitor", visitorStorage.visitorId)
-        assertEquals("new_identity", visitorStorage.currentIdentity)
+        assertEquals("new_identity", visitorStorage.ownerIdentity)
     }
 
     @Test
@@ -121,8 +126,59 @@ class VisitorStorageTests {
         visitorStorage.clear("reset_visitor")
 
         assertEquals("reset_visitor", visitorStorage.visitorId)
-        assertNull(visitorStorage.currentIdentity)
+        assertNull(visitorStorage.ownerIdentity)
         assertNull(visitorStorage.getKnownVisitorId("identity"))
         assertNull(visitorStorage.getKnownVisitorId("new_identity"))
+    }
+
+    @Test
+    fun getKnownVisitorId_Returns_VisitorId_Stored_Under_Prefixed_Hashed_Identity_Key() {
+        val hashedIdentity = "identity".sha256()
+
+        visitorStorage.changeVisitor("visitor", hashedIdentity)
+
+        assertEquals(
+            "visitor",
+            dataStore.getString(VisitorStorageImpl.IDENTITY_KEY_PREFIX + hashedIdentity)
+        )
+        assertNull(dataStore.getString(hashedIdentity))
+        assertEquals("visitor", visitorStorage.getKnownVisitorId(hashedIdentity))
+    }
+
+    @Test
+    fun visitorId_Is_Stored_Under_Visitor_Id_Key() {
+        visitorStorage.changeVisitor("visitor")
+
+        assertEquals("visitor", dataStore.getString(VisitorStorageImpl.KEY_VISITOR_ID))
+    }
+
+    @Test
+    fun clear_Leaves_Unrelated_Entries_Intact() {
+        dataStore.edit()
+            .put("unrelated", DataItem.string("value"), Expiry.FOREVER)
+            .commit()
+        visitorStorage.changeVisitor("visitor", "identity".sha256())
+
+        visitorStorage.clear("reset_visitor")
+
+        assertEquals("value", dataStore.getString("unrelated"))
+        assertEquals("reset_visitor", visitorStorage.visitorId)
+        assertNull(visitorStorage.ownerIdentity)
+        assertNull(visitorStorage.getKnownVisitorId("identity".sha256()))
+    }
+
+    @Test
+    fun getKnownVisitorId_Round_Trips_Dotted_Identity_Key_Through_Reopened_Store() {
+        val dottedIdentity = "first.last@example.com"
+        visitorStorage.changeVisitor("visitor", dottedIdentity)
+
+        // a new store over the same database, so values are read back from their stored rows
+        val reopenedStore = ModuleStoreProviderImpl(dbProvider, SQLModulesRepository(dbProvider))
+            .getSharedDataStore()
+        val reopenedStorage = VisitorStorageImpl(reopenedStore)
+
+        assertEquals("visitor", reopenedStorage.getKnownVisitorId(dottedIdentity))
+        assertEquals(dottedIdentity, reopenedStorage.ownerIdentity)
+        assertEquals("visitor", reopenedStorage.visitorId)
     }
 }

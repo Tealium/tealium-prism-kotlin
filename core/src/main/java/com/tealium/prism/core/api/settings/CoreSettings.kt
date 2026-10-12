@@ -39,13 +39,6 @@ interface CoreSettings {
     val refreshInterval: TimeFrame
 
     /**
-     * The key to look for in the data layer when identifying a user.
-     *
-     * This setting is used to automatically control when the Tealium Visitor Id is updated.
-     */
-    val visitorIdentityKey: String?
-
-    /**
      * The length of time of inactivity before a session should be considered expired, and a new one
      * started.
      */

@@ -70,18 +70,6 @@ class CoreSettingsBuilder {
     }
 
     /**
-     * Sets the visitor identity key to monitor from the [DataLayer]. Changes to the value found at
-     * this [key] signify that the visitor has changed and will trigger visitor id switching.
-     *
-     * There is no default for this value
-     *
-     * @param key the [key] to monitor for changes in the [DataLayer]
-     */
-    fun setVisitorIdentityKey(key: String) = apply {
-        builder.put(CoreSettingsImpl.KEY_VISITOR_IDENTITY_KEY, key)
-    }
-
-    /**
      * Sets the session length. Sessions are extended upon each tracked event, so this [sessionTimeout]
      * is the time of inactivity that needs to pass before a session is considered ended.
      *

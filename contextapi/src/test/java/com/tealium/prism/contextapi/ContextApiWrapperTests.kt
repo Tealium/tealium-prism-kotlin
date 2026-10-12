@@ -1,5 +1,6 @@
 package com.tealium.prism.contextapi
 
+import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.Tealium
 import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
@@ -7,7 +8,10 @@ import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleManager
 import com.tealium.prism.core.api.modules.ModuleNotEnabledException
 import com.tealium.prism.core.api.modules.ModuleProxy
+import com.tealium.prism.core.api.modules.ModuleShutdownException
+import com.tealium.prism.core.api.modules.VisitorIdProvider
 import com.tealium.prism.core.api.network.NetworkException
+import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.pubsub.Subject
@@ -17,7 +21,9 @@ import com.tealium.prism.core.internal.misc.SynchronousScheduler
 import com.tealium.prism.core.internal.modules.ModuleManagerImpl
 import com.tealium.prism.core.internal.modules.ModuleProxyImpl
 import com.tealium.prism.contextapi.internal.ContextApiModule
+import com.tealium.prism.contextapi.internal.ContextApiService
 import com.tealium.prism.contextapi.internal.ContextApiWrapper
+import com.tealium.tests.common.SystemLogger
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
@@ -354,4 +360,79 @@ class ContextApiWrapperTests {
         verify(exactly = 1) { completion.onComplete(engineResponse) }
     }
 
+    @Test
+    fun fetchEngineResponse_Reports_ModuleNotEnabled_When_VisitorId_Module_Disabled() {
+        val service = mockk<ContextApiService>(relaxed = true)
+        // the manager holds the Context API module but no VisitorIdProvider; it is seeded with a
+        // placeholder so that it counts as ready without a settings pass
+        val realModules = Observables.stateSubject(listOf(mockk<Module>(relaxed = true)))
+        val realModuleManager = ModuleManagerImpl(scheduler, realModules)
+        realModules.onNext(listOf(ContextApiModule(realModuleManager, SystemLogger, service)))
+        val wrapper = createWrapper(realModuleManager)
+
+        val completion = mockk<Callback<Exception>>(relaxed = true)
+        wrapper.fetchEngineResponse("engine-id").onFailure(completion)
+
+        verify(exactly = 1) {
+            completion.onComplete(match {
+                it is ModuleNotEnabledException && it.message!!.contains(Modules.Types.VISITOR_ID)
+            })
+        }
+        verify(inverse = true) { service.fetchEngineResponse(any(), any(), any()) }
+    }
+
+    @Test
+    fun fetchEngineResponse_Reports_ModuleShutdown_When_Module_Shut_Down_While_Pending() {
+        val service = mockk<ContextApiService>(relaxed = true)
+        // the VisitorIdProvider lookup is withheld, as if a settings pass was still running
+        val loadingModuleManager = mockk<ModuleManager>()
+        every {
+            loadingModuleManager.getModuleOfType(VisitorIdProvider::class.java, any())
+        } returns Disposables.subscription()
+        val module = ContextApiModule(loadingModuleManager, SystemLogger, service)
+        val realModuleManager = ModuleManagerImpl(scheduler, Observables.stateSubject(listOf(module)))
+        val wrapper = createWrapper(realModuleManager)
+
+        val completion = mockk<Callback<Exception>>(relaxed = true)
+        wrapper.fetchEngineResponse("engine-id").onFailure(completion)
+        verify(inverse = true) { completion.onComplete(any()) }
+
+        module.onShutdown()
+
+        verify(exactly = 1) { completion.onComplete(match { it is ModuleShutdownException }) }
+        verify(inverse = true) { service.fetchEngineResponse(any(), any(), any()) }
+    }
+
+    @Test
+    fun fetchEngineResponse_Reports_ModuleShutdown_When_Shut_Down_While_Network_Call_In_Flight() {
+        val service = mockk<ContextApiService>(relaxed = true)
+        // the network call is withheld, as if the response had not arrived yet
+        every { service.fetchEngineResponse(any(), any(), any()) } returns Disposables.subscription()
+        val visitorIdProvider = mockk<VisitorIdProvider>(relaxed = true)
+        every { visitorIdProvider.visitorId } returns Observables.stateSubject("test-visitor-id")
+        // the manager is seeded with a placeholder so that it counts as ready without a settings pass
+        val realModules = Observables.stateSubject(listOf(mockk<Module>(relaxed = true)))
+        val realModuleManager = ModuleManagerImpl(scheduler, realModules)
+        val module = ContextApiModule(realModuleManager, SystemLogger, service)
+        realModules.onNext(listOf(module, visitorIdProvider))
+        val wrapper = createWrapper(realModuleManager)
+
+        val completion = mockk<Callback<Exception>>(relaxed = true)
+        wrapper.fetchEngineResponse("engine-id").onFailure(completion)
+        verify(exactly = 1) { service.fetchEngineResponse("engine-id", "test-visitor-id", any()) }
+        verify(inverse = true) { completion.onComplete(any()) }
+
+        module.onShutdown()
+
+        verify(exactly = 1) { completion.onComplete(match { it is ModuleShutdownException }) }
+    }
+
+    private fun createWrapper(moduleManager: ModuleManager): ContextApiWrapper =
+        ContextApiWrapper(
+            ModuleProxyImpl(
+                ContextApiModule::class.java,
+                Observables.stateSubject(TealiumResult.success(moduleManager)),
+                scheduler
+            )
+        )
 }

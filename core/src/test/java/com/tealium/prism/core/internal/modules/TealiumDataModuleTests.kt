@@ -30,7 +30,6 @@ class TealiumDataModuleTests {
     private lateinit var tealiumDataModule: TealiumDataModule
 
     private val dispatchContext = mockk<DispatchContext>(relaxed = true)
-    private val visitorId: StateSubject<String> = Observables.stateSubject("visitor-123")
     private val modules: StateSubject<List<Module>> = Observables.stateSubject(listOf())
 
     @Before
@@ -42,13 +41,12 @@ class TealiumDataModuleTests {
             .build()
 
         every { mockContext.config } returns config
-        every { mockContext.visitorId } returns visitorId
         every { mockContext.unsafeModules } returns modules
     }
 
     @Test
     fun collect_Includes_Account_Name_From_Config() {
-        tealiumDataModule = TealiumDataModule(config, visitorId, modules)
+        tealiumDataModule = TealiumDataModule(config, modules)
 
         val result = tealiumDataModule.collect(dispatchContext)
 
@@ -57,7 +55,7 @@ class TealiumDataModuleTests {
 
     @Test
     fun collect_Includes_Profile_Name_From_Config() {
-        tealiumDataModule = TealiumDataModule(config, visitorId, modules)
+        tealiumDataModule = TealiumDataModule(config, modules)
 
         val result = tealiumDataModule.collect(dispatchContext)
 
@@ -66,7 +64,7 @@ class TealiumDataModuleTests {
 
     @Test
     fun collect_Includes_Environment_From_Config() {
-        tealiumDataModule = TealiumDataModule(config, visitorId, modules)
+        tealiumDataModule = TealiumDataModule(config, modules)
 
         val result = tealiumDataModule.collect(dispatchContext)
 
@@ -75,7 +73,7 @@ class TealiumDataModuleTests {
 
     @Test
     fun collect_Includes_DataSource_From_Config_When_Configured() {
-        tealiumDataModule = TealiumDataModule(config, visitorId, modules)
+        tealiumDataModule = TealiumDataModule(config, modules)
 
         val result = tealiumDataModule.collect(dispatchContext)
 
@@ -85,7 +83,7 @@ class TealiumDataModuleTests {
     @Test
     fun collect_Does_Not_Include_DataSource_When_Not_Configured() {
         val config = getDefaultConfig(mockk())
-        tealiumDataModule = TealiumDataModule(config, visitorId, modules)
+        tealiumDataModule = TealiumDataModule(config, modules)
 
         val result = tealiumDataModule.collect(dispatchContext)
 
@@ -94,7 +92,7 @@ class TealiumDataModuleTests {
 
     @Test
     fun collect_Includes_Library_Build_Name_And_Version() {
-        tealiumDataModule = TealiumDataModule(config, visitorId, modules)
+        tealiumDataModule = TealiumDataModule(config, modules)
 
         val result = tealiumDataModule.collect(dispatchContext)
 
@@ -103,21 +101,8 @@ class TealiumDataModuleTests {
     }
 
     @Test
-    fun collect_Includes_Current_Visitor_Id() {
-        tealiumDataModule = TealiumDataModule(config, visitorId, modules)
-
-        visitorId.onNext("visitor1")
-        val result1 = tealiumDataModule.collect(dispatchContext)
-        visitorId.onNext("visitor2")
-        val result2 = tealiumDataModule.collect(dispatchContext)
-
-        assertEquals("visitor1", result1.getString(Dispatch.Keys.TEALIUM_VISITOR_ID))
-        assertEquals("visitor2", result2.getString(Dispatch.Keys.TEALIUM_VISITOR_ID))
-    }
-
-    @Test
     fun collect_Includes_New_Random_Value_On_Each_Collection() {
-        tealiumDataModule = TealiumDataModule(config, visitorId, modules)
+        tealiumDataModule = TealiumDataModule(config, modules)
 
         val result1 = tealiumDataModule.collect(dispatchContext).getString(Dispatch.Keys.TEALIUM_RANDOM)!!
         val result2 = tealiumDataModule.collect(dispatchContext).getString(Dispatch.Keys.TEALIUM_RANDOM)!!
@@ -135,7 +120,7 @@ class TealiumDataModuleTests {
         val mockModule1 = TestModule("module1", "1.0.0")
         val mockModule2 = TestModule("module2", "2.0.0")
         modules.onNext(listOf(mockModule1, mockModule2))
-        tealiumDataModule = TealiumDataModule(config, visitorId, modules)
+        tealiumDataModule = TealiumDataModule(config, modules)
 
         val result = tealiumDataModule.collect(dispatchContext)
 
@@ -152,7 +137,7 @@ class TealiumDataModuleTests {
 
     @Test
     fun collect_Includes_Empty_Module_Lists_When_No_Modules_Present() {
-        tealiumDataModule = TealiumDataModule(config, visitorId, modules)
+        tealiumDataModule = TealiumDataModule(config, modules)
 
         val result = tealiumDataModule.collect(dispatchContext)
 
@@ -165,7 +150,7 @@ class TealiumDataModuleTests {
 
     @Test
     fun collect_Returns_New_DataObject_Instance_When_Called_Multiple_Times() {
-        tealiumDataModule = TealiumDataModule(config, visitorId, modules)
+        tealiumDataModule = TealiumDataModule(config, modules)
 
         val result1 = tealiumDataModule.collect(dispatchContext)
         val result2 = tealiumDataModule.collect(dispatchContext)

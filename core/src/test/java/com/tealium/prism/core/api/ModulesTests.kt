@@ -3,9 +3,13 @@ package com.tealium.prism.core.api
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.settings.modules.CollectSettingsBuilder
 import com.tealium.prism.core.api.settings.modules.ConnectivityDataSettingsBuilder
+import com.tealium.prism.core.api.settings.modules.VisitorIdSettingsBuilder
 import com.tealium.prism.core.internal.modules.ConnectivityDataModule
 import com.tealium.prism.core.internal.modules.collect.CollectModule
+import com.tealium.prism.core.internal.modules.visitorid.VisitorIdModule
+import com.tealium.prism.core.internal.settings.ModuleSettings
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -74,5 +78,30 @@ class ModulesTests {
         val factorySettings = connectivityDataFactory.getEnforcedSettings().first()
         assertNotNull(factorySettings)
         assertEquals(ConnectivityDataSettingsBuilder().build(), factorySettings)
+    }
+
+    @Test
+    fun visitorId_Returns_Factory_With_Default_Enforced_Settings_When_No_Block() {
+        val visitorIdFactory = Modules.visitorId()
+
+        assertTrue(visitorIdFactory is VisitorIdModule.Factory)
+        assertEquals(listOf(VisitorIdSettingsBuilder().build()), visitorIdFactory.getEnforcedSettings())
+    }
+
+    @Test
+    fun visitorId_Returns_Factory_With_Disabled_Enforced_Settings_When_SetEnabled_False() {
+        val visitorIdFactory = Modules.visitorId { it.setEnabled(false) }
+
+        assertTrue(visitorIdFactory is VisitorIdModule.Factory)
+        val factorySettings = visitorIdFactory.getEnforcedSettings().single()
+        assertFalse(factorySettings.getBoolean(ModuleSettings.KEY_ENABLED)!!)
+    }
+
+    @Test
+    fun visitorId_Returns_Factory_Without_Enforced_Settings_When_Null() {
+        val visitorIdFactory = Modules.visitorId(null)
+
+        assertTrue(visitorIdFactory is VisitorIdModule.Factory)
+        assertEquals(emptyList<DataObject>(), visitorIdFactory.getEnforcedSettings())
     }
 }

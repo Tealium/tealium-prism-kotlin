@@ -4,6 +4,9 @@ import com.tealium.prism.core.api.Tealium
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
+import com.tealium.prism.core.api.modules.ModuleNotEnabledException
+import com.tealium.prism.core.api.modules.ModuleShutdownException
+import com.tealium.prism.core.api.network.NetworkException
 import com.tealium.prism.core.api.pubsub.Single
 import com.tealium.prism.contextapi.internal.ContextApiModule
 import com.tealium.prism.contextapi.internal.ContextApiWrapper
@@ -13,10 +16,21 @@ import com.tealium.prism.contextapi.internal.ContextApiWrapper
  */
 interface ContextApi {
     /**
-     * Fetches visitor data from a configured ContextApi Engine.
+     * Fetches visitor data from a configured Context API engine, for the current visitor id.
      *
-     * @param engineId The ID of the ContextApi engine to fetch data from
-     * @return Single containing either a successful [EngineResponse] or an Exception
+     * The result is a failure carrying:
+     *  - [ModuleNotEnabledException] when the Context API module is not enabled, or when the
+     *    VisitorId module is disabled, as fetching requires the visitor id
+     *  - [ModuleShutdownException] when the Context API module is shut down before the request
+     *    completes
+     *  - [Tealium.TealiumShutdownException], or the initialization failure, when the [Tealium]
+     *    instance was shut down or failed to initialize
+     *  - otherwise, the exception that stopped the request, such as a [NetworkException] or a
+     *    [ContextApiConfigurationException]
+     *
+     *  @param engineId The ID of the Context API engine to fetch data from; must not be empty, or
+     *   the result is a failure carrying an [IllegalArgumentException]
+     *  @return A [Single] that completes with the [EngineResponse], or with one of the failures above
      */
     fun fetchEngineResponse(engineId: String): Single<TealiumResult<EngineResponse>>
 

@@ -14,7 +14,6 @@ data class CoreSettingsImpl(
     override val maxQueueSize: Int = DEFAULT_MAX_QUEUE_SIZE,
     override val expiration: TimeFrame = DEFAULT_EXPIRATION_DAYS.days,
     override val refreshInterval: TimeFrame = DEFAULT_REFRESH_INTERVAL_MINUTES.minutes,
-    override val visitorIdentityKey: String? = null,
     override val sessionTimeout: TimeFrame = SessionManagerImpl.DEFAULT_SESSION_TIMEOUT
 ) : CoreSettings {
 
@@ -24,7 +23,6 @@ data class CoreSettingsImpl(
         const val KEY_MAX_QUEUE_SIZE = "max_queue_size"
         const val KEY_EXPIRATION = "expiration"
         const val KEY_REFRESH_INTERVAL = "refresh_interval"
-        const val KEY_VISITOR_IDENTITY_KEY = "visitor_identity_key"
         const val KEY_SESSION_TIMEOUT = "session_timeout"
 
         val DEFAULT_LOG_LEVEL = LogLevel.ERROR
@@ -33,7 +31,6 @@ data class CoreSettingsImpl(
         const val DEFAULT_REFRESH_INTERVAL_MINUTES = 15
 
         fun fromDataObject(settings: DataObject): CoreSettingsImpl {
-            val visitorIdentityKey = settings.getString(KEY_VISITOR_IDENTITY_KEY)
             val logs = settings.get(KEY_LOG_LEVEL, LogLevel.Converter)
                 ?: DEFAULT_LOG_LEVEL
             val maxQueueSize = settings.getInt(KEY_MAX_QUEUE_SIZE)
@@ -49,7 +46,6 @@ data class CoreSettingsImpl(
                 maxQueueSize = maxQueueSize,
                 expiration = expiration,
                 refreshInterval = interval,
-                visitorIdentityKey = visitorIdentityKey,
                 sessionTimeout = sessionTimeout
             )
         }

@@ -573,6 +573,27 @@ class CollectModuleTests {
     }
 
     @Test
+    fun dispatch_Sends_Batch_When_Visitor_Id_Is_Absent() {
+        collectModule = createCollectDispatcher()
+        val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
+
+        val dispatch1 = createTestDispatch("test", visitorId = null)
+        val dispatch2 = createTestDispatch("test2", visitorId = null)
+
+        collectModule.dispatch(listOf(dispatch1, dispatch2), observer)
+
+        verify(timeout = 1000) {
+            networkClient.sendRequest(matchRequest { request ->
+                val body = request.bodyAsDataObject()
+                request.url == defaultConfiguration.batchUrl
+                        && body.getDataObject(CollectModule.KEY_SHARED)!!
+                    .get(Dispatch.Keys.TEALIUM_VISITOR_ID) == null
+                        && body.getDataList(CollectModule.KEY_EVENTS)!!.size == 2
+            }, any())
+        }
+    }
+
+    @Test
     fun updateConfiguration_UpdatesIndividualUrl() {
         collectModule = createCollectDispatcher()
         val observer: (List<Dispatch>) -> Unit = mockk(relaxed = true)
@@ -735,13 +756,13 @@ class CollectModuleTests {
      */
     private fun createTestDispatch(
         name: String,
-        visitorId: String = "visitor",
+        visitorId: String? = "visitor",
         profile: String = "default",
         data: DataObject = DataObject.EMPTY_OBJECT
     ): Dispatch {
         return Dispatch.create(name, dataObject = DataObject.create {
             put(Dispatch.Keys.TEALIUM_PROFILE, profile)
-            put(Dispatch.Keys.TEALIUM_VISITOR_ID, visitorId)
+            visitorId?.let { put(Dispatch.Keys.TEALIUM_VISITOR_ID, it) }
             putAll(data)
         })
     }

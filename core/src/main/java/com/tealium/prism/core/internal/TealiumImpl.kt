@@ -51,10 +51,7 @@ import com.tealium.prism.core.internal.network.ConnectivityInterceptor
 import com.tealium.prism.core.internal.network.ConnectivityRetriever
 import com.tealium.prism.core.internal.network.HttpClient
 import com.tealium.prism.core.internal.network.NetworkHelperImpl
-import com.tealium.prism.core.internal.persistence.IdentityUpdatedObserver.subscribeIdentityUpdates
 import com.tealium.prism.core.internal.persistence.ModuleStoreProviderImpl
-import com.tealium.prism.core.internal.persistence.VisitorIdProvider
-import com.tealium.prism.core.internal.persistence.VisitorIdProviderImpl
 import com.tealium.prism.core.internal.persistence.database.DatabaseProvider
 import com.tealium.prism.core.internal.persistence.database.FileDatabaseProvider
 import com.tealium.prism.core.internal.persistence.repositories.ModulesRepository
@@ -94,7 +91,6 @@ class TealiumImpl(
     internal val queueManager: QueueManager
     private val tracker: TrackerImpl
     private val connectivityRetriever: ConnectivityRetriever
-    private val visitorIdProvider: VisitorIdProvider
     private val onModulesReady: ReplaySubject<Unit> = Observables.replaySubject(1)
     private val activityManager: ActivityManager = subscribeActivityManager(activityManager)
     private val sessionManager: SessionManagerImpl
@@ -206,16 +202,12 @@ class TealiumImpl(
             logger
         )
 
-        visitorIdProvider =
-            VisitorIdProviderImpl(config, sharedDataStore, logger)
-
         val dataLayerDataStore = storage.getModuleStore(Modules.Types.DATA_LAYER)
         val tealiumContext =
             TealiumContext.create(
                 config.application,
                 config,
                 logger = logger,
-                visitorId = visitorIdProvider.visitorId,
                 storageProvider = storage,
                 network = networkUtilities,
                 coreSettings = coreSettings,
@@ -233,12 +225,6 @@ class TealiumImpl(
 
         try {
             // handle all subscriptions so that errors thrown can appropriately be disposed/shutdown
-            subscribeIdentityUpdates(
-                coreSettings,
-                dataLayerDataStore,
-                visitorIdProvider,
-            ).addTo(disposables)
-
             connectivityRetriever.subscribe()
             // TODO - ModulesFactory's are now deduped in [TealiumConfig] - can inject these directly into ModuleManager instead
             loadModuleFactories(config.modules, moduleManager, logger)
@@ -316,12 +302,6 @@ class TealiumImpl(
     fun flushEventQueue() {
         barrierCoordinator.flush()
     }
-
-    @Throws(PersistenceException::class)
-    fun resetVisitorId(): String = visitorIdProvider.resetVisitorId()
-
-    @Throws(PersistenceException::class)
-    fun clearStoredVisitorIds(): String = visitorIdProvider.clearStoredVisitorIds()
 
     fun shutdown() {
         logger.info(LogCategory.TEALIUM, "Instance %s shutting down.", config.key)

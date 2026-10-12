@@ -1,37 +1,38 @@
-package com.tealium.prism.core.internal.persistence
+package com.tealium.prism.core.internal.modules.visitorid
 
 import com.tealium.prism.core.api.persistence.DataStore
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observables
-import com.tealium.prism.core.api.settings.CoreSettings
 import com.tealium.prism.core.api.pubsub.filterNotNull
+import com.tealium.prism.core.internal.persistence.VisitorIdStorage
 
 object IdentityUpdatedObserver {
 
     /**
-     * Subscribes the given [visitorIdProvider] to receive identity updates from the provided
+     * Subscribes the given [visitorIdStorage] to receive identity updates from the provided
      * [dataLayer].
      *
      * Identity updates are derived from updates to the given [dataLayer] using the
-     * [CoreSettings.visitorIdentityKey]. If a value exists at that key in the [dataLayer] update
-     * then the value will be taken as the identity and the [visitorIdProvider] will be notified.
+     * [VisitorIdConfiguration.visitorIdentityKey]. If a value exists at that key in the [dataLayer]
+     * update then the value will be taken as the identity and the [visitorIdStorage] will be
+     * notified.
      *
-     * @param coreSettings The [CoreSettings] observable to derive the identity key from
+     * @param configuration The module configuration observable to derive the identity key from
      * @param dataLayer The [DataStore] to monitor for identity changes
-     * @param visitorIdProvider The [VisitorIdProvider] to notify of identity updates
+     * @param visitorIdStorage The [VisitorIdStorage] to notify of identity updates
      */
     fun subscribeIdentityUpdates(
-        coreSettings: Observable<CoreSettings>,
+        configuration: Observable<VisitorIdConfiguration>,
         dataLayer: DataStore,
-        visitorIdProvider: VisitorIdProvider
+        visitorIdStorage: VisitorIdStorage
     ): Disposable {
-        return coreSettings.map(CoreSettings::visitorIdentityKey)
+        return configuration.map(VisitorIdConfiguration::visitorIdentityKey)
             .distinct()
             .flatMapLatest { idKey ->
                 identityUpdates(dataLayer, idKey)
             }.distinct()
-            .subscribe(visitorIdProvider::identify)
+            .subscribe(visitorIdStorage::identify)
     }
 
     private fun identityUpdates(dataLayer: DataStore, key: String?): Observable<String> {

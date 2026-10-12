@@ -1,7 +1,6 @@
 package com.tealium.prism.core.internal.persistence.stores
 
 import com.tealium.prism.core.api.persistence.DataStore
-import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.persistence.Expiry
 import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.persistence.PersistenceException
@@ -25,12 +24,12 @@ interface VisitorStorage {
     /**
      * Returns the currently stored identity if available
      */
-    val currentIdentity: String?
+    val ownerIdentity: String?
 
     /**
-     * Sets the [VisitorStorage.visitorId] to the provided [visitorId]. It does not update the [currentIdentity]
+     * Sets the [VisitorStorage.visitorId] to the provided [visitorId]. It does not update the [ownerIdentity]
      *
-     * Also stores an entry associating [currentIdentity] to [visitorId] such that a previous [visitorId]
+     * Also stores an entry associating [ownerIdentity] to [visitorId] such that a previous [visitorId]
      * can be retrieved using [getKnownVisitorId] providing the same identity.
      *
      * @param visitorId The visitor id to store as the current visitor id
@@ -40,7 +39,7 @@ interface VisitorStorage {
 
     /**
      * Sets the [VisitorStorage.visitorId] to the provided [visitorId] and sets the
-     * [VisitorStorage.currentIdentity] to the provided [identity].
+     * [VisitorStorage.ownerIdentity] to the provided [identity].
      *
      * Also stores an entry associating [identity] to [visitorId] such that a previous [visitorId]
      * can be retrieved using [getKnownVisitorId] providing the same [identity]
@@ -52,9 +51,9 @@ interface VisitorStorage {
     fun changeVisitor(visitorId: String, identity: String)
 
     /**
-     * Sets the [VisitorStorage.currentIdentity] to the provided [identity].
+     * Sets the [VisitorStorage.ownerIdentity] to the provided [identity].
      *
-     * It does not create any associations between the [currentIdentity] and the [visitorId].
+     * It does not create any associations between the [ownerIdentity] and the [visitorId].
      *
      * @param identity The identity to change to.
      */
@@ -67,7 +66,10 @@ interface VisitorStorage {
     fun getKnownVisitorId(identity: String): String?
 
     /**
-     * Clears all stored VisitorId's and identities, and replaces the [visitorId] with the [newVisitorId]
+     * Removes the [ownerIdentity] and every stored identity association, and replaces the [visitorId]
+     * with the [newVisitorId], in a single commit.
+     *
+     * Entries not owned by visitor switching are left in place.
      *
      * @param newVisitorId the replacement visitor to save after clearing
      */
@@ -81,40 +83,40 @@ class VisitorStorageImpl(
 ) : VisitorStorage {
 
     override val visitorId: String?
-        get() = storage.getString(Dispatch.Keys.TEALIUM_VISITOR_ID)
+        get() = storage.getString(KEY_VISITOR_ID)
 
-    override val currentIdentity: String?
-        get() = storage.getString(KEY_CURRENT_IDENTITY)
+    override val ownerIdentity: String?
+        get() = storage.getString(KEY_OWNER_IDENTITY)
 
     override fun changeVisitor(visitorId: String) {
         storage.edit()
             .setVisitorId(visitorId)
-            .associateVisitorWithIdentity(visitorId, currentIdentity)
+            .associateVisitorWithIdentity(visitorId, ownerIdentity)
             .commit()
     }
 
     override fun changeVisitor(visitorId: String, identity: String) {
         storage.edit()
             .setVisitorId(visitorId)
-            .setCurrentIdentity(identity)
+            .setOwnerIdentity(identity)
             .associateVisitorWithIdentity(visitorId, identity)
             .commit()
     }
 
     override fun changeIdentity(identity: String) {
         storage.edit()
-            .setCurrentIdentity(identity)
+            .setOwnerIdentity(identity)
             .commit()
     }
 
-    private fun DataStore.Editor.setCurrentIdentity(identity: String): DataStore.Editor = put(
-        KEY_CURRENT_IDENTITY,
+    private fun DataStore.Editor.setOwnerIdentity(identity: String): DataStore.Editor = put(
+        KEY_OWNER_IDENTITY,
         DataItem.string(identity),
         Expiry.FOREVER
     )
 
     private fun DataStore.Editor.setVisitorId(visitorId: String): DataStore.Editor = put(
-        Dispatch.Keys.TEALIUM_VISITOR_ID,
+        KEY_VISITOR_ID,
         DataItem.string(visitorId),
         Expiry.FOREVER
     )
@@ -125,23 +127,30 @@ class VisitorStorageImpl(
     ): DataStore.Editor =
         identity?.let {
             put(
-                identity,
+                identityKey(identity),
                 DataItem.string(visitorId),
                 Expiry.FOREVER
             )
         } ?: this
 
     override fun getKnownVisitorId(identity: String): String? =
-        storage.getString(identity)
+        storage.getString(identityKey(identity))
 
     override fun clear(newVisitorId: String) {
+        val identityKeys = storage.keys()
+            .filter { it.startsWith(IDENTITY_KEY_PREFIX) }
+
         storage.edit()
-            .clear()
+            .remove(identityKeys + KEY_OWNER_IDENTITY)
             .setVisitorId(newVisitorId)
             .commit()
     }
 
-    private companion object {
-        const val KEY_CURRENT_IDENTITY = "current_identity"
+    private fun identityKey(identity: String): String = IDENTITY_KEY_PREFIX + identity
+
+    companion object {
+        internal const val KEY_VISITOR_ID = "visitor_id"
+        internal const val KEY_OWNER_IDENTITY = "owner_identity"
+        internal const val IDENTITY_KEY_PREFIX = "identity."
     }
 }

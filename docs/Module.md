@@ -67,6 +67,10 @@ tealium.track("An Event")
 
 For more advanced usage and detailed documentation, visit our [developer documentation](https://tealium.github.io/tealium-prism-kotlin/).
 
+### Guides
+
+- [Visitor ID](../core/VisitorId.md): the anonymous visitor ID, Visitor Switching, and the `tealium.visitorId` API. Published on the core module page.
+
 ## Custom Modules
 
 ### Lifecycle of a Module

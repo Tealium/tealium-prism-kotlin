@@ -1,8 +1,12 @@
 package com.tealium.prism.mobile.fragments
 
 import android.content.Context
+import android.os.Bundle
+import android.view.View
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.snackbar.Snackbar
 import com.tealium.prism.mobile.R
 import com.tealium.prism.mobile.features.Feature
@@ -16,11 +20,14 @@ class VisitorFragment : BaseFeatureFragment(Feature.Visitor) {
 
     override val actions: List<FeatureAction> =
         listOf(
-            FeatureAction("Reset Visitor Id") {
-                viewModel.resetVisitorId()
+            FeatureAction("Get Visitor Id") {
+                viewModel.currentVisitorId()
             },
-            FeatureAction("Clear Stored Visitor Ids") {
-                viewModel.clearStoredVisitorIds()
+            FeatureAction("Regenerate Visitor Id") {
+                viewModel.regenerateVisitorId()
+            },
+            FeatureAction("Erase Local Visitor History") {
+                viewModel.eraseLocalHistory()
             }
         )
 
@@ -33,6 +40,18 @@ class VisitorFragment : BaseFeatureFragment(Feature.Visitor) {
                     "Visitor Id has been updated: \n$visitorId",
                     Snackbar.LENGTH_SHORT
                 ).show()
+            }
+        }
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        binding.textViewFeatureStatus.visibility = View.VISIBLE
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.latestVisitorId.collect { latest ->
+                    binding.textViewFeatureStatus.text = latest
+                }
             }
         }
     }

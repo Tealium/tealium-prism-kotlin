@@ -2,6 +2,7 @@ package com.tealium.prism.core.internal
 
 import android.app.Activity
 import android.app.Application
+import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.consent.ConsentDecision
 import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.DataObject
@@ -22,6 +23,7 @@ import com.tealium.prism.core.api.pubsub.ReplaySubject
 import com.tealium.prism.core.api.settings.modules.ModuleSettingsBuilder
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchType
+import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.internal.consent.ConsentIntegrationManager
 import com.tealium.prism.core.internal.consent.MockCmpAdapter
 import com.tealium.prism.core.internal.misc.ActivityManagerImpl
@@ -61,6 +63,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 class TealiumImplTests {
@@ -387,6 +391,30 @@ class TealiumImplTests {
         }
     }
 
+    @Test
+    fun track_Payload_Contains_Visitor_Id_When_VisitorId_Module_Enabled_By_Default() {
+        val tealium = TealiumImpl(getDefaultConfig(app), testSchedulers)
+
+        val payload = trackAndAwaitPayload(tealium)
+
+        assertFalse(payload.getString(Dispatch.Keys.TEALIUM_VISITOR_ID).isNullOrEmpty())
+        tealium.shutdown()
+    }
+
+    @Test
+    fun track_Payload_Lacks_Visitor_Id_When_VisitorId_Module_Disabled() {
+        val config = getDefaultConfig(
+            app,
+            modules = listOf(Modules.visitorId { it.setEnabled(false) })
+        )
+        val tealium = TealiumImpl(config, testSchedulers)
+
+        val payload = trackAndAwaitPayload(tealium)
+
+        assertNull(payload.getString(Dispatch.Keys.TEALIUM_VISITOR_ID))
+        tealium.shutdown()
+    }
+
     /**
      * A shutdown is not a configuration change: the empty module list it publishes must not reach the
      * queue, or the dispatches still waiting for their dispatcher would be deleted instead of being
@@ -415,5 +443,19 @@ class TealiumImplTests {
         val queued = SQLQueueRepository(FileDatabaseProvider(config))
             .getQueuedDispatches(-1, dispatcher.id)
         assertEquals(1, queued.size)
+    }
+
+    /**
+     * Tracks an event and returns its payload once the collectors have enriched it.
+     */
+    private fun trackAndAwaitPayload(tealium: TealiumImpl): DataObject {
+        val latch = CountDownLatch(1)
+        var trackResult: TrackResult? = null
+        tealium.track(Dispatch.create("event", DispatchType.Event, DataObject.EMPTY_OBJECT)) { result ->
+            trackResult = result
+            latch.countDown()
+        }
+        assertTrue(latch.await(5, TimeUnit.SECONDS))
+        return trackResult!!.dispatch.payload()
     }
 }

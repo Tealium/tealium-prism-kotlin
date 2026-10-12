@@ -13,6 +13,8 @@ import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
 import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -55,6 +57,12 @@ class AppDataProviderTests {
                 any<Int>()
             )
         } returns mockPackageInfo
+    }
+
+    @After
+    fun tearDown() {
+        // the static UUID mock would otherwise leak into later tests in the same JVM
+        unmockkStatic(UUID::class)
     }
 
     @Test

@@ -130,6 +130,14 @@ class TealiumProxyTests {
     }
 
     @Test
+    fun getVisitorId_Returns_Same_Instance() {
+        val visitorId1 = tealiumProxy.visitorId
+        val visitorId2 = tealiumProxy.visitorId
+
+        assertSame(visitorId1, visitorId2)
+    }
+
+    @Test
     fun track_Calls_TealiumImpl_When_Created_Successfully() {
         onTealiumImplReady.onNext(TealiumResult.success(tealiumImpl))
         tealiumProxy.track("event", DataObject.EMPTY_OBJECT)
@@ -187,88 +195,6 @@ class TealiumProxyTests {
 
         verify(inverse = true) {
             tealiumImpl.flushEventQueue()
-        }
-    }
-
-    @Test
-    fun resetVisitorId_Calls_TealiumImpl_When_Created_Successfully() {
-        val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
-        every { tealiumImpl.resetVisitorId() } returns "newVisitor"
-
-        onTealiumImplReady.onNext(TealiumResult.success(tealiumImpl))
-        tealiumProxy.resetVisitorId()
-            .subscribe(observer)
-
-        verify {
-            tealiumImpl.resetVisitorId()
-            observer.onNext(match {
-                it.getOrThrow() == "newVisitor"
-            })
-        }
-    }
-
-    @Test
-    fun resetVisitorId_Returns_Exception_When_Created_Exceptionally() {
-        val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
-        val error = Tealium.TealiumShutdownException("")
-
-        onTealiumImplReady.onNext(TealiumResult.failure(error))
-        tealiumProxy.resetVisitorId()
-            .subscribe(observer)
-
-        verify {
-            observer.onNext(match { it.exceptionOrNull() == error })
-        }
-    }
-
-    @Test
-    fun resetVisitorId_Does_Not_Call_TealiumImpl_When_Created_Exceptionally() {
-        onTealiumImplReady.onNext(TealiumResult.failure(Tealium.TealiumShutdownException("")))
-        tealiumProxy.resetVisitorId()
-
-        verify(inverse = true) {
-            tealiumImpl.resetVisitorId()
-        }
-    }
-
-    @Test
-    fun clearStoredVisitorIds_Calls_TealiumImpl_When_Created_Successfully() {
-        val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
-        every { tealiumImpl.clearStoredVisitorIds() } returns "newVisitor"
-
-        onTealiumImplReady.onNext(TealiumResult.success(tealiumImpl))
-        tealiumProxy.clearStoredVisitorIds()
-            .subscribe(observer)
-
-        verify {
-            tealiumImpl.clearStoredVisitorIds()
-            observer.onNext(match {
-                it.getOrThrow() == "newVisitor"
-            })
-        }
-    }
-
-    @Test
-    fun clearStoredVisitorIds_Returns_Exception_When_Created_Exceptionally() {
-        val observer = mockk<Observer<TealiumResult<String>>>(relaxed = true)
-        val error = Tealium.TealiumShutdownException("")
-
-        onTealiumImplReady.onNext(TealiumResult.failure(error))
-        tealiumProxy.clearStoredVisitorIds()
-            .subscribe(observer)
-
-        verify {
-            observer.onNext(match { it.exceptionOrNull() == error })
-        }
-    }
-
-    @Test
-    fun clearStoredVisitorIds_Does_Not_Call_TealiumImpl_When_Created_Exceptionally() {
-        onTealiumImplReady.onNext(TealiumResult.failure(Tealium.TealiumShutdownException("")))
-        tealiumProxy.clearStoredVisitorIds()
-
-        verify(inverse = true) {
-            tealiumImpl.clearStoredVisitorIds()
         }
     }
 

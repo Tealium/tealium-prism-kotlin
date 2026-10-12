@@ -79,20 +79,16 @@ class CollectModule(
             }"
         }
 
-        groupedDispatches.mapNotNull { (visitorId, dispatches) ->
-            if (visitorId == null) { // shouldn't happen
-                onProcessed.onComplete(dispatches)
-                CompletedDisposable
-            } else {
-                sendBatch(visitorId, dispatches, onProcessed)
-            }.addTo(disposableContainer)
+        groupedDispatches.forEach { (visitorId, dispatches) ->
+            sendBatch(visitorId, dispatches, onProcessed)
+                .addTo(disposableContainer)
         }
 
         return disposableContainer
     }
 
     private fun sendBatch(
-        visitorId: String,
+        visitorId: String?,
         batch: List<Dispatch>,
         onProcessed: Callback<List<Dispatch>>
     ): Disposable {
@@ -186,7 +182,7 @@ class CollectModule(
 
         fun compressDispatches(
             dispatches: List<Dispatch>,
-            visitorId: String,
+            visitorId: String?,
             account: String,
             profile: String
         ): DataObject? {
@@ -200,6 +196,7 @@ class CollectModule(
          * in a "shared" sub key, and the events have common data removed and placed in an "events" sub key.
          *
          * The [dataObjects] are expected to contain events associated to only a single Visitor Id.
+         * When [visitorId] is `null`, no visitor id is added to the shared data.
          *
          * The end result is a JSON of the following format:
          * ```json
@@ -217,7 +214,7 @@ class CollectModule(
          */
         fun compressDataObjects(
             dataObjects: List<DataObject>,
-            visitorId: String,
+            visitorId: String?,
             account: String,
             profile: String
         ): DataObject? {
@@ -227,7 +224,7 @@ class CollectModule(
             val shared = DataObject.create {
                 put(Dispatch.Keys.TEALIUM_ACCOUNT, account)
                 put(Dispatch.Keys.TEALIUM_PROFILE, profile)
-                put(Dispatch.Keys.TEALIUM_VISITOR_ID, visitorId)
+                visitorId?.let { put(Dispatch.Keys.TEALIUM_VISITOR_ID, it) }
             }
 
             val events = DataList.create {

@@ -1,24 +1,37 @@
 package com.tealium.prism.contextapi
 
+import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.Environment
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.misc.TealiumResult
+import com.tealium.prism.core.api.modules.VisitorIdProvider
+import com.tealium.prism.core.api.modules.Module
+import com.tealium.prism.core.api.modules.ModuleManager
+import com.tealium.prism.core.api.modules.ModuleNotEnabledException
+import com.tealium.prism.core.api.modules.ModuleShutdownException
 import com.tealium.prism.core.api.modules.TealiumContext
+import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.StateSubject
+import com.tealium.prism.core.internal.modules.ModuleManagerImpl
 import com.tealium.prism.core.internal.settings.ModuleSettings
 import com.tealium.prism.contextapi.internal.ContextApiConfiguration
 import com.tealium.prism.contextapi.internal.ContextApiModule
 import com.tealium.prism.contextapi.internal.ContextApiService
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.getDefaultConfig
+import io.mockk.CapturingSlot
+import io.mockk.Called
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -33,7 +46,12 @@ class ContextApiModuleTests {
     @RelaxedMockK
     private lateinit var mockService: ContextApiService
 
+    @RelaxedMockK
+    private lateinit var mockVisitorIdProvider: VisitorIdProvider
+
     private lateinit var visitorIdSubject: StateSubject<String>
+    private lateinit var modules: StateSubject<List<Module>>
+    private lateinit var moduleManager: ModuleManager
 
     private lateinit var contextApiModule: ContextApiModule
 
@@ -42,9 +60,13 @@ class ContextApiModuleTests {
         MockKAnnotations.init(this)
 
         visitorIdSubject = Observables.stateSubject("test-visitor-id")
+        every { mockVisitorIdProvider.visitorId } returns visitorIdSubject
+
+        modules = Observables.stateSubject(listOf(mockVisitorIdProvider))
+        moduleManager = ModuleManagerImpl(Scheduler.SYNCHRONOUS, modules)
 
         contextApiModule = ContextApiModule(
-            visitorIdSubject,
+            moduleManager,
             SystemLogger,
             mockService
         )
@@ -76,6 +98,149 @@ class ContextApiModuleTests {
         // updateConfiguration should return the same module instance
         assertTrue(result === contextApiModule)
         assertEquals(contextApiModule, result)
+    }
+
+    @Test
+    fun fetchEngineResponse_Fails_When_VisitorIdProvider_NotEnabled() {
+        val callback = mockk<Callback<TealiumResult<EngineResponse>>>(relaxed = true)
+        modules.onNext(emptyList())
+
+        contextApiModule.fetchEngineResponse("test-engine-id", callback)
+
+        verify {
+            callback.onComplete(match { it.exceptionOrNull() is ModuleNotEnabledException })
+            mockService wasNot Called
+        }
+    }
+
+    @Test
+    fun fetchEngineResponse_Fails_With_VisitorId_Module_Type_In_Message_When_VisitorIdProvider_NotEnabled() {
+        val callback = mockk<Callback<TealiumResult<EngineResponse>>>(relaxed = true)
+        modules.onNext(emptyList())
+
+        contextApiModule.fetchEngineResponse("test-engine-id", callback)
+
+        verify {
+            callback.onComplete(match {
+                it.exceptionOrNull()?.message?.contains(Modules.Types.VISITOR_ID) == true
+            })
+        }
+    }
+
+    @Test
+    fun fetchEngineResponse_CallsService_When_VisitorIdProvider_Becomes_Available() {
+        val callback = mockk<Callback<TealiumResult<EngineResponse>>>(relaxed = true)
+        // the lookup is withheld until a settings pass has created the modules
+        val onVisitorIdProvider = Observables.publishSubject<VisitorIdProvider?>()
+        val loadingModuleManager = mockk<ModuleManager>()
+        every {
+            loadingModuleManager.getModuleOfType(VisitorIdProvider::class.java, any())
+        } answers {
+            val lookup = secondArg<Callback<VisitorIdProvider?>>()
+            onVisitorIdProvider.subscribeOnce { lookup.onComplete(it) }
+        }
+        val module = ContextApiModule(
+            loadingModuleManager,
+            SystemLogger,
+            mockService
+        )
+
+        module.fetchEngineResponse("test-engine-id", callback)
+        verify(inverse = true) {
+            mockService.fetchEngineResponse(any(), any(), any())
+        }
+
+        onVisitorIdProvider.onNext(mockVisitorIdProvider)
+
+        verify {
+            mockService.fetchEngineResponse("test-engine-id", "test-visitor-id", any())
+        }
+    }
+
+    @Test
+    fun fetchEngineResponse_Fails_When_Module_ShutDown_While_Pending() {
+        val callback = mockk<Callback<TealiumResult<EngineResponse>>>(relaxed = true)
+        // the lookup is withheld until a settings pass has created the modules
+        val onVisitorIdProvider = Observables.publishSubject<VisitorIdProvider?>()
+        val loadingModuleManager = mockk<ModuleManager>()
+        every {
+            loadingModuleManager.getModuleOfType(VisitorIdProvider::class.java, any())
+        } answers {
+            val lookup = secondArg<Callback<VisitorIdProvider?>>()
+            onVisitorIdProvider.subscribeOnce { lookup.onComplete(it) }
+        }
+        val module = ContextApiModule(
+            loadingModuleManager,
+            SystemLogger,
+            mockService
+        )
+
+        module.fetchEngineResponse("test-engine-id", callback)
+        module.onShutdown()
+
+        verify {
+            callback.onComplete(match { it.exceptionOrNull() is ModuleShutdownException })
+        }
+    }
+
+    @Test
+    fun fetchEngineResponse_Fails_With_ModuleShutdown_When_Shut_Down_While_Network_Call_In_Flight() {
+        val callback = mockk<Callback<TealiumResult<EngineResponse>>>(relaxed = true)
+        val serviceCallback = withholdServiceResponse()
+
+        contextApiModule.fetchEngineResponse("test-engine-id", callback)
+        verify(inverse = true) { callback.onComplete(any()) }
+
+        contextApiModule.onShutdown()
+
+        verify(exactly = 1) {
+            callback.onComplete(match { it.exceptionOrNull() is ModuleShutdownException })
+        }
+
+        // the cancelled network call must not complete the callback a second time
+        serviceCallback.captured.onComplete(TealiumResult.success(EngineResponse()))
+        verify(exactly = 1) { callback.onComplete(any()) }
+    }
+
+    @Test
+    fun fetchEngineResponse_Completes_Once_When_Shut_Down_After_Response() {
+        val callback = mockk<Callback<TealiumResult<EngineResponse>>>(relaxed = true)
+        val response = EngineResponse(flags = mapOf("flag" to true))
+        val serviceCallback = withholdServiceResponse()
+
+        contextApiModule.fetchEngineResponse("test-engine-id", callback)
+        serviceCallback.captured.onComplete(TealiumResult.success(response))
+        contextApiModule.onShutdown()
+
+        verify(exactly = 1) { callback.onComplete(any()) }
+        verify(exactly = 1) { callback.onComplete(match { it.getOrNull() == response }) }
+    }
+
+    @Test
+    fun fetchEngineResponse_Disposes_Service_Call_When_Shut_Down_While_In_Flight() {
+        val callback = mockk<Callback<TealiumResult<EngineResponse>>>(relaxed = true)
+        val serviceCall = Disposables.subscription()
+        every { mockService.fetchEngineResponse(any(), any(), any()) } returns serviceCall
+
+        contextApiModule.fetchEngineResponse("test-engine-id", callback)
+        assertFalse(serviceCall.isDisposed)
+
+        contextApiModule.onShutdown()
+
+        assertTrue(serviceCall.isDisposed)
+    }
+
+    @Test
+    fun fetchEngineResponse_Fails_When_Module_Already_ShutDown() {
+        val callback = mockk<Callback<TealiumResult<EngineResponse>>>(relaxed = true)
+        contextApiModule.onShutdown()
+
+        contextApiModule.fetchEngineResponse("test-engine-id", callback)
+
+        verify {
+            callback.onComplete(match { it.exceptionOrNull() is ModuleShutdownException })
+            mockService wasNot Called
+        }
     }
 
     @Test
@@ -399,10 +564,22 @@ class ContextApiModuleTests {
         }
     }
 
+    /**
+     * Captures the service completion so the test decides when, or whether, the network call
+     * completes. The returned Disposable is real so shutdown can be observed cancelling it.
+     */
+    private fun withholdServiceResponse(): CapturingSlot<Callback<TealiumResult<EngineResponse>>> {
+        val serviceCallback = slot<Callback<TealiumResult<EngineResponse>>>()
+        every {
+            mockService.fetchEngineResponse(any(), any(), capture(serviceCallback))
+        } returns Disposables.subscription()
+        return serviceCallback
+    }
+
     private fun mockContext(): TealiumContext {
         val config = getDefaultConfig(mockk(), "test-account", "test-profile", Environment.PROD)
         val mockContext = mockk<TealiumContext>(relaxed = true)
-        every { mockContext.visitorId } returns visitorIdSubject
+        every { mockContext.moduleManager } returns moduleManager
         every { mockContext.logger } returns SystemLogger
         every { mockContext.config } returns config
         return mockContext

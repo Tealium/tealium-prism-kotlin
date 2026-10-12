@@ -10,6 +10,7 @@ import com.tealium.prism.core.api.Modules.deviceData
 import com.tealium.prism.core.api.Modules.tealiumData
 import com.tealium.prism.core.api.Modules.timeData
 import com.tealium.prism.core.api.Modules.trace
+import com.tealium.prism.core.api.Modules.visitorId
 import com.tealium.prism.core.api.modules.ModuleFactory
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -30,7 +31,8 @@ object ModuleRegistry {
         deviceData(null),
         tealiumData(),
         timeData(null),
-        trace(null)
+        trace(null),
+        visitorId()
     )
 
     private val _additionalModules = CopyOnWriteArrayList<ModuleFactory>()

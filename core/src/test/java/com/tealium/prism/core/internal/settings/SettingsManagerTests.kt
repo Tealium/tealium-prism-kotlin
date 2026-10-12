@@ -92,9 +92,10 @@ class SettingsManagerTests {
         val settings = settingsManager.sdkSettings.value
 
         assertEquals(CoreSettingsImpl(), settings.core)
-        assertEquals(2, settings.modules.size) // datalayer + tealiumdata
+        assertEquals(3, settings.modules.size) // datalayer + tealiumdata + visitorid
         assertTrue(settings.modules.containsKey(Modules.Types.DATA_LAYER))
         assertTrue(settings.modules.containsKey(Modules.Types.TEALIUM_DATA))
+        assertTrue(settings.modules.containsKey(Modules.Types.VISITOR_ID))
     }
 
     @Test
@@ -158,7 +159,7 @@ class SettingsManagerTests {
         val observer = mockk<(SdkSettings) -> Unit>(relaxed = true)
         mockRemoteResponse(
             configureCoreSettingsDataObject {
-                setVisitorIdentityKey("identity")
+                setMaxQueueSize(42)
             }
         )
         createSettingsManager()
@@ -170,7 +171,7 @@ class SettingsManagerTests {
 
         assertFalse(disposable.isDisposed)
         verify {
-            observer(match { it.core.visitorIdentityKey == "identity" })
+            observer(match { it.core.maxQueueSize == 42 })
         }
     }
 
@@ -180,7 +181,7 @@ class SettingsManagerTests {
         val observer = mockk<(SdkSettings) -> Unit>(relaxed = true)
         mockRemoteResponse(
             configureCoreSettingsDataObject {
-                setVisitorIdentityKey("identity")
+                setMaxQueueSize(42)
             }
         )
         createSettingsManager()
@@ -192,7 +193,7 @@ class SettingsManagerTests {
         activities.onNext(ActivityManager.ApplicationStatus.Init())
 
         verify(inverse = true) {
-            observer(match { it.core.visitorIdentityKey == "identity" })
+            observer(match { it.core.maxQueueSize == 42 })
         }
     }
 
@@ -202,17 +203,17 @@ class SettingsManagerTests {
         val observer = mockk<(SdkSettings) -> Unit>(relaxed = true)
         mockAssetResponse(
             configureCoreSettingsDataObject {
-                setVisitorIdentityKey("asset")
+                setSessionTimeout(5.minutes)
                 setMaxQueueSize(1)
             }
         )
         every { mockCache.resource } returns configureCoreSettingsDataObject {
-            setVisitorIdentityKey("cache")
+            setSessionTimeout(10.minutes)
             setLogLevel(LogLevel.WARN)
         }
         mockRemoteResponse(
             configureCoreSettingsDataObject {
-                setVisitorIdentityKey("remote")
+                setSessionTimeout(20.minutes)
                 setExpiration(10.minutes)
             }
         )
@@ -226,7 +227,7 @@ class SettingsManagerTests {
 
         verify(inverse = true) {
             observer(match {
-                it.core.visitorIdentityKey == "remote"
+                it.core.sessionTimeout == 20.minutes
                         && it.core.logLevel == LogLevel.WARN
                         && it.core.expiration == 10.minutes
                         && it.core.maxQueueSize == 1
@@ -237,19 +238,19 @@ class SettingsManagerTests {
     @Test
     fun mergeSettings_Ignores_Null_Or_Empty_Settings() {
         val localSettings = configureCoreSettingsDataObject {
-            setVisitorIdentityKey("test")
+            setMaxQueueSize(42)
         }
 
         val mergedSettings =
             SettingsManager.mergeSettings(localSettings, null, DataObject.EMPTY_OBJECT)
         val sdkSettings = SdkSettings.fromDataObject(mergedSettings)
-        assertTrue(sdkSettings.core.visitorIdentityKey == "test")
+        assertTrue(sdkSettings.core.maxQueueSize == 42)
     }
 
     @Test
     fun mergeSettings_Merges_All_Core_Settings() {
         val settings1 = configureCoreSettingsDataObject {
-            setVisitorIdentityKey("identity")
+            setLogLevel(LogLevel.DEBUG)
         }
         val settings2 = configureCoreSettingsDataObject {
             setExpiration(2.days)
@@ -261,7 +262,7 @@ class SettingsManagerTests {
         val mergedSettings = SettingsManager.mergeSettings(settings1, settings2, settings3)
         val sdkSettings = SdkSettings.fromDataObject(mergedSettings)
 
-        assertEquals("identity", sdkSettings.core.visitorIdentityKey)
+        assertEquals(LogLevel.DEBUG, sdkSettings.core.logLevel)
         assertEquals(172_800.seconds, sdkSettings.core.expiration)
         assertEquals(10, sdkSettings.core.maxQueueSize)
     }
@@ -269,19 +270,19 @@ class SettingsManagerTests {
     @Test
     fun mergeSettings_Merges_Core_Settings_Replacing_Clashes_With_Higher_Priority_Values() {
         val settings1 = configureCoreSettingsDataObject {
-            setVisitorIdentityKey("testIdentity")
+            setMaxQueueSize(1)
         }
         val settings2 = configureCoreSettingsDataObject {
-            setVisitorIdentityKey("remoteIdentity")
+            setMaxQueueSize(2)
         }
         val settings3 = configureCoreSettingsDataObject {
-            setVisitorIdentityKey("programmaticIdentity")
+            setMaxQueueSize(3)
         }
 
         val mergedSettings = SettingsManager.mergeSettings(settings1, settings2, settings3)
         val sdkSettings = SdkSettings.fromDataObject(mergedSettings)
 
-        assertTrue(sdkSettings.core.visitorIdentityKey == "programmaticIdentity")
+        assertTrue(sdkSettings.core.maxQueueSize == 3)
     }
 
     @Test

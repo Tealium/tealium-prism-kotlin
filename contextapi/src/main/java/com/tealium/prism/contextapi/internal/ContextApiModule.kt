@@ -1,5 +1,6 @@
 package com.tealium.prism.contextapi.internal
 
+import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.Tealium
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.logger.Logger
@@ -8,13 +9,17 @@ import com.tealium.prism.core.api.logger.logIfTraceEnabled
 import com.tealium.prism.core.api.logger.logIfWarnEnabled
 import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
+import com.tealium.prism.core.api.misc.failure
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
+import com.tealium.prism.core.api.modules.ModuleManager
+import com.tealium.prism.core.api.modules.ModuleNotEnabledException
 import com.tealium.prism.core.api.modules.ModuleProxy
+import com.tealium.prism.core.api.modules.ModuleShutdownException
 import com.tealium.prism.core.api.modules.TealiumContext
+import com.tealium.prism.core.api.modules.VisitorIdProvider
 import com.tealium.prism.core.api.pubsub.CompositeDisposable
 import com.tealium.prism.core.api.pubsub.Disposables
-import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.pubsub.Single
 import com.tealium.prism.core.api.pubsub.addTo
 import com.tealium.prism.contextapi.BuildConfig
@@ -40,7 +45,7 @@ class ContextApiWrapper(
  * Internal ContextApi module implementation.
  */
 class ContextApiModule(
-    private val visitorId: ObservableState<String>,
+    private val moduleManager: ModuleManager,
     private val logger: Logger,
     private var service: ContextApiService
 ) : Module {
@@ -49,7 +54,7 @@ class ContextApiModule(
         context: TealiumContext,
         configuration: ContextApiConfiguration,
     ) : this(
-        context.visitorId,
+        context.moduleManager,
         context.logger,
         ContextApiServiceImpl(
             networkHelper = context.network.networkHelper,
@@ -63,13 +68,41 @@ class ContextApiModule(
     private val disposables: CompositeDisposable = Disposables.composite()
     
     fun fetchEngineResponse(engineId: String, callback: Callback<TealiumResult<EngineResponse>>) {
-        val visitorId = visitorId.value
+        // fails the request once if this module shuts down before it completes
+        val pending = Disposables.composite()
+        Disposables.subscription { callback.failure(ModuleShutdownException(id)) }.addTo(pending)
+        disposables.add(pending)
+        if (pending.isDisposed) return
 
+        moduleManager.getModuleOfType(VisitorIdProvider::class.java) { provider ->
+            if (provider == null) {
+                disposables.remove(pending)
+                logger.logIfErrorEnabled(id) {
+                    "Failed to fetch Context API response: visitor ID handling is disabled"
+                }
+                callback.failure(
+                    ModuleNotEnabledException("Module (${Modules.Types.VISITOR_ID}) is not enabled.")
+                )
+            } else {
+                fetchEngineResponse(engineId, provider.visitorId.value, pending, callback)
+            }
+        }.addTo(pending)
+    }
+
+    private fun fetchEngineResponse(
+        engineId: String,
+        visitorId: String,
+        pending: CompositeDisposable,
+        callback: Callback<TealiumResult<EngineResponse>>
+    ) {
         logger.logIfTraceEnabled(id) {
             "Fetching ContextApi response for engine: $engineId, visitor: $visitorId"
         }
         
         service.fetchEngineResponse(engineId, visitorId) { result ->
+            // shut down while in flight: the request already failed with ModuleShutdownException
+            if (pending.isDisposed) return@fetchEngineResponse
+            disposables.remove(pending)
             result.onSuccess { response ->
                 logger.logIfTraceEnabled(id) {
                     "Successfully fetched Context API response: $response"
@@ -80,7 +113,7 @@ class ContextApiModule(
                 }
             }
             callback.onComplete(result)
-        }.addTo(disposables)
+        }.addTo(pending)
     }
     
     override fun updateConfiguration(configuration: DataObject): Module? {

@@ -255,7 +255,6 @@ class ModuleReadinessTrackingTests {
         context = RuntimeEnvironment.getApplication(),
         config = getDefaultConfig(RuntimeEnvironment.getApplication()),
         logger = SystemLogger,
-        visitorId = Observables.stateSubject("visitor_id"),
         storageProvider = mockk(relaxed = true),
         network = mockk(relaxed = true),
         coreSettings = Observables.stateSubject(CoreSettingsImpl()),

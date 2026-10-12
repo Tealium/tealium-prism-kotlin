@@ -19,13 +19,12 @@ import kotlin.math.abs
 
 class TealiumDataModule(
     private val config: TealiumConfig,
-    private val visitorId: ObservableState<String>,
     private val unsafeModules: ObservableState<List<Module>>
 ) : Module, Collector {
 
     constructor(
         context: TealiumContext,
-    ) : this(context.config, context.visitorId, context.unsafeModules)
+    ) : this(context.config, context.unsafeModules)
 
     private val secureRandom = SecureRandom()
     private val random: String
@@ -48,7 +47,6 @@ class TealiumDataModule(
     override fun collect(dispatchContext: DispatchContext): DataObject {
         return baseData.copy {
             put(Dispatch.Keys.TEALIUM_RANDOM, random)
-            put(Dispatch.Keys.TEALIUM_VISITOR_ID, visitorId.value)
 
             // Read at collect time: the tracker has already waited for the modules, so the list is
             // the one of the completed settings pass rather than a premature empty one.

@@ -54,13 +54,6 @@ class CoreSettingsBuilderTests {
     }
 
     @Test
-    fun setVisitorIdentityKey_Sets_VisitorIdentityKey_In_DataObject() {
-        val settings = builder.setVisitorIdentityKey("identity").build()
-
-        assertEquals("identity", settings.getString(CoreSettingsImpl.KEY_VISITOR_IDENTITY_KEY))
-    }
-
-    @Test
     fun setSessionTimeout_Sets_SessionTimeout_InSeconds_In_DataObject() {
         val fiveMinutes = builder.setSessionTimeout(5.minutes).build()
         val thirtyMinutes = builder.setSessionTimeout(30.minutes).build()
@@ -85,7 +78,7 @@ class CoreSettingsBuilderTests {
         assertEquals(LogLevel.WARN, settings.get(CoreSettingsImpl.KEY_LOG_LEVEL, LogLevel.Converter))
 
         assertNull(settings.get(CoreSettingsImpl.KEY_EXPIRATION))
-        assertNull(settings.get(CoreSettingsImpl.KEY_VISITOR_IDENTITY_KEY))
+        assertNull(settings.get(CoreSettingsImpl.KEY_SESSION_TIMEOUT))
         assertNull(settings.get(CoreSettingsImpl.KEY_REFRESH_INTERVAL))
     }
 }

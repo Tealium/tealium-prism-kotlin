@@ -2,6 +2,7 @@ package com.tealium.prism.core.api
 
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.modules.ModuleFactory
+import com.tealium.prism.core.api.modules.VisitorIdManager
 import com.tealium.prism.core.api.settings.modules.AppDataSettingsBuilder
 import com.tealium.prism.core.api.settings.modules.CollectSettingsBuilder
 import com.tealium.prism.core.api.settings.modules.ConnectivityDataSettingsBuilder
@@ -12,6 +13,7 @@ import com.tealium.prism.core.api.settings.modules.ModuleSettingsBuilder
 import com.tealium.prism.core.api.settings.modules.TealiumDataSettingsBuilder
 import com.tealium.prism.core.api.settings.modules.TimeDataSettingsBuilder
 import com.tealium.prism.core.api.settings.modules.TraceSettingsBuilder
+import com.tealium.prism.core.api.settings.modules.VisitorIdSettingsBuilder
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.internal.modules.AppDataModule
 import com.tealium.prism.core.internal.modules.ConnectivityDataModule
@@ -23,6 +25,7 @@ import com.tealium.prism.core.internal.modules.datalayer.DataLayerModule
 import com.tealium.prism.core.internal.modules.deeplink.DeepLinkModule
 import com.tealium.prism.core.internal.modules.time.TimeDataModule
 import com.tealium.prism.core.internal.modules.trace.TraceModule
+import com.tealium.prism.core.internal.modules.visitorid.VisitorIdModule
 
 /**
  * An object used for configuring available modules and retrieving them as a [ModuleFactory] to be
@@ -62,6 +65,7 @@ object Modules {
         const val TEALIUM_DATA = "TealiumData"
         const val TIME_DATA = "TimeData"
         const val TRACE = "Trace"
+        const val VISITOR_ID = "VisitorId"
     }
 
     /**
@@ -231,6 +235,32 @@ object Modules {
     fun timeData(enforcedSettings: ((TimeDataSettingsBuilder) -> TimeDataSettingsBuilder)? = defaultSettings()): ModuleFactory {
         val settings = buildSettings(::TimeDataSettingsBuilder, enforcedSettings)
         return TimeDataModule.Factory(settings)
+    }
+
+    /**
+     * Collects the current visitor id, and manages Visitor Switching when a new identity is detected.
+     *
+     * **Note.** This module is automatically added. This method is provided to allow customizing ordering of
+     * modules if required.
+     *
+     * The module is enabled unless it is explicitly disabled by local, remote or enforced settings.
+     * Disabling it removes the visitor id from the events and makes every [VisitorIdManager]
+     * operation fail.
+     *
+     * @param enforcedSettings
+     *  Visitor ID settings that should override any from any other settings source.
+     *  Pass `null` to initialize this module only when some Local or Remote settings are provided.
+     *  Omitting this parameter will initialize the module with its default settings.
+     *
+     * @see Dispatch.Keys.TEALIUM_VISITOR_ID
+     * @see Tealium.visitorId
+     * @see VisitorIdManager
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun visitorId(enforcedSettings: ((VisitorIdSettingsBuilder) -> VisitorIdSettingsBuilder)? = defaultSettings()): ModuleFactory {
+        val settings = buildSettings(::VisitorIdSettingsBuilder, enforcedSettings)
+        return VisitorIdModule.Factory(settings)
     }
 
     /**

@@ -131,32 +131,6 @@ class CoreSettingsImplTests {
     }
 
     @Test
-    fun fromDataObject_Sets_Null_VisitorIdentityKey_When_Omitted() {
-        val settings = buildSettings()
-
-        assertNull(settings.visitorIdentityKey)
-    }
-
-    @Test
-    fun fromDataObject_Sets_Null_VisitorIdentityKey_When_Invalid_Value() {
-        val dataObject = DataObject.create {
-            put(CoreSettingsImpl.KEY_VISITOR_IDENTITY_KEY, 12345)
-        }
-        val settings = CoreSettingsImpl.fromDataObject(dataObject)
-
-        assertNull(settings.visitorIdentityKey)
-    }
-
-    @Test
-    fun fromDataObject_Sets_VisitorIdentityKey_When_Valid_Value() {
-        val settings = buildSettings {
-            setVisitorIdentityKey("customer_id")
-        }
-
-        assertEquals("customer_id", settings.visitorIdentityKey)
-    }
-
-    @Test
     fun fromDataObject_Sets_Default_SessionTimeout_When_Omitted() {
         val settings = buildSettings()
 

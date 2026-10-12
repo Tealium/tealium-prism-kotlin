@@ -14,22 +14,16 @@ import com.tealium.prism.core.api.logger.logIfWarnEnabled
 import com.tealium.prism.core.api.misc.ActivityManager
 import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
-import com.tealium.prism.core.api.misc.failure
 import com.tealium.prism.core.api.misc.success
 import com.tealium.prism.core.api.modules.Collector
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
 import com.tealium.prism.core.api.modules.ModuleManager
-import com.tealium.prism.core.api.modules.ModuleNotEnabledException
-import com.tealium.prism.core.api.modules.ModuleShutdownException
 import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.persistence.DataStore
 import com.tealium.prism.core.api.persistence.Expiry
-import com.tealium.prism.core.api.pubsub.CompositeDisposable
 import com.tealium.prism.core.api.pubsub.Disposable
-import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.Observable
-import com.tealium.prism.core.api.pubsub.addTo
 import com.tealium.prism.core.api.settings.modules.DeepLinkSettingsBuilder
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchContext
@@ -37,6 +31,7 @@ import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.api.tracking.Tracker
 import com.tealium.prism.core.internal.logger.nonNullMessage
 import com.tealium.prism.core.internal.misc.completing
+import com.tealium.prism.core.internal.modules.ModuleLookup
 import com.tealium.prism.core.internal.modules.trace.TraceModule
 
 class DeepLinkModule(
@@ -54,8 +49,10 @@ class DeepLinkModule(
      */
     private var activitySubscription: Disposable? = null
 
-    /** Pending trace resolutions awaiting [ModuleManager.observeModule], failed on shutdown. */
-    private val traceSubscriptions: CompositeDisposable = Disposables.composite()
+    /** Resolves the [TraceModule] when a deep link carries trace parameters. */
+    private val traceLookup: ModuleLookup<TraceModule> =
+        // note. [id] isn't initialized yet at this point
+        ModuleLookup(moduleManager, TraceModule::class.java, Modules.Types.TRACE, Modules.Types.DEEP_LINK)
 
     init {
         updateAutomaticTrackingSubscription()
@@ -76,7 +73,7 @@ class DeepLinkModule(
             return
         }
 
-        onTraceModule { traceResult ->
+        traceLookup.onModule { traceResult ->
             callback.completing {
                 // join first: the deep_link event must land inside the trace
                 applyTrace(traceResult.getOrThrow(), link, traceId)
@@ -90,34 +87,6 @@ class DeepLinkModule(
             return DataObject.EMPTY_OBJECT
 
         return dataStore.getAll()
-    }
-
-    /**
-     * Resolves the [TraceModule], waiting for it if the module system hasn't finished loading yet.
-     *
-     * Fails with [ModuleNotEnabledException] when it isn't enabled, or with
-     * [ModuleShutdownException] if this module is shut down while the lookup is pending.
-     */
-    private fun onTraceModule(callback: Callback<TealiumResult<TraceModule>>) {
-        // fails the callback if shutdown disposes this before the module resolves
-        val pending = Disposables.composite()
-        Disposables.subscription {
-            // onShutdown() can't tell instance shutdown from settings-disable: claim neither
-            callback.failure(ModuleShutdownException(id))
-        }.addTo(pending)
-
-        traceSubscriptions.add(pending)
-        // already shut down: the guard fired, don't subscribe too
-        if (pending.isDisposed) return
-
-        moduleManager.observeModule(TraceModule::class.java).subscribeOnce { trace ->
-            traceSubscriptions.remove(pending)
-            if (trace == null) {
-                callback.failure(ModuleNotEnabledException("Trace Module is not enabled."))
-            } else {
-                callback.success(trace)
-            }
-        }.addTo(pending)
     }
 
     /** Applies the trace requested by [uri]. May throw - callers run this inside [completing]. */
@@ -232,7 +201,7 @@ class DeepLinkModule(
 
     override fun onShutdown() {
         disposeActivitySubscription()
-        traceSubscriptions.dispose()
+        traceLookup.dispose()
     }
 
     private fun updateAutomaticTrackingSubscription() {

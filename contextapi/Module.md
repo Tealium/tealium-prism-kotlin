@@ -3,6 +3,10 @@
 The Context API module provides support for real-time visitor personalization using Tealium's 
 [Context API](https://docs.tealium.com/server-side/context-api/) Server Side technology.
 
+Fetching an engine response requires the visitor ID, so `fetchEngineResponse` fails with 
+`ModuleNotEnabledException` while the VisitorId module is disabled. A request still in progress when 
+the Context API module shuts down fails with `ModuleShutdownException`.
+
 
 ## Getting started
 

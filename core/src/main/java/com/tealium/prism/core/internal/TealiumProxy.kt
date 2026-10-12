@@ -11,6 +11,7 @@ import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleManager
 import com.tealium.prism.core.api.modules.ModuleProxy
 import com.tealium.prism.core.api.modules.Trace
+import com.tealium.prism.core.api.modules.VisitorIdManager
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.SingleResult
 import com.tealium.prism.core.api.tracking.Dispatch
@@ -21,6 +22,7 @@ import com.tealium.prism.core.internal.modules.ModuleProxyImpl
 import com.tealium.prism.core.internal.modules.datalayer.DataLayerWrapper
 import com.tealium.prism.core.internal.modules.deeplink.DeepLinkHandlerWrapper
 import com.tealium.prism.core.internal.modules.trace.TraceWrapper
+import com.tealium.prism.core.internal.modules.visitorid.VisitorIdManagerWrapper
 import com.tealium.prism.core.internal.pubsub.AsyncDisposableContainer
 
 /**
@@ -59,6 +61,7 @@ class TealiumProxy(
     override val trace: Trace = TraceWrapper(this)
     override val deepLink: DeepLinkHandler = DeepLinkHandlerWrapper(this)
     override val dataLayer: DataLayer = DataLayerWrapper(this)
+    override val visitorId: VisitorIdManager = VisitorIdManagerWrapper(this)
 
     private val disposable = AsyncDisposableContainer(disposeOn = tealiumScheduler)
 
@@ -99,14 +102,6 @@ class TealiumProxy(
 
     override fun flushEventQueue() = asyncProxy.executeTask { tealium ->
         tealium.flushEventQueue()
-    }
-
-    override fun resetVisitorId() = asyncProxy.executeTask { tealium ->
-        tealium.resetVisitorId()
-    }
-
-    override fun clearStoredVisitorIds() = asyncProxy.executeTask { tealium ->
-        tealium.clearStoredVisitorIds()
     }
 
     override fun <T : Module> createModuleProxy(clazz: Class<T>): ModuleProxy<T> =
