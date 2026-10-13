@@ -158,12 +158,41 @@ address or a user ID, so that the same person is recognized across logins on the
 Visitor Switching is disabled while no `visitor_identity_key` is configured. Once configured, the SDK
 has no notion of login or logout: it simply watches that data layer key.
 
-- Writing a **new** identity to the key, when no identity currently owns the visitor ID, links that
-  identity to the current visitor ID.
+- Writing a **new** identity to the key, when the visitor ID is not owned by another identity, links
+  that identity to the current visitor ID.
 - Writing a **known** identity (one seen before on this device) restores the visitor ID it was
   previously associated with.
 - Writing a **different, unknown** identity generates a new visitor ID and links it to that identity.
-- **Removing** the key from the data layer does not change the visitor ID.
+- **Removing** the key from the data layer does not change the visitor ID; it marks the identity as
+  absent.
+
+### Resetting the visitor ID
+
+`regenerate()` always generates a new anonymous visitor ID. What happens to the identity association
+depends on whether an identity is present in the data layer (at the configured `visitor_identity_key`)
+at the time of the call:
+
+- If an identity is present, it takes ownership of the new visitor ID, and its stored association is
+  updated to point at it.
+- If no identity is present, the new visitor ID is unowned: the next identity written to the data
+  layer adopts it, and a returning identity restores its own previous visitor ID instead.
+
+This gives two optional uses, neither of which is required:
+
+- **Regenerate after logout**: remove the identity key from the data layer, then call
+  `tealium.visitorId.regenerate()`, so the departing identity keeps its old visitor ID and the device
+  continues anonymously with a fresh one. Calling `regenerate()` while an identity is still present
+  instead rebinds that identity to the new visitor ID.
+- **Regenerate before login**: call `tealium.visitorId.regenerate()` immediately before writing a new
+  identity to the data layer, so that new identity can never adopt whatever visitor ID the device had
+  before. Both `tealium.dataLayer` writes and `tealium.visitorId.regenerate()` are executed on the
+  Tealium thread in call order, so the regenerate is guaranteed to land before the identity write
+  that follows it.
+
+`eraseLocalHistory()` erases every stored identity association, then generates a new anonymous
+visitor ID. If an identity is present at the time of the call, it is immediately associated with the
+new visitor ID, so one new association may exist afterwards; remove the identity from the data layer
+first to erase without leaving any association behind.
 
 ### Seeding the first visitor ID
 
@@ -215,7 +244,8 @@ tealium.visitorId.current().subscribe { result ->
     // Handle the result
 }
 
-// Generate a new anonymous visitor ID
+// Generate a new anonymous visitor ID. If regenerating around a login or logout, see
+// "Resetting the visitor ID" above for where to place this call relative to the data layer write.
 tealium.visitorId.regenerate().subscribe { result ->
     // Handle the result
 }
@@ -254,7 +284,8 @@ tealium.getVisitorId().current().subscribe(result -> {
     // Handle the result
 });
 
-// Generate a new anonymous visitor ID
+// Generate a new anonymous visitor ID. If regenerating around a login or logout, see
+// "Resetting the visitor ID" above for where to place this call relative to the data layer write.
 tealium.getVisitorId().regenerate().subscribe(result -> {
     // Handle the result
 });

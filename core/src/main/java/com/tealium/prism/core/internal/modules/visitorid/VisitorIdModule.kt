@@ -21,6 +21,7 @@ import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchContext
 import com.tealium.prism.core.internal.persistence.VisitorIdStorage
 import com.tealium.prism.core.internal.persistence.VisitorIdStorageImpl
+import com.tealium.prism.core.internal.utils.sha256
 
 /**
  * Owns the visitor identifiers of the current user.
@@ -41,7 +42,7 @@ import com.tealium.prism.core.internal.persistence.VisitorIdStorageImpl
 class VisitorIdModule(
     private val storage: VisitorIdStorage,
     configuration: VisitorIdConfiguration,
-    dataLayer: DataStore
+    private val dataLayer: DataStore
 ) : Collector, VisitorIdProvider {
 
     private val disposables: CompositeDisposable = Disposables.composite()
@@ -53,28 +54,56 @@ class VisitorIdModule(
         get() = storage.visitorId
 
     init {
-        IdentityUpdatedObserver.subscribeIdentityUpdates(this.configuration, dataLayer, storage)
-            .addTo(disposables)
+        IdentityUpdatedObserver.subscribeIdentityUpdates(
+            this.configuration,
+            dataLayer,
+            storage::identify
+        ).addTo(disposables)
     }
 
     /**
-     * Replaces the current visitor id with a new anonymous one, keeping its owner identity.
+     * Regenerates the current visitor id as a new anonymous one.
      *
-     * @return The new visitor id
+     * The identity present in the data layer at the time of the call, if any, takes ownership of
+     * the new id and its stored association is updated. If no identity is present, the new id is
+     * unowned.
+     *
+     * @return The new anonymous visitor id
      * @throws PersistenceException When the new visitor id could not be stored
      */
     @Throws(PersistenceException::class)
-    fun regenerate(): String = storage.regenerate()
+    fun regenerate(): String {
+        return storage.regenerate(identityInDataLayer())
+    }
 
     /**
-     * Erases every stored identity association and replaces the current visitor id with a new
-     * anonymous one.
+     * Erases all stored identity associations, as hashed identities and their visitor ids, and
+     * generates a new anonymous visitor id.
      *
-     * @return The new visitor id
+     * If an identity is present in the data layer at the time of the call, it is immediately
+     * associated with the new visitor id, so one new association may exist afterwards.
+     *
+     * @return The new anonymous visitor id
      * @throws PersistenceException When the stored data could not be erased
      */
     @Throws(PersistenceException::class)
-    fun eraseLocalHistory(): String = storage.eraseLocalHistory()
+    fun eraseLocalHistory(): String {
+        return storage.eraseLocalHistory(identityInDataLayer())
+    }
+
+    /**
+     * Reads the identity currently present in the data layer at the configured key.
+     *
+     * Read at call time rather than cached from data layer events, as reads already exclude
+     * expired entries while no removal event is published for them until they are purged.
+     *
+     * @return The SHA-256 of the identity present in the data layer, or `null` if none is present
+     */
+    private fun identityInDataLayer(): String? {
+        val key = configuration.value.visitorIdentityKey ?: return null
+        val identity = dataLayer.getString(key)
+        return if (identity.isNullOrBlank()) null else identity.sha256()
+    }
 
     /**
      * Notifies that the identity of the user has changed, switching visitor where required.

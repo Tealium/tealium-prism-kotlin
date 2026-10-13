@@ -10,6 +10,7 @@ import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleManager
 import com.tealium.prism.core.api.modules.ModuleNotEnabledException
 import com.tealium.prism.core.api.modules.ModuleProxy
+import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.persistence.DataStore
 import com.tealium.prism.core.api.persistence.Expiry
 import com.tealium.prism.core.api.persistence.PersistenceException
@@ -17,6 +18,7 @@ import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.Observer
 import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.pubsub.Subject
+import com.tealium.prism.core.api.settings.modules.VisitorIdSettingsBuilder
 import com.tealium.prism.core.internal.modules.ModuleManagerImpl
 import com.tealium.prism.core.internal.modules.ModuleProxyImpl
 import com.tealium.prism.core.internal.persistence.ModuleStoreProviderImpl
@@ -24,7 +26,12 @@ import com.tealium.prism.core.internal.persistence.VisitorIdStorageImpl
 import com.tealium.prism.core.internal.persistence.database.InMemoryDatabaseProvider
 import com.tealium.prism.core.internal.persistence.repositories.SQLModulesRepository
 import com.tealium.prism.core.internal.persistence.stores.VisitorStorage
+import com.tealium.prism.core.internal.persistence.stores.VisitorStorageImpl
+import com.tealium.prism.core.internal.settings.ModuleSettings
+import com.tealium.prism.core.internal.settings.SdkSettings
+import com.tealium.prism.core.internal.utils.sha256
 import com.tealium.tests.common.SystemLogger
+import com.tealium.tests.common.buildConfiguration
 import com.tealium.tests.common.getDefaultConfig
 import io.mockk.Called
 import io.mockk.MockKAnnotations
@@ -35,6 +42,7 @@ import io.mockk.verify
 import io.mockk.verifyOrder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -200,7 +208,7 @@ class VisitorIdManagerWrapperTests {
         val emitted = mutableListOf<TealiumResult<String>>()
         fixture.wrapper.subscribe { emitted.add(it) }
         val exception = PersistenceException("failed to store visitor id", IllegalStateException())
-        every { fixture.visitorStorage.changeVisitor(any()) } throws exception
+        every { fixture.visitorStorage.changeVisitor(any(), any()) } throws exception
 
         fixture.wrapper.regenerate().subscribe(observer)
 
@@ -211,6 +219,43 @@ class VisitorIdManagerWrapperTests {
         assertEquals(2, visitorIds.size)
         assertEquals(STORED_VISITOR_ID, visitorIds[0])
         assertNotEquals(STORED_VISITOR_ID, visitorIds[1])
+    }
+
+    @Test
+    fun regenerate_Binds_Identity_Already_In_DataLayer_When_Queued_Before_Module_Creation() {
+        val config = getDefaultConfig(RuntimeEnvironment.getApplication())
+        val storeProvider = createStoreProvider(config)
+        val dataLayer = storeProvider.getModuleStore(Modules.Types.DATA_LAYER)
+        dataLayer.edit().put(IDENTITY_KEY, "identityValue", Expiry.FOREVER).commit()
+        // no modules and no settings pass yet, so the manager is not ready
+        val notReadyManager = ModuleManagerImpl(scheduler)
+        notReadyManager.addModuleFactory(VisitorIdModule.Factory())
+        val wrapper = VisitorIdManagerWrapper(
+            ModuleProxyImpl(
+                VisitorIdModule::class.java,
+                Observables.just(TealiumResult.success<ModuleManager>(notReadyManager)),
+                scheduler
+            )
+        )
+
+        // regenerate subscribes to the module straight away, but the readiness gate holds it
+        // until the settings pass below creates the module, which seeds its identity from the
+        // data layer; the regenerate is therefore bound to that identity
+        val regenerateResult = wrapper.regenerate()
+        notReadyManager.updateModuleSettings(
+            createContext(config, storeProvider, dataLayer),
+            createVisitorIdSettings()
+        )
+        var newId: String? = null
+        regenerateResult.subscribe { newId = it.getOrThrow() }
+
+        val hashedIdentity = "identityValue".sha256()
+        val visitorStorage =
+            VisitorStorageImpl(storeProvider.getModuleStore(Modules.Types.VISITOR_ID))
+        assertNotNull(newId)
+        assertEquals(newId, visitorStorage.visitorId)
+        assertEquals(hashedIdentity, visitorStorage.ownerIdentity)
+        assertEquals(newId, visitorStorage.getKnownVisitorId(hashedIdentity))
     }
 
     @Test
@@ -231,6 +276,34 @@ class VisitorIdManagerWrapperTests {
             observer.onNext(any())
             observer.onComplete()
         }
+    }
+
+    @Test
+    fun subscribe_DoesNot_Reemit_When_Identical_Settings_Reapplied() {
+        val config = getDefaultConfig(RuntimeEnvironment.getApplication())
+        val storeProvider = createStoreProvider(config)
+        val dataLayer = storeProvider.getModuleStore(Modules.Types.DATA_LAYER)
+        val context = createContext(config, storeProvider, dataLayer)
+        val manager = ModuleManagerImpl(scheduler)
+        manager.addModuleFactory(VisitorIdModule.Factory())
+        val wrapper = VisitorIdManagerWrapper(
+            ModuleProxyImpl(
+                VisitorIdModule::class.java,
+                Observables.just(TealiumResult.success<ModuleManager>(manager)),
+                scheduler
+            )
+        )
+        val settings = createVisitorIdSettings()
+        manager.updateModuleSettings(context, settings)
+        wrapper.subscribe(observer)
+        verify(exactly = 1) { observer.onNext(match { it.isSuccess }) }
+
+        // ModuleManager re-emits only when the module identity changes; updateConfiguration
+        // returns the same instance for identical settings, so nothing new must be emitted.
+        manager.updateModuleSettings(context, settings)
+
+        verify(exactly = 1) { observer.onNext(any()) }
+        verify(exactly = 0) { observer.onComplete() }
     }
 
     @Test
@@ -346,9 +419,33 @@ class VisitorIdManagerWrapperTests {
         return ThrowingStorageFixture(createWrapper(module), visitorStorage)
     }
 
+    private fun createVisitorIdSettings(): SdkSettings = SdkSettings(
+        modules = mapOf(
+            Modules.Types.VISITOR_ID to ModuleSettings(
+                Modules.Types.VISITOR_ID,
+                configuration = VisitorIdSettingsBuilder()
+                    .setVisitorIdentityKey(IDENTITY_KEY)
+                    .buildConfiguration()
+            )
+        )
+    )
+
     private fun createStoreProvider(config: TealiumConfig): ModuleStoreProviderImpl {
         val databaseProvider = InMemoryDatabaseProvider(config)
         return ModuleStoreProviderImpl(databaseProvider, SQLModulesRepository(databaseProvider))
+    }
+
+    private fun createContext(
+        config: TealiumConfig,
+        storeProvider: ModuleStoreProviderImpl,
+        dataLayer: DataStore
+    ): TealiumContext {
+        val context = mockk<TealiumContext>(relaxed = true)
+        every { context.config } returns config
+        every { context.storageProvider } returns storeProvider
+        every { context.dataLayer } returns dataLayer
+        every { context.logger } returns SystemLogger
+        return context
     }
 
     private fun createWrapper(module: VisitorIdModule): VisitorIdManagerWrapper {

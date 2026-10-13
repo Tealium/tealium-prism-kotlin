@@ -15,6 +15,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
@@ -83,6 +84,40 @@ class TealiumTests {
         }
     }
 
+    @Test
+    fun visitorId_Regenerate_Completes_On_Tealium_Thread() {
+        val config = getDefaultConfig(app, accountName = "visitor_id_regenerate")
+        val created = createAndCaptureThread(config)
+
+        try {
+            val completion = awaitWithThread { done ->
+                created.tealium.visitorId.regenerate().subscribe { done(it) }
+            }
+
+            assertTrue(completion.value.getOrThrow().isNotBlank())
+            assertSame(created.thread, completion.thread)
+        } finally {
+            Tealium.shutdown(config.key)
+        }
+    }
+
+    @Test
+    fun visitorId_EraseLocalHistory_Completes_On_Tealium_Thread() {
+        val config = getDefaultConfig(app, accountName = "visitor_id_erase")
+        val created = createAndCaptureThread(config)
+
+        try {
+            val completion = awaitWithThread { done ->
+                created.tealium.visitorId.eraseLocalHistory().subscribe { done(it) }
+            }
+
+            assertTrue(completion.value.getOrThrow().isNotBlank())
+            assertSame(created.thread, completion.thread)
+        } finally {
+            Tealium.shutdown(config.key)
+        }
+    }
+
     private fun createAndAwait(config: TealiumConfig): Tealium =
         await<TealiumResult<Tealium>> { done -> Tealium.create(config) { done(it) } }.getOrThrow()
 
@@ -94,4 +129,36 @@ class TealiumTests {
         block { future.complete(it) }
         return future.get(5, TimeUnit.SECONDS)
     }
+
+    /**
+     * Creates a [Tealium] and records the thread its creation callback ran on, which is the
+     * Tealium processing thread.
+     */
+    private fun createAndCaptureThread(config: TealiumConfig): CreatedTealium {
+        val completion = awaitWithThread<TealiumResult<Tealium>> { done ->
+            Tealium.create(config) { done(it) }
+        }
+        return CreatedTealium(completion.value.getOrThrow(), completion.thread)
+    }
+
+    /**
+     * Runs [block] and waits up to 5 seconds for it to call the provided completion, returning
+     * the value along with the thread the completion was called on.
+     */
+    private fun <T> awaitWithThread(block: (done: (T) -> Unit) -> Unit): Completion<T> {
+        val latch = CountDownLatch(1)
+        var value: T? = null
+        var thread: Thread? = null
+        block {
+            value = it
+            thread = Thread.currentThread()
+            latch.countDown()
+        }
+        assertTrue(latch.await(5, TimeUnit.SECONDS))
+        return Completion(value!!, thread!!)
+    }
+
+    private data class CreatedTealium(val tealium: Tealium, val thread: Thread)
+
+    private data class Completion<T>(val value: T, val thread: Thread)
 }

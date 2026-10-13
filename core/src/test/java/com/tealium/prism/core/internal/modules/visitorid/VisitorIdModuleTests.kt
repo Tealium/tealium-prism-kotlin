@@ -99,18 +99,57 @@ class VisitorIdModuleTests {
 
     @Test
     fun regenerate_Returns_New_Visitor_Id_From_Storage() {
-        every { storage.regenerate() } returns "regenerated-visitor-id"
+        every { storage.regenerate(any()) } returns "regenerated-visitor-id"
 
         assertEquals("regenerated-visitor-id", module.regenerate())
-        verify { storage.regenerate() }
+        verify { storage.regenerate(null) }
+    }
+
+    @Test
+    fun regenerate_Passes_Hashed_Identity_Read_From_DataLayer_To_Storage() {
+        every { dataLayer.getString(identityKey) } returns "user@example.com"
+
+        module.regenerate()
+
+        verify { storage.regenerate("user@example.com".sha256()) }
+    }
+
+    @Test
+    fun regenerate_Passes_Null_To_Storage_When_Identity_Blank_In_DataLayer() {
+        every { dataLayer.getString(identityKey) } returns "  "
+
+        module.regenerate()
+
+        verify { storage.regenerate(null) }
+    }
+
+    @Test
+    fun regenerate_Passes_Null_To_Storage_When_No_Identity_Key_Configured() {
+        // the module from setUp watches identityKey, so stop it observing first
+        module.onShutdown()
+        every { dataLayer.getString(any()) } returns "user@example.com"
+        val module = createModule(VisitorIdConfiguration(visitorIdentityKey = null))
+
+        module.regenerate()
+
+        verify { storage.regenerate(null) }
     }
 
     @Test
     fun eraseLocalHistory_Returns_New_Visitor_Id_From_Storage() {
-        every { storage.eraseLocalHistory() } returns "erased-visitor-id"
+        every { storage.eraseLocalHistory(any()) } returns "erased-visitor-id"
 
         assertEquals("erased-visitor-id", module.eraseLocalHistory())
-        verify { storage.eraseLocalHistory() }
+        verify { storage.eraseLocalHistory(null) }
+    }
+
+    @Test
+    fun eraseLocalHistory_Passes_Hashed_Identity_Read_From_DataLayer_To_Storage() {
+        every { dataLayer.getString(identityKey) } returns "user@example.com"
+
+        module.eraseLocalHistory()
+
+        verify { storage.eraseLocalHistory("user@example.com".sha256()) }
     }
 
     @Test
@@ -122,6 +161,7 @@ class VisitorIdModuleTests {
 
     @Test
     fun init_Identifies_Visitor_When_Identity_Updated_In_DataLayer() {
+        every { dataLayer.getString(identityKey) } returns "user@example.com"
         onDataLayerUpdated.onNext(DataObject.create { put(identityKey, "user@example.com") })
 
         verify { storage.identify("user@example.com") }
@@ -131,6 +171,7 @@ class VisitorIdModuleTests {
     fun init_DoesNot_Identify_Visitor_When_Identity_Key_IsNull() {
         // the module from setUp watches identityKey, so stop it observing first
         module.onShutdown()
+        every { dataLayer.getString(identityKey) } returns "user@example.com"
         val module = createModule(VisitorIdConfiguration(visitorIdentityKey = null))
 
         onDataLayerUpdated.onNext(DataObject.create { put(identityKey, "user@example.com") })
@@ -156,6 +197,7 @@ class VisitorIdModuleTests {
             VisitorIdSettingsBuilder().setVisitorIdentityKey("newIdentityKey").buildConfiguration()
         )
 
+        every { dataLayer.getString(identityKey) } returns "user@example.com"
         onDataLayerUpdated.onNext(DataObject.create { put(identityKey, "user@example.com") })
 
         verify(inverse = true) { storage.identify("user@example.com") }
@@ -172,6 +214,7 @@ class VisitorIdModuleTests {
     fun onShutdown_Stops_Identity_Updates() {
         module.onShutdown()
 
+        every { dataLayer.getString(identityKey) } returns "user@example.com"
         onDataLayerUpdated.onNext(DataObject.create { put(identityKey, "user@example.com") })
 
         verify(inverse = true) { storage.identify(any()) }

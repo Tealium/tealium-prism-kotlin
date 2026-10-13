@@ -35,42 +35,55 @@ interface VisitorIdStorage {
     /**
      * Replaces the current visitor id with a new anonymous one.
      *
-     * Note. the new anonymous id will be associated to any identity currently set.
+     * Stored identity associations are left untouched. With a non null [ownerIdentity], that
+     * identity takes ownership of the new id and its stored association is updated. With a null
+     * [ownerIdentity], the new id is unowned.
      *
+     * @param ownerIdentity The hashed identity present in the data layer at the time of the call,
+     *  or `null` if none is present
      * @return The new anonymous visitor id
      * @throws PersistenceException When the new visitor id could not be stored. The new id is still
      *  published to [visitorId] and used until the next launch, when the stored one is restored
      */
     @Throws(PersistenceException::class)
-    fun regenerate(): String
+    fun regenerate(ownerIdentity: String?): String
 
     /**
      * Removes the owner identity and every stored identity association, and generates a new
      * anonymous visitor id.
      *
+     * With a non null [ownerIdentity], that identity is immediately associated with the new id
+     * and becomes its owner, so one new association exists afterwards. With a null
+     * [ownerIdentity], the new id is unowned and no association remains.
+     *
+     * @param ownerIdentity The hashed identity present in the data layer at the time of the call,
+     *  or `null` if none is present
      * @return The new anonymous visitor id
      * @throws PersistenceException When the stored ids could not be cleared, in which case nothing
      *  is erased. The new id is still published to [visitorId] and used until the next launch, when
      *  the stored visitor id and associations are restored
      */
     @Throws(PersistenceException::class)
-    fun eraseLocalHistory(): String
+    fun eraseLocalHistory(ownerIdentity: String?): String
 
     /**
-     * Notifies that the identity has changed.
+     * Notifies that an identity has been written to the data layer.
      *
-     * When no identity is currently set, then this [identity] should be associated with the current
-     * visitor id.
+     * A blank [identity] is ignored. So is the identity that already owns the current visitor id,
+     * as its association is then already up to date.
      *
-     * When the [identity] has been seen before, then the visitor id should be updated to the
-     * one previously associated with this [identity].
+     * When the [identity] has been seen before, the visitor id is restored to the one it was last
+     * associated with and the [identity] becomes its owner, even when that id is already the
+     * current one. Otherwise, when no identity currently owns the visitor id, the [identity]
+     * adopts the current visitor id; when another identity owns it, a new visitor id is generated
+     * for the [identity].
      *
      * This is driven by data layer updates rather than by an api caller, so it does not throw; a
      * failed write is logged. A visitor switch is still published to [visitorId] and used until
      * the next launch, when the stored visitor id is restored and the switch is retried the next
      * time the same identity is seen.
      *
-     * @param identity The new identity of the user
+     * @param identity The identity written at the configured identity key
      */
     fun identify(identity: String)
 }
@@ -108,12 +121,12 @@ class VisitorIdStorageImpl(
     override val visitorId: ObservableState<String>
         get() = _visitorId.asObservableState()
 
-    override fun regenerate(): String {
+    override fun regenerate(ownerIdentity: String?): String {
         logger.debug(LogCategory.VISITOR_ID, "Regenerating current visitor id")
 
         return generateVisitorId().also { newId ->
             try {
-                visitorStorage.changeVisitor(newId)
+                visitorStorage.changeVisitor(newId, ownerIdentity)
             } finally {
                 // published even when not stored: the caller is told by the exception, and the
                 // stored id is restored on the next launch
@@ -122,12 +135,12 @@ class VisitorIdStorageImpl(
         }
     }
 
-    override fun eraseLocalHistory(): String {
+    override fun eraseLocalHistory(ownerIdentity: String?): String {
         logger.debug(LogCategory.VISITOR_ID, "Erasing stored identity associations.")
 
         return generateVisitorId().also { newId ->
             try {
-                visitorStorage.clear(newId)
+                visitorStorage.clear(newId, ownerIdentity)
             } finally {
                 // published even when not stored: the caller is told by the exception, and the
                 // stored id and associations are restored on the next launch
@@ -150,11 +163,12 @@ class VisitorIdStorageImpl(
         val knownVisitorId = visitorStorage.getKnownVisitorId(hashedNewIdentity)
 
         if (knownVisitorId != null) {
-            if (knownVisitorId != visitorId.value) {
-                handleExistingIdentity(knownVisitorId, hashedNewIdentity)
-            } else {
-                handleChangedIdentity(hashedNewIdentity)
-            }
+            // Writes the full association even when knownVisitorId already matches the current
+            // visitor id. That case is reached after changeVisitor throws: it publishes the new id
+            // in memory before the write is confirmed, so a repeat of the same identity sees
+            // knownVisitorId == visitorId.value. If that repeat wrote only the owner, a failing
+            // store would leave the stored visitor_id wrong for good, as nothing else retries it
+            handleExistingIdentity(knownVisitorId, hashedNewIdentity)
         } else if (oldIdentity == null) {
             handleFirstIdentity(hashedNewIdentity)
         } else {
@@ -163,28 +177,16 @@ class VisitorIdStorageImpl(
     }
 
     private fun handleExistingIdentity(knownVisitorId: String, identity: String) {
-        logger.debug(
-            LogCategory.VISITOR_ID,
+        val message = if (knownVisitorId == visitorId.value) {
+            // also reached when a previous switch to this id failed to store: the id is already
+            // in memory, so storing it again completes the switch without a new emission
+            "Identity has been seen before and already uses the current visitor id; storing it as owner"
+        } else {
             "Identity has been seen before; setting known visitor id"
-        )
+        }
+        logger.debug(LogCategory.VISITOR_ID, message)
 
         changeVisitor(knownVisitorId, identity)
-    }
-
-    private fun handleChangedIdentity(identity: String) {
-        logger.debug(
-            LogCategory.VISITOR_ID,
-            "Identity has been seen before; but visitor id has not changed"
-        )
-
-        try {
-            visitorStorage.changeIdentity(identity)
-        } catch (e: Exception) {
-            logger.error(
-                LogCategory.VISITOR_ID,
-                "Failed to change identity.\nError: ${e.message}"
-            )
-        }
     }
 
     private fun handleFirstIdentity(identity: String) {
@@ -205,11 +207,7 @@ class VisitorIdStorageImpl(
 
     private fun changeVisitor(visitorId: String, identity: String?) {
         try {
-            if (identity != null) {
-                visitorStorage.changeVisitor(visitorId, identity)
-            } else {
-                visitorStorage.changeVisitor(visitorId)
-            }
+            visitorStorage.changeVisitor(visitorId, identity)
         } catch (e: Exception) {
             // the id was not stored, so the previous one is restored on the next launch, and the
             // switch will be retried the next time the same identity is seen
@@ -240,7 +238,7 @@ class VisitorIdStorageImpl(
         val migratedVisitorId = migrator.visitorId
         if (migratedVisitorId != null) {
             // TODO - handle possible exception
-            visitorStorage.changeVisitor(migratedVisitorId)
+            visitorStorage.changeVisitor(migratedVisitorId, null)
             migrator.delete()
             return migratedVisitorId
         }

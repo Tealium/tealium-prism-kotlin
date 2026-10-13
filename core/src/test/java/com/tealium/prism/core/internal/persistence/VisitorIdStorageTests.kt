@@ -54,7 +54,7 @@ class VisitorIdStorageTests {
 
         assertEquals(migratingVisitorId, visitorIdStorage.visitorId.value)
         verify {
-            visitorStorage.changeVisitor(migratingVisitorId)
+            visitorStorage.changeVisitor(migratingVisitorId, null)
             visitorIdMigrator.delete()
         }
     }
@@ -67,7 +67,7 @@ class VisitorIdStorageTests {
 
         assertEquals(existingVisitorId, visitorIdStorage.visitorId.value)
         verify {
-            visitorStorage.changeVisitor(existingVisitorId)
+            visitorStorage.changeVisitor(existingVisitorId, null)
         }
     }
 
@@ -80,7 +80,7 @@ class VisitorIdStorageTests {
 
         assertTrue(visitorIdStorage.visitorId.value.isNotBlank())
         verify {
-            visitorStorage.changeVisitor(match { it.isNotBlank() })
+            visitorStorage.changeVisitor(match { it.isNotBlank() }, null)
         }
     }
 
@@ -93,7 +93,7 @@ class VisitorIdStorageTests {
 
         assertTrue(visitorIdStorage.visitorId.value.isNotEmpty())
         verify {
-            visitorStorage.changeVisitor(match { it.isNotEmpty() })
+            visitorStorage.changeVisitor(match { it.isNotEmpty() }, null)
         }
     }
 
@@ -142,6 +142,29 @@ class VisitorIdStorageTests {
             visitorStorage.getKnownVisitorId(any())
             visitorStorage.changeVisitor(any(), any())
             onNext(neq(currentVisitorId))
+        }
+    }
+
+    @Test
+    fun identify_Restores_Known_Visitor_When_Current_Visitor_Id_Is_Unowned() {
+        // after a regenerate with no identity present, the current id is unowned; a returning
+        // identity restores its own visitor id instead of adopting the unowned one
+        every { visitorStorage.visitorId } returns currentVisitorId
+        every { visitorStorage.ownerIdentity } returns null
+        every { visitorStorage.getKnownVisitorId(hashedOwnerIdentity) } returns "knownVisitor"
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdStorage = createDefaultVisitorIdStorage(visitorStorage = visitorStorage)
+        visitorIdStorage.visitorId.subscribe(onNext)
+
+        visitorIdStorage.identify(ownerIdentity)
+
+        verify {
+            visitorStorage.changeVisitor("knownVisitor", hashedOwnerIdentity)
+            onNext("knownVisitor")
+        }
+        verify(inverse = true) {
+            visitorStorage.changeVisitor(currentVisitorId, hashedOwnerIdentity)
         }
     }
 
@@ -204,7 +227,7 @@ class VisitorIdStorageTests {
     }
 
     @Test
-    fun identify_ChangesIdentity_WhenIdentityChanged_But_SameVisitorId() {
+    fun identify_Stores_Known_Identity_As_Owner_When_It_Already_Uses_Current_Visitor_Id() {
         every { visitorStorage.visitorId } returns currentVisitorId
         every { visitorStorage.ownerIdentity } returns ownerIdentity
         every { visitorStorage.getKnownVisitorId("newIdentity".sha256()) } returns currentVisitorId
@@ -216,36 +239,91 @@ class VisitorIdStorageTests {
         visitorIdStorage.identify("newIdentity")
 
         verify {
-            visitorStorage.changeIdentity("newIdentity".sha256())
+            visitorStorage.changeVisitor(currentVisitorId, "newIdentity".sha256())
+        }
+        // once on subscribe; storing the switch to the current id is not a change
+        verify(exactly = 1) {
             onNext(currentVisitorId)
         }
         confirmVerified(onNext)
     }
 
     @Test
-    fun regenerate_Replaces_Current_Visitor_Id_And_Associates_It_With_Owner_Identity() {
-        every { visitorStorage.visitorId } returns currentVisitorId
-        every { visitorStorage.ownerIdentity } returns ownerIdentity
+    fun identify_Completes_Switch_When_Same_Identity_Rewritten_After_Failed_Store() {
+        // identity A is known to use v1 while B owns the stored id v0; the first switch to v1 is
+        // published but not stored, so the repeated write of A must store it rather than only
+        // rewrite the owner against the stale v0
+        every { visitorStorage.visitorId } returns "v0"
+        every { visitorStorage.ownerIdentity } returns "B".sha256()
+        every { visitorStorage.getKnownVisitorId("A".sha256()) } returns "v1"
+        every {
+            visitorStorage.changeVisitor("v1", "A".sha256())
+        } throws PersistenceException("TestError", mockk()) andThenAnswer { }
         val onNext = mockk<(String) -> Unit>(relaxed = true)
 
         val visitorIdStorage = createDefaultVisitorIdStorage(visitorStorage = visitorStorage)
         visitorIdStorage.visitorId.subscribe(onNext)
 
-        visitorIdStorage.regenerate()
+        visitorIdStorage.identify("A")
+        assertEquals("v1", visitorIdStorage.visitorId.value)
 
+        visitorIdStorage.identify("A")
+
+        verify(exactly = 2) {
+            visitorStorage.changeVisitor("v1", "A".sha256())
+        }
+        verify(exactly = 1) {
+            onNext("v1")
+        }
+    }
+
+    @Test
+    fun regenerate_Replaces_Current_Visitor_Id_And_Associates_It_With_Passed_Identity() {
+        every { visitorStorage.visitorId } returns currentVisitorId
+        every { visitorStorage.ownerIdentity } returns hashedOwnerIdentity
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdStorage = createDefaultVisitorIdStorage(visitorStorage = visitorStorage)
+        visitorIdStorage.visitorId.subscribe(onNext)
+
+        val newVisitorId = visitorIdStorage.regenerate(hashedOwnerIdentity)
+
+        assertNotEquals(currentVisitorId, newVisitorId)
         verify {
-            visitorStorage.changeVisitor(neq(currentVisitorId))
-            onNext(neq(currentVisitorId))
+            visitorStorage.changeVisitor(newVisitorId, hashedOwnerIdentity)
+            onNext(newVisitorId)
+        }
+    }
+
+    @Test
+    fun regenerate_Leaves_New_Visitor_Id_Unowned_When_No_Identity_Passed() {
+        // the stored owner is not used: only the identity present at the time of the call counts
+        every { visitorStorage.visitorId } returns currentVisitorId
+        every { visitorStorage.ownerIdentity } returns hashedOwnerIdentity
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdStorage = createDefaultVisitorIdStorage(visitorStorage = visitorStorage)
+        visitorIdStorage.visitorId.subscribe(onNext)
+
+        val newVisitorId = visitorIdStorage.regenerate(null)
+
+        assertNotEquals(currentVisitorId, newVisitorId)
+        verify {
+            visitorStorage.changeVisitor(newVisitorId, null)
+            onNext(newVisitorId)
+        }
+        verify(inverse = true) {
+            visitorStorage.changeVisitor(any(), hashedOwnerIdentity)
         }
     }
 
     @Test(expected = PersistenceException::class)
     fun regenerate_Throws_When_DataStore_Throws() {
-        every { visitorStorage.changeVisitor(any()) } throws PersistenceException("TestError", mockk())
+        every { visitorStorage.changeVisitor(any(), any()) } throws PersistenceException("TestError", mockk())
 
         val visitorIdStorage = createDefaultVisitorIdStorage(visitorStorage = visitorStorage)
 
-        visitorIdStorage.regenerate()
+        visitorIdStorage.regenerate(null)
     }
 
     @Test
@@ -259,7 +337,7 @@ class VisitorIdStorageTests {
         visitorIdStorage.visitorId.subscribe(onNext)
         every { dataStore.edit() } throws PersistenceException("TestError", mockk())
 
-        assertThrows(PersistenceException::class.java) { visitorIdStorage.regenerate() }
+        assertThrows(PersistenceException::class.java) { visitorIdStorage.regenerate(null) }
 
         assertNotEquals(currentVisitorId, visitorIdStorage.visitorId.value)
         verify {
@@ -278,21 +356,38 @@ class VisitorIdStorageTests {
         val visitorIdStorage = createDefaultVisitorIdStorage(visitorStorage = visitorStorage)
         visitorIdStorage.visitorId.subscribe(onNext)
 
-        val visitorId = visitorIdStorage.eraseLocalHistory()
+        val visitorId = visitorIdStorage.eraseLocalHistory(null)
 
         verify {
-            visitorStorage.clear(visitorId)
+            visitorStorage.clear(visitorId, null)
+            onNext(visitorId)
+        }
+    }
+
+    @Test
+    fun eraseLocalHistory_Reassociates_Passed_Identity_With_New_Visitor_Id() {
+        every { visitorStorage.visitorId } returns currentVisitorId
+        every { visitorStorage.ownerIdentity } returns hashedOwnerIdentity
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdStorage = createDefaultVisitorIdStorage(visitorStorage = visitorStorage)
+        visitorIdStorage.visitorId.subscribe(onNext)
+
+        val visitorId = visitorIdStorage.eraseLocalHistory(hashedOwnerIdentity)
+
+        verify {
+            visitorStorage.clear(visitorId, hashedOwnerIdentity)
             onNext(visitorId)
         }
     }
 
     @Test(expected = PersistenceException::class)
     fun eraseLocalHistory_Throws_When_DataStore_Throws() {
-        every { visitorStorage.clear(any()) } throws PersistenceException("TestError", mockk())
+        every { visitorStorage.clear(any(), any()) } throws PersistenceException("TestError", mockk())
 
         val visitorIdStorage = createDefaultVisitorIdStorage(visitorStorage = visitorStorage)
 
-        visitorIdStorage.eraseLocalHistory()
+        visitorIdStorage.eraseLocalHistory(null)
     }
 
     @Test
@@ -306,7 +401,7 @@ class VisitorIdStorageTests {
         visitorIdStorage.visitorId.subscribe(onNext)
         every { dataStore.edit() } throws PersistenceException("TestError", mockk())
 
-        assertThrows(PersistenceException::class.java) { visitorIdStorage.eraseLocalHistory() }
+        assertThrows(PersistenceException::class.java) { visitorIdStorage.eraseLocalHistory(null) }
 
         assertNotEquals(currentVisitorId, visitorIdStorage.visitorId.value)
         verify {

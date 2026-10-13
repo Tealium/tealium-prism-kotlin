@@ -20,6 +20,8 @@ import com.tealium.prism.core.api.settings.modules.VisitorIdSettingsBuilder
  * of login or logout: a login is the app writing the identity to that key, a logout is the app
  * removing it.
  *
+ * Operations below that depend on an identity being present read the data layer at the time of the call.
+ *
  * Visitor ID handling can be disabled through settings. While visitor ID handling is disabled,
  * subscribers receive a failure carrying [ModuleNotEnabledException] instead of a value, both at
  * subscription time and if it becomes disabled later; successes resume if it is re-enabled. These
@@ -45,8 +47,20 @@ interface VisitorIdManager : Subscribable<TealiumResult<String>> {
     /**
      * Generates a new anonymous visitor ID and returns it.
      *
-     * The identity that owns the current visitor ID, if any, takes ownership of the new ID
-     * and its stored association is updated, even if that identity has since been removed.
+     * Identity associations stored by Visitor Switching are left untouched. If an identity is present
+     * (see [VisitorIdManager]), it takes ownership of the new ID and its stored association is updated.
+     * If none is present, the new ID is unowned: the next identity written to the data layer adopts it,
+     * and a returning identity restores its own previous visitor ID.
+     *
+     * Typical uses, both optional:
+     * - after removing the identity from the data layer, so that events in the anonymous gap are
+     *   not attributed to the previous identity. Remove the key **before** calling this method;
+     *   calling it while the identity is still present rebinds that identity to the new ID.
+     * - immediately before writing a new identity to the data layer, so that the next identity
+     *   does not inherit that gap.
+     *
+     * The previous visitor ID is not deleted from the device if an identity still owns it; it is
+     * restored when that identity returns.
      *
      * If the new visitor ID can't be stored, this fails with a [PersistenceException], but the new
      * visitor ID is still used until the app is relaunched: it is emitted to subscribers and added
@@ -68,6 +82,10 @@ interface VisitorIdManager : Subscribable<TealiumResult<String>> {
      * erased, but the new visitor ID is still used until the app is relaunched: it is emitted to
      * subscribers and added to events. On the next launch, the previous visitor ID and every stored
      * association are restored.
+     *
+     * If an identity is present (see [VisitorIdManager]) it is immediately associated with the new
+     * visitor ID, so one new association may exist afterwards. To erase without any association
+     * remaining, remove the identity from the data layer first.
      *
      * This is a device-only operation intended for data-deletion requests. It does not remove the
      * identity from the data layer, and it does not delete or alter server-side visitor profiles;
