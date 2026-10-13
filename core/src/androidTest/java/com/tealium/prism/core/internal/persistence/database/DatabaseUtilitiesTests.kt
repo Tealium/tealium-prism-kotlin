@@ -3,10 +3,14 @@ package com.tealium.prism.core.internal.persistence.database
 import android.database.sqlite.SQLiteDatabase
 import android.os.Build
 import androidx.test.filters.SdkSuppress
+import com.tealium.prism.core.api.persistence.PersistenceException
 import io.mockk.MockKAnnotations
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.verify
+import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 
@@ -15,9 +19,21 @@ class DatabaseUtilitiesTests {
     @RelaxedMockK
     private lateinit var mockDb: SQLiteDatabase
 
+    private val opened = DatabaseTestUtils.OpenedDatabases()
+
+    /** A real in-memory database, for the behaviour that the mock's call contract cannot show. */
+    private lateinit var db: SQLiteDatabase
+
     @Before
     fun setUp() {
         MockKAnnotations.init(this)
+        db = opened.track(SQLiteDatabase.create(null))
+        db.execSQL("CREATE TABLE $TABLE (value TEXT);")
+    }
+
+    @After
+    fun tearDown() {
+        opened.closeAll()
     }
 
     @Test
@@ -33,35 +49,26 @@ class DatabaseUtilitiesTests {
     }
 
     @Test
-    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.P)
-    fun dropTable_DoesNothing_WhenTableNameIsEmptyDropTable_DropsNamedTable() {
-        mockDb.dropTable("")
-        mockDb.dropTable("   ")
-
-        verify(exactly = 0) {
-            mockDb.execSQL(any())
+    fun transaction_CommitsTheBlock_And_EndsTheTransaction_When_BlockSucceeds() {
+        db.transaction {
+            execSQL("INSERT INTO $TABLE VALUES ('committed');")
         }
+
+        assertFalse(db.inTransaction())
+        assertEquals(listOf("committed"), values())
     }
 
     @Test
-    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.P)
-    fun dropTable_DropsNamedTable() {
-        mockDb.dropTable("test_table")
-
-        verify {
-            mockDb.execSQL("DROP TABLE test_table")
+    fun transaction_RollsBackTheBlock_And_EndsTheTransaction_When_BlockThrows() {
+        assertThrows(PersistenceException::class.java) {
+            db.transaction {
+                execSQL("INSERT INTO $TABLE VALUES ('rolled back');")
+                throw IllegalStateException("block failed")
+            }
         }
-    }
 
-    @Test
-    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.P)
-    fun dropTableIfExists_DoesNothing_WhenTableNameIsEmpty() {
-        mockDb.dropTableIfExists("")
-        mockDb.dropTableIfExists("   ")
-
-        verify(exactly = 0) {
-            mockDb.execSQL(any())
-        }
+        assertFalse(db.inTransaction())
+        assertEquals(emptyList<String>(), values())
     }
 
     @Test
@@ -122,4 +129,11 @@ class DatabaseUtilitiesTests {
 
         assertEquals(0, tail.size)
     }
+
+    private fun values(): List<String> =
+        db.rawQuery("SELECT value FROM $TABLE", null).use { cursor ->
+            generateSequence { if (cursor.moveToNext()) cursor.getString(0) else null }.toList()
+        }
 }
+
+private const val TABLE = "transaction_test"

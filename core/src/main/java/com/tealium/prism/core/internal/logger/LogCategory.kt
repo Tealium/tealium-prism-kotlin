@@ -6,6 +6,7 @@ object LogCategory {
     const val DISPATCH_MANAGER = "DispatchManager"
     const val HTTP_CLIENT = "HttpClient"
     const val LOAD_RULES = "LoadRules"
+    const val PERSISTENCE = "Persistence"
     const val QUEUE_MANAGER = "QueueManager"
     const val RESOURCE_REFRESHER = "ResourceRefresher"
     const val SESSION_MANAGER = "SessionManager"

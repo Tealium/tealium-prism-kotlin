@@ -78,12 +78,13 @@ class AppDataProviderTests {
     fun provider_createsNewUuid() {
         every { dataStore.getString(Dispatch.Keys.APP_UUID) } returns null
 
-        mockkStatic(UUID::class)
-        every { UUID.randomUUID().toString() } returns "test_id"
+        mockkStatic(UUID::class) {
+            every { UUID.randomUUID().toString() } returns "test_id"
 
-        appDataProvider = AppDataProviderImpl(context, dataStore)
+            appDataProvider = AppDataProviderImpl(context, dataStore)
 
-        assertEquals("test_id", appDataProvider.appUuid)
+            assertEquals("test_id", appDataProvider.appUuid)
+        }
     }
 
     @Test

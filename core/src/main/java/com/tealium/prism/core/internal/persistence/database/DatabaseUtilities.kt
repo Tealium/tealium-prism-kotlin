@@ -77,28 +77,6 @@ internal inline fun <T> SQLiteDatabase.select(
 }
 
 /**
- * Drops the table with the provided [tableName].
- */
-internal fun SQLiteDatabase.dropTable(tableName: String) {
-    if (tableName.isBlank()) return
-
-    execSQL(
-        "DROP TABLE $tableName"
-    )
-}
-
-/**
- * Safely drops the table with the provided [tableName] if it exists.
- */
-internal fun SQLiteDatabase.dropTableIfExists(tableName: String) {
-    if (tableName.isBlank()) return
-
-    execSQL(
-        "DROP TABLE IF EXISTS $tableName"
-    )
-}
-
-/**
  * Generates a SQL placeholder list for a collection. The returned value will create a string with
  * placeholders for the number of items in the Collection.
  * e.g. a collection of two elements will return "(?, ?)"

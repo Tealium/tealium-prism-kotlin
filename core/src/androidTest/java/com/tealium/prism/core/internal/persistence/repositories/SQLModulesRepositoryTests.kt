@@ -158,8 +158,8 @@ open class SQLModulesRepositoryTests {
             @JvmStatic
             @Parameters
             fun parameters() = arrayOf(
-                arrayOf(ModulesRepository.ExpirationType.Session, "session"),
-                arrayOf(ModulesRepository.ExpirationType.UntilRestart, "until_restart")
+                arrayOf<Any>(ModulesRepository.ExpirationType.Session, "session"),
+                arrayOf<Any>(ModulesRepository.ExpirationType.UntilRestart, "until_restart")
             )
         }
 

@@ -440,7 +440,7 @@ class TealiumImplTests {
         tealium.shutdown()
 
         // Read back from the persisted file, as the next launch would.
-        val queued = SQLQueueRepository(FileDatabaseProvider(config))
+        val queued = SQLQueueRepository(FileDatabaseProvider(config, SystemLogger))
             .getQueuedDispatches(-1, dispatcher.id)
         assertEquals(1, queued.size)
     }

@@ -10,13 +10,9 @@ import com.tealium.prism.core.api.misc.TimeFrameUtils.seconds
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.internal.persistence.database.DatabaseProvider
-import com.tealium.prism.core.internal.persistence.database.DatabaseTestUtils
-import com.tealium.prism.core.internal.persistence.database.DatabaseTestUtils.upgrade
 import com.tealium.prism.core.internal.persistence.database.InMemoryDatabaseProvider
 import com.tealium.prism.core.internal.persistence.database.getTimestampMilliseconds
 import com.tealium.tests.common.getDefaultConfig
-import io.mockk.every
-import io.mockk.mockk
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -535,73 +531,6 @@ class SQLQueueRepositoryTests {
         assertEquals(dispatch1.id, dispatches2[0].id)
         assertEquals(dispatch2.id, dispatches2[1].id)
         assertEquals(dispatch3.id, dispatches2[2].id)
-    }
-
-//    @Test
-    //TODO("Failing as this used to assume a trigger would create the entries from the `processors` table")
-//    fun updateDispatches_OnUpgrade_MigratesExistingQueuedDispatches() {
-//        val mockProvider = mockk<DatabaseProvider>()
-//        val inMemoryDb =
-//            DatabaseTestUtils.createV1Database(getDefaultConfig(app).application.applicationContext)
-//        every { mockProvider.database } returns inMemoryDb
-//
-//
-//        DatabaseTestUtils.insertLegacyDispatch(
-//            inMemoryDb, "expired", timestamp = SQLQueueRepository.getExpiryTimestamp(
-//                TimeFrame(10, TimeUnit.DAYS)
-//            )
-//        )
-//        DatabaseTestUtils.insertLegacyDispatch(
-//            inMemoryDb, "not-expired", timestamp = SQLQueueRepository.getExpiryTimestamp(
-//                TimeFrame(1, TimeUnit.DAYS)
-//            )
-//        )
-//        inMemoryDb.upgrade(1, 3)
-//
-//        // migrate
-//        val queueRepository =
-//            SQLQueueRepository(mockProvider, expiration = TimeFrame(5, TimeUnit.DAYS))
-//        queueRepository.updateProcessors(setOf(processor1, processor2))
-//        val dispatches1 = queueRepository.getQueuedDispatches(2, processor1)
-//        val dispatches2 = queueRepository.getQueuedDispatches(2, processor2)
-//        val dispatches3 = queueRepository.getQueuedDispatches(2, processor3)
-//
-//
-//        assertEquals(1, queueRepository.size)
-//        assertEquals(2, queueRepository.processorQueueSize()) // one for processor 1 + 2
-//
-//        assertEquals(1, dispatches1.size)
-//        assertEquals(1, dispatches2.size)
-//        assertEquals(0, dispatches3.size)
-//
-//        assertEquals("not-expired", dispatches1.first().id)
-//        assertEquals("not-expired", dispatches2.first().id)
-//    }
-
-    @Test
-    fun updateDispatches_OnUpgrade_EmptyQueueDoesNotThrow() {
-        val mockProvider = mockk<DatabaseProvider>()
-        val inMemoryDb =
-            DatabaseTestUtils.createV1Database(getDefaultConfig(app).application.applicationContext)
-        inMemoryDb.upgrade(1, 3)
-        every { mockProvider.database } returns inMemoryDb
-
-
-        // migrate
-        val queueRepository =
-            SQLQueueRepository(mockProvider, expiration = 5.days)
-        queueRepository.deleteQueues(setOf(processor1, processor2))
-        val dispatches1 = queueRepository.getQueuedDispatches(2, processor1)
-        val dispatches2 = queueRepository.getQueuedDispatches(2, processor2)
-        val dispatches3 = queueRepository.getQueuedDispatches(2, processor3)
-
-
-        assertEquals(0, queueRepository.size)
-        assertEquals(0, queueRepository.processorQueueSize())
-
-        assertEquals(0, dispatches1.size)
-        assertEquals(0, dispatches2.size)
-        assertEquals(0, dispatches3.size)
     }
 
     @Test

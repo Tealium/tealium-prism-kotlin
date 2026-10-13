@@ -184,12 +184,12 @@ class SQLKeyValueRepositoryTests {
 
         storage.upsert(
             "key", DataItem.convert(
-                arrayOf(1, "", true)
+                arrayOf<Any>(1, "", true)
             ), Expiry.SESSION
         )
 
         assertArrayEquals(
-            arrayOf(1, "", true),
+            arrayOf<Any>(1, "", true),
             (storage.get("key")?.value as DataList)
                 .map { it.value }
                 .toTypedArray()

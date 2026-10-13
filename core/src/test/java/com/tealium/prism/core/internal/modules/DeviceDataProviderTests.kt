@@ -116,12 +116,12 @@ class DeviceDataProviderTests {
 
     @Test
     fun deviceCpuType_returnsDeviceCpuType() {
-        System.setProperty("os.arch", "aarch64")
+        withSystemProperty("os.arch", "aarch64") {
+            deviceDataProvider =
+                DeviceDataProviderImpl(context, displayManager, uiModeManager, defaultDisplay)
 
-        deviceDataProvider =
-            DeviceDataProviderImpl(context, displayManager, uiModeManager, defaultDisplay)
-
-        assertEquals("aarch64", deviceDataProvider.deviceCpuType)
+            assertEquals("aarch64", deviceDataProvider.deviceCpuType)
+        }
     }
 
     @Test
@@ -161,12 +161,12 @@ class DeviceDataProviderTests {
 
     @Test
     fun deviceRuntime_returnsDeviceRuntime() {
-        System.setProperty("java.vm.version", "1.2.3")
+        withSystemProperty("java.vm.version", "1.2.3") {
+            deviceDataProvider =
+                DeviceDataProviderImpl(context, displayManager, uiModeManager, defaultDisplay)
 
-        deviceDataProvider =
-            DeviceDataProviderImpl(context, displayManager, uiModeManager, defaultDisplay)
-
-        assertEquals("1.2.3", deviceDataProvider.deviceRuntime)
+            assertEquals("1.2.3", deviceDataProvider.deviceRuntime)
+        }
     }
 
     @Test
@@ -224,26 +224,28 @@ class DeviceDataProviderTests {
 
     @Test
     fun deviceAvailableSystemStorage_returnsDeviceAvailableSystemStorage() {
-        mockkConstructor(StatFs::class)
-        every { anyConstructed<StatFs>().availableBlocksLong } returns 100L
-        every { anyConstructed<StatFs>().blockSizeLong } returns 100L
+        mockkConstructor(StatFs::class) {
+            every { anyConstructed<StatFs>().availableBlocksLong } returns 100L
+            every { anyConstructed<StatFs>().blockSizeLong } returns 100L
 
-        deviceDataProvider =
-            DeviceDataProviderImpl(context, displayManager, uiModeManager, defaultDisplay)
+            deviceDataProvider =
+                DeviceDataProviderImpl(context, displayManager, uiModeManager, defaultDisplay)
 
-        assertEquals(10000, deviceDataProvider.deviceAvailableSystemStorage)
+            assertEquals(10000, deviceDataProvider.deviceAvailableSystemStorage)
+        }
     }
 
     @Test
     fun deviceAvailableExternalStorage_returnsDeviceAvailableExternalStorage() {
-        mockkConstructor(StatFs::class)
-        every { anyConstructed<StatFs>().availableBlocksLong } returns 100L
-        every { anyConstructed<StatFs>().blockSizeLong } returns 100L
+        mockkConstructor(StatFs::class) {
+            every { anyConstructed<StatFs>().availableBlocksLong } returns 100L
+            every { anyConstructed<StatFs>().blockSizeLong } returns 100L
 
-        deviceDataProvider =
-            DeviceDataProviderImpl(context, displayManager, uiModeManager, defaultDisplay)
+            deviceDataProvider =
+                DeviceDataProviderImpl(context, displayManager, uiModeManager, defaultDisplay)
 
-        assertEquals(10000, deviceDataProvider.deviceAvailableExternalStorage)
+            assertEquals(10000, deviceDataProvider.deviceAvailableExternalStorage)
+        }
     }
 
     @Test
@@ -267,5 +269,16 @@ class DeviceDataProviderTests {
         every { defaultDisplay.rotation } returns Surface.ROTATION_270
 
         assertEquals("Landscape Left", deviceDataProvider.deviceOrientation)
+    }
+
+    /** Runs [block] with the system property [key] set to [value], then restores its previous value. */
+    private fun <T> withSystemProperty(key: String, value: String, block: () -> T): T {
+        val previous = System.getProperty(key)
+        System.setProperty(key, value)
+        try {
+            return block()
+        } finally {
+            if (previous == null) System.clearProperty(key) else System.setProperty(key, previous)
+        }
     }
 }

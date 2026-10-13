@@ -7,19 +7,12 @@ import com.tealium.prism.core.api.tracking.Dispatch
  * schema, including table names, column names, SQL that should be used to construct tables and
  * triggers.
  *
- * It also contains legacy constants as well to help support backward compatibility and migrations
- * on upgrades.
+ * This describes the *current* schema only, at [DatabaseHelper.DATABASE_VERSION]. How an older
+ * database gets here is the business of
+ * [Upgrades][com.tealium.prism.core.internal.persistence.database.upgrades.Upgrades], whose
+ * steps carry their own frozen copies of the SQL rather than referencing anything here.
  */
 object Schema {
-
-    val COUNT_TABLE_NAME: String = """
-        SELECT count(*)
-        FROM 
-            sqlite_master
-        WHERE 
-            type = 'table' AND 
-            name = ?;
-    """.trimIndent()
 
     /**
      * The "dispatch" table contains the stringified version of the payload in JSON format. It also
@@ -93,12 +86,6 @@ object Schema {
                 ORDER BY $COLUMN_TIMESTAMP ASC
                 LIMIT ?	
             );
-        """.trimIndent()
-
-        val MIGRATE_DISPATCH_QUEUE: String = """
-            INSERT INTO $TABLE_NAME 
-            SELECT `key`, timestamp, value from ${LegacyTables.DISPATCHES_TABLE_NAME}
-            WHERE timestamp > ?;
         """.trimIndent()
 
         fun selectLatestDispatches(
@@ -239,31 +226,5 @@ object Schema {
                 ON DELETE CASCADE
          );
         """.trimIndent()
-    }
-
-    /**
-     * This object contains all the schema constructs for versions 1 and 2 of the database. This is
-     * primarily made available here to support backwards compatibility and migration of data from
-     * the old schema to the new one.
-     */
-    object LegacyTables {
-        const val DISPATCHES_TABLE_NAME = "dispatches"
-        const val DATALAYER_TABLE_NAME = "datalayer"
-        const val VISITORS_TABLE_NAME = "visitors"
-
-        const val COLUMN_KEY = "key"
-        const val COLUMN_VALUE = "value"
-        const val COLUMN_EXPIRY = "expiry"
-        const val COLUMN_TIMESTAMP = "timestamp"
-        const val COLUMN_TYPE = "type"
-
-        internal fun createLegacyTable(tableName: String): String = """
-            CREATE TABLE IF NOT EXISTS $tableName (
-                $COLUMN_KEY         TEXT PRIMARY KEY,
-                $COLUMN_VALUE       TEXT,
-                $COLUMN_EXPIRY      LONG,
-                $COLUMN_TIMESTAMP   LONG,
-                $COLUMN_TYPE        SMALLINT);
-            """.trimIndent()
     }
 }

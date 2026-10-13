@@ -70,7 +70,7 @@ import java.io.IOException
 class TealiumImpl(
     private val config: TealiumConfig,
     private val schedulers: Schedulers,
-    private val dbProvider: DatabaseProvider = FileDatabaseProvider(config),
+    dbProviderFactory: (TealiumConfig, Logger) -> DatabaseProvider = ::FileDatabaseProvider,
     val moduleManager: ModuleManagerImpl = ModuleManagerImpl(
         schedulers.tealium
     ),
@@ -78,7 +78,7 @@ class TealiumImpl(
     private val disposables: CompositeDisposable = DisposableContainer()
 ) {
     private val sdkSettingsSubject: ReplaySubject<SdkSettings> = Observables.replaySubject(1)
-    private val logLevel: Observable<LogLevel> = sdkSettingsSubject.map { it.core.logLevel }
+    private val logLevel: ReplaySubject<LogLevel> = Observables.replaySubject(1)
     val logger: Logger = LoggerImpl(
         schedulers.tealium,
         config.logHandler,
@@ -86,6 +86,8 @@ class TealiumImpl(
         config.enforcedSdkSettings.getDataObject(CoreSettingsImpl.MODULE_NAME)
             ?.get(CoreSettingsImpl.KEY_LOG_LEVEL, LogLevel.Converter)
     )
+
+    private val dbProvider: DatabaseProvider = dbProviderFactory(config, logger)
     internal val dispatchManager: DispatchManagerImpl
     private val barrierCoordinator: BarrierCoordinator
     internal val queueManager: QueueManager
@@ -104,8 +106,13 @@ class TealiumImpl(
         try {
             val db = dbProvider.database
         } catch (e: Exception) {
+            // Fall back to the default ERROR log level so queued database logs are emitted
+            logLevel.onNext(LogLevel.ERROR)
             throw PersistenceException("Database Initialization failed.", e)
         }
+
+        sdkSettingsSubject.map { it.core.logLevel }.subscribe(logLevel::onNext)
+            .addTo(disposables)
 
         val modulesRepository = SQLModulesRepository(dbProvider)
         val storage = ModuleStoreProviderImpl(dbProvider, modulesRepository)
