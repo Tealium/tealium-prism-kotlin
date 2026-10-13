@@ -24,6 +24,8 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
         unitTests.isIncludeAndroidResources = true
+        // Robolectric SDK 26-29 sandboxes reflect into java.util (UUID) on JDK 17
+        unitTests.all { it.jvmArgs("--add-opens=java.base/java.util=ALL-UNNAMED") }
     }
     packagingOptions {
         resources {

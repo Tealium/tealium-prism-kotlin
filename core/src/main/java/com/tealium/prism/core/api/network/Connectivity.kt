@@ -34,8 +34,19 @@ interface Connectivity {
      * This class defines the possible statuses of device connectivity.
      */
     sealed class Status {
+        /**
+         * No network is available for making outbound connections.
+         */
         object NotConnected : Status()
+
+        /**
+         * The connectivity is not known.
+         */
         object Unknown : Status()
+
+        /**
+         * A network is available for making outbound connections, of the given [connectivityType].
+         */
         data class Connected(val connectivityType: ConnectivityType) : Status()
     }
 

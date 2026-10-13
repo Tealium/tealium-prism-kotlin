@@ -2,6 +2,7 @@ package com.tealium.prism.core.internal.logger
 
 object LogCategory {
     const val COLLECT = "Collect"
+    const val CONNECTIVITY = "Connectivity"
     const val CONSENT = "Consent"
     const val DISPATCH_MANAGER = "DispatchManager"
     const val HTTP_CLIENT = "HttpClient"

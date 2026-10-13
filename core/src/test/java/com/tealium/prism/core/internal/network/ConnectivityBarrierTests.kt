@@ -54,14 +54,56 @@ class ConnectivityBarrierTests {
     }
 
     @Test
-    fun barrier_IsClosed_When_ConnectivityUnknown() {
+    fun barrier_IsOpen_When_ConnectivityUnknown() {
         val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
 
         connectivityBarrier.onState("").subscribe(verifier)
         connectivityStatus.onNext(Status.Unknown)
 
         verify {
+            verifier(BarrierState.Open)
+        }
+    }
+
+    @Test
+    fun barrier_IsOpen_When_ConnectivityUnknown_And_IsWifi_True() {
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+        isWifiOnly.onNext(true)
+
+        connectivityBarrier.onState("").subscribe(verifier)
+        connectivityStatus.onNext(Status.Unknown)
+
+        verify {
+            verifier(BarrierState.Open)
+        }
+    }
+
+    @Test
+    fun barrier_IsOpen_When_IsWifi_True_And_Connectivity_Connected_Unknown_Type() {
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+        connectivityStatus.onNext(Status.Connected(ConnectivityType.UNKNOWN))
+        isWifiOnly.onNext(true)
+
+        connectivityBarrier.onState("").subscribe(verifier)
+
+        verify {
+            verifier(BarrierState.Open)
+        }
+    }
+
+    @Test
+    fun barrier_IsClosed_When_IsWifi_True_And_ConnectivityNotConnected() {
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+        isWifiOnly.onNext(true)
+
+        connectivityBarrier.onState("").subscribe(verifier)
+        connectivityStatus.onNext(Status.NotConnected)
+
+        verify {
             verifier(BarrierState.Closed)
+        }
+        verify(exactly = 0) {
+            verifier(BarrierState.Open)
         }
     }
 
@@ -71,14 +113,15 @@ class ConnectivityBarrierTests {
 
         connectivityBarrier.onState("").subscribe(verifier)
 
-        connectivityStatus.onNext(Status.NotConnected)
         connectivityStatus.onNext(Status.Connected(ConnectivityType.WIFI))
+        connectivityStatus.onNext(Status.NotConnected)
         connectivityStatus.onNext(Status.Unknown)
 
-        verify {
+        verifyOrder {
             verifier(BarrierState.Closed)
             verifier(BarrierState.Open)
             verifier(BarrierState.Closed)
+            verifier(BarrierState.Open)
         }
     }
 
@@ -125,6 +168,32 @@ class ConnectivityBarrierTests {
     fun barrier_Open_When_IsWifi_False_And_Connectivity_Cellular() {
         val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
         connectivityStatus.onNext(Status.Connected(ConnectivityType.CELLULAR))
+        isWifiOnly.onNext(false)
+
+        connectivityBarrier.onState("").subscribe(verifier)
+
+        verify {
+            verifier(BarrierState.Open)
+        }
+    }
+
+    @Test
+    fun barrier_Open_When_IsWifi_False_And_Connectivity_Ethernet() {
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+        connectivityStatus.onNext(Status.Connected(ConnectivityType.ETHERNET))
+        isWifiOnly.onNext(false)
+
+        connectivityBarrier.onState("").subscribe(verifier)
+
+        verify {
+            verifier(BarrierState.Open)
+        }
+    }
+
+    @Test
+    fun barrier_Open_When_IsWifi_False_And_Connectivity_Connected_Unknown_Type() {
+        val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
+        connectivityStatus.onNext(Status.Connected(ConnectivityType.UNKNOWN))
         isWifiOnly.onNext(false)
 
         connectivityBarrier.onState("").subscribe(verifier)
@@ -183,6 +252,19 @@ class ConnectivityBarrierTests {
         val verifier = mockk<(Boolean) -> Unit>(relaxed = true)
         connectivityStatus.onNext(Status.Connected(ConnectivityType.WIFI))
         isWifiOnly.onNext(true)
+
+        connectivityBarrier.isFlushable
+            .subscribe(verifier)
+
+        verify {
+            verifier(true)
+        }
+    }
+
+    @Test
+    fun isFlushable_Emits_True_When_Unknown() {
+        val verifier = mockk<(Boolean) -> Unit>(relaxed = true)
+        connectivityStatus.onNext(Status.Unknown)
 
         connectivityBarrier.isFlushable
             .subscribe(verifier)

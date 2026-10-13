@@ -7,10 +7,10 @@ import com.tealium.prism.core.internal.network.ConnectivityBarrier
  */
 class ConnectivityBarrierSettingsBuilder : BarrierSettingsBuilder<ConnectivityBarrierSettingsBuilder>() {
     /**
-     * Set whether to restrict dispatching to WiFi connections only.
-     * When enabled, dispatches will be blocked when only cellular connection is available.
-     * 
-     * @param wifiOnly Whether to allow only WiFi connections. Default is false.
+     * Set whether to hold dispatching back while the device is known to be on a cellular
+     * connection. Wi-Fi, Ethernet and connections of unknown type are allowed.
+     *
+     * @param wifiOnly Whether to avoid cellular connections. Default is false.
      * @return The builder instance for method chaining.
      */
     fun setWifiOnly(wifiOnly: Boolean) = apply {

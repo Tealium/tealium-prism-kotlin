@@ -14,7 +14,8 @@ import com.tealium.prism.core.api.network.RetryPolicy.RetryAfterEvent
  * determine whether or not any given network request is safe to execute.
  *
  * For failures resulting from loss of connectivity, it will await the return of connectivity before
- * retrying.
+ * retrying. While the status is [Connectivity.Status.Unknown] a failure is not held back waiting
+ * for connectivity, as the SDK does not hold back sending for that status.
  *
  */
 class ConnectivityInterceptor(
@@ -26,8 +27,10 @@ class ConnectivityInterceptor(
     ): RetryPolicy {
         return when (result) {
             is Failure -> {
-                if (!connectivity.isConnected() && result.networkException.isRetryable()) {
-                    RetryAfterEvent(connectivity.connectionStatus.filter { status -> status is Connectivity.Status.Connected })
+                if (!connectivity.connectionStatus.value.isAssumedConnected
+                    && result.networkException.isRetryable()
+                ) {
+                    RetryAfterEvent(connectivity.connectionStatus.filter { status -> status.isAssumedConnected })
                 } else {
                     DoNotRetry
                 }

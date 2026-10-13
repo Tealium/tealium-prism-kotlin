@@ -31,25 +31,25 @@ class ConnectivityBarrier(
             connectionSatisfied(status, wifiOnly)
         }.distinct()
 
-    private fun connectionSatisfied(status: Connectivity.Status, wifiOnly: Boolean): BarrierState {
-        return if (status is Connectivity.Status.Connected && satisfiesWifi(status.connectivityType, wifiOnly)) {
+    private fun connectionSatisfied(status: Connectivity.Status, wifiOnly: Boolean): BarrierState =
+        if (status.isAssumedConnected && isAllowedByWifiOnly(status, wifiOnly)) {
             BarrierState.Open
         } else {
             BarrierState.Closed
         }
+
+    /** wifi_only only rules out a network known to be cellular. */
+    private fun isAllowedByWifiOnly(status: Connectivity.Status, wifiOnly: Boolean): Boolean {
+        if (!wifiOnly || status !is Connectivity.Status.Connected) return true
+        return status.connectivityType != Connectivity.ConnectivityType.CELLULAR
     }
 
+    /** Flushable whenever connectivity is assumed; wifi_only does not apply to flushes. */
     override val isFlushable: Observable<Boolean>
-        get() = connectivityStatus.map { status -> status is Connectivity.Status.Connected }
+        get() = connectivityStatus.map { status -> status.isAssumedConnected }
 
     override fun updateConfiguration(configuration: DataObject) {
         wifiOnly.onNext(configuration.wifiOnly)
-    }
-
-    private fun satisfiesWifi(connectionType: Connectivity.ConnectivityType, wifiOnly: Boolean): Boolean {
-        return !wifiOnly
-                || connectionType == Connectivity.ConnectivityType.WIFI
-                || connectionType == Connectivity.ConnectivityType.ETHERNET
     }
 
     companion object {
