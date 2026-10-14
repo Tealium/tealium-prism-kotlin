@@ -2,6 +2,7 @@ package com.tealium.prism.core.api.data
 
 import com.tealium.prism.core.api.data.DataItemUtils.asDataList
 import com.tealium.tests.common.trimJson
+import org.json.JSONArray
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -63,16 +64,6 @@ class DataListTests {
     }
 
     @Test
-    fun copy_AndAdd_Should_AppendAndNotThrow_WhenIndexOutOfBounds() {
-        val copy = testStringList.copy {
-            add("new_value", 10)
-        }
-
-        assertEquals(6, copy.size)
-        assertEquals("new_value", copy.getString(5))
-    }
-
-    @Test
     fun copy_AndRemove_Should_RemoveFromNewInstance() {
         val copy = testStringList.copy {
             remove(0)
@@ -80,16 +71,6 @@ class DataListTests {
 
         assertNotEquals("string", copy.getString(0))
         assertEquals("string 2", copy.getString(0))
-    }
-
-    @Test
-    fun copy_AndRemove_ShouldNot_RemoveFromNewInstance_WhenOutOfBounds() {
-        val copy = testStringList.copy {
-            remove(10)
-        }
-
-        assertEquals(testStringList.size, copy.size)
-        assertEquals(testStringList.toString(), copy.toString())
     }
 
     @Test
@@ -681,4 +662,179 @@ class DataListTests {
             assertEquals(1, list.getDataObject(2)!!.getInt("key"))
         }
     }
+
+    @Test
+    fun add_Appends_When_No_Index_Given() {
+        val list = DataList.create {
+            add(1)
+            add(2)
+            add(3)
+        }
+
+        assertEquals(listOf(1, 2, 3), list.ints())
+    }
+
+    @Test
+    fun add_Appends_When_Index_Is_Negative() {
+        val list = intList(1, 2, 3).copy {
+            add(4, index = -1)
+            add(5, index = -100)
+        }
+
+        assertEquals(listOf(1, 2, 3, 4, 5), list.ints())
+    }
+
+    @Test
+    fun add_Inserts_At_Index_When_Index_Is_Within_Bounds() {
+        val list = intList(1, 2, 3).copy {
+            add(0, index = 0)
+            add(9, index = 2)
+        }
+
+        assertEquals(listOf(0, 1, 9, 2, 3), list.ints())
+    }
+
+    @Test
+    fun add_Appends_When_Index_Equals_Size() {
+        val list = intList(1, 2, 3).copy {
+            add(4, index = 3)
+        }
+
+        assertEquals(listOf(1, 2, 3, 4), list.ints())
+    }
+
+    @Test
+    fun add_Appends_When_Index_Exceeds_Size() {
+        val list = intList(1, 2, 3).copy {
+            add(4, index = 4)
+            add(5, index = Int.MAX_VALUE)
+        }
+
+        assertEquals(listOf(1, 2, 3, 4, 5), list.ints())
+    }
+
+    @Test
+    fun add_Appends_When_Builder_Is_Empty_And_Index_Is_Out_Of_Bounds() {
+        val list = DataList.create {
+            add(1, index = 5)
+            add(2, index = -1)
+        }
+
+        assertEquals(listOf(1, 2), list.ints())
+    }
+
+    @Test
+    fun add_Appends_When_Builder_Is_Empty_And_Index_Is_Zero() {
+        val list = DataList.create {
+            add(1, index = 0)
+        }
+
+        assertEquals(listOf(1), list.ints())
+    }
+
+    @Test
+    fun addAll_Appends_When_Index_Exceeds_Size() {
+        val list = intList(1, 2, 3).copy {
+            addAll(intList(4, 5), index = 10)
+        }
+
+        assertEquals(listOf(1, 2, 3, 4, 5), list.ints())
+    }
+
+    @Test
+    fun addAll_Appends_When_Index_Equals_Size() {
+        val list = intList(1, 2, 3).copy {
+            addAll(intList(4, 5), index = 3)
+        }
+
+        assertEquals(listOf(1, 2, 3, 4, 5), list.ints())
+    }
+
+    @Test
+    fun addAll_Appends_When_Index_Is_Negative() {
+        val list = intList(1, 2, 3).copy {
+            addAll(intList(4, 5), index = -5)
+        }
+
+        assertEquals(listOf(1, 2, 3, 4, 5), list.ints())
+    }
+
+    @Test
+    fun addAll_Inserts_At_Index_When_Index_Is_Within_Bounds() {
+        val list = intList(1, 2, 3).copy {
+            addAll(intList(4, 5), index = 1)
+        }
+
+        assertEquals(listOf(1, 4, 5, 2, 3), list.ints())
+    }
+
+    @Test
+    fun remove_Removes_Last_Entry_When_Index_Is_Last_Index() {
+        val list = intList(1, 2, 3).copy {
+            remove(2)
+        }
+
+        assertEquals(listOf(1, 2), list.ints())
+    }
+
+    @Test
+    fun remove_Does_Nothing_When_Index_Is_Negative() {
+        val list = intList(1, 2, 3).copy {
+            remove(-1)
+        }
+
+        assertEquals(listOf(1, 2, 3), list.ints())
+    }
+
+    @Test
+    fun remove_Does_Nothing_When_Index_Equals_Size() {
+        val list = intList(1, 2, 3).copy {
+            remove(3)
+        }
+
+        assertEquals(listOf(1, 2, 3), list.ints())
+    }
+
+    @Test
+    fun remove_Does_Nothing_When_Builder_Is_Empty() {
+        val list = DataList.create {
+            remove(0)
+        }
+
+        assertEquals(0, list.size)
+    }
+
+    @Test
+    fun fromString_Preserves_Order_Of_Nested_Lists() {
+        val original = DataList.create {
+            add(1)
+            add(intList(2, 3, 4))
+            add(DataObject.create {
+                put("list", intList(5, 6))
+            })
+        }
+
+        val parsed = DataList.fromString(original.toString())!!
+
+        assertEquals(original, parsed)
+        assertEquals(listOf(2, 3, 4), parsed.getDataList(1)!!.ints())
+        assertEquals(listOf(5, 6), parsed.getDataObject(2)!!.getDataList("list")!!.ints())
+    }
+
+    @Test
+    fun fromJSONArray_Converts_All_Entries_In_Order() {
+        val list = DataList.fromJSONArray(JSONArray("[1, \"two\", [3], {\"four\": 4}, null]"))
+
+        assertEquals(5, list.size)
+        assertEquals(1, list.getInt(0))
+        assertEquals("two", list.getString(1))
+        assertEquals(listOf(3), list.getDataList(2)!!.ints())
+        assertEquals(4, list.getDataObject(3)!!.getInt("four"))
+        assertSame(DataItem.NULL, list.get(4))
+    }
+
+    private fun intList(vararg ints: Int): DataList =
+        DataList.create { ints.forEach { add(it) } }
+
+    private fun DataList.ints(): List<Int?> = map { it.getInt() }
 }

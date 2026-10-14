@@ -465,7 +465,8 @@ class DataList private constructor(
          * Adds a [String] to the List.
          *
          * @param value The [String] instance to add
-         * @param index Optional list [index] to insert the item at
+         * @param index Optional list [index] to insert the item at; the item is appended if
+         *   [index] is out of bounds
          * @return The current [Builder] instance.
          */
         @JvmOverloads
@@ -476,7 +477,8 @@ class DataList private constructor(
          * Adds an [Int] to the List.
          *
          * @param value The [Int] instance to add
-         * @param index Optional list [index] to insert the item at
+         * @param index Optional list [index] to insert the item at; the item is appended if
+         *   [index] is out of bounds
          * @return The current [Builder] instance.
          */
         @JvmOverloads
@@ -487,7 +489,8 @@ class DataList private constructor(
          * Adds a [Long] to the List.
          *
          * @param value The [Long] instance to add
-         * @param index Optional list [index] to insert the item at
+         * @param index Optional list [index] to insert the item at; the item is appended if
+         *   [index] is out of bounds
          * @return The current [Builder] instance.
          */
         @JvmOverloads
@@ -498,7 +501,8 @@ class DataList private constructor(
          * Adds a [Double] to the List.
          *
          * @param value The [Double] instance to add
-         * @param index Optional list [index] to insert the item at
+         * @param index Optional list [index] to insert the item at; the item is appended if
+         *   [index] is out of bounds
          * @return The current [Builder] instance.
          */
         @JvmOverloads
@@ -509,7 +513,8 @@ class DataList private constructor(
          * Adds a [Boolean] to the List.
          *
          * @param value The [Boolean] instance to add
-         * @param index Optional list [index] to insert the item at
+         * @param index Optional list [index] to insert the item at; the item is appended if
+         *   [index] is out of bounds
          * @return The current [Builder] instance.
          */
         @JvmOverloads
@@ -521,7 +526,8 @@ class DataList private constructor(
          * converted to a supported type. If an unsupported type is found, then this method with throw.
          *
          * @param any The object instance to convert and add
-         * @param index Optional list [index] to insert the item at
+         * @param index Optional list [index] to insert the item at; the item is appended if
+         *   [index] is out of bounds
          * @return The current [Builder] instance.
          */
         @JvmOverloads
@@ -535,7 +541,8 @@ class DataList private constructor(
          * [DataItem.NULL] will be returned.
          *
          * @param any The object instance to convert and add
-         * @param index Optional list [index] to insert the item at
+         * @param index Optional list [index] to insert the item at; the item is appended if
+         *   [index] is out of bounds
          * @return The current [Builder] instance.
          */
         @JvmOverloads
@@ -546,14 +553,15 @@ class DataList private constructor(
          * Adds a [DataItem] to the List.
          *
          * @param value The [DataItem] instance to add
-         * @param index Optional list [index] to insert the item at
+         * @param index Optional list [index] to insert the item at; the item is appended if
+         *   [index] is out of bounds
          * @return The current [Builder] instance.
          */
         @JvmOverloads
         fun add(value: DataItem, index: Int = DEFAULT_INDEX) = apply {
-            try {
+            if (index in list.indices) {
                 list.add(index, value)
-            } catch (e: IndexOutOfBoundsException) {
+            } else {
                 list.add(value)
             }
         }
@@ -563,7 +571,8 @@ class DataList private constructor(
          * into a [DataItem] using its implementation of [asDataItem].
          *
          * @param value The [DataItemConvertible] instance to add
-         * @param index Optional list [index] to insert the item at
+         * @param index Optional list [index] to insert the item at; the item is appended if
+         *   [index] is out of bounds
          * @return The current [Builder] instance.
          */
         @JvmOverloads
@@ -573,7 +582,8 @@ class DataList private constructor(
         /**
          * Adds a [DataItem.NULL] to the list.
          *
-         * @param index Optional list [index] to insert the item at
+         * @param index Optional list [index] to insert the item at; the item is appended if
+         *   [index] is out of bounds
          * @return The current [Builder] instance.
          */
         @JvmOverloads
@@ -585,15 +595,17 @@ class DataList private constructor(
          * entries are inserted starting at that index.
          *
          * @param list The [DataList] of entries to add
-         * @param index Optional list [index] to insert the items at
+         * @param index Optional list [index] to insert the items at; the items are appended if
+         *   [index] is out of bounds
          * @return The current [Builder] instance.
          */
         @JvmOverloads
         fun addAll(list: DataList, index: Int = DEFAULT_INDEX) = apply {
-            if (index >= 0)
+            if (index in this.list.indices) {
                 this.list.addAll(index, list.collection)
-            else
+            } else {
                 this.list.addAll(list.collection)
+            }
         }
 
         /**
@@ -614,16 +626,15 @@ class DataList private constructor(
             buildPath(path.firstComponent.index, path.components, item)
 
         /**
-         * Removes the item at the give [index].
+         * Removes the item at the given [index].
          *
-         * [IndexOutOfBoundsException]s are ignored.
+         * Out-of-bounds indices are ignored.
          *
          * @return The current [Builder] instance.
          */
         fun remove(index: Int) = apply {
-            try {
+            if (index in list.indices) {
                 list.removeAt(index)
-            } catch (ignored: IndexOutOfBoundsException) {
             }
         }
 
