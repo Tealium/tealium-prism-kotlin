@@ -25,10 +25,9 @@ import java.util.UUID
  * as [EXPECTED_SCHEMA], that [Upgrades.all] is contiguous and follows its naming convention, and
  * that [Upgrades.since] selects exactly the steps between two versions.
  *
- * There is no upgrade-path comparison here yet: [Upgrades.all] is still empty, since every
- * released Prism version has shipped at schema version 3. The comparison that matters most - that
- * upgrading an old database lands on exactly the same schema a fresh install creates - arrives with
- * the first real upgrade step; see the "Adding an upgrade step" checklist in [Upgrades]'s KDoc.
+ * The upgrade-path comparison, that upgrading an old database lands on exactly the same schema a
+ * fresh install creates, lives with each step's own tests: see `V3ToV4Tests` for the version 3
+ * file, and the "Adding an upgrade step" checklist in [Upgrades]'s KDoc for the next one.
  */
 @RunWith(RobolectricTestRunner::class)
 class UpgradesTests {
@@ -50,13 +49,10 @@ class UpgradesTests {
     }
 
     /**
-     * With no upgrade steps registered there is no upgrade path to compare a fresh install against, so the
-     * fresh `onCreate` output is pinned directly instead: every `sqlite_master` row, `sql` text and all,
-     * against a frozen literal.
-     *
-     * This is the same guarantee the equivalence comparison used to give from the other direction - that
-     * the schema on disk is the one that was reviewed - and the first upgrade step that targets the version
-     * 3 shape restores the upgrade-path comparison alongside it.
+     * The fresh `onCreate` output is pinned directly: every `sqlite_master` row, `sql` text and all,
+     * against a frozen literal, so the schema on disk is the one that was reviewed. The upgrade-path
+     * comparison in each step's tests (`V3ToV4Tests` for version 3) gives the same guarantee from the
+     * other direction.
      */
     @Test
     fun onCreate_Produces_TheFrozenCurrentSchema() {
@@ -92,7 +88,8 @@ class UpgradesTests {
     }
 
     /**
-     * Driven by synthetic named objects, since [Upgrades.all] is empty. The target version's digits
+     * Driven by synthetic named objects rather than [Upgrades.all], so every rule can be exercised
+     * regardless of which steps are registered. The target version's digits
      * are matched greedily, so `V3ToV45` reads as a step to 45, not as `V3ToV4` with a suffix `5`.
      */
     @Test
@@ -112,9 +109,8 @@ class UpgradesTests {
     }
 
     /**
-     * Bounded at both ends. Driven by synthetic steps because [Upgrades.all] is empty, so the
-     * filtering can be pinned before there is anything real to filter - which is exactly when it is
-     * easiest to get wrong.
+     * Bounded at both ends. Driven by synthetic steps rather than [Upgrades.all], so the filtering
+     * is pinned independently of which steps are registered.
      */
     @Test
     fun since_Selects_OnlyTheStepsBetween_OldAndNewVersion() {

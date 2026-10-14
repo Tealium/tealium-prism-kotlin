@@ -53,14 +53,14 @@ internal object Upgrades {
     /**
      * Every upgrade step, in the order that they must be applied.
      *
-     * Empty today: every released Prism version shipped at schema version 3, and versions 1 and 2
-     * belong to the legacy SDK's own database file, which Prism never opens. The first Prism schema
-     * change adds the first entry here.
+     * The chain starts at version 3, the schema every Prism version before the first upgrade step
+     * shipped at; versions 1 and 2 belong to the legacy SDK's own database file, which Prism never
+     * opens.
      *
-     * The last entry, when there is one, is expected to match
+     * The last entry is expected to match
      * [com.tealium.prism.core.internal.persistence.database.DatabaseHelper.DATABASE_VERSION].
      */
-    val all: List<DatabaseUpgrade> = emptyList<DatabaseUpgrade>()
+    val all: List<DatabaseUpgrade> = listOf<DatabaseUpgrade>(V3ToV4)
         .sortedBy { it.targetVersion }
 
     /**

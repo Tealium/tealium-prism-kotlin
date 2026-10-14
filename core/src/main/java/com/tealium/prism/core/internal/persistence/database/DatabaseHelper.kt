@@ -240,7 +240,7 @@ internal open class DatabaseHelper private constructor(
         /**
          * The Database version expected by this version of the SDK.
          */
-        const val DATABASE_VERSION = 3
+        const val DATABASE_VERSION = 4
 
         /**
          * The oldest schema version this SDK will upgrade from. Anything older is deleted and
@@ -249,9 +249,10 @@ internal open class DatabaseHelper private constructor(
          * Versions 1 and 2 are the *legacy* tealium-kotlin SDK's schema. Prism cannot encounter
          * them: it opens its database under `tealium-prism/{account}/{profile}` (since 0.3.0; 0.1.0
          * and 0.2.0 used the legacy layout, and their files are no longer opened), whereas the
-         * legacy SDK used `tealium/{account}/{profile}/{environment}`, and every released Prism
-         * version has shipped at version 3. A file presenting version 1 or 2 at Prism's path is therefore
-         * not an upgrade path but a corrupt or hand-made file, with no data in it worth preserving.
+         * legacy SDK used `tealium/{account}/{profile}/{environment}`, and every Prism version
+         * before the first upgrade step shipped at version 3. A file presenting version 1 or 2 at
+         * Prism's path is therefore not an upgrade path but a corrupt or hand-made file, with no
+         * data in it worth preserving.
          *
          * Importing the legacy SDK's data, if it is ever wanted, is a separate mechanism: it reads
          * the legacy file at the legacy path and does not involve this helper's upgrade sequence.
