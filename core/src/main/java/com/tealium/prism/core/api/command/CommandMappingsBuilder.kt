@@ -37,9 +37,4 @@ abstract class CommandMappingsBuilder<Command : CommandName, Destination : JsonO
     fun mapConstant(value: DataItem, destination: Destination): Mappings.ConstantOptions =
         delegate.mapConstant(value, destination.asJsonObjectPath())
 
-    /** Keeps a typed [destination] path unchanged (source == destination). */
-    fun keep(destination: Destination): Mappings.VariableOptions =
-        delegate.keep(destination.asJsonObjectPath())
-
-
 }

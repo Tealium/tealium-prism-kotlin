@@ -19,7 +19,8 @@ open class DispatcherSettingsBuilder<M : Mappings, T : DispatcherSettingsBuilder
      * Set the mappings for this module.
      *
      * Mappings will only be used if the module is a [Dispatcher].
-     * When defined only mapped variables will be passed to the [Dispatcher].
+     * Mappings are applied on top of the full payload: unmapped variables are passed through unchanged,
+     * while mapped destinations replace any existing value.
      *
      * Basic usage is very simple:
      * ```kotlin
@@ -52,7 +53,8 @@ open class DispatcherSettingsBuilder<M : Mappings, T : DispatcherSettingsBuilder
      * Set the mappings for this module.
      *
      * Mappings will only be used if the module is a [Dispatcher].
-     * When defined only mapped variables will be passed to the [Dispatcher].
+     * Mappings are applied on top of the full payload: unmapped variables are passed through unchanged,
+     * while mapped destinations replace any existing value.
      *
      * Basic usage is very simple:
      * ```java

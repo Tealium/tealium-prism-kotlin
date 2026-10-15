@@ -115,6 +115,20 @@ class CommandDispatcherTests {
         confirmVerified(callback)
     }
 
+    @Test
+    fun dispatch_ExecutesDuplicatedCommand_Once() {
+        val command = TestCommand("my_command")
+        dispatcher = TestCommandDispatcher(listOf(command))
+        val dispatch = dispatchWithCommands("my_command", "  MY_COMMAND ", "my_command")
+        val callback = mockk<Callback<List<Dispatch>>>(relaxed = true)
+
+        dispatcher.dispatch(listOf(dispatch), callback)
+
+        assertEquals(1, command.executeCallCount)
+        verify(exactly = 1) { callback.onComplete(listOf(dispatch)) }
+        confirmVerified(callback)
+    }
+
     // --- No commands ---
 
     @Test

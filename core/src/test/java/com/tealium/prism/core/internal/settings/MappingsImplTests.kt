@@ -187,51 +187,6 @@ class MappingsImplTests {
     }
 
     @Test
-    fun keep_Builds_Transformation_Operation_With_Same_Source_And_Destination() {
-        mappings.keep("key_to_keep")
-
-        val mappingsList = mappings.build()
-        assertEquals(1, mappingsList.size)
-
-        val mapping = mappingsList[0]
-        assertEquals(JsonPath["key_to_keep"], mapping.destination.path)
-        assertEquals(JsonPath["key_to_keep"], mapping.parameters.reference?.path)
-        assertNull(mapping.parameters.filter)
-        assertNull(mapping.parameters.mapTo)
-    }
-
-    @Test
-    fun keep_Builds_Transformation_Operation_With_Path() {
-        val path = JsonPath["path"]["to"]["key_to_keep"]
-        mappings.keep(path)
-
-        val mappingsList = mappings.build()
-        assertEquals(1, mappingsList.size)
-
-        val mapping = mappingsList[0]
-        assertEquals(path, mapping.destination.path)
-        assertEquals(path, mapping.parameters.reference?.path)
-        assertNull(mapping.parameters.filter)
-        assertNull(mapping.parameters.mapTo)
-    }
-
-    @Test
-    fun keep_Builds_Transformation_Operation_With_Options() {
-        val path = JsonPath["path"]["to"]["key_to_keep"]
-        mappings.keep(path)
-            .ifValueEquals("expected")
-
-        val mappingsList = mappings.build()
-        assertEquals(1, mappingsList.size)
-
-        val mapping = mappingsList[0]
-        assertEquals(path, mapping.destination.path)
-        assertEquals(path, mapping.parameters.reference?.path)
-        assertEquals("expected", mapping.parameters.filter?.value)
-        assertNull(mapping.parameters.mapTo?.value)
-    }
-
-    @Test
     fun mapCommand_Builds_Transformation_Operation_With_Command_Name() {
         mappings.mapCommand("test_command")
 
@@ -310,7 +265,7 @@ class MappingsImplTests {
     fun build_Returns_Complex_Mixed_Mappings_With_Various_Options() {
         // Complex scenario: mix of all mapping types with various options
         mappings.mapFrom(JsonPath["user"]["profile"]["name"], "customer_name")
-        mappings.keep("event_name").ifValueEquals("tracked")
+        mappings.mapFrom("event_name", "tracked_event").ifValueEquals("tracked")
         mappings.mapConstant("analytics_v2".asDataItem(), JsonPath["config"]["version"])
             .ifValueEquals(JsonPath["settings"]["enabled"], "true")
         mappings.mapCommand("purchase").forAllEvents()
@@ -327,9 +282,9 @@ class MappingsImplTests {
         assertNull(mapping1.parameters.filter)
         assertNull(mapping1.parameters.mapTo)
 
-        // Verify second mapping: keep with condition
+        // Verify second mapping: simple key to a different simple key with condition
         val mapping2 = transformations[1]
-        assertEquals(JsonPath["event_name"], mapping2.destination.path)
+        assertEquals(JsonPath["tracked_event"], mapping2.destination.path)
         assertEquals(JsonPath["event_name"], mapping2.parameters.reference?.path)
         assertEquals("tracked", mapping2.parameters.filter?.value)
         assertNull(mapping2.parameters.mapTo)
@@ -366,7 +321,10 @@ class MappingsImplTests {
             .ifValueEquals("available")
         mappings.mapConstant("mobile_app".asDataItem(), "platform")
             .ifValueEquals("app_version", "2.1.0")
-        mappings.keep(JsonPath["user"]["preferences"]["notifications"])
+        mappings.mapFrom(
+            JsonPath["user"]["preferences"]["notifications"],
+            JsonPath["settings"]["notifications_enabled"]
+        )
 
         val transformations = mappings.build()
         assertEquals(5, transformations.size)
@@ -399,9 +357,9 @@ class MappingsImplTests {
         assertEquals("2.1.0", mapping4.parameters.filter?.value)
         assertEquals("mobile_app", mapping4.parameters.mapTo?.value?.value)
 
-        // Verify keep with nested path
+        // Verify nested source path to a different nested destination path
         val mapping5 = transformations[4]
-        assertEquals(JsonPath["user"]["preferences"]["notifications"], mapping5.destination.path)
+        assertEquals(JsonPath["settings"]["notifications_enabled"], mapping5.destination.path)
         assertEquals(JsonPath["user"]["preferences"]["notifications"], mapping5.parameters.reference?.path)
         assertNull(mapping5.parameters.filter)
         assertNull(mapping5.parameters.mapTo)

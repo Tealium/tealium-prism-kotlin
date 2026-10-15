@@ -84,15 +84,6 @@ class MappingsImpl : Mappings {
         return builder
     }
 
-    override fun keep(key: String): Mappings.VariableOptions =
-        keep(key(key))
-
-    override fun keep(path: JsonObjectPath): Mappings.VariableOptions =
-        keep(path(path))
-
-    private fun keep(reference: ReferenceContainer) =
-        mapFrom(reference, reference)
-
     override fun mapCommand(name: String): Mappings.CommandOptions {
         val builder = BuilderImpl(key(Dispatch.Keys.COMMAND_NAME), mapTo = ValueContainer(name.asDataItem()))
         mappings.add(builder)

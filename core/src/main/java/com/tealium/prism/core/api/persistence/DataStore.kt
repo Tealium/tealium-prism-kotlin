@@ -205,6 +205,9 @@ interface DataStore : ReadableDataStore, Iterable<Map.Entry<String, DataItem>> {
      * will be created.
      * Where a different type was specified on the [path] to what is currently in this [DataStore],
      * it will be overwritten.
+     * Writing to an index that already exists in a [DataList] replaces the element at that index
+     * instead of inserting, so the following elements are not shifted. An index beyond the end of
+     * the list pads it with [DataItem.NULL].
      *
      * @param path the [JsonObjectPath] used to describe where to store [value]
      * @param value the [DataItem] to add

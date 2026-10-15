@@ -707,4 +707,89 @@ class DataObjectTests {
         }
         assertEquals(expected, dataObject)
     }
+
+    @Test
+    fun buildPath_Replaces_Existing_List_Item_At_Index() {
+        val dataObject = DataObject.create {
+            put("list", listOf(1, 2, 3).asDataList())
+        }.buildPath(
+            JsonPath["list"][1], "value".asDataItem()
+        )
+        val expected = DataObject.create {
+            put("list", listOf(1, "value", 3).asDataList())
+        }
+        assertEquals(expected, dataObject)
+    }
+
+    @Test
+    fun buildPath_Replaces_First_List_Item_Without_Shifting_Others() {
+        val dataObject = DataObject.create {
+            put("list", listOf(1, 2).asDataList())
+        }.buildPath(
+            JsonPath["list"][0], 3.asDataItem()
+        )
+        val expected = DataObject.create {
+            put("list", listOf(3, 2).asDataList())
+        }
+        assertEquals(expected, dataObject)
+    }
+
+    @Test
+    fun buildPath_Appends_When_Index_Equals_List_Size() {
+        val dataObject = DataObject.create {
+            put("list", listOf(1, 2).asDataList())
+        }.buildPath(
+            JsonPath["list"][2], 3.asDataItem()
+        )
+        val expected = DataObject.create {
+            put("list", listOf(1, 2, 3).asDataList())
+        }
+        assertEquals(expected, dataObject)
+    }
+
+    @Test
+    fun buildPath_Replaces_Value_At_Same_Index_When_Applied_Twice() {
+        val dataObject = DataObject.EMPTY_OBJECT
+            .buildPath(JsonPath["list"][0], "x".asDataItem())
+            .buildPath(JsonPath["list"][0], "y".asDataItem())
+        val expected = DataObject.create {
+            put("list", listOf("y").asDataList())
+        }
+        assertEquals(expected, dataObject)
+    }
+
+    @Test
+    fun buildPath_Merges_Into_Existing_Nested_Object_At_Index_Without_Duplicating_It() {
+        val dataObject = DataObject.EMPTY_OBJECT
+            .buildPath(JsonPath["list"][0]["b"], "x".asDataItem())
+            .buildPath(JsonPath["list"][0]["c"], "y".asDataItem())
+        val expected = DataObject.create {
+            put("list", DataList.create {
+                add(DataObject.create {
+                    put("b", "x")
+                    put("c", "y")
+                })
+            })
+        }
+        assertEquals(expected, dataObject)
+    }
+
+    @Test
+    fun buildPath_Keeps_Other_Items_When_Writing_Through_Nested_List_At_Index() {
+        val dataObject = DataObject.create {
+            put("list", DataList.create {
+                add(DataList.create { add(1) })
+                add("other")
+            })
+        }.buildPath(
+            JsonPath["list"][0][1], 2.asDataItem()
+        )
+        val expected = DataObject.create {
+            put("list", DataList.create {
+                add(listOf(1, 2).asDataList())
+                add("other")
+            })
+        }
+        assertEquals(expected, dataObject)
+    }
 }

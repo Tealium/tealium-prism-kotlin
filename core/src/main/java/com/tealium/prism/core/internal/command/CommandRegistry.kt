@@ -8,13 +8,19 @@ import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.misc.failure
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Disposables
-import java.util.Locale
 
 /**
  * When two commands share the same normalized name, the last entry in [commands] wins —
  * consistent with Swift's `uniquingKeysWith: { _, new in new }` semantics.
  */
 internal class CommandRegistry(commands: List<Command>) {
+
+    companion object {
+        /**
+         * The form of a command name used to match command names: trimmed of whitespace and lowercased.
+         */
+        fun normalize(name: String): String = name.trim().lowercase()
+    }
 
     private val commands: Map<String, Command> =
         commands.associate { normalize(it.name) to it }
@@ -31,6 +37,4 @@ internal class CommandRegistry(commands: List<Command>) {
             }
         return command.execute(payload, callback)
     }
-
-    private fun normalize(name: String): String = name.trim().lowercase(Locale.ROOT)
 }

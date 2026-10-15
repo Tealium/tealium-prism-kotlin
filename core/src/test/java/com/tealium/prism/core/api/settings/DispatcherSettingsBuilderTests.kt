@@ -121,14 +121,14 @@ class DispatcherSettingsBuilderTests {
         val settingsBuilder = CustomDispatcherSettingsBuilder("custom", ::CustomMappingsBuilder)
 
         val settings = settingsBuilder.setMappings {
-            setKeepMapping("fixed")
+            setRenameMapping("fixed_source", "fixed_destination")
             setCustomCommand("cmd")
         }.build()
         val mappings = settings.getMappings()
 
         val fixedMapping = mappings[0]
-        assertEquals(JsonPath["fixed"], fixedMapping.destination.path)
-        assertEquals(JsonPath["fixed"], fixedMapping.parameters.reference?.path)
+        assertEquals(JsonPath["fixed_destination"], fixedMapping.destination.path)
+        assertEquals(JsonPath["fixed_source"], fixedMapping.parameters.reference?.path)
         assertNull(fixedMapping.parameters.filter)
         assertNull(fixedMapping.parameters.mapTo)
 
@@ -144,14 +144,14 @@ class DispatcherSettingsBuilderTests {
         val settingsBuilder = CustomDispatcherSettingsBuilder("custom", ::CustomMappingsBuilder)
 
         val settings = settingsBuilder.setMappings {
-            setKeepMapping("fixed")
+            setRenameMapping("fixed_source", "fixed_destination")
             mapFrom("key", "destination")
         }.build()
         val mappings = settings.getMappings()
 
         val fixedMapping = mappings[0]
-        assertEquals(JsonPath["fixed"], fixedMapping.destination.path)
-        assertEquals(JsonPath["fixed"], fixedMapping.parameters.reference?.path)
+        assertEquals(JsonPath["fixed_destination"], fixedMapping.destination.path)
+        assertEquals(JsonPath["fixed_source"], fixedMapping.parameters.reference?.path)
         assertNull(fixedMapping.parameters.filter)
         assertNull(fixedMapping.parameters.mapTo)
 
@@ -183,8 +183,8 @@ class CustomMappingsBuilder(
     private val mappings: Mappings = Mappings.default()
 ) : Mappings by mappings {
 
-    fun setKeepMapping(key: String) {
-        mappings.keep(key)
+    fun setRenameMapping(source: String, destination: String) {
+        mappings.mapFrom(source, destination)
     }
 
     fun setCustomCommand(name: String) {

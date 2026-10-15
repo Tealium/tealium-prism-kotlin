@@ -12,8 +12,17 @@ import com.tealium.prism.core.internal.dispatch.MappingOperation
 import com.tealium.prism.core.internal.settings.MappingsImpl
 
 /**
- * The [Mappings] interface is used to build up key/destination mappings used when optionally
- * translating the full [Dispatch] payload to just the relevant data for any given [Dispatcher]
+ * The [Mappings] interface is used to build up key/destination mappings that are applied on top of the
+ * full [Dispatch] payload before it is sent to a given [Dispatcher].
+ *
+ * Keys that are not mapped to are kept as they are, while a mapped destination replaces any existing value.
+ * The only exception is the root [Dispatch.Keys.COMMAND_NAME] key, where mapped values (constants or variables)
+ * are appended to any value already there, flattening lists one level, so that multiple commands can be
+ * collected (e.g. an existing `["a"]` with a mapped `["b", ["c"]]` gives `["a", "b", ["c"]]`).
+ * If a parent along the destination path holds a value of a different type (e.g. a string where an object
+ * is needed, or an object where a list is needed), it is replaced.
+ * Sources are always read from the original payload, so mappings don't chain.
+ * Derived values should be computed with a dispatcher-scoped transformation, which runs before mappings.
  *
  * Use the multiple [mapFrom] methods to supply the required source "key" and "destination" key, as
  * well as any optional "path" entries required to access keys in nested object.
@@ -153,24 +162,6 @@ interface Mappings {
     fun mapFrom(path: JsonObjectPath, destination: JsonObjectPath): VariableOptions
 
     /**
-     * Adds a mapping where the [key] is both the source and destination of the mapping.
-     *
-     * Returns a [VariableOptions] with which to configure some options if required.
-     *
-     * @param key The [key] to take the value from and also the destination to place it in the mapped payload
-     */
-    fun keep(key: String): VariableOptions
-
-    /**
-     * Adds a mapping where the possibly nested [path] is both the source and destination of the mapping.
-     *
-     * Returns a [VariableOptions] with which to configure some options if required.
-     *
-     * @param path The [path] to take the value from and also the destination to place it in the mapped payload
-     */
-    fun keep(path: JsonObjectPath): VariableOptions
-
-    /**
      * Adds a mapping where the value to map is given by the constant [value] and will be mapped to
      * the given [destination]
      *
@@ -196,6 +187,9 @@ interface Mappings {
     /**
      * Adds a mapping where the value to map is given by the constant [name] and will be mapped to a
      * fixed destination of [Dispatch.Keys.COMMAND_NAME].
+     *
+     * Command names are always appended to any command already in [Dispatch.Keys.COMMAND_NAME], whether it was
+     * in the original payload or mapped by a previous mapping, so multiple commands can be collected.
      *
      * Returns a [CommandOptions] with which to configure some options if required.
      *

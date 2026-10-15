@@ -24,6 +24,10 @@ fun DataItem.extract(components: List<Component>): DataItem? {
     return dataItem
 }
 
+/**
+ * Builds the [path] in a copy of this [DataObject] under [key], and stores the [item] there.
+ * See [DataList.buildPath] for how list indexes are treated.
+ */
 fun DataObject.buildPath(key: String, path: List<Component>, item: DataItem): DataObject = copy {
     buildPath(key, path, item)
 }
@@ -50,6 +54,12 @@ fun DataObject.Builder.buildPath(key: String, path: List<Component>, item: DataI
     }
 }
 
+/**
+ * Builds the [path] in a copy of this [DataList] at [index], and stores the [item] there.
+ *
+ * An [index] that already exists is replaced rather than inserted, so the following elements keep
+ * their position; an [index] beyond the end pads the list with [DataItem.NULL].
+ */
 fun DataList.buildPath(index: Int, path: List<Component>, item: DataItem): DataList = copy {
     buildPath(index, path, item)
 }
@@ -57,7 +67,7 @@ fun DataList.buildPath(index: Int, path: List<Component>, item: DataItem): DataL
 fun DataList.Builder.buildPath(index: Int, path: List<Component>, item: DataItem): DataList.Builder = apply {
     if (path.isEmpty()) {
         padWithNulls(index)
-        add(item, index)
+        replaceOrAdd(item, index)
         return this
     }
 
@@ -70,12 +80,12 @@ fun DataList.Builder.buildPath(index: Int, path: List<Component>, item: DataItem
     when (pathComponent) {
         is Component.Key -> {
             val subObj = nested?.getDataObject() ?: DataObject.EMPTY_OBJECT
-            add(subObj.buildPath(pathComponent.key, remainingPath, item), index)
+            replaceOrAdd(subObj.buildPath(pathComponent.key, remainingPath, item).asDataItem(), index)
         }
 
         is Component.Index -> {
             val list = nested?.getDataList() ?: EMPTY_LIST
-            add(list.buildPath(pathComponent.index, remainingPath, item), index)
+            replaceOrAdd(list.buildPath(pathComponent.index, remainingPath, item).asDataItem(), index)
         }
     }
 }
@@ -84,4 +94,15 @@ fun DataList.Builder.padWithNulls(until: Int) {
     while (size() < until) {
         add(DataItem.NULL)
     }
+}
+/**
+ * Replaces the element at [index] with [item] when there is one, otherwise adds it to the list.
+ *
+ * Unlike [DataList.Builder.add], this never shifts the elements following [index].
+ */
+private fun DataList.Builder.replaceOrAdd(item: DataItem, index: Int) {
+    if (index in 0 until size()) {
+        remove(index)
+    }
+    add(item, index)
 }

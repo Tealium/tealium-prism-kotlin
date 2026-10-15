@@ -1,9 +1,9 @@
 package com.tealium.prism.core.internal.dispatch
 
 import com.tealium.prism.core.api.data.DataItem
-import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.data.JsonPath
 import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.settings.MappingParameters
 import com.tealium.prism.core.api.settings.json.TransformationOperation
@@ -32,19 +32,21 @@ class MappingsEngine(
 
     companion object {
 
+        private val commandNamePath = JsonPath[Dispatch.Keys.COMMAND_NAME]
+
         /**
-         * Remaps the [dispatch] according to the provided [mappings].
+         * Applies the [mappings] on top of the [dispatch] payload, replacing the payload in the
+         * [dispatch], which is returned.
          *
-         * The [mappings] describe which keys and values to take from the [Dispatch.payload] and place into a new
-         * [DataObject] that will replace the data inside the [dispatch], which is returned.
+         * See [map] for the [DataObject] overload for details on how the [mappings] are applied.
          *
-         * The returned [Dispatch] will have a payload built from an empty [DataObject], such that keys/values
-         * that are not described in the [mappings] will be lost.
-         *
-         * @param dispatch The incoming [Dispatch] whose payload is expected to be mapped to the resulting [Dispatch]
+         * @param dispatch The incoming [Dispatch] whose payload is expected to be mapped
          * @param mappings The list of mappings to apply, in order.
          */
         fun map(dispatch: Dispatch, mappings: List<MappingOperation>): Dispatch {
+            if (mappings.isEmpty())
+                return dispatch
+
             val remappedPayload = map(dispatch.payload(), mappings)
             dispatch.replace(remappedPayload)
 
@@ -52,55 +54,72 @@ class MappingsEngine(
         }
 
         /**
-         * Remaps the [payload] according to the provided [mappings].
+         * Applies the [mappings] on top of the [payload], returning the resulting [DataObject].
          *
-         * The [mappings] describe which keys and values to take from the [payload] and place into a new
-         * [DataObject] that will be returned by this method.
+         * Keys and values that are not described in the [mappings] are kept as they are, while any value
+         * already present at a mapped destination is replaced by the mapped value. For nested or list index
+         * destinations, sibling keys and other list elements are left alone. If a parent along the destination
+         * path holds a value of a different type, it is replaced.
          *
-         * The returned [DataObject] will be built from an empty [DataObject], such that keys/values
-         * that are not described in the [mappings] will be lost.
+         * The only exception is the root [Dispatch.Keys.COMMAND_NAME] key: mapped values (constants or
+         * variables) are always appended to any value already there (from the original payload or from an
+         * earlier mapping), flattening lists one level, so that multiple commands can be collected.
+         * For example an existing `["a"]` with a mapped `["b", ["c"]]` gives `["a", "b", ["c"]]`.
          *
-         * @param payload The incoming [DataObject] whose data is expected to be mapped to the resulting [DataObject]
+         * Sources and filters are always read from the original [payload], so mappings don't chain:
+         * a mapping can't read the result of another mapping, and the order of the mappings only matters
+         * when they write to the same destination.
+         *
+         * An empty list of [mappings] returns the [payload] unchanged.
+         *
+         * @param payload The incoming [DataObject] whose data is expected to be mapped
          * @param mappings The list of mappings to apply, in order.
          */
         fun map(payload: DataObject, mappings: List<MappingOperation>): DataObject {
-            var result = DataObject.EMPTY_OBJECT
+            if (mappings.isEmpty())
+                return payload
 
-            for (mapping in mappings) {
-                result = mapDataObject(result, payload, mapping)
+            val result = payload.buildUpon()
+            mappings.forEach { mapping ->
+                mapDataObject(result, payload, mapping)
             }
-
-            return result
+            return result.build()
         }
 
         /**
-         * Applies a single [mapping] to the [payload], placing all mapped items into the relevant
-         * destination in the [into] [DataObject].
+         * Applies a single [mapping], reading from the original [payload], and placing the mapped item
+         * into the relevant destination in the [into] [DataObject.Builder].
          *
          * If the [MappingParameters.filter] parameter is not null, then it will be compared to the
-         * the value taken from the [payload] according to the [MappingParameters.reference]. This comparison
+         * value taken from the [payload] according to the [MappingParameters.reference]. This comparison
          * is a String comparison of the [DataItem.value].
          *
          * If the [MappingParameters.mapTo] parameter is not null, then that will be the value
          * mapped. Otherwise the value from [payload] will be taken according to the [MappingParameters.reference]
          *
+         * The mapped value replaces whatever is at the destination, unless the destination is the root
+         * [Dispatch.Keys.COMMAND_NAME], in which case it is appended to it.
          */
         private fun mapDataObject(
-            into: DataObject,
+            into: DataObject.Builder,
             payload: DataObject,
             mapping: MappingOperation
-        ): DataObject {
+        ): DataObject.Builder {
             val mapped = getMappedValue(payload, mapping)
                 ?: return into
 
-            val shouldCombine = mapping.mapTo != null
-            val incoming = if (shouldCombine) {
-                combine(into.extract(mapping.destination.path), mapped)
+            val destination = mapping.destination.path
+            val existing = into.extract(destination)
+
+            val itemToInsert = if (destination == commandNamePath && existing != null) {
+                // merge if necessary for `command_name` key
+                combineCommands(existing, mapped)
             } else {
+                // always overwrite when not `command_name` key, or no existing value
                 mapped
             }
 
-            return into.buildPath(mapping.destination.path, incoming)
+            return into.buildPath(destination, itemToInsert)
         }
 
         private fun getMappedValue(
@@ -118,27 +137,25 @@ class MappingsEngine(
         }
 
         /**
-         * Combines incoming mapped items, with existing mapped items, such that:
+         * Combines incoming `command_name`s, with existing `command_name`s, such that:
          *
-         *  - If the [existing] item is `null`, then the `incoming` is returned.
-         *  - If the [existing] item is already a [DataList] then the [incoming] is appended, and the [DataList] is returned.
-         *  - If the [existing] item is not `null` then a new [DataList] is returned containing both [existing] and [incoming]
+         * If the [existing] item is already a [DataList] then the [incoming] item is appended, and
+         * the [DataList] is returned as a [DataItem].
+         *
+         * If the [existing] item is not a [DataList] then a new [DataList] is returned containing
+         * both [existing] and [incoming]
+         *
+         * In either case, if [incoming] is a [DataList] itself, then its contents are all appended
+         * as opposed to the [DataList] itself.
          */
-        private fun combine(existing: DataItem?, incoming: DataItem): DataItem {
-            // nothing mapped yet
-            if (existing == null) {
-                return incoming
-            }
+        private fun combineCommands(existing: DataItem, incoming: DataItem): DataItem {
+            val builder = existing.getDataList()?.buildUpon()
+                ?: DataList.Builder().add(existing)
 
-            val list = existing.getDataList()?.copy {
-                // existing datalist already
-                add(incoming)
-            } ?: DataList.create {
-                // replace existing dataitem, with list of both
-                add(existing)
-                add(incoming)
-            }
-            return list.asDataItem()
+            incoming.getDataList()?.let { builder.addAll(it) }
+                ?: builder.add(incoming)
+
+            return builder.build().asDataItem()
         }
     }
 }
