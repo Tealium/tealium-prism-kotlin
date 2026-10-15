@@ -506,6 +506,105 @@ class FileDatabaseProviderTests {
     }
 
     /**
+     * A corruption found while configuring write-ahead logging fails the open rather than leaving
+     * the session on a database the platform may have closed. The provider recreates the file, and
+     * the new file is configured as usual: open, on disk and in WAL.
+     */
+    @Test
+    fun getDatabase_RecreatesFile_When_ConfiguringWalFindsCorruption() {
+        createFileWithMarkerTable()
+        val boom = SQLiteDatabaseCorruptException("database disk image is malformed")
+
+        var calls = 0
+        withConfigureWriteAheadLog({ if (calls++ == 0) throw boom else callOriginal() }) {
+            providerWith({
+                realHelper(config, dbPath, errorHandler = it)
+            }).database.use { database ->
+                assertOnFile(database, helpers = 2)
+                assertTrue(database.isOpen)
+                assertEquals("wal", database.readJournalMode())
+                assertEquals(2, calls)
+                assertFalse(database.schemaObjects().containsKey(MARKER_TABLE))
+
+                assertLogged(RECREATING, "the file is corrupt", "SQLiteDatabaseCorruptException")
+                assertNotLogged(NO_DELETE)
+                assertNotLogged(WAL_NOT_CONFIGURED)
+                assertNotLogged(WAL_NOT_ENABLED)
+            }
+        }
+    }
+
+    /**
+     * A WAL pragma that fails without a corruption keeps the file, with any setting not applied at
+     * the framework's value, and the provider reports what the helper recorded.
+     */
+    @Test
+    fun getDatabase_LogsWalConfigFailure_When_ConfiguringWalFailsWithoutCorruption() {
+        withConfigureWriteAheadLog({ throw SQLiteException("disk I/O error") }) {
+            providerWith({
+                realHelper(config, dbPath, errorHandler = it)
+            }).database.use { database ->
+                assertOnFile(database, helpers = 1)
+                assertTrue(database.isOpen)
+
+                assertEquals(1, loggedErrors().size)
+                assertLogged(WAL_NOT_CONFIGURED, "disk I/O error")
+            }
+        }
+    }
+
+    /**
+     * A file that opened outside WAL works, on the rollback journal, but is slower; the provider
+     * reports the mode the helper read.
+     */
+    @Test
+    fun getDatabase_LogsJournalMode_When_FileIsNotInWal() {
+        withConfigureWriteAheadLog({ "delete" }) {
+            providerWith({
+                realHelper(config, dbPath, errorHandler = it)
+            }).database.use { database ->
+                assertOnFile(database, helpers = 1)
+
+                assertEquals(1, loggedErrors().size)
+                assertLogged("$WAL_NOT_ENABLED; the database uses journal mode delete.")
+            }
+        }
+    }
+
+    /** The same report follows a successful open of the recreated file, from the new helper. */
+    @Test
+    fun getDatabase_LogsJournalMode_When_RecreatedFileIsNotInWal() {
+        var calls = 0
+        withConfigureWriteAheadLog({
+            if (calls++ == 0) throw SQLiteDatabaseCorruptException("database disk image is malformed")
+            "delete"
+        }) {
+            providerWith({
+                realHelper(config, dbPath, errorHandler = it)
+            }).database.use { database ->
+                assertOnFile(database, helpers = 2)
+
+                assertLogged(RECREATING, "the file is corrupt")
+                assertLogged("$WAL_NOT_ENABLED; the database uses journal mode delete.")
+                assertEquals(2, loggedErrors().size)
+            }
+        }
+    }
+
+    /** The in-memory fallback is not the file, so its journal mode is not reported. */
+    @Test
+    fun getDatabase_DoesNotLogJournalMode_When_FallingBackToMemory() {
+        providerWith(
+            { throwingHelper(SQLiteFullException("database or disk is full")) }
+        ).database.use { database ->
+            assertInMemory(database, helpers = 1)
+
+            assertNotLogged(WAL_NOT_ENABLED)
+            assertNotLogged(WAL_NOT_CONFIGURED)
+        }
+    }
+
+    /**
      * An upgrade failure on the second open means the old file survived the delete, since a new
      * file would run `onCreate`. Without a corruption report it is still on disk, and the log says
      * so.
@@ -895,6 +994,12 @@ class FileDatabaseProviderTests {
 
         /** The table the framework creates in every database to record its locale. */
         const val ANDROID_METADATA = "android_metadata"
+
+        /** What the provider logs when a usable file did not get all of its WAL settings. */
+        const val WAL_NOT_CONFIGURED = "Unable to apply the write-ahead log settings"
+
+        /** What the provider logs when the file opened in a journal mode other than WAL. */
+        const val WAL_NOT_ENABLED = "Unable to enable write-ahead logging"
     }
 
     // endregion

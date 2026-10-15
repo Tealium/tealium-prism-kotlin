@@ -16,8 +16,8 @@ import com.tealium.prism.core.internal.logger.LogCategory
  * with no exception and no trace other than logcat. The same handler also fires for a corruption
  * detected by a statement later in the session, where the database *is* open, and the default
  * closes it. A report from SQL run inside the open's transaction, by an upgrade step or by
- * `onCreate`, is followed by no retry: the platform has closed and deleted the file, and the open
- * fails.
+ * `onCreate`, or by the WAL settings applied after it in `onOpen`, is followed by no retry: the
+ * platform has closed and deleted the file, and the open fails.
  *
  * This wrapper exists so both of those are reported through the SDK's own [Logger]. It changes no
  * behaviour: [DefaultDatabaseErrorHandler] is `final`, so it is held as a delegate rather than

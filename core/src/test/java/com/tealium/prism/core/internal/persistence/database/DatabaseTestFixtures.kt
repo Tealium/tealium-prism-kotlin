@@ -8,6 +8,10 @@ import android.database.sqlite.SQLiteFullException
 import android.database.sqlite.SQLiteOpenHelper
 import com.tealium.prism.core.api.TealiumConfig
 import com.tealium.prism.core.internal.persistence.database.upgrades.DatabaseUpgrade
+import io.mockk.MockKAnswerScope
+import io.mockk.every
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import java.io.File
 import java.io.RandomAccessFile
 import kotlin.random.Random
@@ -206,3 +210,26 @@ private const val PAGE_SIZE_OFFSET = 16L
 
 /** Fixed, so the bytes written over the page are the same on every run. */
 private const val CORRUPTION_SEED = 42
+
+/** The file class holding the write-ahead-log functions, for mocking them statically. */
+internal const val WRITE_AHEAD_LOG_FILE =
+    "com.tealium.prism.core.internal.persistence.database.WriteAheadLogKt"
+
+/**
+ * Runs [block] with every [configureWriteAheadLog] call answered by [answer], which receives the
+ * database being configured. Every database opened inside [block] gets [answer], including the
+ * in-memory fallback's and a recreated file's. [answer] runs in MockK's answer scope, so it can
+ * call `callOriginal()` to configure for real.
+ */
+internal fun withConfigureWriteAheadLog(
+    answer: MockKAnswerScope<String?, String?>.(SQLiteDatabase) -> String?,
+    block: () -> Unit,
+) {
+    mockkStatic(WRITE_AHEAD_LOG_FILE)
+    try {
+        every { any<SQLiteDatabase>().configureWriteAheadLog() } answers { answer(firstArg()) }
+        block()
+    } finally {
+        unmockkStatic(WRITE_AHEAD_LOG_FILE)
+    }
+}

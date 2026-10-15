@@ -3,7 +3,6 @@ package com.tealium.prism.core.internal.persistence.database
 import android.database.DatabaseErrorHandler
 import android.database.SQLException
 import android.database.sqlite.SQLiteDatabase
-import android.database.sqlite.SQLiteDatabaseCorruptException
 import android.database.sqlite.SQLiteOpenHelper
 import com.tealium.prism.core.api.TealiumConfig
 import com.tealium.prism.core.api.logger.Logger
@@ -44,7 +43,8 @@ interface DatabaseProvider {
  *
  * @param config The TealiumConfig used to access the Android Context, as well as derive the
  * file-name
- * @param logger Used to report a failed open, and what was done about it, at error level
+ * @param logger Used to report a failed open, and what was done about it, at error level, as well
+ * as a file that opened without write-ahead logging configured
  * @param databaseHelperCreator Function to return the DatabaseHelper, given the error handler to
  * open the file with, which logs the corruptions the platform recovers from on its own. This may be
  * called more than once, in the scenarios where the database file itself needs to be deleted and
@@ -76,19 +76,46 @@ internal class FileDatabaseProvider(
      */
     override val database: SQLiteDatabase
         get() {
-            return _database ?: openDatabase().also { db -> _database = db }
+            return _database ?: openDatabase(::recoverFromOpenFailure).also { db -> _database = db }
         }
 
     /**
-     * Returns the file-backed database, or the in-memory database when a failed open ends in
-     * [fallBackToMemory]. A failed open is classified by [recoverFromOpenFailure].
+     * Opens the file through the current [databaseHelper], handing a failed open to [recover]:
+     * [recoverFromOpenFailure] on first access, [recoverFromRecreateFailure] after a recreate. The
+     * result is the file-backed database, or the in-memory database when recovery ends in
+     * [fallBackToMemory].
+     *
+     * A successful open is followed by [logIfWalDegraded]. What [recover] returns is not logged
+     * here: it either came through this function again, as a recreated file, or is the in-memory
+     * fallback.
      */
-    private fun openDatabase(): SQLiteDatabase {
-        return try {
+    private inline fun openDatabase(recover: (Exception) -> SQLiteDatabase): SQLiteDatabase {
+        val database = try {
             databaseHelper.writableDatabase
         } catch (e: Exception) {
-            recoverFromOpenFailure(e)
+            return recover(e)
         }
+        logIfWalDegraded()
+        return database
+    }
+
+    /**
+     * Logs a file that opened without write-ahead logging, or without all of its WAL settings,
+     * from what [databaseHelper] recorded during the open. Neither case is a failed open: the file
+     * works, in another journal mode or with some settings left at the framework's values.
+     */
+    private fun logIfWalDegraded() {
+        val walConfigFailure = databaseHelper.walConfigFailure
+        val journalMode = databaseHelper.journalModeAtOpen
+        val message = when {
+            walConfigFailure != null ->
+                ("Unable to apply the write-ahead log settings; any setting not applied keeps " +
+                    "the framework's value.").withCause(walConfigFailure)
+            journalMode != "wal" ->
+                "Unable to enable write-ahead logging; the database uses journal mode $journalMode."
+            else -> return
+        }
+        logger.error(LogCategory.PERSISTENCE, message)
     }
 
     /**
@@ -177,9 +204,7 @@ internal class FileDatabaseProvider(
         }
 
         databaseHelper = databaseHelperCreator.invoke(errorHandler)
-        return try {
-            databaseHelper.writableDatabase
-        } catch (e: Exception) {
+        return openDatabase { e ->
             recoverFromRecreateFailure(e, deletedByHelper, deletedByPlatform)
         }
     }
@@ -262,25 +287,6 @@ internal class FileDatabaseProvider(
                 "Nothing stored will survive this process.").withCause(cause)
         )
         return inMemoryDatabaseProvider.invoke(config).database
-    }
-
-    private companion object {
-
-        /**
-         * Whether this throwable is a [SQLiteDatabaseCorruptException] or has one anywhere in its
-         * cause chain, as the platform's hidden `SQLiteDatabaseCorruptException.isCorruptException`
-         * checks from API 29 on. No `SDK_INT` gate: on API 23 to 28 a corrupt `android_metadata`
-         * table arrives wrapped in a bare `SQLiteException` ("Failed to change locale for db ...")
-         * that the platform's own recovery misses.
-         */
-        fun Throwable.hasCorruptCause(): Boolean {
-            var current: Throwable? = this
-            while (current != null) {
-                if (current is SQLiteDatabaseCorruptException) return true
-                current = current.cause
-            }
-            return false
-        }
     }
 }
 

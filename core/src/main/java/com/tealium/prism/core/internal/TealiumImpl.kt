@@ -4,6 +4,8 @@ import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.TealiumConfig
 import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.Logger
+import com.tealium.prism.core.api.logger.logIfDebugEnabled
+import com.tealium.prism.core.api.logger.logIfErrorEnabled
 import com.tealium.prism.core.api.logger.logIfWarnEnabled
 import com.tealium.prism.core.api.misc.ActivityManager
 import com.tealium.prism.core.api.misc.Schedulers
@@ -42,6 +44,7 @@ import com.tealium.prism.core.internal.dispatch.TransformerCoordinatorImpl
 import com.tealium.prism.core.internal.dispatch.TransformerRegistrarImpl
 import com.tealium.prism.core.internal.logger.LogCategory
 import com.tealium.prism.core.internal.logger.LoggerImpl
+import com.tealium.prism.core.internal.logger.withCause
 import com.tealium.prism.core.internal.misc.ActivityManagerImpl
 import com.tealium.prism.core.internal.misc.ActivityManagerProxy
 import com.tealium.prism.core.internal.misc.TrackerImpl
@@ -54,6 +57,7 @@ import com.tealium.prism.core.internal.network.NetworkHelperImpl
 import com.tealium.prism.core.internal.persistence.ModuleStoreProviderImpl
 import com.tealium.prism.core.internal.persistence.database.DatabaseProvider
 import com.tealium.prism.core.internal.persistence.database.FileDatabaseProvider
+import com.tealium.prism.core.internal.persistence.database.checkpoint
 import com.tealium.prism.core.internal.persistence.repositories.ModulesRepository
 import com.tealium.prism.core.internal.persistence.repositories.QueueRepository
 import com.tealium.prism.core.internal.persistence.repositories.SQLModulesRepository
@@ -245,6 +249,12 @@ class TealiumImpl(
             settingsManager.subscribeToActivityUpdates(activityManager.applicationStatus)
                 .addTo(disposables)
 
+            // Checkpoint on background: Android often kills a backgrounded app without shutdown().
+            this.activityManager.applicationStatus
+                .filter { it is ActivityManager.ApplicationStatus.Backgrounded }
+                .subscribe { checkpoint("backgrounding") }
+                .addTo(disposables)
+
             dispatchManager.startDispatchLoop()
         } catch (t: Throwable) {
             logger.error(LogCategory.TEALIUM, "Init exception: ${t.message}")
@@ -324,7 +334,35 @@ class TealiumImpl(
         moduleManager.shutdown()
         connectivityRetriever.unsubscribe()
         sessionManager.shutdown()
+        // After the dispatch loop has stopped, so nothing is mid-write.
+        checkpoint("shutdown")
         dbProvider.database.close()
+    }
+
+    /**
+     * Checkpoints the write-ahead log and logs the result. Never throws an [Exception].
+     */
+    private fun checkpoint(moment: String) {
+        val result = try {
+            dbProvider.checkpoint()
+        } catch (e: Exception) {
+            logger.logIfErrorEnabled(LogCategory.PERSISTENCE) {
+                "WAL checkpoint at $moment failed".withCause(e)
+            }
+            return
+        }
+        if (result.busy) {
+            logger.logIfWarnEnabled(LogCategory.PERSISTENCE) {
+                "WAL checkpoint at $moment did not reset the log: another connection " +
+                    "held it, ${result.checkpointed} of ${result.log} frames folded back"
+            }
+            return
+        }
+        if (result.log < 0) return // not in WAL, e.g. the in-memory fallback
+        logger.logIfDebugEnabled(LogCategory.PERSISTENCE) {
+            "WAL checkpoint at $moment: ${result.checkpointed} of ${result.log} " +
+                "frames folded back, log reset"
+        }
     }
 
     companion object {

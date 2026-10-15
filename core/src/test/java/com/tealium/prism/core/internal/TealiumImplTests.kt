@@ -28,7 +28,10 @@ import com.tealium.prism.core.internal.consent.ConsentIntegrationManager
 import com.tealium.prism.core.internal.consent.MockCmpAdapter
 import com.tealium.prism.core.internal.misc.ActivityManagerImpl
 import com.tealium.prism.core.internal.misc.SchedulersImpl
+import com.tealium.prism.core.internal.persistence.database.DatabaseProvider
 import com.tealium.prism.core.internal.persistence.database.FileDatabaseProvider
+import com.tealium.prism.core.internal.persistence.database.WRITE_AHEAD_LOG_FILE
+import com.tealium.prism.core.internal.persistence.database.checkpoint
 import com.tealium.prism.core.internal.persistence.repositories.QueueRepository
 import com.tealium.prism.core.internal.persistence.repositories.SQLQueueRepository
 import com.tealium.prism.core.internal.modules.InternalModuleManager
@@ -52,7 +55,9 @@ import com.tealium.tests.common.testSchedulers
 import io.mockk.Ordering
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
 import io.mockk.spyk
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -443,6 +448,108 @@ class TealiumImplTests {
         val queued = SQLQueueRepository(FileDatabaseProvider(config, SystemLogger))
             .getQueuedDispatches(-1, dispatcher.id)
         assertEquals(1, queued.size)
+    }
+
+    @Test
+    fun backgrounded_Checkpoints_The_Database_On_The_Tealium_Scheduler() {
+        var tealium: TealiumImpl? = null
+        mockkStatic(WRITE_AHEAD_LOG_FILE)
+        try {
+            val checkpointThreads = mutableListOf<Thread>()
+            val checkpointed = CountDownLatch(1)
+            every { any<DatabaseProvider>().checkpoint() } answers {
+                synchronized(checkpointThreads) { checkpointThreads.add(Thread.currentThread()) }
+                checkpointed.countDown()
+                callOriginal()
+            }
+            val activityCallbacks = ActivityManagerImpl.ActivityCallbacks(app)
+            val activityManager = ActivityManagerImpl(
+                app,
+                mainScheduler = testSchedulers.main,
+                activityMonitor = activityCallbacks
+            )
+            val activity = mockk<Activity>()
+            every { activity.isChangingConfigurations } returns false
+            activityCallbacks.onActivityResumed(activity)
+            activityCallbacks.onActivityStopped(activity)
+
+            var tealiumThread: Thread? = null
+            testSchedulers.tealium.execute {
+                tealiumThread = Thread.currentThread()
+                tealium = TealiumImpl(
+                    getDefaultConfig(app),
+                    testSchedulers,
+                    activityManager = activityManager
+                )
+            }
+
+            assertTrue(checkpointed.await(2500, TimeUnit.MILLISECONDS))
+            synchronized(checkpointThreads) {
+                assertEquals(listOf(tealiumThread), checkpointThreads.toList())
+            }
+        } finally {
+            try {
+                // after the assertions, as shutdown checkpoints again; null if the init failed
+                val shutDown = CountDownLatch(1)
+                testSchedulers.tealium.execute {
+                    try {
+                        tealium?.shutdown()
+                    } finally {
+                        shutDown.countDown()
+                    }
+                }
+                assertTrue(shutDown.await(2500, TimeUnit.MILLISECONDS))
+            } finally {
+                unmockkStatic(WRITE_AHEAD_LOG_FILE)
+            }
+        }
+    }
+
+    @Test
+    fun shutdown_Checkpoints_The_Database_Once_Before_Closing_It() {
+        mockkStatic(WRITE_AHEAD_LOG_FILE)
+        try {
+            // whether the database was open at each checkpoint made during shutdown()
+            val openAtCheckpoint = mutableListOf<Boolean>()
+            var shuttingDown = false
+            every { any<DatabaseProvider>().checkpoint() } answers {
+                if (shuttingDown) openAtCheckpoint.add(firstArg<DatabaseProvider>().database.isOpen)
+                callOriginal()
+            }
+            // a fresh manager that never sees an activity, so it never reports Backgrounded
+            val activityManager = ActivityManagerImpl(
+                app,
+                mainScheduler = testSchedulers.main,
+                activityMonitor = ActivityManagerImpl.ActivityCallbacks(app)
+            )
+            var dbProvider: DatabaseProvider? = null
+            val shutDown = CountDownLatch(1)
+
+            testSchedulers.tealium.execute {
+                val tealium = TealiumImpl(
+                    getDefaultConfig(app),
+                    testSchedulers,
+                    activityManager = activityManager,
+                    dbProviderFactory = { config, logger ->
+                        FileDatabaseProvider(config, logger).also { dbProvider = it }
+                    }
+                )
+                shuttingDown = true
+                tealium.shutdown()
+                shuttingDown = false
+                shutDown.countDown()
+            }
+
+            assertTrue(shutDown.await(2500, TimeUnit.MILLISECONDS))
+            assertEquals("shutdown() must checkpoint exactly once", 1, openAtCheckpoint.size)
+            assertTrue(
+                "shutdown() must checkpoint while the database is still open",
+                openAtCheckpoint.single()
+            )
+            assertFalse(dbProvider!!.database.isOpen)
+        } finally {
+            unmockkStatic(WRITE_AHEAD_LOG_FILE)
+        }
     }
 
     /**

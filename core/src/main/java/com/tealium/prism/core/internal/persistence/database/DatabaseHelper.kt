@@ -3,6 +3,7 @@ package com.tealium.prism.core.internal.persistence.database
 import android.database.DatabaseErrorHandler
 import android.database.DefaultDatabaseErrorHandler
 import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteDatabaseCorruptException
 import android.database.sqlite.SQLiteOpenHelper
 import com.tealium.prism.core.api.TealiumConfig
 import com.tealium.prism.core.internal.persistence.database.Schema.DispatchTable.CREATE_DISPATCH_TABLE
@@ -75,6 +76,14 @@ internal open class DatabaseHelper private constructor(
      */
     var oldVersion: Int = -1
 
+    init {
+        // Before the first open, so the file opens in WAL instead of converting on every launch.
+        // Under WAL the framework pools connections: writes and transactions use the primary,
+        // reads outside a transaction a separate reader, whose page cache resets after each commit.
+        // deleteDatabase() also removes the -wal and -shm (SQLiteDatabase.deleteDatabase).
+        setWriteAheadLoggingEnabled(true)
+    }
+
     /**
      * Reports whether or not the database was upgraded this launch.
      */
@@ -82,8 +91,9 @@ internal open class DatabaseHelper private constructor(
         get() = oldVersion > 0
 
     /**
-     * The exception thrown during the latest open by [onCreate], or in [onUpgrade] by an upgrade
-     * step; `null` otherwise. Cleared on entry to [getWritableDatabase]. The
+     * The exception thrown during the latest open by [onCreate], in [onUpgrade] by an upgrade
+     * step, or in [onOpen] by a WAL configuration that found a corruption or left the database
+     * closed; `null` otherwise. Cleared on entry to [getWritableDatabase]. The
      * [UnsupportedSchemaVersionException] rejections and the chain check are not recorded: they
      * throw before any SQL runs, so nothing can mask them.
      *
@@ -94,6 +104,24 @@ internal open class DatabaseHelper private constructor(
      * the step's own exception.
      */
     var initializationFailure: Exception? = null
+        private set
+
+    /**
+     * The exception [configureWriteAheadLog] threw during the latest open on a database that stayed
+     * usable; any WAL setting it had not applied keeps the framework's value. `null` otherwise.
+     * Reset at each open that reaches [onOpen], and only meaningful while the database it was
+     * recorded for is open.
+     */
+    var walConfigFailure: Exception? = null
+        private set
+
+    /**
+     * The journal mode read during the latest open, lowercased: `"wal"` for a file in write-ahead
+     * logging, `"memory"` for an in-memory database. `null` if the configuration failed or the
+     * pragma returned no row. Reset at each open that reaches [onOpen], and only meaningful while
+     * the database it was recorded for is open.
+     */
+    var journalModeAtOpen: String? = null
         private set
 
     /**
@@ -211,13 +239,42 @@ internal open class DatabaseHelper private constructor(
     }
 
     /**
-     * Clears [corruptionReported]. With the platform's default handler, a report after
-     * [onConfigure] makes the open fail before reaching here, so this clear only guards a delegate
-     * handler that does not close the database.
+     * Clears [corruptionReported], [walConfigFailure] and [journalModeAtOpen], then applies the WAL
+     * settings with [configureWriteAheadLog]. WAL itself is enabled by the framework at open, from
+     * the flag set in `init`.
+     *
+     * The clear makes [corruptionReported] reflect only what applying the settings finds. An
+     * earlier report can reach here only through a delegate handler that leaves the database open:
+     * with the platform's default handler, a report after [onConfigure] fails the open first.
+     *
+     * When applying them throws:
+     * - a corruption, reported to the error handler or a [SQLiteDatabaseCorruptException] in the
+     *   cause chain, fails the open with [initializationFailure] set;
+     * - a failure that left the database closed also fails the open, so that a closed handle is
+     *   never returned;
+     * - anything else keeps the working database and is recorded in [walConfigFailure].
+     *
+     * [journalModeAtOpen] records the mode read.
      */
     override fun onOpen(db: SQLiteDatabase?) {
         super.onOpen(db)
         corruptionRecorder.reported = false
+        walConfigFailure = null
+        journalModeAtOpen = null
+        if (db == null) return
+
+        // The framework has opened the connection, in WAL when the init flag took, with its own
+        // default sync mode; configureWriteAheadLog then sets NORMAL. Benchmarked here on device;
+        // onConfigure would hold too, as nothing re-applies the sync mode after open.
+        try {
+            journalModeAtOpen = db.configureWriteAheadLog()
+        } catch (e: Exception) {
+            if (corruptionRecorder.reported || !db.isOpen || e.hasCorruptCause()) {
+                initializationFailure = e
+                throw e
+            }
+            walConfigFailure = e
+        }
     }
 
     /**
@@ -299,4 +356,20 @@ internal open class DatabaseHelper private constructor(
             delegate.onCorruption(db)
         }
     }
+}
+
+/**
+ * Whether this throwable is a [SQLiteDatabaseCorruptException] or has one anywhere in its cause
+ * chain, as the platform's hidden `SQLiteDatabaseCorruptException.isCorruptException` checks from
+ * API 29 on. No `SDK_INT` gate: on API 23 to 28 a corrupt `android_metadata` table arrives wrapped
+ * in a bare `SQLiteException` ("Failed to change locale for db ...") that the platform's own
+ * recovery misses.
+ */
+internal fun Throwable.hasCorruptCause(): Boolean {
+    var current: Throwable? = this
+    while (current != null) {
+        if (current is SQLiteDatabaseCorruptException) return true
+        current = current.cause
+    }
+    return false
 }
