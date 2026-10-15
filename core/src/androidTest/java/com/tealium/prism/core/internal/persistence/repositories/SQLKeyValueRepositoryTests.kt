@@ -19,6 +19,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -161,6 +162,37 @@ class SQLKeyValueRepositoryTests {
     }
 
     @Test
+    fun get_Returns_NullValue() {
+        val storage = getEmptyStorage(module1Id)
+
+        storage.upsert("key", DataItem.NULL, Expiry.SESSION)
+
+        assertSame(DataItem.NULL, storage.get("key"))
+    }
+
+    @Test
+    fun get_Returns_StringNull_AsString() {
+        val storage = getEmptyStorage(module1Id)
+
+        storage.upsert("key", DataItem.string("null"), Expiry.SESSION)
+
+        val item = storage.get("key")!!
+        assertFalse(item.isNull())
+        assertEquals("null", item.value)
+    }
+
+    @Test
+    fun get_Returns_NullValue_WhenOverwritingExistingValue() {
+        val storage = getEmptyStorage(module1Id)
+        storage.upsert("key", DataItem.string("value"), Expiry.SESSION)
+
+        storage.upsert("key", DataItem.NULL, Expiry.SESSION)
+
+        assertSame(DataItem.NULL, storage.get("key"))
+        assertEquals(1, storage.count())
+    }
+
+    @Test
     fun get_Returns_ListValue() {
         val storage = getEmptyStorage(module1Id)
 
@@ -219,6 +251,19 @@ class SQLKeyValueRepositoryTests {
         assertEquals(10, dataObject.get("long")?.value)
         assertEquals(10L, dataObject.get("long")?.getLong())
         assertEquals(100.1, dataObject.get("double")?.value)
+    }
+
+    @Test
+    fun getAll_Includes_NullValue() {
+        val storage = getEmptyStorage(module1Id)
+        storage.upsert("string", DataItem.string("value"), Expiry.SESSION)
+        storage.upsert("null", DataItem.NULL, Expiry.SESSION)
+
+        val dataObject = storage.getAll()
+
+        assertEquals(2, dataObject.count())
+        assertEquals("value", dataObject.get("string")?.value)
+        assertSame(DataItem.NULL, dataObject.get("null"))
     }
 
     @Test

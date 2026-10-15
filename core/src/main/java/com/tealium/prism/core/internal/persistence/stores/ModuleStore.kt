@@ -106,10 +106,7 @@ class ModuleStore(
             ensureNotClosed()
 
             dataObject.forEach { (key, value) ->
-                if (value != DataItem.NULL) {
-                    // Can't store nulls; ignore it.
-                    edits.add(Edit.Put(key, value, expiry))
-                }
+                edits.add(Edit.Put(key, value, expiry))
             }
         }
 

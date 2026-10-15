@@ -8,7 +8,6 @@ import com.tealium.prism.core.api.persistence.PersistenceException
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.Subject
 import com.tealium.prism.core.internal.persistence.repositories.KeyValueRepository
-import io.mockk.Called
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
@@ -339,6 +338,17 @@ class ModuleStoreTests {
         }
     }
 
+    @Test
+    fun editor_Put_PersistsNullValue() {
+        dataStore.edit()
+            .put("null", DataItem.NULL, Expiry.SESSION)
+            .commit()
+
+        verify {
+            keyValueRepository.upsert("null", DataItem.NULL, Expiry.SESSION)
+        }
+    }
+
     @Test(expected = DataStore.Editor.EditorClosedException::class)
     fun editor_put_Throws_EditorClosedException_After_Close() {
         val editor = dataStore.edit()
@@ -389,17 +399,15 @@ class ModuleStoreTests {
     }
 
     @Test
-    fun editor_PutAll_IgnoresNullValues() {
-        val nullValue = DataItem.NULL
-
+    fun editor_PutAll_PersistsNullValues() {
         dataStore.edit()
             .putAll(DataObject.create {
-                put("null", nullValue)
+                put("null", DataItem.NULL)
             }, Expiry.SESSION)
             .commit()
 
         verify {
-            keyValueRepository wasNot Called
+            keyValueRepository.upsert("null", DataItem.NULL, Expiry.SESSION)
         }
     }
 
@@ -535,6 +543,26 @@ class ModuleStoreTests {
             .put("key1", DataItem.string("value1"), Expiry.SESSION)
             .put("key2", DataItem.string("value2"), Expiry.SESSION)
             .commit()
+    }
+
+    @Test
+    fun onDataUpdated_NotifiesUpdated_WithNullValues_WhenPutAllCommitted() {
+        every { keyValueRepository.upsert(any(), any(), any()) } returns 1
+        val verifier = mockk<(DataObject) -> Unit>(relaxed = true)
+
+        dataStore.onDataUpdated.subscribe(verifier)
+        dataStore.edit()
+            .putAll(DataObject.create {
+                put("key1", "value1")
+                put("null", DataItem.NULL)
+            }, Expiry.SESSION)
+            .commit()
+
+        verify(exactly = 1) {
+            verifier.invoke(match {
+                it.get("key1")?.value == "value1" && it.get("null") == DataItem.NULL
+            })
+        }
     }
 
     @Test
