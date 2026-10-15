@@ -1,6 +1,6 @@
 package com.tealium.prism.jstransformer
 
-import com.tealium.prism.jstransformer.internal.JavaScriptTransformer
+import com.tealium.prism.jstransformer.internal.JavaScriptTransformerImpl
 import com.tealium.tests.common.configuration
 import com.tealium.tests.common.id
 import org.junit.Assert.assertEquals
@@ -30,7 +30,7 @@ class JavaScriptTransformationSettingsBuilderTests {
     fun build_Configuration_HasNoJsCode_WhenSetJsCodeNotCalled() {
         val result = JavaScriptTransformationSettingsBuilder("test")
 
-        assertNull(result.configuration.getString(JavaScriptTransformer.Keys.JS_CODE))
+        assertNull(result.configuration.getString(JavaScriptTransformerImpl.Keys.JS_CODE))
     }
 
     @Test
@@ -39,7 +39,7 @@ class JavaScriptTransformationSettingsBuilderTests {
         val result = JavaScriptTransformationSettingsBuilder("test")
             .setJsCode(jsCode)
 
-        assertEquals(jsCode, result.configuration.getString(JavaScriptTransformer.Keys.JS_CODE))
+        assertEquals(jsCode, result.configuration.getString(JavaScriptTransformerImpl.Keys.JS_CODE))
     }
 
     @Test
@@ -48,7 +48,7 @@ class JavaScriptTransformationSettingsBuilderTests {
             .setJsCode("first_code();")
             .setJsCode("second_code();")
 
-        assertEquals("second_code();", result.configuration.getString(JavaScriptTransformer.Keys.JS_CODE))
+        assertEquals("second_code();", result.configuration.getString(JavaScriptTransformerImpl.Keys.JS_CODE))
     }
 
     @Test
@@ -63,6 +63,6 @@ class JavaScriptTransformationSettingsBuilderTests {
         val result = JavaScriptTransformationSettingsBuilder("test")
             .setJsCode(jsCode)
 
-        assertEquals(jsCode, result.configuration.getString(JavaScriptTransformer.Keys.JS_CODE))
+        assertEquals(jsCode, result.configuration.getString(JavaScriptTransformerImpl.Keys.JS_CODE))
     }
 }

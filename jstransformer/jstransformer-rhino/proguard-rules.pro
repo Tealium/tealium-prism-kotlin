@@ -34,3 +34,12 @@
 -keep public class com.tealium.prism.jstransformer.rhino.* { *; }
 
 -keep public class com.tealium.prism.**$DefaultImpls { *; }
+
+# Members invoked reflectively by Rhino from JavaScript
+-keepclassmembers class com.tealium.prism.jstransformer.rhino.internal.** {
+    @org.mozilla.javascript.annotations.JSFunction <methods>;
+}
+# Expiry constants are read as JS properties via their getters
+-keepclassmembers class com.tealium.prism.jstransformer.rhino.internal.ScriptableDataLayer$ScriptableExpiry {
+    public <methods>;
+}

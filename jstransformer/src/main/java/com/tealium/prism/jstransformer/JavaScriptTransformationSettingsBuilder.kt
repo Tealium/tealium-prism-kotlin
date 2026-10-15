@@ -3,7 +3,7 @@ package com.tealium.prism.jstransformer
 import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.transform.TransformationSettingsBuilder
-import com.tealium.prism.jstransformer.internal.JavaScriptTransformer
+import com.tealium.prism.jstransformer.internal.JavaScriptTransformerImpl
 
 /**
  * Builder for creating [TransformationSettings] specific to the JavaScript Transformer module.
@@ -28,7 +28,7 @@ class JavaScriptTransformationSettingsBuilder(transformationId: String) :
     override fun onBuildConfiguration(): DataObject {
         return DataObject.create {
             jsCode?.let { js ->
-                put(JavaScriptTransformer.Keys.JS_CODE, js)
+                put(JavaScriptTransformerImpl.Keys.JS_CODE, js)
             }
         }
     }

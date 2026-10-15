@@ -4,37 +4,28 @@ import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.Logger
-import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
-import com.tealium.prism.core.api.network.HttpMethod
-import com.tealium.prism.core.api.network.HttpRequest
-import com.tealium.prism.core.api.network.HttpResponse
-import com.tealium.prism.core.api.network.NetworkClient
-import com.tealium.prism.core.api.network.NetworkException
-import com.tealium.prism.core.api.network.NetworkResult
 import com.tealium.prism.core.api.persistence.DataStore
 import com.tealium.prism.core.api.persistence.Expiry
-import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.Observable
-import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.Dispatch
+import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.Tracker
+import com.tealium.prism.jstransformer.JavaScriptTransformer
 import com.tealium.prism.jstransformer.JavaScriptTransformerFactory
 import io.mockk.MockKAnnotations
+import io.mockk.Runs
 import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.just
-import io.mockk.Runs
 import io.mockk.slot
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import java.net.URL
 
 @RunWith(RobolectricTestRunner::class)
 class RhinoJavaScriptEngineAdapterIntegrationTests {
@@ -209,6 +200,20 @@ class RhinoJavaScriptEngineAdapterIntegrationTests {
 
         assertEquals(DispatchType.View, dispatchSlot.captured.type)
         assertEquals("custom_value", dispatchSlot.captured.payload().getString("custom_key"))
+    }
+
+    @Test
+    fun tracker_track_Sets_JavaScriptTransformer_As_Source() {
+        every { mockTracker.track(any(), any()) } just Runs
+
+        eval("tracker.track('my_event')")
+
+        verify {
+            mockTracker.track(
+                any(),
+                match { it.isFromModule(JavaScriptTransformer::class.java) }
+            )
+        }
     }
 
 //    @Test

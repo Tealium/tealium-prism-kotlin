@@ -6,7 +6,7 @@ import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
 import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.settings.modules.ModuleSettingsBuilder
-import com.tealium.prism.jstransformer.internal.JavaScriptTransformer
+import com.tealium.prism.jstransformer.internal.JavaScriptTransformerImpl
 
 /**
  * Module type identifier for the JavaScript Transformer module.
@@ -48,7 +48,7 @@ abstract class JavaScriptTransformerFactory(
             return null
         }
 
-        return JavaScriptTransformer(adapter, context.logger)
+        return JavaScriptTransformerImpl(adapter, context.logger)
     }
 
     companion object {

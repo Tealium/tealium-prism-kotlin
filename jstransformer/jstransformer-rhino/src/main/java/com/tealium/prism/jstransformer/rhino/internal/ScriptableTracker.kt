@@ -5,7 +5,7 @@ import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchContext
 import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.Tracker
-import com.tealium.prism.jstransformer.internal.JavaScriptTransformer
+import com.tealium.prism.jstransformer.JavaScriptTransformer
 import org.mozilla.javascript.NativeObject
 import org.mozilla.javascript.annotations.JSFunction
 
@@ -30,7 +30,7 @@ class ScriptableTracker(
 
     private fun track(eventName: String, eventType: String?, payload: DataObject?) {
         val dispatchType = eventType?.let {
-            DispatchType.entries.find { it.name.lowercase() == eventType.lowercase() }
+            DispatchType.entries.find { it.name.equals(eventType, ignoreCase = true) }
         }  ?: DispatchType.Event
 
         val payload = payload ?: DataObject.EMPTY_OBJECT

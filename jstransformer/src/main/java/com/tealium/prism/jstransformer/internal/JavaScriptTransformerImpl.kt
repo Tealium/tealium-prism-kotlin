@@ -8,17 +8,16 @@ import com.tealium.prism.core.api.pubsub.addTo
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.transform.DispatchScope
 import com.tealium.prism.core.api.transform.TransformationSettings
-import com.tealium.prism.core.api.transform.Transformer
-import com.tealium.prism.core.internal.data.buildPath
 import com.tealium.prism.jstransformer.BuildConfig
 import com.tealium.prism.jstransformer.JavaScriptEngineAdapter
+import com.tealium.prism.jstransformer.JavaScriptTransformer
 import com.tealium.prism.jstransformer.JavaScriptTransformerFactory
 import org.json.JSONObject
 
-class JavaScriptTransformer(
+class JavaScriptTransformerImpl(
     private val adapter: JavaScriptEngineAdapter,
     private val logger: Logger,
-) : Transformer {
+) : JavaScriptTransformer {
 
     private val disposables = Disposables.composite()
 

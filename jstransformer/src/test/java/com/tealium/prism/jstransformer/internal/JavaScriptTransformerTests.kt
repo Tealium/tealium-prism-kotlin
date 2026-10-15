@@ -38,13 +38,13 @@ class JavaScriptTransformerTests {
     @RelaxedMockK
     private lateinit var mockDispatch: Dispatch
 
-    private lateinit var transformer: JavaScriptTransformer
+    private lateinit var transformer: JavaScriptTransformerImpl
 
     @Before
     fun setUp() {
         MockKAnnotations.init(this)
         every { mockDispatch.payload() } returns DataObject.EMPTY_OBJECT
-        transformer = JavaScriptTransformer(mockAdapter, mockLogger)
+        transformer = JavaScriptTransformerImpl(mockAdapter, mockLogger)
     }
 
     private fun settingsWithCode(jsCode: String): TransformationSettings =

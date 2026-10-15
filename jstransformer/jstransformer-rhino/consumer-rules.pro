@@ -15,3 +15,12 @@
 ## Rhino's optimizer/Bootstrapper references jdk.dynalink.* (JDK 9+ internal
 ## API, not available on Android). Same reason as above — dead code on Android.
 -dontwarn org.mozilla.javascript.optimizer.**
+
+# Members invoked reflectively by Rhino from JavaScript
+-keepclassmembers class com.tealium.prism.jstransformer.rhino.internal.** {
+    @org.mozilla.javascript.annotations.JSFunction <methods>;
+}
+# Expiry constants are read as JS properties via their getters
+-keepclassmembers class com.tealium.prism.jstransformer.rhino.internal.ScriptableDataLayer$ScriptableExpiry {
+    public <methods>;
+}
