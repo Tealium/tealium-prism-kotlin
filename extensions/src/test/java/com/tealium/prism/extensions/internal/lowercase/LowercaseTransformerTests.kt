@@ -11,6 +11,7 @@ import com.tealium.prism.core.api.transform.TransformationSettings
 import com.tealium.prism.extensions.api.lowercase.LowercaseSettingsBuilder
 import com.tealium.tests.common.buildTransformationSettings
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -238,6 +239,35 @@ class LowercaseTransformerTests {
         transformer.applyTransformation(settings, dispatch, scope) { completionCalled = true }
 
         assertEquals(true, completionCalled)
+    }
+
+    @Test
+    fun applyTransformation_Returns_Disposed_Disposable_When_Transformation_Completes() {
+        val dispatch = Dispatch.create("test_event", dataObject = DataObject.create {
+            put("key", "VALUE")
+        })
+        val settings = buildSettings(allVariables = true)
+
+        val completions = mutableListOf<Dispatch?>()
+        val disposable = transformer.applyTransformation(settings, dispatch, scope) { completions.add(it) }
+
+        assertEquals(listOf<Dispatch?>(dispatch), completions)
+        assertEquals("value", dispatch.payload().getString("key"))
+        assertTrue(disposable.isDisposed)
+    }
+
+    @Test
+    fun applyTransformation_Returns_Disposed_Disposable_When_Configuration_Is_Invalid() {
+        val dispatch = Dispatch.create("test_event")
+        val settings = TransformationSettings(
+            "test", "1.0", TransformationScope.AfterCollectors, DataObject.EMPTY_OBJECT
+        )
+        val completions = mutableListOf<Dispatch?>()
+
+        val disposable = transformer.applyTransformation(settings, dispatch, scope) { completions.add(it) }
+
+        assertEquals(listOf<Dispatch?>(dispatch), completions)
+        assertTrue(disposable.isDisposed)
     }
 
     @Test

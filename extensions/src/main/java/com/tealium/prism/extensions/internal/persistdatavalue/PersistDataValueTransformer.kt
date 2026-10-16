@@ -3,7 +3,10 @@ package com.tealium.prism.extensions.internal.persistdatavalue
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.logger.logIfErrorEnabled
 import com.tealium.prism.core.api.data.ValueSource
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.modules.TealiumContext
+import com.tealium.prism.core.api.pubsub.Disposable
+import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.transform.DispatchScope
 import com.tealium.prism.core.api.transform.TransformationSettings
@@ -24,13 +27,13 @@ class PersistDataValueTransformer(private val context: TealiumContext) : Transfo
         transformation: TransformationSettings,
         dispatch: Dispatch,
         scope: DispatchScope,
-        completion: (Dispatch?) -> Unit
-    ) {
+        completion: Callback<Dispatch?>
+    ): Disposable {
         val config = PersistDataValueConfiguration.Converter.convert(transformation.configuration.asDataItem())
 
         if (config == null) {
-            completion.invoke(dispatch)
-            return
+            completion.onComplete(dispatch)
+            return Disposables.disposed()
         }
 
         val dataLayer = context.dataLayer
@@ -44,8 +47,8 @@ class PersistDataValueTransformer(private val context: TealiumContext) : Transfo
 
         if (updatePolicy == UpdatePolicy.KEEP_FIRST_VALUE && dataLayer.extract(destination) != null) {
             // do not overwrite existing value
-            completion.invoke(dispatch)
-            return
+            completion.onComplete(dispatch)
+            return Disposables.disposed()
         }
 
         val dataItem = when (input) {
@@ -59,21 +62,21 @@ class PersistDataValueTransformer(private val context: TealiumContext) : Transfo
         }
 
         if (dataItem == null) {
-            completion.invoke(dispatch)
-            return
+            completion.onComplete(dispatch)
+            return Disposables.disposed()
         }
 
         try {
             dataLayer.buildPath(destination, dataItem, expiryPolicy.resolve())
             val updatedPayload = payload.buildPath(destination, dataItem)
             dispatch.replace(updatedPayload)
-
-            completion.invoke(dispatch)
         } catch (e: Exception) {
             logger.logIfErrorEnabled(PERSIST_DATA_VALUE) {
                 "Failed to persist data value for path $destination"
             }
-            completion.invoke(dispatch)
         }
+        completion.onComplete(dispatch)
+        // Nothing to cancel: this transformer completes synchronously
+        return Disposables.disposed()
     }
 }

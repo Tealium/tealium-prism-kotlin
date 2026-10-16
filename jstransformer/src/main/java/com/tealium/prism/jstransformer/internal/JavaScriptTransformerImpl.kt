@@ -3,6 +3,8 @@ package com.tealium.prism.jstransformer.internal
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.logger.logIfErrorEnabled
+import com.tealium.prism.core.api.misc.Callback
+import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.addTo
 import com.tealium.prism.core.api.tracking.Dispatch
@@ -29,12 +31,12 @@ class JavaScriptTransformerImpl(
         transformation: TransformationSettings,
         dispatch: Dispatch,
         scope: DispatchScope,
-        completion: (Dispatch?) -> Unit
-    ) {
+        completion: Callback<Dispatch?>
+    ): Disposable {
         val userJsCode = transformation.configuration.getString(Keys.JS_CODE)
         if (userJsCode.isNullOrBlank()) {
-            completion.invoke(dispatch)
-            return
+            completion.onComplete(dispatch)
+            return Disposables.disposed()
         }
 
         val escapedScope = JSONObject.quote(scope.toString())
@@ -52,12 +54,14 @@ class JavaScriptTransformerImpl(
             })(${dispatch.payload()}, $escapedScope)
         """.trimIndent()
 
-        adapter.evaluateJavaScript(js)
+        // The subscription is already completed (disposed) when the adapter evaluates inline, and
+        // remains a live cancellation handle if an adapter ever completes asynchronously.
+        return adapter.evaluateJavaScript(js)
             .subscribe { result ->
                 result.onSuccess { payload ->
                     val newPayload = payload.getDataObject()
                     if (newPayload == null) {
-                        completion.invoke(null)
+                        completion.onComplete(null)
                         return@subscribe
                     }
 
@@ -69,7 +73,7 @@ class JavaScriptTransformerImpl(
                     dispatch.addAll(DataObject.create { put("js_error", e.message.toString()) })
                 }
 
-                completion.invoke(dispatch)
+                completion.onComplete(dispatch)
             }.addTo(disposables)
     }
 

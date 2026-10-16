@@ -3,6 +3,7 @@ package com.tealium.prism.jstransformer.internal
 import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.logger.Logger
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.tracking.Dispatch
@@ -19,6 +20,7 @@ import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -64,7 +66,7 @@ class JavaScriptTransformerTests {
 
     @Test
     fun applyTransformation_CallsCompletionWithDispatch_WhenJsCodeIsNull() {
-        val completion = mockk<(Dispatch?) -> Unit>(relaxed = true)
+        val completion = mockk<Callback<Dispatch?>>(relaxed = true)
 
         transformer.applyTransformation(
             settingsWithNoCode(),
@@ -73,13 +75,13 @@ class JavaScriptTransformerTests {
             completion
         )
 
-        verify { completion.invoke(mockDispatch) }
+        verify { completion.onComplete(mockDispatch) }
         verify(inverse = true) { mockAdapter.evaluateJavaScript(any()) }
     }
 
     @Test
     fun applyTransformation_CallsCompletionWithDispatch_WhenJsCodeIsBlank() {
-        val completion = mockk<(Dispatch?) -> Unit>(relaxed = true)
+        val completion = mockk<Callback<Dispatch?>>(relaxed = true)
 
         transformer.applyTransformation(
             settingsWithCode("   "),
@@ -88,13 +90,13 @@ class JavaScriptTransformerTests {
             completion
         )
 
-        verify { completion.invoke(mockDispatch) }
+        verify { completion.onComplete(mockDispatch) }
         verify(inverse = true) { mockAdapter.evaluateJavaScript(any()) }
     }
 
     @Test
     fun applyTransformation_CallsCompletionWithDispatch_WhenJsCodeIsEmpty() {
-        val completion = mockk<(Dispatch?) -> Unit>(relaxed = true)
+        val completion = mockk<Callback<Dispatch?>>(relaxed = true)
 
         transformer.applyTransformation(
             settingsWithCode(""),
@@ -103,7 +105,7 @@ class JavaScriptTransformerTests {
             completion
         )
 
-        verify { completion.invoke(mockDispatch) }
+        verify { completion.onComplete(mockDispatch) }
         verify(inverse = true) { mockAdapter.evaluateJavaScript(any()) }
     }
 
@@ -117,7 +119,7 @@ class JavaScriptTransformerTests {
             TealiumResult.success(newPayload.asDataItem())
         )
 
-        val completion = mockk<(Dispatch?) -> Unit>(relaxed = true)
+        val completion = mockk<Callback<Dispatch?>>(relaxed = true)
         transformer.applyTransformation(
             settingsWithCode("payload.modified_key = 'modified_value';"),
             mockDispatch,
@@ -126,7 +128,7 @@ class JavaScriptTransformerTests {
         )
 
         verify { mockDispatch.replace(newPayload) }
-        verify { completion.invoke(mockDispatch) }
+        verify { completion.onComplete(mockDispatch) }
     }
 
     @Test
@@ -135,7 +137,7 @@ class JavaScriptTransformerTests {
             TealiumResult.success(DataItem.NULL)
         )
 
-        val completion = mockk<(Dispatch?) -> Unit>(relaxed = true)
+        val completion = mockk<Callback<Dispatch?>>(relaxed = true)
         transformer.applyTransformation(
             settingsWithCode("drop()"),
             mockDispatch,
@@ -143,7 +145,7 @@ class JavaScriptTransformerTests {
             completion
         )
 
-        verify { completion.invoke(null) }
+        verify { completion.onComplete(null) }
         verify(inverse = true) { mockDispatch.replace(any()) }
     }
 
@@ -153,7 +155,7 @@ class JavaScriptTransformerTests {
             TealiumResult.failure(RuntimeException("JS evaluation error"))
         )
 
-        val completion = mockk<(Dispatch?) -> Unit>(relaxed = true)
+        val completion = mockk<Callback<Dispatch?>>(relaxed = true)
         transformer.applyTransformation(
             settingsWithCode("throw new Error('boom')"),
             mockDispatch,
@@ -161,7 +163,7 @@ class JavaScriptTransformerTests {
             completion
         )
 
-        verify { completion.invoke(mockDispatch) }
+        verify { completion.onComplete(mockDispatch) }
     }
 
     @Test
@@ -170,7 +172,7 @@ class JavaScriptTransformerTests {
             TealiumResult.failure(RuntimeException("JS evaluation error"))
         )
 
-        val completion = mockk<(Dispatch?) -> Unit>(relaxed = true)
+        val completion = mockk<Callback<Dispatch?>>(relaxed = true)
         transformer.applyTransformation(
             settingsWithCode("throw new Error('boom')"),
             mockDispatch,
@@ -299,6 +301,74 @@ class JavaScriptTransformerTests {
         )
 
         assertTrue(jsSlot.captured.contains("dispatcher\\\"with\\nnewline"))
+    }
+
+    @Test
+    fun applyTransformation_Returns_Disposed_Disposable_When_Evaluation_Completes() {
+        every { mockAdapter.evaluateJavaScript(any()) } returns Observables.just(
+            TealiumResult.success(DataObject.EMPTY_OBJECT.asDataItem())
+        )
+
+        val completions = mutableListOf<Dispatch?>()
+        val disposable = transformer.applyTransformation(
+            settingsWithCode("// noop"),
+            mockDispatch,
+            DispatchScope.AfterCollectors
+        ) { completions.add(it) }
+
+        assertEquals(listOf<Dispatch?>(mockDispatch), completions)
+        assertTrue(disposable.isDisposed)
+    }
+
+    @Test
+    fun applyTransformation_Returns_Active_Disposable_When_Evaluation_Is_Pending() {
+        val pending = Observables.publishSubject<TealiumResult<DataItem>>()
+        every { mockAdapter.evaluateJavaScript(any()) } returns pending
+
+        val completions = mutableListOf<Dispatch?>()
+        val disposable = transformer.applyTransformation(
+            settingsWithCode("// noop"),
+            mockDispatch,
+            DispatchScope.AfterCollectors
+        ) { completions.add(it) }
+
+        assertFalse(disposable.isDisposed)
+        assertTrue(completions.isEmpty())
+
+        pending.onNext(TealiumResult.success(DataObject.EMPTY_OBJECT.asDataItem()))
+
+        assertEquals(listOf<Dispatch?>(mockDispatch), completions)
+    }
+
+    @Test
+    fun applyTransformation_Does_Not_Complete_When_Disposed_Before_Evaluation_Completes() {
+        val pending = Observables.publishSubject<TealiumResult<DataItem>>()
+        every { mockAdapter.evaluateJavaScript(any()) } returns pending
+
+        val completions = mutableListOf<Dispatch?>()
+        val disposable = transformer.applyTransformation(
+            settingsWithCode("// noop"),
+            mockDispatch,
+            DispatchScope.AfterCollectors
+        ) { completions.add(it) }
+
+        disposable.dispose()
+        pending.onNext(TealiumResult.success(DataObject.EMPTY_OBJECT.asDataItem()))
+
+        assertTrue(completions.isEmpty())
+    }
+
+    @Test
+    fun applyTransformation_Returns_Disposed_Disposable_When_Js_Code_Is_Null() {
+        val completions = mutableListOf<Dispatch?>()
+        val disposable = transformer.applyTransformation(
+            settingsWithNoCode(),
+            mockDispatch,
+            DispatchScope.AfterCollectors
+        ) { completions.add(it) }
+
+        assertEquals(listOf<Dispatch?>(mockDispatch), completions)
+        assertTrue(disposable.isDisposed)
     }
 
     @Test

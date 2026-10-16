@@ -3,6 +3,7 @@ package com.tealium.prism.extensions.internal.setdatavalues
 import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.ReferenceContainer
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.transform.DispatchScope
@@ -17,6 +18,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -66,7 +68,7 @@ class SetDataValuesTransformerTests {
             .setScope(TransformationScope.AfterCollectors)
             .buildTransformationSettings()
 
-        val completion = mockk<(Dispatch?) -> Unit>(relaxed = true)
+        val completion = mockk<Callback<Dispatch?>>(relaxed = true)
 
         transformer.applyTransformation(
             settings,
@@ -75,8 +77,43 @@ class SetDataValuesTransformerTests {
             completion
         )
 
-        verify { completion(dispatch) }
+        verify { completion.onComplete(dispatch) }
         assertEquals("value", dispatch.payload().getString("key"))
+    }
+
+    @Test
+    fun applyTransformation_Returns_Disposed_Disposable_When_Transformation_Completes() {
+        val dispatch = Dispatch.create("test", dataObject = DataObject.create {
+            put("source_key", "source_value")
+        })
+        val settings = SetDataValuesSettingsBuilder("test")
+            .setFrom(ReferenceContainer.key("source_key"), ReferenceContainer.key("destination_key"))
+            .setScope(TransformationScope.AfterCollectors)
+            .buildTransformationSettings()
+
+        val completions = mutableListOf<Dispatch?>()
+        val disposable = transformer.applyTransformation(
+            settings, dispatch, DispatchScope.AfterCollectors
+        ) { completions.add(it) }
+
+        assertEquals(listOf<Dispatch?>(dispatch), completions)
+        assertTrue(disposable.isDisposed)
+    }
+
+    @Test
+    fun applyTransformation_Returns_Disposed_Disposable_When_Configuration_Is_Invalid() {
+        val dispatch = Dispatch.create("test")
+        val settings = SetDataValuesSettingsBuilder("test")
+            .setScope(TransformationScope.AfterCollectors)
+            .buildTransformationSettings()
+
+        val completions = mutableListOf<Dispatch?>()
+        val disposable = transformer.applyTransformation(
+            settings, dispatch, DispatchScope.AfterCollectors
+        ) { completions.add(it) }
+
+        assertEquals(listOf<Dispatch?>(dispatch), completions)
+        assertTrue(disposable.isDisposed)
     }
 
     @Test
@@ -112,7 +149,7 @@ class SetDataValuesTransformerTests {
             .setScope(TransformationScope.AfterCollectors)
             .buildTransformationSettings()
 
-        val completion = mockk<(Dispatch?) -> Unit>(relaxed = true)
+        val completion = mockk<Callback<Dispatch?>>(relaxed = true)
 
         transformer.applyTransformation(
             settings,
@@ -123,7 +160,7 @@ class SetDataValuesTransformerTests {
 
         val payload = dispatch.payload()
         verify {
-            completion(dispatch)
+            completion.onComplete(dispatch)
         }
 
         assertEquals("constant_value", payload.getString("destination_key"))
@@ -142,7 +179,7 @@ class SetDataValuesTransformerTests {
             .setScope(TransformationScope.AfterCollectors)
             .buildTransformationSettings()
 
-        val completion = mockk<(Dispatch?) -> Unit>(relaxed = true)
+        val completion = mockk<Callback<Dispatch?>>(relaxed = true)
 
         transformer.applyTransformation(
             settings,
@@ -152,7 +189,7 @@ class SetDataValuesTransformerTests {
         )
 
         verify {
-            completion(dispatch)
+            completion.onComplete(dispatch)
         }
 
         assertEquals("value1", dispatch.payload().getString("dest1"))
@@ -170,7 +207,7 @@ class SetDataValuesTransformerTests {
             .setScope(TransformationScope.AfterCollectors)
             .buildTransformationSettings()
 
-        val completion = mockk<(Dispatch?) -> Unit>(relaxed = true)
+        val completion = mockk<Callback<Dispatch?>>(relaxed = true)
 
         transformer.applyTransformation(
             settings,
@@ -181,7 +218,7 @@ class SetDataValuesTransformerTests {
 
         val payload = dispatch.payload()
         verify {
-            completion(dispatch)
+            completion.onComplete(dispatch)
         }
 
         assertNull(payload.getString("destination_key"))

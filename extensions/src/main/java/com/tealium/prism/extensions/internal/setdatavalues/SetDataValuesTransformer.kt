@@ -2,7 +2,10 @@ package com.tealium.prism.extensions.internal.setdatavalues
 
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.ValueSource
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.modules.TealiumContext
+import com.tealium.prism.core.api.pubsub.Disposable
+import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.transform.DispatchScope
 import com.tealium.prism.core.api.transform.TransformationSettings
@@ -20,14 +23,14 @@ class SetDataValuesTransformer() : Transformer {
         transformation: TransformationSettings,
         dispatch: Dispatch,
         scope: DispatchScope,
-        completion: (Dispatch?) -> Unit
-    ) {
+        completion: Callback<Dispatch?>
+    ): Disposable {
         val config = SetDataValuesConfiguration.Converter.convert(transformation.configuration.asDataItem())
         val operations = config?.operations
 
         if (operations.isNullOrEmpty()) {
-            completion.invoke(dispatch)
-            return
+            completion.onComplete(dispatch)
+            return Disposables.disposed()
         }
 
         var payload = dispatch.payload()
@@ -50,6 +53,8 @@ class SetDataValuesTransformer() : Transformer {
         }
 
         dispatch.replace(payload)
-        completion.invoke(dispatch)
+        completion.onComplete(dispatch)
+        // Nothing to cancel: this transformer completes synchronously
+        return Disposables.disposed()
     }
 }

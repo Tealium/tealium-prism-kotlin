@@ -2,8 +2,8 @@ package com.tealium.prism.core.internal.dispatch
 
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.logger.logIfWarnEnabled
-import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.misc.Scheduler
+import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.pubsub.Observables
@@ -171,6 +171,9 @@ class TransformerCoordinatorImpl(
             return
         }
 
+        // TODO: hold this Disposable and dispose it on cancel. Dropping completions that arrive
+        //  after dispose is the coordinator's job, not the transformer's; today the caller guard
+        //  in DispatchManagerImpl.transformAndDispatch does it.
         transformer.applyTransformation(transformation, dispatch, scope, completion)
     }
 

@@ -18,6 +18,8 @@ import io.mockk.verify
 import io.mockk.impl.annotations.RelaxedMockK
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -59,6 +61,118 @@ class PersistDataValueTransformerTests {
         ) { result ->
             assertEquals(dispatch, result)
         }
+    }
+
+    @Test
+    fun applyTransformation_Returns_Disposed_Disposable_When_Transformation_Completes() {
+        val transformer = PersistDataValueTransformer(tealiumContext)
+        val dispatch =
+            Dispatch.create(
+                "test_event",
+                dataObject = DataObject.create { put("source_key", "source_value") })
+
+        val settings = PersistDataValueSettingsBuilder("test")
+            .persistFrom(
+                ReferenceContainer.key("source_key"),
+                ReferenceContainer.key("destination_key")
+            )
+            .setExpiryPolicy(ExpiryPolicy.SESSION)
+            .setUpdatePolicy(UpdatePolicy.ALLOW_UPDATE)
+            .setScope(TransformationScope.AfterCollectors)
+            .buildTransformationSettings()
+
+        val completions = mutableListOf<Dispatch?>()
+        val disposable = transformer.applyTransformation(
+            settings,
+            dispatch,
+            DispatchScope.AfterCollectors
+        ) { completions.add(it) }
+
+        assertEquals(listOf<Dispatch?>(dispatch), completions)
+        assertTrue(disposable.isDisposed)
+    }
+
+    @Test
+    fun applyTransformation_Calls_Completion_Once_When_Completion_Throws() {
+        val transformer = PersistDataValueTransformer(tealiumContext)
+        val dispatch =
+            Dispatch.create("test_event", dataObject = DataObject.create {
+                put("source_key", "source_value")
+            })
+        val settings = PersistDataValueSettingsBuilder("test")
+            .persistFrom(
+                ReferenceContainer.key("source_key"),
+                ReferenceContainer.key("destination_key")
+            )
+            .setExpiryPolicy(ExpiryPolicy.SESSION)
+            .setUpdatePolicy(UpdatePolicy.ALLOW_UPDATE)
+            .setScope(TransformationScope.AfterCollectors)
+            .buildTransformationSettings()
+
+        var completionCount = 0
+        assertThrows(RuntimeException::class.java) {
+            transformer.applyTransformation(
+                settings,
+                dispatch,
+                DispatchScope.AfterCollectors
+            ) {
+                completionCount++
+                throw RuntimeException("downstream failure")
+            }
+        }
+
+        assertEquals(1, completionCount)
+    }
+
+    @Test
+    fun applyTransformation_Returns_Disposed_Disposable_When_Value_Already_Persisted() {
+        every { tealiumContext.dataLayer.extract(any()) } returns "existing_value".asDataItem()
+        val transformer = PersistDataValueTransformer(tealiumContext)
+        val dispatch =
+            Dispatch.create("test_event", dataObject = DataObject.create {
+                put("source_key", "new_value")
+            })
+        val settings = PersistDataValueSettingsBuilder("test")
+            .persistFrom(
+                ReferenceContainer.key("source_key"),
+                ReferenceContainer.key("destination_key")
+            )
+            .setExpiryPolicy(ExpiryPolicy.SESSION)
+            .setUpdatePolicy(UpdatePolicy.KEEP_FIRST_VALUE)
+            .setScope(TransformationScope.AfterCollectors)
+            .buildTransformationSettings()
+
+        val completions = mutableListOf<Dispatch?>()
+        val disposable = transformer.applyTransformation(
+            settings,
+            dispatch,
+            DispatchScope.AfterCollectors
+        ) { completions.add(it) }
+
+        assertEquals(listOf<Dispatch?>(dispatch), completions)
+        assertTrue(disposable.isDisposed)
+    }
+
+    @Test
+    fun applyTransformation_Returns_Disposed_Disposable_When_Configuration_Is_Invalid() {
+        val transformer = PersistDataValueTransformer(tealiumContext)
+        val dispatch = Dispatch.create("test_event")
+        val settings = TransformationSettings(
+            "test",
+            "1.0",
+            TransformationScope.AfterCollectors,
+            DataObject.EMPTY_OBJECT
+        )
+
+        val completions = mutableListOf<Dispatch?>()
+        val disposable = transformer.applyTransformation(
+            settings,
+            dispatch,
+            DispatchScope.AfterCollectors
+        ) { completions.add(it) }
+
+        assertEquals(listOf<Dispatch?>(dispatch), completions)
+        assertTrue(disposable.isDisposed)
     }
 
     @Test

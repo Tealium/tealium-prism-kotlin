@@ -1,7 +1,9 @@
 package com.tealium.prism.core.internal.dispatch
 
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.Scheduler
+import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.ReplaySubject
@@ -26,6 +28,7 @@ import io.mockk.verify
 import io.mockk.verifyOrder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -803,8 +806,9 @@ class TransformerCoordinatorTests {
         every { transformer.applyTransformation(settings, any(), any(), any()) } answers {
             val transformedDispatch = block.invoke(secondArg())
 
-            val completion = arg<(Dispatch?) -> Unit>(3)
-            completion.invoke(transformedDispatch)
+            val completion = arg<Callback<Dispatch?>>(3)
+            completion.onComplete(transformedDispatch)
+            Disposables.disposed()
         }
     }
 
@@ -837,6 +841,19 @@ class TransformerCoordinatorTests {
                 afterCollectors, mockDispatch, DispatchScope.AfterCollectors, any()
             )
         }
+    }
+
+    @Test
+    fun mock_Returns_Disposable_When_ApplyTransformation_Is_Invoked() {
+        val transformer = TestTransformer.mock("test")
+        var completed: Dispatch? = null
+
+        val disposable = transformer.applyTransformation(
+            afterCollectors, mockDispatch, DispatchScope.AfterCollectors
+        ) { completed = it }
+
+        assertTrue(disposable.isDisposed)
+        assertSame(mockDispatch, completed)
     }
 
     /**

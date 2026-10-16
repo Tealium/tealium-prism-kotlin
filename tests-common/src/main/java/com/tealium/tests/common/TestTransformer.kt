@@ -1,5 +1,8 @@
 package com.tealium.tests.common
 
+import com.tealium.prism.core.api.misc.Callback
+import com.tealium.prism.core.api.pubsub.Disposable
+import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.transform.DispatchScope
 import com.tealium.prism.core.api.transform.TransformationSettings
@@ -21,10 +24,11 @@ class TestTransformer(
         transformation: TransformationSettings,
         dispatch: Dispatch,
         scope: DispatchScope,
-        completion: (Dispatch?) -> Unit
-    ) {
+        completion: Callback<Dispatch?>
+    ): Disposable {
         val result = transformHandler.invoke(transformation, dispatch, scope)
-        completion(result)
+        completion.onComplete(result)
+        return Disposables.disposed()
     }
 
     companion object {
@@ -47,8 +51,9 @@ class TestTransformer(
                 val dispatch =
                     transformHandler.invoke(firstArg(), secondArg(), thirdArg())
 
-                val completion = arg<(Dispatch?) -> Unit>(3)
-                completion(dispatch)
+                val completion = arg<Callback<Dispatch?>>(3)
+                completion.onComplete(dispatch)
+                Disposables.disposed()
             }
 
             return mockTransformer
