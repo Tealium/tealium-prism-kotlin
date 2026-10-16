@@ -185,6 +185,22 @@ class ConsentIntegrationManager(
             )
         }
 
+        /**
+         * Consent integration is not part of the public API in the GA release, so no [CmpAdapter]
+         * can be configured. If local or remote settings still carry a `consent` section, log once and ignore it.
+         */
+        fun logIgnoredConsentSettings(
+            consentSettings: ObservableState<ConsentSettings?>,
+            logger: Logger
+        ): Disposable = consentSettings
+            .filterNotNull()
+            .take(1)
+            .subscribe {
+                logger.info(
+                    LogCategory.CONSENT,
+                    "Consent settings found, but consent integration is not available in this release. The consent section is ignored."
+                )
+            }
 
         fun shouldRefire(dispatch: Dispatch): Boolean {
             val processedPurposes =

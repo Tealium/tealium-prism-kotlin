@@ -194,6 +194,12 @@ class TealiumImpl(
             schedulers.tealium,
             logger
         )?.addTo(disposables)
+        if (consentManager == null) {
+            ConsentIntegrationManager.logIgnoredConsentSettings(
+                settings.mapState(SdkSettings::consent),
+                logger
+            ).addTo(disposables)
+        }
 
         dispatchManager = DispatchManagerImpl(
             onDispatchers = moduleManager.observeModules(Dispatcher::class.java),

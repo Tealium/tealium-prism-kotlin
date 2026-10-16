@@ -40,7 +40,6 @@ import java.io.File
  * @param settingsUrl The url to download Remote JSON Settings from. These settings will be deep merged with any Local and Programmatic settings. Remote settings will take priority over Local ones, and Programmatic settings will take priority over Remote settings
  * @param logHandler The [LogHandler] to delegate logging events to; default will write to [android.util.Log]
  * @param existingVisitorId A known existing visitor id to use on first launch instead of our anonymous id
- * @param cmpAdapter An adapter that can convert CMP specific data to a [ConsentDecision] that the [Tealium] consent integration system can handle.
  * @param enforcedSdkSettings A [DataObject] containing all the settings that were configured programmatically
  */
 class TealiumConfig private constructor(
@@ -55,7 +54,7 @@ class TealiumConfig private constructor(
     val settingsUrl: String?,
     val logHandler: LogHandler,
     val existingVisitorId: String?,
-    val cmpAdapter: CmpAdapter?,
+    internal val cmpAdapter: CmpAdapter?,
     val enforcedSdkSettings: DataObject
 ) {
 
@@ -189,12 +188,14 @@ class TealiumConfig private constructor(
          * Make sure to properly configure consent either locally, remotely or programmatically
          * for the provided [CmpAdapter] to ensure proper tracking.
          *
+         * Not part of the public API in the GA release. Returns in a later release.
+         *
          * @param cmpAdapter: The adapter that will report the [ConsentDecision] to the SDK
          * @param enforcedSettings: An optional block called with a configuration builder, used to force some of the Consent Configuration properties.
          *          Properties set with this block will have precedence to local and remote settings.
          */
-        @JvmOverloads
-        fun enableConsentIntegration(
+        @JvmSynthetic
+        internal fun enableConsentIntegration(
             cmpAdapter: CmpAdapter,
             enforcedSettings: ((ConsentConfigurationBuilder) -> ConsentConfigurationBuilder)? = null
         ) = apply {

@@ -7,6 +7,7 @@ import com.tealium.prism.core.api.consent.ConsentDecision
 import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.JsonPath
+import com.tealium.prism.core.api.logger.LogHandler
 import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.misc.ActivityManager
@@ -26,6 +27,7 @@ import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.internal.consent.ConsentIntegrationManager
 import com.tealium.prism.core.internal.consent.MockCmpAdapter
+import com.tealium.prism.core.internal.logger.LogCategory
 import com.tealium.prism.core.internal.misc.ActivityManagerImpl
 import com.tealium.prism.core.internal.misc.SchedulersImpl
 import com.tealium.prism.core.internal.persistence.database.DatabaseProvider
@@ -129,6 +131,37 @@ class TealiumImplTests {
 
         tealium.shutdown()
         assertEquals(0, decision.count)
+    }
+
+    @Test
+    fun init_Logs_Ignored_Consent_Settings_When_No_CmpAdapter() {
+        val logHandler = mockk<LogHandler>(relaxed = true)
+        val config = getDefaultConfigBuilder(app)
+            .setSettingsFile("consentSettings.json")
+            .setLogHandler(logHandler)
+            .build()
+
+        TealiumImpl(config, SchedulersImpl(testMainScheduler, Scheduler.SYNCHRONOUS, testNetworkScheduler))
+
+        verify(exactly = 1) {
+            logHandler.log(LogCategory.CONSENT, match { it.contains("not available") }, LogLevel.INFO)
+        }
+    }
+
+    @Test
+    fun init_Does_Not_Log_Ignored_Consent_Settings_When_CmpAdapter_Configured() {
+        val logHandler = mockk<LogHandler>(relaxed = true)
+        val config = getDefaultConfigBuilder(app)
+            .setSettingsFile("consentSettings.json")
+            .setLogHandler(logHandler)
+            .enableConsentIntegration(MockCmpAdapter())
+            .build()
+
+        TealiumImpl(config, SchedulersImpl(testMainScheduler, Scheduler.SYNCHRONOUS, testNetworkScheduler))
+
+        verify(exactly = 0) {
+            logHandler.log(LogCategory.CONSENT, match { it.contains("not available") }, any())
+        }
     }
 
     @Test

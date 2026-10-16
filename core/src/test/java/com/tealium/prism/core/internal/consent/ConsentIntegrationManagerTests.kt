@@ -3,6 +3,7 @@ package com.tealium.prism.core.internal.consent
 import com.tealium.prism.core.api.consent.ConsentDecision
 import com.tealium.prism.core.api.data.DataItemUtils.asDataList
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.TealiumContext
@@ -12,6 +13,7 @@ import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.internal.dispatch.QueueManager
+import com.tealium.prism.core.internal.logger.LogCategory
 import com.tealium.prism.core.internal.modules.ModuleManagerImpl
 import com.tealium.prism.core.internal.settings.consent.ConsentConfiguration
 import com.tealium.prism.core.internal.settings.consent.ConsentPurpose
@@ -222,6 +224,28 @@ class ConsentIntegrationManagerTests {
                 setOf("dispatcher_1")
             )
         }
+    }
+
+    @Test
+    fun logIgnoredConsentSettings_Logs_Once_When_Consent_Settings_Are_Present() {
+        val logger = mockk<Logger>(relaxed = true)
+        val settings = Observables.stateSubject<ConsentSettings?>(null)
+
+        ConsentIntegrationManager.logIgnoredConsentSettings(settings, logger)
+        settings.onNext(ConsentSettings(emptyMap()))
+        settings.onNext(ConsentSettings(emptyMap()))
+
+        verify(exactly = 1) { logger.info(LogCategory.CONSENT, any<String>()) }
+    }
+
+    @Test
+    fun logIgnoredConsentSettings_Does_Not_Log_When_Consent_Settings_Are_Absent() {
+        val logger = mockk<Logger>(relaxed = true)
+        val settings = Observables.stateSubject<ConsentSettings?>(null)
+
+        ConsentIntegrationManager.logIgnoredConsentSettings(settings, logger)
+
+        verify(exactly = 0) { logger.info(any(), any<String>()) }
     }
 
     /**

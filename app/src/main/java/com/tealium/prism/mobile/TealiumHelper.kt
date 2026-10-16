@@ -50,7 +50,6 @@ import com.tealium.prism.extensions.api.setdatavalues.SetDataValuesSettingsBuild
 import com.tealium.prism.jstransformer.JavaScriptTransformationSettingsBuilder
 import com.tealium.prism.lifecycle.lifecycle
 import com.tealium.prism.contextapi.ContextApiRegion
-import com.tealium.prism.mobile.ExampleCmpAdapter.Purposes
 import com.tealium.prism.contextapi.contextApi
 
 object TealiumHelper {
@@ -78,13 +77,8 @@ object TealiumHelper {
             settings
                 .setLogLevel(LogLevel.TRACE)
         }.setSettingsFile("tealium-settings.jsonc")
-            .enableConsentIntegration(cmp) { settings ->
-                settings
-                    .setTealiumPurposeId(Purposes.TEALIUM)
-                    .addPurpose(Purposes.TRACKING, setOf(Modules.Types.COLLECT))
-                    .addPurpose(Purposes.FUNCTIONAL, setOf("logger"))
-                    .setRefireDispatcherIds(setOf(Modules.Types.COLLECT))
-            }
+            // TealiumConfig.Builder.enableConsentIntegration is not available in the GA release.
+            // Consent gating is done server-side in EventStream; the entry point will return in a later release.
             .addTransformation(
                 SetDataValuesSettingsBuilder("sdv_1")
                     .setScope(TransformationScope.AfterCollectors)

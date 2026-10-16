@@ -34,13 +34,8 @@ public class TealiumJavaHelper {
         TealiumConfig.Builder config = new TealiumConfig.Builder(app, "tealiummobile", "android", Environment.DEV,
                 configureModules());
 
-//        config.enableConsentIntegration(new ExampleCmpAdapter(app.getApplicationContext()), (settings) -> {
-//            settings
-//                    .setTealiumPurposeId(Purposes.TEALIUM)
-//                    .addPurpose(Purposes.TRACKING, SetsKt.setOf(Modules.Types.COLLECT))
-//                    .setRefireDispatcherIds(SetsKt.setOf(Modules.Types.COLLECT));
-//            return settings;
-//        });
+        // TealiumConfig.Builder.enableConsentIntegration is not available in the GA release.
+        // Consent gating is done server-side in EventStream; the entry point will return in a later release.
 
         Tealium teal = Tealium.create(config.build(), (result) -> {
             if (result.isSuccess()) {
