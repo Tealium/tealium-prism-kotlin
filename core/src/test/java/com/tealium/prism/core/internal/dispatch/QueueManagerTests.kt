@@ -2,6 +2,7 @@ package com.tealium.prism.core.internal.dispatch
 
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.misc.TimeFrameUtils.days
+import com.tealium.prism.core.api.persistence.PersistenceException
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.pubsub.Subject
@@ -17,6 +18,7 @@ import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
 import io.mockk.verify
+import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 
@@ -187,6 +189,30 @@ class QueueManagerTests {
 
         verify {
             dispatchesEnqueued(setOf(dispatcher1))
+        }
+    }
+
+    @Test
+    fun storeDispatches_Rethrows_When_Repository_Throws_PersistenceException() {
+        every { queueRepository.storeDispatch(any(), any()) } throws persistenceException()
+
+        assertThrows(PersistenceException::class.java) {
+            queueManager.storeDispatches(listOf(dispatch1), setOf(dispatcher1))
+        }
+    }
+
+    @Test
+    fun storeDispatches_Does_Not_Emit_EnqueuedDispatches_When_Repository_Throws() {
+        every { queueRepository.storeDispatch(any(), any()) } throws persistenceException()
+        val dispatchesEnqueued = mockk<(Set<String>) -> Unit>(relaxed = true)
+        queueManager.enqueuedDispatchesForProcessors.subscribe(dispatchesEnqueued)
+
+        assertThrows(PersistenceException::class.java) {
+            queueManager.storeDispatches(listOf(dispatch1), setOf(dispatcher1))
+        }
+
+        verify(exactly = 0) {
+            dispatchesEnqueued(any())
         }
     }
 
@@ -388,4 +414,7 @@ class QueueManagerTests {
             queueRepository.deleteQueues(forProcessorsNotIn = emptySet())
         }
     }
+
+    private fun persistenceException(): PersistenceException =
+        PersistenceException("boom", RuntimeException())
 }

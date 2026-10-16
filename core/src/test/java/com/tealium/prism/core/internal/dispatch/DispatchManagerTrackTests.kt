@@ -6,11 +6,13 @@ import com.tealium.prism.core.api.misc.TimeFrame
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.TealiumContext
+import com.tealium.prism.core.api.persistence.PersistenceException
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.api.tracking.TrackResultListener
 import com.tealium.prism.core.internal.modules.ModuleManagerImpl
+import com.tealium.prism.core.internal.persistence.repositories.QueueRepository
 import com.tealium.prism.core.internal.settings.ModuleSettings
 import com.tealium.prism.core.internal.settings.SdkSettings
 import com.tealium.tests.common.ModuleSettingRow
@@ -23,6 +25,7 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.TimeUnit
 
@@ -126,6 +129,54 @@ class DispatchManagerTrackTests : DispatchManagerTestsBase() {
     }
 
     /**
+     * A failed queue insert leaves the dispatch stored nowhere, so reporting it as accepted would
+     * claim it had been enqueued when it is in fact lost.
+     */
+    @Test
+    fun track_Reports_Dropped_When_Store_Fails() {
+        every {
+            queueManager.storeDispatches(any(), any())
+        } throws PersistenceException("boom", RuntimeException())
+        val result = slot<TrackResult>()
+        val listener = mockk<TrackResultListener>(relaxed = true)
+        every { listener.onTrackResultReady(capture(result)) } returns Unit
+
+        dispatchManager.track(dispatch1, listener)
+
+        assertEquals(TrackResult.Status.Dropped, result.captured.status)
+        assertTrue(result.captured.info, result.captured.info.contains("Failed to persist"))
+    }
+
+    /**
+     * Same as above, but with the failure raised by the repository itself and propagated through a
+     * real [QueueManagerImpl], so the whole path from the failed insert to the caller is exercised.
+     */
+    @Test
+    fun track_Reports_Dropped_When_Repository_Store_Fails() {
+        dispatchManager = createDispatchManager(queueManager = queueManagerWithFailingRepository())
+        val result = slot<TrackResult>()
+        val listener = mockk<TrackResultListener>(relaxed = true)
+        every { listener.onTrackResultReady(capture(result)) } returns Unit
+
+        dispatchManager.track(dispatch1, listener)
+
+        assertEquals(TrackResult.Status.Dropped, result.captured.status)
+        assertTrue(result.captured.info, result.captured.info.contains("Failed to persist"))
+    }
+
+    @Test
+    fun track_Reports_Accepted_When_Store_Succeeds() {
+        val result = slot<TrackResult>()
+        val listener = mockk<TrackResultListener>(relaxed = true)
+        every { listener.onTrackResultReady(capture(result)) } returns Unit
+
+        dispatchManager.track(dispatch1, listener)
+
+        assertEquals(TrackResult.Status.Accepted, result.captured.status)
+        assertTrue(result.captured.info, result.captured.info.contains("Enqueued for processors"))
+    }
+
+    /**
      * A module tracking from its own `updateConfiguration` runs while the settings pass is still
      * building the module list, so the enqueue has to wait for that pass rather than be answered with
      * the dispatchers the previous one published - here the very dispatcher this pass is disabling.
@@ -183,6 +234,23 @@ class DispatchManagerTrackTests : DispatchManagerTestsBase() {
             onUpdate()
             return this
         }
+    }
+
+    /**
+     * A real [QueueManagerImpl] over a repository whose every insert fails.
+     */
+    private fun queueManagerWithFailingRepository(): QueueManager {
+        val failingRepository = mockk<QueueRepository>(relaxed = true)
+        every {
+            failingRepository.storeDispatch(any(), any())
+        } throws PersistenceException("boom", RuntimeException())
+
+        return QueueManagerImpl(
+            queueRepository = failingRepository,
+            settings = coreSettings,
+            processors = processors,
+            logger = SystemLogger
+        )
     }
 
     private companion object {

@@ -79,7 +79,10 @@ interface QueueManager {
      *
      * @param dispatches The dispatches to persist in case we can't yet send them.
      * @param processors The list of processors to save the [dispatches] for
+     * @throws PersistenceException if the dispatches could not be persisted; nothing is enqueued
+     * and no [enqueuedDispatchesForProcessors] emission happens.
      */
+    @Throws(PersistenceException::class)
     fun storeDispatches(dispatches: List<Dispatch>, processors: Set<String>)
 
     /**
@@ -183,18 +186,12 @@ class QueueManagerImpl(
     override fun storeDispatches(dispatches: List<Dispatch>, processors: Set<String>) {
         if (dispatches.isEmpty() || processors.isEmpty()) return
 
-        try {
-            queueRepository.storeDispatch(dispatches, processors)
-            logger.logIfDebugEnabled(LogCategory.QUEUE_MANAGER) {
-                "Enqueued dispatches for processors ($processors): (${dispatches.logDescriptions()})"
-            }
-
-            _enqueuedDispatches.onNext(processors)
-        } catch (ex: PersistenceException) {
-            logger.logIfErrorEnabled(LogCategory.QUEUE_MANAGER) {
-                "Failed to enqueue dispatches for processors ($processors): ${dispatches.logDescriptions()}\nError: ${ex.message})"
-            }
+        queueRepository.storeDispatch(dispatches, processors)
+        logger.logIfDebugEnabled(LogCategory.QUEUE_MANAGER) {
+            "Enqueued dispatches for processors ($processors): (${dispatches.logDescriptions()})"
         }
+
+        _enqueuedDispatches.onNext(processors)
     }
 
     override fun deleteDispatches(dispatches: List<Dispatch>, processor: String) {

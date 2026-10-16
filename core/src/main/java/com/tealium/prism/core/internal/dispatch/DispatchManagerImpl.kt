@@ -3,7 +3,9 @@ package com.tealium.prism.core.internal.dispatch
 import com.tealium.prism.core.api.barriers.BarrierState
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.logger.logIfDebugEnabled
+import com.tealium.prism.core.api.logger.logIfErrorEnabled
 import com.tealium.prism.core.api.modules.Dispatcher
+import com.tealium.prism.core.api.persistence.PersistenceException
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observables
@@ -103,11 +105,22 @@ class DispatchManagerImpl(
                         return@subscribeOnce
                     }
 
+                    try {
+                        queueManager.storeDispatches(listOf(transformed), dispatcherIds)
+                    } catch (ex: PersistenceException) {
+                        logger.logIfErrorEnabled(LogCategory.DISPATCH_MANAGER) {
+                            "Failed to persist dispatch ${transformed.logDescription()} for processors ($dispatcherIds): ${ex.message}"
+                        }
+
+                        onComplete?.onTrackResultReady(
+                            TrackResult.dropped(transformed, STORE_FAILED_REASON)
+                        )
+                        return@subscribeOnce
+                    }
+
                     logger.logIfDebugEnabled(LogCategory.DISPATCH_MANAGER) {
                         "Event ${transformed.logDescription()} accepted for processing"
                     }
-
-                    queueManager.storeDispatches(listOf(transformed), dispatcherIds)
 
                     onComplete?.onTrackResultReady(
                         TrackResult.accepted(
@@ -323,5 +336,6 @@ class DispatchManagerImpl(
 
     companion object {
         const val MAXIMUM_INFLIGHT_EVENTS_PER_DISPATCHER = 50
+        private const val STORE_FAILED_REASON = "Failed to persist dispatch to the queue."
     }
 }

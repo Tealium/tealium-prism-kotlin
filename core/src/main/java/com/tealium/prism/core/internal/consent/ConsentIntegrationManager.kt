@@ -9,6 +9,7 @@ import com.tealium.prism.core.api.logger.logIfWarnEnabled
 import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.Module
+import com.tealium.prism.core.api.persistence.PersistenceException
 import com.tealium.prism.core.api.pubsub.CompositeDisposable
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observable
@@ -125,13 +126,36 @@ class ConsentIntegrationManager(
             processors.add(ID)
         }
 
-        queueManager.storeDispatches(listOf(consentedDispatch), processors)
+        if (!tryStore(listOf(consentedDispatch), processors)) {
+            return TrackResult.dropped(dispatch, STORE_FAILED_REASON)
+        }
         return TrackResult.accepted(dispatch, "Enqueued for processors: $processors")
     }
 
     private fun enqueueForConsentAndAccept(dispatch: Dispatch, info: String): TrackResult {
-        queueManager.storeDispatches(listOf(dispatch), setOf(ID))
+        if (!tryStore(listOf(dispatch), setOf(ID))) {
+            return TrackResult.dropped(dispatch, STORE_FAILED_REASON)
+        }
         return TrackResult.accepted(dispatch, info)
+    }
+
+    /**
+     * Stores the [dispatches] for the [processors], reporting whether they were persisted.
+     *
+     * The failure is logged here, once, since the replay sites run inside the consent subscription
+     * with no track listener to inform, and [handleConsentChange] deletes the consent queue in its
+     * `finally` block regardless, so a failed re-store can only be logged.
+     */
+    private fun tryStore(dispatches: List<Dispatch>, processors: Set<String>): Boolean {
+        return try {
+            queueManager.storeDispatches(dispatches, processors)
+            true
+        } catch (ex: PersistenceException) {
+            logger.logIfErrorEnabled(LogCategory.CONSENT) {
+                "Failed to persist consent dispatches for processors ($processors): ${dispatches.logDescriptions()}. ${ex.message}"
+            }
+            false
+        }
     }
 
     private fun enqueueDispatches(dispatches: List<Dispatch>, refireDispatcherIds: Set<String>) {
@@ -143,7 +167,7 @@ class ConsentIntegrationManager(
             logger.logIfTraceEnabled(LogCategory.CONSENT) {
                 "Dispatches enqueued for all dispatchers ${normalDispatches.logDescriptions()}"
             }
-            queueManager.storeDispatches(normalDispatches, dispatchers.value)
+            tryStore(normalDispatches, dispatchers.value)
         }
     }
 
@@ -158,14 +182,12 @@ class ConsentIntegrationManager(
         logger.logIfTraceEnabled(LogCategory.CONSENT) {
             "Dispatches enqueued for refire dispatchers ${refireDispatches.logDescriptions()}"
         }
-        queueManager.storeDispatches(
-            refireDispatches,
-            refireDispatcherIds
-        )
+        tryStore(refireDispatches, refireDispatcherIds)
     }
 
     companion object {
         const val ID = "consent"
+        private const val STORE_FAILED_REASON = "Failed to persist dispatch to the queue."
 
         fun create(
             modules: ObservableState<List<Module>>,

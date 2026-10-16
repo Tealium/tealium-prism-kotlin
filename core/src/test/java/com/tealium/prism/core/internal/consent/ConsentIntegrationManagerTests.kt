@@ -7,6 +7,7 @@ import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.TealiumContext
+import com.tealium.prism.core.api.persistence.PersistenceException
 import com.tealium.prism.core.api.pubsub.ObservableState
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.StateSubject
@@ -31,6 +32,7 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Ignore
 import org.junit.Test
@@ -89,6 +91,28 @@ class ConsentIntegrationManagerTests {
         val result = consentManager.applyConsent(dispatch)
 
         assertEquals(TrackResult.Status.Accepted, result.status)
+    }
+
+    @Test
+    fun applyConsent_Returns_Dropped_When_Store_Fails() {
+        cmpAdapter.setDecision(ConsentDecision.DecisionType.Explicit, setOf("tealium"))
+        every { queueManager.storeDispatches(any(), any()) } throws persistenceException()
+
+        val result = consentManager.applyConsent(dispatch)
+
+        assertEquals(TrackResult.Status.Dropped, result.status)
+        assertTrue(result.info, result.info.contains("Failed to persist"))
+    }
+
+    @Test
+    fun applyConsent_Returns_Dropped_When_Store_For_Consent_Fails() {
+        cmpAdapter.setDecision(ConsentDecision.DecisionType.Implicit, emptySet())
+        every { queueManager.storeDispatches(any(), any()) } throws persistenceException()
+
+        val result = consentManager.applyConsent(dispatch)
+
+        assertEquals(TrackResult.Status.Dropped, result.status)
+        assertTrue(result.info, result.info.contains("Failed to persist"))
     }
 
     @Test
@@ -249,6 +273,29 @@ class ConsentIntegrationManagerTests {
     }
 
     /**
+     * The consent replay runs inside the consent inspector subscription, where there is no listener to
+     * inform, so a failed re-store must be logged and swallowed rather than thrown into the subscription.
+     */
+    @Test
+    fun handleConsentChange_Does_Not_Propagate_When_Re_Enqueue_Store_Fails() {
+        val event1 = Dispatch.create("event_1")
+        val refireable = Dispatch.create("refireable", dataObject = DataObject.create {
+            put(Dispatch.Keys.ALL_CONSENTED_PURPOSES, listOf("tealium", "1").asDataList())
+        })
+        every { queueManager.dequeueDispatches(-1, ConsentIntegrationManager.ID) } returns listOf(
+            event1, refireable
+        )
+        every { queueManager.storeDispatches(any(), any()) } throws persistenceException()
+
+        cmpAdapter.setDecision(ConsentDecision.DecisionType.Implicit, setOf("tealium", "1", "2"))
+
+        // both the normal and the refire re-store were attempted, and neither failure escaped
+        verify(exactly = 2) {
+            queueManager.storeDispatches(any(), any())
+        }
+    }
+
+    /**
      * `ModuleManager` publishes the modules only at the end of a settings pass, so `dispatchers` read
      * synchronously while a pass is running is answered with the dispatchers of the *previous* one -
      * here with the very dispatcher that this pass is disabling.
@@ -402,6 +449,9 @@ class ConsentIntegrationManagerTests {
         mockk<TealiumContext>().also { context ->
             every { context.logger } returns SystemLogger
         }
+
+    private fun persistenceException(): PersistenceException =
+        PersistenceException("boom", RuntimeException())
 
     private companion object {
         const val CONSENTING_MODULE_ID = "consenting_module"
