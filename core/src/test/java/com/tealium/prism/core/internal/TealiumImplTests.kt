@@ -16,6 +16,9 @@ import com.tealium.prism.core.api.misc.TealiumException
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
+import com.tealium.prism.core.api.network.Connectivity
+import com.tealium.prism.core.api.network.HttpRequest
+import com.tealium.prism.core.api.network.NetworkResult
 import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observables
@@ -40,6 +43,7 @@ import com.tealium.prism.core.internal.modules.InternalModuleManager
 import com.tealium.prism.core.internal.modules.ModuleManagerImpl
 import com.tealium.prism.core.internal.modules.TealiumDataModule
 import com.tealium.prism.core.internal.modules.datalayer.DataLayerModule
+import com.tealium.prism.core.internal.network.FakeConnectivity
 import com.tealium.prism.core.internal.settings.CoreSettingsImpl
 import com.tealium.prism.core.internal.settings.MappingsImpl
 import com.tealium.prism.core.internal.settings.ModuleSettings
@@ -61,6 +65,8 @@ import io.mockk.mockkStatic
 import io.mockk.spyk
 import io.mockk.unmockkStatic
 import io.mockk.verify
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -71,6 +77,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
@@ -481,6 +488,31 @@ class TealiumImplTests {
         val queued = SQLQueueRepository(FileDatabaseProvider(config, SystemLogger))
             .getQueuedDispatches(-1, dispatcher.id)
         assertEquals(1, queued.size)
+    }
+
+    @Test
+    fun createNetworkUtilities_Shares_A_Single_Attempt_Client_And_Helper() {
+        val server = MockWebServer()
+        repeat(4) { server.enqueue(MockResponse().setResponseCode(503)) }
+        server.start()
+        try {
+            // retryable failures while offline used to wait for connectivity on the shared client
+            val connectivity = FakeConnectivity(Connectivity.Status.NotConnected)
+            val network = TealiumImpl.createNetworkUtilities(SystemLogger, testSchedulers, connectivity)
+            val url = server.url("/resource").toUrl()
+
+            val clientResults = LinkedBlockingQueue<NetworkResult>()
+            network.networkClient.sendRequest(HttpRequest.get(url).build()) { clientResults.add(it) }
+            assertTrue(clientResults.poll(10, TimeUnit.SECONDS) is NetworkResult.Failure)
+            assertEquals(1, server.requestCount)
+
+            val helperResults = LinkedBlockingQueue<NetworkResult>()
+            network.networkHelper.get(url, null, null) { helperResults.add(it) }
+            assertTrue(helperResults.poll(10, TimeUnit.SECONDS) is NetworkResult.Failure)
+            assertEquals(2, server.requestCount)
+        } finally {
+            server.shutdown()
+        }
     }
 
     @Test

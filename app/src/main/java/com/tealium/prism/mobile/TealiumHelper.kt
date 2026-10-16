@@ -16,13 +16,13 @@ import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.Environment
 import com.tealium.prism.core.api.misc.ExpiryPolicy
 import com.tealium.prism.core.api.misc.TealiumResult
+import com.tealium.prism.core.api.misc.TimeFrame
 import com.tealium.prism.core.api.misc.TimeFrameUtils.minutes
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
 import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.network.HttpRequest
-import com.tealium.prism.core.api.network.Interceptor
 import com.tealium.prism.core.api.network.NetworkException.CancelledException
 import com.tealium.prism.core.api.network.NetworkException.NetworkIOException
 import com.tealium.prism.core.api.network.NetworkException.Non200Exception
@@ -30,9 +30,9 @@ import com.tealium.prism.core.api.network.NetworkException.UnexpectedException
 import com.tealium.prism.core.api.network.NetworkResult
 import com.tealium.prism.core.api.network.NetworkResult.Failure
 import com.tealium.prism.core.api.network.NetworkResult.Success
+import com.tealium.prism.core.api.network.RequestInterceptor
 import com.tealium.prism.core.api.network.RetryPolicy
 import com.tealium.prism.core.api.network.RetryPolicy.DoNotRetry
-import com.tealium.prism.core.api.network.RetryPolicy.RetryAfterDelay
 import com.tealium.prism.core.api.persistence.Expiry
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Disposables
@@ -301,8 +301,8 @@ object TealiumHelper {
     }
 }
 
-class CustomInterceptor(private val delayInterval: Long) : Interceptor {
-    override fun didComplete(request: HttpRequest, result: NetworkResult) {
+class CustomInterceptor(private val delay: TimeFrame) : RequestInterceptor {
+    override fun onAttemptResult(request: HttpRequest, retryCount: Int, result: NetworkResult) {
         when (result) {
             is Success -> println("Successful request : ${result.httpResponse.statusCode}")
             is Failure -> {
@@ -324,13 +324,13 @@ class CustomInterceptor(private val delayInterval: Long) : Interceptor {
 
     override fun shouldRetry(
         request: HttpRequest,
-        result: NetworkResult,
-        retryCount: Int
+        consecutiveRetryCount: Int,
+        result: NetworkResult
     ): RetryPolicy {
         return when (result) {
             is Failure -> {
                 if (result.networkException.isRetryable()) {
-                    RetryAfterDelay(delayInterval)
+                    RetryPolicy.AfterDelay(delay)
                 } else {
                     // something else
                     DoNotRetry

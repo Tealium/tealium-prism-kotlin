@@ -50,10 +50,8 @@ import com.tealium.prism.core.internal.misc.ActivityManagerProxy
 import com.tealium.prism.core.internal.misc.TrackerImpl
 import com.tealium.prism.core.internal.modules.InternalModuleManager
 import com.tealium.prism.core.internal.modules.ModuleManagerImpl
-import com.tealium.prism.core.internal.network.ConnectivityInterceptor
 import com.tealium.prism.core.internal.network.ConnectivityRetriever
 import com.tealium.prism.core.internal.network.HttpClient
-import com.tealium.prism.core.internal.network.NetworkHelperImpl
 import com.tealium.prism.core.internal.persistence.ModuleStoreProviderImpl
 import com.tealium.prism.core.internal.persistence.database.DatabaseProvider
 import com.tealium.prism.core.internal.persistence.database.FileDatabaseProvider
@@ -131,7 +129,8 @@ class TealiumImpl(
 
         val settingsManager = SettingsManager(
             config,
-            networkUtilities.networkHelper,
+            networkUtilities.networkClient,
+            connectivityRetriever,
             sharedDataStore,
             logger = logger
         )
@@ -439,16 +438,16 @@ class TealiumImpl(
             schedulers: Schedulers,
             connectivity: Connectivity,
         ): NetworkUtilities {
+            // single attempt: the consumers that retry derive their own client with interceptors
             val networkClient = HttpClient(
                 logger = logger,
                 schedulers.tealium,
-                schedulers.io,
-                interceptors = mutableListOf(ConnectivityInterceptor(connectivity))
+                schedulers.io
             )
             return NetworkUtilities(
                 connectivity = connectivity,
                 networkClient = networkClient,
-                networkHelper = NetworkHelperImpl(networkClient),
+                networkHelper = networkClient.makeNetworkHelper(),
                 logger = logger
             )
         }

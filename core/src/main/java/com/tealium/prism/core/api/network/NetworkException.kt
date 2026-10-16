@@ -39,13 +39,22 @@ sealed class NetworkException(
         val statusCode: Int,
         httpResponse: HttpResponse? = null
     ): NetworkException(httpResponse = httpResponse) {
+        /**
+         * Returns `true` only for status codes that indicate a transient failure:
+         * `408` (Request Timeout), `429` (Too Many Requests), `500` (Internal Server Error),
+         * `502` (Bad Gateway), `503` (Service Unavailable) and `504` (Gateway Timeout).
+         * Every other status code is deemed not safe to retry.
+         */
         override fun isRetryable(): Boolean {
-            // inclusive range?? might need updating
-            return statusCode == 429 || (500.. 600).contains(statusCode)
+            return statusCode in RETRYABLE_STATUS_CODES
         }
 
         override fun toString(): String {
             return "Non200Exception($statusCode)"
+        }
+
+        private companion object {
+            val RETRYABLE_STATUS_CODES = setOf(408, 429, 500, 502, 503, 504)
         }
     }
 

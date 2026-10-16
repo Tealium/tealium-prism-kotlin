@@ -6,7 +6,11 @@ import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.misc.ActivityManager
 import com.tealium.prism.core.api.misc.TimeFrame
 import com.tealium.prism.core.api.misc.TimeFrameUtils.seconds
+import com.tealium.prism.core.api.network.Connectivity
+import com.tealium.prism.core.api.network.NetworkClient
 import com.tealium.prism.core.api.network.NetworkHelper
+import com.tealium.prism.core.api.network.RequestInterceptor
+import com.tealium.prism.core.api.network.RequestInterceptors
 import com.tealium.prism.core.api.network.ResourceCache
 import com.tealium.prism.core.api.network.ResourceRefresher
 import com.tealium.prism.core.api.persistence.DataStore
@@ -58,6 +62,24 @@ class SettingsManager(
         ),
         logger
     )
+
+    /**
+     * Creates a [SettingsManager] that fetches the settings through its own client, derived from
+     * [networkClient] by [makeNetworkHelper] with the settings retry policy.
+     *
+     * @param config The Tealium configuration specifying settings retrieval details.
+     * @param networkClient The shared client to derive the settings client from.
+     * @param connectivity The [Connectivity] that retryable failures wait for while not connected.
+     * @param dataStore The [DataStore] in which the settings are cached.
+     * @param logger The logger for logging information.
+     */
+    constructor(
+        config: TealiumConfig,
+        networkClient: NetworkClient,
+        connectivity: Connectivity,
+        dataStore: DataStore,
+        logger: Logger
+    ) : this(config, makeNetworkHelper(networkClient, connectivity), dataStore, logger)
 
     private val _sdkSettingsData: Subject<DataObject> = Observables.publishSubject()
     private val _sdkSettings: ObservableState<SdkSettings>
@@ -165,6 +187,31 @@ class SettingsManager(
 
     companion object {
         const val KEY_SETTINGS = "settings"
+
+        /**
+         * The maximum number of retries of a settings fetch, whichever interceptor proposes them.
+         */
+        internal const val SETTINGS_MAX_RETRY_COUNT = 10
+
+        /**
+         * The interceptors of the settings client.
+         */
+        internal fun settingsInterceptors(connectivity: Connectivity): List<RequestInterceptor> = listOf(
+            RequestInterceptors.retryWithBackoff(maxAttempts = 3, maxDelay = 2.seconds),
+            RequestInterceptors.retryWhenConnected(connectivity)
+        )
+
+        /**
+         * Derives the settings client from [networkClient] and wraps it in a [NetworkHelper].
+         *
+         * Retryable failures wait for connectivity while the device is not connected, otherwise
+         * they are retried quickly, up to 3 attempts in a row. Waiting for connectivity restarts
+         * that count. At most [SETTINGS_MAX_RETRY_COUNT] retries are made per fetch. The error
+         * cooldown of the [ResourceRefresher] then decides when to start the next refresh.
+         */
+        internal fun makeNetworkHelper(networkClient: NetworkClient, connectivity: Connectivity): NetworkHelper =
+            networkClient.newClient(settingsInterceptors(connectivity), SETTINGS_MAX_RETRY_COUNT)
+                .makeNetworkHelper()
 
         /**
          * Merges the given settings [DataObject]s in the order of priority that they are provided in, with

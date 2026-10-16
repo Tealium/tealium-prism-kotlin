@@ -25,7 +25,10 @@ import com.tealium.prism.core.api.settings.CoreSettingsBuilder
 import com.tealium.prism.core.api.transform.TestTransformationSettingsBuilder
 import com.tealium.prism.core.api.transform.TransformationScope
 import com.tealium.prism.core.api.transform.TransformationSettings
+import com.tealium.prism.core.internal.network.FakeConnectivity
+import com.tealium.prism.core.internal.network.RecordingNetworkClient
 import com.tealium.prism.core.internal.network.mockGetDataItemConvertibleSuccess
+import com.tealium.prism.core.internal.persistence.stores.getSharedDataStore
 import com.tealium.prism.core.internal.rules.LoadRule
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.getDefaultConfigBuilder
@@ -138,6 +141,27 @@ class SettingsManagerTests {
         )
 
         assertNull(refresher)
+    }
+
+    @Test
+    fun constructor_Derives_Settings_Client_And_Refreshes_Through_It_When_Given_A_NetworkClient() {
+        config.setSettingsUrl("https://localhost/")
+        val derived = RecordingNetworkClient(acceptRequests = true)
+        val client = RecordingNetworkClient(derived)
+        val connectivity = FakeConnectivity()
+
+        settingsManager = SettingsManager(config.build(), client, connectivity, getSharedDataStore(app), logger)
+
+        assertEquals("The client should be derived exactly once", 1, client.additionalInterceptors.size)
+        assertEquals(listOf<Int?>(10), client.maxRetryCounts)
+
+        // the root client throws on a direct request, so the refresh must use the derived one
+        val activities = Observables.publishSubject<ActivityManager.ApplicationStatus>()
+        settingsManager.subscribeToActivityUpdates(activities)
+        activities.onNext(ActivityManager.ApplicationStatus.Init())
+
+        assertEquals(listOf("https://localhost/"), derived.requests.map { it.url.toString() })
+        assertTrue("The settings client should not be derived further", derived.additionalInterceptors.isEmpty())
     }
 
     @Test

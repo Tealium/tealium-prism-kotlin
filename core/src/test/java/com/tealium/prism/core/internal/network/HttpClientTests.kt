@@ -3,20 +3,29 @@ package com.tealium.prism.core.internal.network
 import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.misc.Callback
+import com.tealium.prism.core.api.misc.Scheduler
+import com.tealium.prism.core.api.misc.TimeFrame
+import com.tealium.prism.core.api.misc.TimeFrameUtils.milliseconds
 import com.tealium.prism.core.api.network.HttpRequest
-import com.tealium.prism.core.api.network.Interceptor
-import com.tealium.prism.core.api.network.NetworkException.CancelledException
+import com.tealium.prism.core.api.network.NetworkClient
 import com.tealium.prism.core.api.network.NetworkException.NetworkIOException
 import com.tealium.prism.core.api.network.NetworkException.Non200Exception
 import com.tealium.prism.core.api.network.NetworkException.UnexpectedException
 import com.tealium.prism.core.api.network.NetworkResult
 import com.tealium.prism.core.api.network.NetworkResult.Failure
 import com.tealium.prism.core.api.network.NetworkResult.Success
+import com.tealium.prism.core.api.network.RequestInterceptor
+import com.tealium.prism.core.api.network.RetryPolicy
 import com.tealium.prism.core.api.network.RetryPolicy.DoNotRetry
-import com.tealium.prism.core.api.network.RetryPolicy.RetryAfterDelay
-import com.tealium.prism.core.api.network.RetryPolicy.RetryAfterEvent
+import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.internal.logger.LogCategory
+import com.tealium.prism.core.internal.misc.ThreadPoolScheduler
+import com.tealium.tests.common.Recorder
+import com.tealium.tests.common.RecordingInterceptor
+import com.tealium.tests.common.SystemLogger
+import com.tealium.tests.common.assertCancelled
+import com.tealium.tests.common.awaitQueuedTasks
 import com.tealium.tests.common.testNetworkScheduler
 import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.Runs
@@ -27,13 +36,17 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import io.mockk.verifyOrder
+import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
 import okhttp3.mockwebserver.SocketPolicy
 import okio.Buffer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -41,6 +54,10 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.io.ByteArrayOutputStream
 import java.nio.charset.Charset
+import java.util.Collections.synchronizedList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 
@@ -49,86 +66,24 @@ class HttpClientTests {
 
     lateinit var mockWebServer: MockWebServer
 
-    private val mockInterceptor: Interceptor = mockk(relaxed = true)
+    private val mockInterceptor: RequestInterceptor = mockk(relaxed = true)
     private val mockLogger: Logger = mockk(relaxed = true)
 
     lateinit var httpClient: HttpClient
     private val port = 8888
-
-    var httpRequest: HttpRequest? = null
-    var networkResult: NetworkResult? = null
-    var status: Int? = null
-    var response: String? = null
-    var errorMessage: String? = null
 
     private val urlString = "http://localhost:$port"
 
     @Before
     fun setUp() {
 
-        httpClient = HttpClient(mockLogger, testTealiumScheduler, testNetworkScheduler)
-        httpClient.addInterceptor(mockInterceptor)
+        httpClient = HttpClient(mockLogger, testTealiumScheduler, testNetworkScheduler, listOf(mockInterceptor))
 
         // a relaxed mock reports every level as disabled; trace is the level under test for the
         // detailed response log, so opt in to it by default
         every { mockLogger.shouldLog(LogLevel.TRACE) } returns true
 
-        val captureRequest = slot<HttpRequest>()
-        val captureResult = slot<NetworkResult>()
-
-        every {
-            mockInterceptor.shouldRetry(
-                capture(captureRequest),
-                capture(captureResult),
-                any()
-            )
-        } answers {
-            httpRequest = captureRequest.captured
-            networkResult = captureResult.captured
-            DoNotRetry
-        }
-        every {
-            mockInterceptor.didComplete(
-                capture(captureRequest),
-                capture(captureResult)
-            )
-        } answers {
-            httpRequest = captureRequest.captured
-            networkResult = captureResult.captured
-            when (val result = networkResult) {
-                is Success -> {
-                    status = result.httpResponse.statusCode
-                    response = result.httpResponse.bodyText()
-                }
-
-                is Failure -> {
-                    when (val error = result.networkException) {
-                        is Non200Exception -> {
-                            status = error.statusCode
-                            // bodyText() throws on an unreadable body, e.g. a mismatched
-                            // content-encoding; an interceptor must not fail the request
-                            response = error.httpResponse?.let {
-                                runCatching { it.bodyText() }.getOrNull()
-                            }
-                        }
-
-                        is NetworkIOException -> {
-                            errorMessage = error.cause?.message
-                        }
-
-                        is UnexpectedException -> {
-                            errorMessage = error.cause?.message
-                        }
-
-                        is CancelledException -> {
-                            errorMessage = "Cancelled"
-                        }
-                    }
-                }
-
-                else -> {}
-            }
-        }
+        every { mockInterceptor.shouldRetry(any(), any(), any()) } returns DoNotRetry
     }
 
     @After
@@ -151,7 +106,7 @@ class HttpClientTests {
     }
 
     @Test
-    fun sendRequestSuccessReportsSameRequestInDidComplete() {
+    fun sendRequest_Reports_Same_Request_To_OnAttemptResult_When_Successful() {
         startMockWebServer(
             MockResponse()
                 .setBody("Success")
@@ -169,18 +124,17 @@ class HttpClientTests {
 
         assertEquals("GET / HTTP/1.1", mockRequest.requestLine)
 
-        verify(timeout = 1000) {
-            completion(match { result ->
-                result is Success
-                        && httpRequest == this@HttpClientTests.httpRequest
-                        && 200 == status
-                        && "Success" == response
-            })
-        }
+        val result = slot<NetworkResult>()
+        verify(timeout = 1000) { completion(capture(result)) }
+
+        val success = result.captured as Success
+        assertEquals(200, success.httpResponse.statusCode)
+        assertEquals("Success", success.httpResponse.bodyText())
+        verify { mockInterceptor.onAttemptResult(httpRequest, any(), success) }
     }
 
     @Test
-    fun sendRequestFailureReportsSameRequestInDidComplete() {
+    fun sendRequest_Reports_Same_Request_To_OnAttemptResult_When_Failed() {
         startMockWebServer(
             MockResponse()
                 .setResponseCode(500)
@@ -197,46 +151,46 @@ class HttpClientTests {
 
         assertEquals("GET / HTTP/1.1", mockRequest.requestLine)
 
-        verify(timeout = 1000) {
-            completion(match { result ->
-                result is Failure
-                        && httpRequest == this@HttpClientTests.httpRequest
-                        && result == networkResult
-                        && 500 == status
-                        && result.networkException is Non200Exception
-            })
-        }
+        val result = slot<NetworkResult>()
+        verify(timeout = 1000) { completion(capture(result)) }
+
+        val failure = result.captured as Failure
+        assertEquals(500, (failure.networkException as Non200Exception).statusCode)
+        verify { mockInterceptor.onAttemptResult(httpRequest, any(), failure) }
     }
 
     @Test
-    fun cancelledRequestReturnsCancelledFailure() {
-        every { mockInterceptor.shouldRetry(any(), any(), any()) } returns RetryAfterDelay(100L)
-        startMockWebServer(
-            MockResponse()
-                .setResponseCode(500),
-            MockResponse()
-                .setResponseCode(500)
-        )
-        val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
+    fun sendRequest_Completes_With_Cancelled_Immediately_When_Disposed_While_Waiting_To_Retry() {
+        startMockWebServer(MockResponse().setResponseCode(500))
+        val decided = CountDownLatch(1)
+        // long enough that only an immediate cancellation completes within the await below
+        val retrying = RecordingInterceptor("retrying", synchronizedList(mutableListOf())) {
+            decided.countDown()
+            RetryPolicy.AfterDelay(30_000.milliseconds)
+        }
+        val client = httpClient.newClient(listOf(retrying))
+        val completion = Recorder<NetworkResult>()
 
-        val httpRequest = HttpRequest.get(
-            urlString
-        ).build()
-
-        val request = httpClient.sendRequest(httpRequest, completion)
+        val request = client.sendRequest(HttpRequest.get(urlString).build(), completion::record)
+        assertTrue(decided.await(5, TimeUnit.SECONDS))
         request.dispose()
 
-        val mockRequest = mockWebServer.takeRequest()
+        assertCancelled(completion.await())
+        assertTrue(request.isDisposed)
+        testTealiumScheduler.awaitQueuedTasks()
+        assertTrue(completion.isEmpty())
+        assertEquals(1, mockWebServer.requestCount)
+    }
 
-        assertEquals("GET / HTTP/1.1", mockRequest.requestLine)
+    @Test
+    fun sendRequest_Is_Disposed_When_Completed() {
+        startMockWebServer(MockResponse().setResponseCode(200))
+        val completion = Recorder<NetworkResult>()
 
-        verify(timeout = 1000) {
-            completion(match { result ->
-                result is Failure
-                        && result.networkException is CancelledException
-            })
-        }
-        confirmVerified(completion)
+        val request = httpClient.sendRequest(HttpRequest.get(urlString).build(), completion::record)
+
+        assertTrue(completion.await() is Success)
+        assertTrue(request.isDisposed)
     }
 
     @Test
@@ -264,7 +218,7 @@ class HttpClientTests {
         verify(timeout = 1000) {
             completion(match { result ->
                 result is Success
-                        && status == 200
+                        && result.httpResponse.statusCode == 200
             })
         }
     }
@@ -300,10 +254,10 @@ class HttpClientTests {
 
     @Test
     fun incrementRetryCount() {
-        every { mockInterceptor.didComplete(any(), any()) } just Runs
+        every { mockInterceptor.onAttemptResult(any(), any(), any()) } just Runs
         every {
             mockInterceptor.shouldRetry(any(), any(), any())
-        } returns RetryAfterDelay(10) andThen RetryAfterDelay(10) andThen DoNotRetry
+        } returns RetryPolicy.AfterDelay(10.milliseconds) andThen RetryPolicy.AfterDelay(10.milliseconds) andThen DoNotRetry
         val completion = mockk<(NetworkResult) -> Unit>(relaxed = true)
 
         startMockWebServer(
@@ -324,123 +278,246 @@ class HttpClientTests {
         mockWebServer.takeRequest()
 
         verify(timeout = 1000) {
-            mockInterceptor.shouldRetry(any(), any(), 0)
-            mockInterceptor.shouldRetry(any(), any(), 1)
-            mockInterceptor.shouldRetry(any(), any(), 2)
+            mockInterceptor.shouldRetry(any(), 0, any())
+            mockInterceptor.shouldRetry(any(), 1, any())
+            mockInterceptor.shouldRetry(any(), 2, any())
         }
     }
 
     @Test
-    fun delayRequestIfInterceptorReturnsAfterDelay() {
+    fun sendRequest_Retries_After_Delay_When_Interceptor_Returns_AfterDelay() {
+        val delayDuration = 500L
+        every { mockInterceptor.shouldRetry(any(), any(), any()) } returns
+                RetryPolicy.AfterDelay(TimeFrame(delayDuration, TimeUnit.MILLISECONDS)) andThen DoNotRetry
+        startMockWebServer(
+            MockResponse().setResponseCode(500),
+            MockResponse().setResponseCode(200)
+        )
+        val httpRequest = HttpRequest.get(urlString).build()
+        val completion = Recorder<NetworkResult>()
+
         val startTime = System.currentTimeMillis()
-        val delayDuration = 500L // 0.5 second
-        every { mockInterceptor.shouldRetry(any(), any(), any()) } returns RetryAfterDelay(
-            delayDuration
-        )
+        httpClient.sendRequest(httpRequest, completion::record)
 
-        val httpRequest = HttpRequest.get(
-            urlString
-        ).build()
-
-        val assertion = mockk<(Boolean) -> Unit>()
-        val completion: (Boolean) -> Unit = {
-            assertTrue(System.currentTimeMillis() >= startTime + delayDuration)
-            assertion(it)
-        }
-        httpClient.processInterceptorsForDelay(httpRequest, mockk(), 0, completion)
-
-        verify { mockInterceptor.shouldRetry(httpRequest, any(), any()) }
-        verify(timeout = 1000) {
-            assertion(true)
-        }
+        assertTrue(completion.await() is Success)
+        assertTrue(System.currentTimeMillis() >= startTime + delayDuration)
+        assertEquals(2, mockWebServer.requestCount)
+        verify(exactly = 2) { mockInterceptor.shouldRetry(httpRequest, any(), any()) }
     }
 
     @Test
-    fun delayRequestIfInterceptorReturnsAfterEvent() {
+    fun sendRequest_Retries_When_AfterEvent_Emits() {
         val subject = Observables.publishSubject<Unit>()
-
-        every { mockInterceptor.shouldRetry(any(), any(), any()) } returns RetryAfterEvent(
-            subject
+        every { mockInterceptor.shouldRetry(any(), any(), any()) } returns
+                RetryPolicy.AfterEvent(subject) andThen DoNotRetry
+        startMockWebServer(
+            MockResponse().setResponseCode(500),
+            MockResponse().setResponseCode(200)
         )
+        val httpRequest = HttpRequest.get(urlString).build()
+        val completion = Recorder<NetworkResult>()
 
-        val httpRequest = HttpRequest.get(
-            urlString
-        ).build()
+        httpClient.sendRequest(httpRequest, completion::record)
 
-        val completion = mockk<(Boolean) -> Unit>(relaxed = true)
-        httpClient.processInterceptorsForDelay(httpRequest, mockk(), 0, completion)
+        verify(timeout = 5000) { mockInterceptor.shouldRetry(httpRequest, any(), any()) }
+        // the wait is subscribed in the same tealium task as the decision
+        testTealiumScheduler.awaitQueuedTasks()
+        assertTrue(completion.isEmpty())
+        assertEquals(1, mockWebServer.requestCount)
 
-        verify { mockInterceptor.shouldRetry(httpRequest, any(), any()) }
-        verify(inverse = true) {
-            completion(true)
-        }
-
-        subject.onNext(Unit)
-        verify {
-            completion(true)
-        }
+        testTealiumScheduler.execute { subject.onNext(Unit) }
+        assertTrue(completion.await() is Success)
+        assertEquals(2, mockWebServer.requestCount)
     }
 
     @Test
-    fun shouldRetryCalledInReverseOrder() {
-        val completion = mockk<(Boolean) -> Unit>(relaxed = true)
-        val mockInterceptor1 = mockk<Interceptor>()
-        val mockInterceptor2 = mockk<Interceptor>()
+    fun sendRequest_Asks_Interceptors_In_Reverse_Order_When_Every_One_Declines() {
+        startMockWebServer(MockResponse().setResponseCode(503))
+        val mockInterceptor1 = mockk<RequestInterceptor>()
+        val mockInterceptor2 = mockk<RequestInterceptor>()
 
+        every { mockInterceptor1.onAttemptResult(any(), any(), any()) } just Runs
         every { mockInterceptor1.shouldRetry(any(), any(), any()) } returns DoNotRetry
+        every { mockInterceptor2.onAttemptResult(any(), any(), any()) } just Runs
         every { mockInterceptor2.shouldRetry(any(), any(), any()) } returns DoNotRetry
 
-        httpClient.addInterceptor(mockInterceptor1)
-        httpClient.addInterceptor(mockInterceptor2)
+        val client = httpClient.newClient(listOf(mockInterceptor1, mockInterceptor2), maxRetryCount = null)
 
-        val httpRequest = HttpRequest.get(
-            urlString
-        ).build()
+        val httpRequest = HttpRequest.get(urlString).build()
+        val completion = Recorder<NetworkResult>()
 
-        httpClient.processInterceptorsForDelay(httpRequest, mockk(), 0, completion)
-
-        verifyOrder {
-            mockInterceptor2.shouldRetry(httpRequest, any(), 0)
-            mockInterceptor1.shouldRetry(httpRequest, any(), 0)
-            mockInterceptor.shouldRetry(httpRequest, any(), 0)
-        }
+        client.sendRequest(httpRequest, completion::record)
 
         // every interceptor declines, so the request is not retried, and is only reported once
-        verify(exactly = 1) { completion(false) }
-        verify(exactly = 0) { completion(true) }
+        assertEquals(503, statusCodeOf(completion.await()))
+        testTealiumScheduler.awaitQueuedTasks()
+        assertTrue(completion.isEmpty())
+        assertEquals(1, mockWebServer.requestCount)
+
+        verifyOrder {
+            mockInterceptor2.shouldRetry(httpRequest, 0, any())
+            mockInterceptor1.shouldRetry(httpRequest, 0, any())
+            mockInterceptor.shouldRetry(httpRequest, 0, any())
+        }
+
+        verify { mockInterceptor1.onAttemptResult(httpRequest, any(), any()) }
+        verify { mockInterceptor2.onAttemptResult(httpRequest, any(), any()) }
 
         confirmVerified(mockInterceptor1, mockInterceptor2)
     }
 
     @Test
-    fun shouldRetryReturnsTrueForSingleInterceptorsAndRemainingIgnored() {
-        val completion = mockk<(Boolean) -> Unit>(relaxed = true)
-        val mockInterceptor1 = mockk<Interceptor>()
-        val mockInterceptor2 = mockk<Interceptor>()
-        val mockInterceptor3 = mockk<Interceptor>()
+    fun sendRequest_Retries_Through_First_Interceptor_That_Retries_When_Asked_In_Reverse_Order() {
+        startMockWebServer(
+            MockResponse().setResponseCode(503),
+            MockResponse().setResponseCode(200)
+        )
+        val mockInterceptor1 = mockk<RequestInterceptor>()
+        val mockInterceptor2 = mockk<RequestInterceptor>()
+        val mockInterceptor3 = mockk<RequestInterceptor>()
 
+        every { mockInterceptor1.onAttemptResult(any(), any(), any()) } just Runs
         every { mockInterceptor1.shouldRetry(any(), any(), any()) } returns DoNotRetry
-        every { mockInterceptor2.shouldRetry(any(), any(), any()) } returns RetryAfterDelay(100)
+        every { mockInterceptor2.onAttemptResult(any(), any(), any()) } just Runs
+        every { mockInterceptor2.shouldRetry(any(), any(), any()) } returns RetryPolicy.AfterDelay(100.milliseconds)
+        every { mockInterceptor3.onAttemptResult(any(), any(), any()) } just Runs
         every { mockInterceptor3.shouldRetry(any(), any(), any()) } returns DoNotRetry
 
-        httpClient.addInterceptor(mockInterceptor1)
-        httpClient.addInterceptor(mockInterceptor2)
-        httpClient.addInterceptor(mockInterceptor3)
+        // a single retry: the second attempt completes the request without asking the interceptors
+        val client = httpClient.newClient(listOf(mockInterceptor1, mockInterceptor2, mockInterceptor3), maxRetryCount = 1)
 
-        val httpRequest = HttpRequest.get(
-            urlString
-        ).build()
+        val httpRequest = HttpRequest.get(urlString).build()
+        val completion = Recorder<NetworkResult>()
 
-        httpClient.processInterceptorsForDelay(httpRequest, mockk(), 0, completion)
+        client.sendRequest(httpRequest, completion::record)
 
-        verify { mockInterceptor3.shouldRetry(httpRequest, any(), any()) }
-        verify { mockInterceptor2.shouldRetry(httpRequest, any(), any()) }
+        assertEquals(200, statusCodeOf(completion.await()))
+        assertEquals(2, mockWebServer.requestCount)
+
+        verify(exactly = 1) { mockInterceptor3.shouldRetry(httpRequest, any(), any()) }
+        verify(exactly = 1) { mockInterceptor2.shouldRetry(httpRequest, any(), any()) }
         verify(exactly = 0) { mockInterceptor1.shouldRetry(httpRequest, any(), any()) }
         verify(exactly = 0) { mockInterceptor.shouldRetry(httpRequest, any(), any()) }
 
-        verify(timeout = 1000) { completion(true) }
+        verify(exactly = 2) { mockInterceptor1.onAttemptResult(httpRequest, any(), any()) }
+        verify(exactly = 2) { mockInterceptor2.onAttemptResult(httpRequest, any(), any()) }
+        verify(exactly = 2) { mockInterceptor3.onAttemptResult(httpRequest, any(), any()) }
 
         confirmVerified(mockInterceptor1, mockInterceptor2, mockInterceptor3)
+    }
+
+    @Test
+    fun newClient_Retries_Through_Additional_Interceptor_While_Parent_Does_Not() {
+        startMockWebServer(
+            MockResponse().setResponseCode(503),
+            MockResponse().setResponseCode(503),
+            MockResponse().setResponseCode(200)
+        )
+        val calls = synchronizedList(mutableListOf<String>())
+        val retrying = RecordingInterceptor("retrying", calls) { consecutiveRetryCount ->
+            if (consecutiveRetryCount == 0) RetryPolicy.AfterDelay(0.milliseconds) else DoNotRetry
+        }
+        val derived = httpClient.newClient(listOf(retrying))
+
+        assertEquals(503, statusCodeOf(sendAndAwait(httpClient)))
+        assertEquals(1, mockWebServer.requestCount)
+        assertEquals(emptyList<String>(), calls)
+
+        assertEquals(200, statusCodeOf(sendAndAwait(derived)))
+        assertEquals(3, mockWebServer.requestCount)
+    }
+
+    @Test
+    fun newClient_Appends_Interceptors_After_Parents() {
+        startMockWebServer(MockResponse().setResponseCode(503))
+        val calls = synchronizedList(mutableListOf<String>())
+        val parentInterceptor = RecordingInterceptor("parent", calls)
+        val additionalInterceptor = RecordingInterceptor("additional", calls)
+        val parent = HttpClient(mockLogger, testTealiumScheduler, testNetworkScheduler, listOf(parentInterceptor))
+
+        val derived = parent.newClient(listOf(additionalInterceptor), maxRetryCount = null)
+        sendAndAwait(derived)
+
+        assertEquals(listOf(parentInterceptor, additionalInterceptor), derived.interceptorManager.interceptors)
+        assertEquals(
+            listOf(
+                "parent.onAttemptResult(0)",
+                "additional.onAttemptResult(0)",
+                "additional.shouldRetry(0)",
+                "parent.shouldRetry(0)"
+            ),
+            calls
+        )
+    }
+
+    @Test
+    fun newClient_Does_Not_Change_Parent() {
+        startMockWebServer(MockResponse().setResponseCode(503))
+        val calls = synchronizedList(mutableListOf<String>())
+        val parentInterceptor = RecordingInterceptor("parent", calls)
+        val parent = HttpClient(mockLogger, testTealiumScheduler, testNetworkScheduler, listOf(parentInterceptor))
+
+        parent.newClient(listOf(RecordingInterceptor("additional", calls)), maxRetryCount = 1)
+        sendAndAwait(parent)
+
+        assertEquals(listOf(parentInterceptor), parent.interceptorManager.interceptors)
+        assertNull(parent.interceptorManager.maxRetryCount)
+        assertEquals(listOf("parent.onAttemptResult(0)", "parent.shouldRetry(0)"), calls)
+    }
+
+    @Test
+    fun newClient_Stops_Retrying_When_MaxRetryCount_Is_Reached() {
+        startMockWebServer(*Array(5) { MockResponse().setResponseCode(503) })
+        val calls = synchronizedList(mutableListOf<String>())
+        val alwaysRetrying = RecordingInterceptor("retrying", calls) { RetryPolicy.AfterDelay(0.milliseconds) }
+
+        val derived = httpClient.newClient(listOf(alwaysRetrying), maxRetryCount = 2)
+
+        assertEquals(503, statusCodeOf(sendAndAwait(derived)))
+        assertEquals(3, mockWebServer.requestCount)
+        assertEquals(
+            listOf("retrying.shouldRetry(0)", "retrying.shouldRetry(1)"),
+            calls.filter { it.contains("shouldRetry") }
+        )
+        // the last result still reaches the interceptors, with a count equal to maxRetryCount
+        assertEquals(
+            listOf("retrying.onAttemptResult(0)", "retrying.onAttemptResult(1)", "retrying.onAttemptResult(2)"),
+            calls.filter { it.contains("onAttemptResult") }
+        )
+    }
+
+    @Test
+    fun newClient_Does_Not_Inherit_MaxRetryCount() {
+        startMockWebServer(*Array(8) { MockResponse().setResponseCode(503) })
+        val calls = synchronizedList(mutableListOf<String>())
+        val retrying = RecordingInterceptor("retrying", calls) { consecutiveRetryCount ->
+            if (consecutiveRetryCount < 4) RetryPolicy.AfterDelay(0.milliseconds) else DoNotRetry
+        }
+        val limited = httpClient.newClient(listOf(retrying), maxRetryCount = 2)
+
+        val unlimited = limited.newClient(emptyList(), maxRetryCount = null)
+
+        assertNull(unlimited.interceptorManager.maxRetryCount)
+        sendAndAwait(unlimited)
+        assertEquals(5, mockWebServer.requestCount)
+        sendAndAwait(limited)
+        assertEquals(8, mockWebServer.requestCount)
+    }
+
+    @Test
+    fun newClient_Shares_Schedulers_And_Logger_With_Parent() {
+        startMockWebServer(MockResponse().setResponseCode(200))
+        val tealiumScheduler = CountingScheduler(testTealiumScheduler)
+        val networkScheduler = CountingScheduler(testNetworkScheduler)
+        val logger: Logger = mockk(relaxed = true)
+        val parent = HttpClient(logger, tealiumScheduler, networkScheduler)
+
+        val derived = parent.newClient(listOf(RecordingInterceptor("additional", synchronizedList(mutableListOf()))))
+        assertTrue(sendAndAwait(derived) is Success)
+
+        assertTrue(tealiumScheduler.count.get() > 0)
+        assertTrue(networkScheduler.count.get() > 0)
+        verify { logger.log(LogLevel.DEBUG, LogCategory.HTTP_CLIENT, any<() -> String>()) }
     }
 
     @Test
@@ -988,6 +1065,141 @@ class HttpClientTests {
         }
     }
 
+    @Test
+    fun logResult_Logs_Concise_Summary_At_Debug_For_Cancelled_Request() {
+        val request = HttpRequest.get(urlString).build()
+        val completion = Recorder<NetworkResult>()
+
+        httpClient.sendRequest(request, completion::record).dispose()
+
+        assertCancelled(completion.await())
+        assertEquals(
+            "Completed request ${request.url} with Failure(Cancelled)",
+            captureLogMessage(LogLevel.DEBUG)
+        )
+        verify(exactly = 0) {
+            mockLogger.log(LogLevel.ERROR, LogCategory.HTTP_CLIENT, any<() -> String>())
+        }
+    }
+
+    @Test
+    fun sendRequest_Reports_Cancelled_To_OnAttemptResult_When_Disposed_Before_Result_Is_Processed() {
+        startMockWebServer(MockResponse().setResponseCode(200))
+        val tealiumScheduler = DisposingBeforeResumeScheduler(testTealiumScheduler)
+        val networkScheduler = ThreadPoolScheduler(0)
+        val ioGate = CountDownLatch(1)
+        networkScheduler.execute { ioGate.await() }
+        val attemptResults = Recorder<NetworkResult>()
+        val client = HttpClient(
+            SystemLogger,
+            tealiumScheduler,
+            networkScheduler,
+            listOf(RecordingInterceptor("interceptor", synchronizedList(mutableListOf()), attemptResults::record))
+        )
+        val completion = Recorder<NetworkResult>()
+
+        // the attempt can't complete before the scheduler is armed with its request
+        tealiumScheduler.disposeBeforeResume =
+            client.sendRequest(HttpRequest.get(urlString).build(), completion::record)
+        ioGate.countDown()
+
+        assertCancelled(completion.await())
+        // the request succeeded, but was disposed before its result was processed
+        assertCancelled(attemptResults.await())
+        assertEquals(1, mockWebServer.requestCount)
+        testTealiumScheduler.awaitQueuedTasks()
+        assertTrue(completion.isEmpty())
+    }
+
+    @Test
+    fun dispose_Aborts_Attempt_When_Response_Never_Arrives() {
+        startMockWebServer(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+        val abortable = AbortableClient()
+        val completion = Recorder<NetworkResult>()
+        val startTime = System.nanoTime()
+
+        val request = abortable.client.sendRequest(HttpRequest.get(urlString).build(), completion::record)
+        assertNotNull(mockWebServer.takeRequest(5, TimeUnit.SECONDS))
+        request.dispose()
+
+        assertCancelled(completion.await())
+        // the attempt ends, well before its 30 seconds read timeout, and is reported as cancelled
+        assertCancelled(abortable.attemptResults.await())
+        assertTrue(System.nanoTime() - startTime < TimeUnit.SECONDS.toNanos(10))
+    }
+
+    @Test
+    fun dispose_Never_Sends_Attempt_When_Disposed_While_Queued_Behind_Blocked_Attempt() {
+        startMockWebServer()
+        mockWebServer.dispatcher = blockingDispatcher()
+        val abortable = AbortableClient()
+        val blockedCompletion = Recorder<NetworkResult>()
+        val queuedCompletion = Recorder<NetworkResult>()
+
+        val blocked = abortable.client.sendRequest(
+            HttpRequest.get("$urlString/blocked").build(), blockedCompletion::record
+        )
+        assertEquals("/blocked", mockWebServer.takeRequest(5, TimeUnit.SECONDS)?.path)
+        val queued = abortable.client.sendRequest(
+            HttpRequest.get("$urlString/queued").build(), queuedCompletion::record
+        )
+        // the attempt is now queued on the network scheduler, behind the blocked one
+        testTealiumScheduler.awaitQueuedTasks()
+        queued.dispose()
+        assertCancelled(queuedCompletion.await())
+        blocked.dispose()
+        assertCancelled(blockedCompletion.await())
+
+        assertTrue(sendAndAwait(abortable.client, "$urlString/after") is Success)
+        assertEquals("/after", mockWebServer.takeRequest(5, TimeUnit.SECONDS)?.path)
+        assertEquals(2, mockWebServer.requestCount)
+    }
+
+    @Test
+    fun dispose_Lets_Queued_Attempt_Proceed_When_Blocked_Attempt_Is_Aborted() {
+        startMockWebServer()
+        mockWebServer.dispatcher = blockingDispatcher()
+        val abortable = AbortableClient()
+        val blockedCompletion = Recorder<NetworkResult>()
+        val queuedCompletion = Recorder<NetworkResult>()
+        val startTime = System.nanoTime()
+
+        val blocked = abortable.client.sendRequest(
+            HttpRequest.get("$urlString/blocked").build(), blockedCompletion::record
+        )
+        assertEquals("/blocked", mockWebServer.takeRequest(5, TimeUnit.SECONDS)?.path)
+        abortable.client.sendRequest(HttpRequest.get("$urlString/queued").build(), queuedCompletion::record)
+        blocked.dispose()
+
+        assertCancelled(blockedCompletion.await())
+        assertTrue(queuedCompletion.await() is Success)
+        assertEquals("/queued", mockWebServer.takeRequest(5, TimeUnit.SECONDS)?.path)
+        assertTrue(System.nanoTime() - startTime < TimeUnit.SECONDS.toNanos(10))
+    }
+
+    @Test
+    fun dispose_Completes_With_Cancelled_When_Aborted_While_5xx_Body_Is_Throttled() {
+        // the headers are sent at once, but the body takes about a second
+        startMockWebServer(
+            MockResponse()
+                .setResponseCode(500)
+                .setBody("a".repeat(256))
+                .throttleBody(128, 500, TimeUnit.MILLISECONDS)
+        )
+        val abortable = AbortableClient()
+        val completion = Recorder<NetworkResult>()
+
+        val request = abortable.client.sendRequest(HttpRequest.get(urlString).build(), completion::record)
+        assertNotNull(mockWebServer.takeRequest(5, TimeUnit.SECONDS))
+        request.dispose()
+
+        // the JDK's disconnect() can block until a body read in progress returns, and doesn't
+        // interrupt it; the attempt is still reported as cancelled, whatever error body was read.
+        // HttpClientAbortTests checks that Android aborts it promptly.
+        assertCancelled(completion.await())
+        assertCancelled(abortable.attemptResults.await())
+    }
+
     /**
      * Captures the message produced by the completion summary log statement written at the given
      * [level].
@@ -1021,5 +1233,101 @@ class HttpClientTests {
         }
 
         return byteStream.toByteArray()
+    }
+
+    /**
+     * Sends a GET request to [urlString] through [client], and waits for its result.
+     */
+    private fun sendAndAwait(client: NetworkClient, url: String = urlString): NetworkResult {
+        val completion = Recorder<NetworkResult>()
+        client.sendRequest(HttpRequest.get(url).build(), completion::record)
+        return completion.await()
+    }
+
+    /**
+     * Never responds to requests for `/blocked`, and responds `200` to any other.
+     */
+    private fun blockingDispatcher() = object : Dispatcher() {
+        override fun dispatch(request: RecordedRequest): MockResponse =
+            if (request.path == "/blocked") {
+                MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE)
+            } else {
+                MockResponse().setResponseCode(200)
+            }
+    }
+
+    /**
+     * A client with its own network scheduler, so that an attempt left blocked can't hold up
+     * other tests; [attemptResults] records every attempt's result.
+     */
+    private class AbortableClient {
+        val attemptResults = Recorder<NetworkResult>()
+        val client = HttpClient(
+            SystemLogger,
+            testTealiumScheduler,
+            ThreadPoolScheduler(0),
+            listOf(RecordingInterceptor("abortable", synchronizedList(mutableListOf()), attemptResults::record))
+        )
+    }
+
+    private fun statusCodeOf(result: NetworkResult): Int = when (result) {
+        is Success -> result.httpResponse.statusCode
+        is Failure -> (result.networkException as Non200Exception).statusCode
+    }
+
+    /**
+     * A [Scheduler] that runs its tasks on [delegate], first disposing [disposeBeforeResume] when
+     * armed.
+     */
+    private class DisposingBeforeResumeScheduler(private val delegate: Scheduler) : Scheduler {
+        /**
+         * Once set, disposed on the [delegate] just before the first task submitted from another
+         * thread than the [testTealiumScheduler]'s, i.e. the network scheduler handing back a result.
+         */
+        @Volatile
+        var disposeBeforeResume: Disposable? = null
+
+        override fun execute(runnable: Runnable) {
+            val toDispose = disposeBeforeResume
+            if (toDispose != null && Thread.currentThread().name != TEALIUM_TEST_THREAD_NAME) {
+                disposeBeforeResume = null
+                delegate.execute { toDispose.dispose() }
+            }
+            delegate.execute(runnable)
+        }
+
+        override fun schedule(runnable: Runnable): Disposable = delegate.schedule(runnable)
+
+        override fun schedule(delay: TimeFrame, runnable: Runnable): Disposable =
+            delegate.schedule(delay, runnable)
+    }
+
+    /**
+     * A [Scheduler] that runs its tasks on [delegate], counting how many it was given.
+     */
+    private class CountingScheduler(private val delegate: Scheduler) : Scheduler {
+        val count = AtomicInteger()
+
+        override fun execute(runnable: Runnable) {
+            count.incrementAndGet()
+            delegate.execute(runnable)
+        }
+
+        override fun schedule(runnable: Runnable): Disposable {
+            count.incrementAndGet()
+            return delegate.schedule(runnable)
+        }
+
+        override fun schedule(delay: TimeFrame, runnable: Runnable): Disposable {
+            count.incrementAndGet()
+            return delegate.schedule(delay, runnable)
+        }
+    }
+
+    private companion object {
+        /**
+         * The name of the [testTealiumScheduler]'s thread.
+         */
+        const val TEALIUM_TEST_THREAD_NAME = "tealium-test"
     }
 }

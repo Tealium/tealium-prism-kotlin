@@ -1,56 +1,51 @@
 package com.tealium.prism.core.api.network
 
+import com.tealium.prism.core.api.misc.TimeFrame
 import com.tealium.prism.core.api.pubsub.Observable
 
 /**
- * The [RetryPolicy] is used to determine if and when a network request can be retried.
+ * The [RetryPolicy] returned by a [RequestInterceptor] to decide if and when a failed request is
+ * retried.
+ *
+ * [DoNotRetry] means that the interceptor has no opinion: the next interceptor is asked, and the
+ * request completes with its result if none of them proposes a retry. [AfterDelay] and
+ * [AfterEvent] propose a retry.
  *
  * @see DoNotRetry
- * @see RetryAfterDelay
- * @see RetryAfterEvent
+ * @see AfterDelay
+ * @see AfterEvent
  */
 sealed class RetryPolicy {
 
     /**
-     * This method is used to determine whether or not the request should be retried
+     * [DoNotRetry] completes the request with its result, unless another interceptor proposes a
+     * retry.
      *
-     * @return true if the request can be retried; else false.
+     * Returned from [RequestInterceptor.shouldRetry], it means that interceptor has no opinion; it
+     * is not a veto: the next interceptor is asked.
      */
-    abstract fun shouldRetry(): Boolean
+    object DoNotRetry : RetryPolicy()
 
     /**
-     * [DoNotRetry] signifies that this request cannot be safely retried.
+     * [AfterDelay] retries the request once the given [delay] has elapsed.
+     *
+     * @param delay The time to wait before retrying, in any unit. A negative delay counts as no
+     * delay.
      */
-    object DoNotRetry : RetryPolicy() {
-        override fun shouldRetry(): Boolean {
-            return false
-        }
-    }
+    class AfterDelay(val delay: TimeFrame) : RetryPolicy()
 
     /**
-     * [RetryAfterDelay] signifies that this request can safely be retried, but only after a given time
-     * [interval], provided in milliseconds.
+     * [AfterEvent] retries the request when the given [event] emits.
      *
-     * @param interval The length of time in milliseconds to delay before retrying.
+     * The [event] is subscribed to when the retry is decided, and the request is retried on its
+     * first emission; the emitted value is ignored. A source that replays a current value on
+     * subscription, such as an [ObservableState][com.tealium.prism.core.api.pubsub.ObservableState],
+     * retries at once unless filtered.
+     *
+     * An [event] that completes without emitting, or never emits, leaves the request pending until
+     * it is disposed.
+     *
+     * @param event The [Observable] whose first emission triggers the retry.
      */
-    class RetryAfterDelay(val interval: Long) : RetryPolicy() {
-        override fun shouldRetry(): Boolean {
-            return true
-        }
-    }
-
-    /**
-     * [RetryAfterEvent] signifies that there is an event that can be used to trigger retrying the
-     * network request.
-     *
-     * The next emission of the [event] [Observable] will trigger the retry of the network request.
-     *
-     * @param event The [Observable] to subscribe to indicate it is safe to retry
-     */
-    class RetryAfterEvent<T>(val event: Observable<T>) : RetryPolicy() {
-        override fun shouldRetry(): Boolean {
-            return true
-        }
-    }
-
+    class AfterEvent(val event: Observable<*>) : RetryPolicy()
 }

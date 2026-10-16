@@ -65,6 +65,15 @@ Key classes:
 - `ModuleSettings` — per-module config extracted from `SdkSettings`
 - `CoreSettings` — SDK-wide settings (log level, queue size, session timeout, refresh interval)
 
+### Networking
+
+Modules reach the network through `context.network` (`NetworkUtilities`): `networkClient` (`NetworkClient`), `networkHelper` (`NetworkHelper`, convenience GET/POST) and `Connectivity` (it delegates to it). Public network API lives in `core/.../api/network/`.
+
+`networkClient` and `networkHelper` make a single attempt per request. A consumer that needs retries derives its own client with `newClient(additionalInterceptors, maxRetryCount)` and the built-in interceptors from the `RequestInterceptors` factories, `retryWithBackoff(...)` and `retryWhenConnected(connectivity)` (implementations are internal, in `internal/network/`), then calls `makeNetworkHelper()` on it. The built-in stacks are `CollectModule.networkInterceptors`, `SettingsManager.settingsInterceptors`/`makeNetworkHelper` and `ContextApiModule.networkInterceptors`.
+- The implementations are `internal`: tests outside `core` (e.g. contextapi) assert behaviour through `RequestInterceptor.shouldRetry`, not by casting.
+- Interceptors are asked to `shouldRetry` in reverse order; the first policy that retries wins, `DoNotRetry` means "no opinion". Each one gets its own `consecutiveRetryCount`, reset when another interceptor retried; `maxRetryCount` caps the total retries.
+- Retryable failures: HTTP 408/429/500/502/503/504 and `NetworkIOException`; 429 uses the slower throttling backoff, and `Retry-After` is a minimum wait; one above `maxDelay` is given up on or waited in full per `RetryAfterAboveMaxDelay` (`GIVE_UP`/`WAIT`, top-level in `api/network/`). The retry rules are documented on the factories. Durations are `TimeFrame` (`retryWithBackoff` arguments, `RetryPolicy.AfterDelay(delay)`); Swift uses `TimeInterval` seconds.
+
 ## Common Patterns
 
 **Data model**

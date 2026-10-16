@@ -20,6 +20,7 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import org.json.JSONObject
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -50,6 +51,25 @@ class NetworkHelperTests {
         verify(exactly = 2) {
             networkClient.sendRequest(buildsRequest(request), any())
         }
+    }
+
+    @Test
+    fun makeNetworkHelper_Sends_Requests_Through_The_Client() {
+        val request = HttpRequest.get("http://localhost", null).build()
+        mockRequest(request, success(body = "result"))
+        val results = mutableListOf<NetworkResult>()
+
+        // a mock replaces the default method; run the real one
+        every { networkClient.makeNetworkHelper() } answers { callOriginal() }
+
+        val helper = networkClient.makeNetworkHelper()
+        helper.get(request.url, null, null) { results.add(it) }
+
+        verify(exactly = 1) {
+            networkClient.sendRequest(buildsRequest(request), any())
+        }
+        assertEquals(1, results.size)
+        assertEquals("result", (results.single() as Success).httpResponse.bodyText())
     }
 
     @Test

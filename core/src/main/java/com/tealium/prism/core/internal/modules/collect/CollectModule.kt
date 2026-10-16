@@ -13,8 +13,13 @@ import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
 import com.tealium.prism.core.api.modules.TealiumContext
+import com.tealium.prism.core.api.misc.TimeFrameUtils.seconds
+import com.tealium.prism.core.api.network.Connectivity
 import com.tealium.prism.core.api.network.HttpRequest
 import com.tealium.prism.core.api.network.NetworkClient
+import com.tealium.prism.core.api.network.RequestInterceptor
+import com.tealium.prism.core.api.network.RequestInterceptors
+import com.tealium.prism.core.api.network.RetryAfterAboveMaxDelay
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.internal.logger.LogCategory
@@ -43,7 +48,7 @@ class CollectModule(
         id,
         tealiumContext.config,
         tealiumContext.logger,
-        tealiumContext.network.networkClient,
+        tealiumContext.network.networkClient.newClient(networkInterceptors(tealiumContext.network)),
         collectModuleConfiguration
     )
 
@@ -179,6 +184,25 @@ class CollectModule(
     companion object {
         const val KEY_SHARED = "shared"
         const val KEY_EVENTS = "events"
+
+        /**
+         * The interceptors added to the shared network client to retry the Collect requests.
+         *
+         * Retryable failures wait for connectivity while the device is not connected, otherwise
+         * they are retried with a jittered exponential backoff, capped at 150 seconds. HTTP 429
+         * responses use a slower base delay, and there is no cap on the number of attempts, so
+         * Collect never gives up on retryable failures. A `Retry-After` header is a minimum wait
+         * and is honored even when longer than 150 seconds, because giving up would drop the
+         * dispatches.
+         */
+        internal fun networkInterceptors(connectivity: Connectivity): List<RequestInterceptor> = listOf(
+            RequestInterceptors.retryWithBackoff(
+                maxAttempts = null,
+                maxDelay = 150.seconds,
+                retryAfterAboveMaxDelay = RetryAfterAboveMaxDelay.WAIT
+            ),
+            RequestInterceptors.retryWhenConnected(connectivity)
+        )
 
         fun compressDispatches(
             dispatches: List<Dispatch>,

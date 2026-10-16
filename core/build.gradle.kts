@@ -53,4 +53,5 @@ dependencies {
     androidTestImplementation(libs.test.androidx.runner)
     androidTestImplementation(libs.test.kotlinx.coroutines)
     androidTestImplementation(libs.test.mockk.android)
+    androidTestImplementation(libs.test.okhttp.webserver)
 }

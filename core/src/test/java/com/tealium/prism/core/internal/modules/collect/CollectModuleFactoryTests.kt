@@ -6,6 +6,7 @@ import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.network.NetworkClient
 import com.tealium.prism.core.api.network.NetworkUtilities
+import com.tealium.prism.core.api.network.RequestInterceptor
 import com.tealium.tests.common.SystemLogger
 import io.mockk.MockKAnnotations
 import io.mockk.every
@@ -37,6 +38,7 @@ class CollectModuleFactoryTests {
 
         val networking = mockk<NetworkUtilities>()
         every { networking.networkClient } returns networkClient
+        every { networkClient.newClient(any<List<RequestInterceptor>>()) } returns networkClient
         every { context.network } returns networking
     }
 

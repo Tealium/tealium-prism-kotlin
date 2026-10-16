@@ -18,6 +18,8 @@ import com.tealium.prism.core.api.modules.ModuleProxy
 import com.tealium.prism.core.api.modules.ModuleShutdownException
 import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.modules.VisitorIdProvider
+import com.tealium.prism.core.api.network.RequestInterceptor
+import com.tealium.prism.core.api.network.RequestInterceptors
 import com.tealium.prism.core.api.pubsub.CompositeDisposable
 import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.Single
@@ -57,7 +59,10 @@ class ContextApiModule(
         context.moduleManager,
         context.logger,
         ContextApiServiceImpl(
-            networkHelper = context.network.networkHelper,
+            // bounded retries with the default retryWithBackoff; never waits for connectivity
+            networkHelper = context.network.networkClient
+                .newClient(networkInterceptors())
+                .makeNetworkHelper(),
             account = context.config.accountName,
             profile = context.config.profileName,
             environment = context.config.environment,
@@ -136,6 +141,14 @@ class ContextApiModule(
 
     override val version: String
         get() = BuildConfig.TEALIUM_LIBRARY_VERSION
+
+    internal companion object {
+        /**
+         * The interceptors added to the shared network client to retry the Context API requests:
+         * a [RequestInterceptors.retryWithBackoff] with its defaults.
+         */
+        fun networkInterceptors(): List<RequestInterceptor> = listOf(RequestInterceptors.retryWithBackoff())
+    }
 
     class Factory(
         enforcedSettings: DataObject? = null

@@ -2,15 +2,14 @@ package com.tealium.prism.core.internal.network
 
 import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.Logger
+import com.tealium.prism.core.api.logger.logIfDebugEnabled
 import com.tealium.prism.core.api.logger.logIfErrorEnabled
 import com.tealium.prism.core.api.logger.logIfTraceEnabled
 import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.misc.Callback
-import com.tealium.prism.core.api.misc.TimeFrame
 import com.tealium.prism.core.api.network.HttpRequest
 import com.tealium.prism.core.api.network.HttpRequest.Headers
 import com.tealium.prism.core.api.network.HttpResponse
-import com.tealium.prism.core.api.network.Interceptor
 import com.tealium.prism.core.api.network.NetworkClient
 import com.tealium.prism.core.api.network.NetworkException
 import com.tealium.prism.core.api.network.NetworkException.CancelledException
@@ -19,35 +18,45 @@ import com.tealium.prism.core.api.network.NetworkException.UnexpectedException
 import com.tealium.prism.core.api.network.NetworkResult
 import com.tealium.prism.core.api.network.NetworkResult.Failure
 import com.tealium.prism.core.api.network.NetworkResult.Success
-import com.tealium.prism.core.api.network.RetryPolicy.RetryAfterDelay
-import com.tealium.prism.core.api.network.RetryPolicy.RetryAfterEvent
+import com.tealium.prism.core.api.network.RequestInterceptor
 import com.tealium.prism.core.api.pubsub.Disposable
-import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.internal.logger.LogCategory
-import com.tealium.prism.core.internal.pubsub.AsyncDisposableContainer
 import com.tealium.prism.core.internal.pubsub.CompletedDisposable
-import com.tealium.prism.core.api.pubsub.addTo
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.MalformedURLException
-import java.util.concurrent.TimeUnit
 import java.util.zip.GZIPOutputStream
 
 /**
  * Represents a network client responsible for sending HTTP requests and handling responses.
- * It supports interceptors for modifying requests and processing responses.
+ * It supports interceptors for processing responses and retrying requests.
  *
- * @property interceptors The list of interceptors to be applied to the requests.
+ * Its interceptors are fixed at creation; use [newClient] to derive a client with more of them.
+ *
+ * Disposing a request completes it immediately with a [CancelledException], cancels any pending
+ * retry wait and aborts the attempt in flight, on a best-effort basis.
+ *
+ * @param interceptorManager Resolves the retry decision of each attempt.
  */
-class HttpClient(
+class HttpClient internal constructor(
     private val logger: Logger,
     private val tealiumScheduler: Scheduler,
     private val networkScheduler: Scheduler,
-    internal val interceptors: MutableList<Interceptor> = mutableListOf()
+    internal val interceptorManager: InterceptorManager
 ) : NetworkClient {
+
+    /**
+     * @param interceptors The interceptors to be applied to the requests.
+     */
+    constructor(
+        logger: Logger,
+        tealiumScheduler: Scheduler,
+        networkScheduler: Scheduler,
+        interceptors: List<RequestInterceptor> = emptyList()
+    ) : this(logger, tealiumScheduler, networkScheduler, InterceptorManager(interceptors.toList()))
 
     override fun sendRequest(
         request: HttpRequest,
@@ -57,11 +66,11 @@ class HttpClient(
             "Sending request ${request.url}"
         }
 
-        return sendRetryableRequest(request, 0) { result ->
+        return RetryLoop(request, ::sendOnce, interceptorManager, tealiumScheduler, logger) { result ->
             logResult(request, result)
 
             completion.onComplete(result)
-        }
+        }.also { it.start() }
     }
 
     override fun sendRequest(
@@ -130,99 +139,70 @@ class HttpClient(
         }
     }
 
-    private fun sendRetryableRequest(
-        request: HttpRequest,
-        retryCount: Int,
-        completion: (NetworkResult) -> Unit
-    ): Disposable {
-        val disposableContainer = AsyncDisposableContainer(tealiumScheduler)
-        send(request, networkScheduler, tealiumScheduler) { result ->
-            notifyInterceptors(request, result)
-            processInterceptorsForDelay(request, result, retryCount) { shouldRetry ->
-                if (disposableContainer.isDisposed) {
-                    completion(Failure(CancelledException))
-                    return@processInterceptorsForDelay
-                }
-
-                if (shouldRetry) {
-                    val newRetryCount = retryCount + 1
-                    logger.logIfTraceEnabled(LogCategory.HTTP_CLIENT) {
-                        "Retrying request ${request.url} Retry count: $newRetryCount"
-                    }
-                    sendRetryableRequest(request, newRetryCount, completion)
-                        .addTo(disposableContainer)
-                } else {
-                    completion(result)
-                }
-            }
-        }
-
-        return disposableContainer
-    }
-
-    private fun notifyInterceptors(request: HttpRequest, result: NetworkResult) {
-        interceptors.forEach { interceptor ->
-            interceptor.didComplete(request, result)
-        }
+    /**
+     * Sends a single attempt of the [request] on the [networkScheduler], and calls [completion] with
+     * its result on the [tealiumScheduler].
+     *
+     * @return A [Disposable] that aborts the attempt, on a best-effort basis; an aborted attempt
+     * completes with a [CancelledException].
+     */
+    private fun sendOnce(request: HttpRequest, completion: (NetworkResult) -> Unit): Disposable {
+        val attempt = Attempt(logger)
+        send(request, attempt, networkScheduler, tealiumScheduler, completion)
+        return attempt
     }
 
     /**
-     * Iterate through interceptors and process them specifically for determining delay behavior
+     * Creates a new [HttpClient] as described in [NetworkClient.newClient]; it shares this client's
+     * logger and schedulers.
      */
-    internal fun processInterceptorsForDelay(
-        request: HttpRequest,
-        result: NetworkResult,
-        retryCount: Int,
-        shouldRetry: (Boolean) -> Unit
-    ) {
-        interceptors.reversed().forEach { interceptor ->
-            val policy = interceptor.shouldRetry(request, result, retryCount)
-            if (policy.shouldRetry()) {
-                when (policy) {
-                    is RetryAfterDelay -> {
-                        delayRequest(policy.interval) {
-                            shouldRetry(true)
-                        }
-                    }
+    override fun newClient(additionalInterceptors: List<RequestInterceptor>, maxRetryCount: Int?): HttpClient =
+        HttpClient(
+            logger,
+            tealiumScheduler,
+            networkScheduler,
+            interceptorManager.newManager(additionalInterceptors, maxRetryCount)
+        )
 
-                    is RetryAfterEvent<*> -> {
-                        delayRequest(policy.event) {
-                            shouldRetry(true)
-                        }
-                    }
+    /**
+     * The abort handle of a single attempt.
+     *
+     * Disposing it marks the attempt as cancelled, which the attempt checks before each step that
+     * reaches the network, and disconnects the attempt's [connection] to interrupt a blocking read
+     * or write.
+     *
+     * The attempt writes its [connection] before reading [cancelled], and the handle writes
+     * [cancelled] before reading the [connection], so that at least one of them sees the other.
+     */
+    private class Attempt(
+        private val logger: Logger
+    ) : Disposable {
 
-                    else -> {
-                        /** continue checking interceptors **/
-                    }
+        @Volatile
+        var cancelled = false
+            private set
+
+        @Volatile
+        var connection: HttpURLConnection? = null
+
+        override val isDisposed: Boolean
+            get() = cancelled
+
+        // TODO: disconnect() runs on the tealium thread. On Android (com.android.okhttp)
+        //  it closes the raw socket and returns at once; the JDK implementation can block until a
+        //  body read in progress returns. If a device shows it blocking, move it to a dedicated
+        //  thread - never the network scheduler: it is a single thread, busy with the attempt to
+        //  abort.
+        override fun dispose() {
+            cancelled = true
+            try {
+                connection?.disconnect()
+            } catch (e: Exception) {
+                logger.logIfDebugEnabled(LogCategory.HTTP_CLIENT) {
+                    "Failed to abort request: $e"
                 }
-                return
             }
         }
-        shouldRetry(false)
-    }
-
-    private fun delayRequest(interval: Long, completion: () -> Unit) {
-        tealiumScheduler.schedule(TimeFrame(interval, TimeUnit.MILLISECONDS)) {
-            completion()
-        }
-    }
-
-    private fun <T> delayRequest(
-        event: Observable<T>,
-        completion: () -> Unit
-    ) {
-        event.take(1)
-            .subscribe {
-                completion()
-            }
-    }
-
-    override fun addInterceptor(interceptor: Interceptor) {
-        interceptors.add(interceptor)
-    }
-
-    override fun removeInterceptor(interceptor: Interceptor) {
-        interceptors.remove(interceptor)
     }
 
     companion object {
@@ -244,8 +224,9 @@ class HttpClient(
          *
          * Failures are logged at [LogLevel.ERROR] so that they are visible at the default log level,
          * with the exception of a `304 Not Modified`, which is the expected outcome of a conditional
-         * request for an unchanged resource rather than a problem to be diagnosed. Successes are the
-         * high volume path, so they are logged at [LogLevel.DEBUG].
+         * request for an unchanged resource rather than a problem to be diagnosed, and of a
+         * [CancelledException], which the caller asked for. Successes are the high volume path, so
+         * they are logged at [LogLevel.DEBUG].
          */
         private fun NetworkResult.logLevel(): LogLevel = when {
             this is Success -> LogLevel.DEBUG
@@ -253,22 +234,35 @@ class HttpClient(
                 it is Non200Exception && it.statusCode == HttpURLConnection.HTTP_NOT_MODIFIED
             } -> LogLevel.DEBUG
 
+            this is Failure && networkException is CancelledException -> LogLevel.DEBUG
+
             else -> LogLevel.ERROR
         }
 
         /**
          * Submits the job onto the background queue,
+         *
+         * An [attempt] disposed before its result is handed to the [completion] on [resumeOn]
+         * completes with a [CancelledException]; one disposed while it is queued is never sent.
          */
         private fun send(
             request: HttpRequest,
+            attempt: Attempt,
             executeOn: Scheduler,
             resumeOn: Scheduler,
             completion: (NetworkResult) -> Unit
         ) {
             return executeOn.execute {
-                val result = executeRequest(request)
+                val result = if (attempt.cancelled) {
+                    Failure(CancelledException)
+                } else {
+                    executeRequest(request, attempt)
+                }
                 resumeOn.execute {
-                    completion(result)
+                    // an abort fails the request in many ways, or not at all (e.g. while leniently
+                    // reading an error body): whatever the result, it was cancelled. The attempt is
+                    // only disposed on resumeOn, so this check is exact
+                    completion(if (attempt.cancelled) Failure(CancelledException) else result)
                 }
             }
         }
@@ -276,11 +270,17 @@ class HttpClient(
         /**
          * Blocking execution of an HTTP request - it's not advised to call this method directly,
          * and [send] should be preferred to ensure control of the Thread used when making the request.
+         *
+         * The [attempt] is checked for cancellation before each step that reaches the network.
          */
-        private fun executeRequest(request: HttpRequest): NetworkResult {
+        private fun executeRequest(request: HttpRequest, attempt: Attempt): NetworkResult {
             var connection: HttpURLConnection? = null
             return try {
                 connection = request.url.openConnection() as HttpURLConnection
+                // write the connection before reading the flag; the abort does the opposite
+                attempt.connection = connection
+                if (attempt.cancelled) return Failure(CancelledException)
+
                 connection.connectTimeout = DEFAULT_TIMEOUT
                 connection.readTimeout = DEFAULT_TIMEOUT
                 with(connection) {
@@ -300,6 +300,8 @@ class HttpClient(
                             setRequestProperty(Headers.CONTENT_TYPE, "application/json")
                         }
 
+                        // getting the output stream connects
+                        if (attempt.cancelled) return Failure(CancelledException)
                         val dataOutputStream = when (request.isGzip) {
                             true -> {
                                 DataOutputStream(GZIPOutputStream(outputStream))
@@ -314,6 +316,8 @@ class HttpClient(
                         dataOutputStream.close()
                     }
 
+                    // getting the response code connects, and waits for the response
+                    if (attempt.cancelled) return Failure(CancelledException)
                     if (HttpURLConnection.HTTP_MOVED_PERM == responseCode
                         || HttpURLConnection.HTTP_MOVED_TEMP == responseCode
                         || HttpURLConnection.HTTP_SEE_OTHER == responseCode
@@ -350,6 +354,8 @@ class HttpClient(
             } catch (e: Exception) {
                 Failure(UnexpectedException(e))
             } finally {
+                // stop the attempt from retaining the connection; a concurrent abort is harmless
+                attempt.connection = null
                 connection?.disconnect()
             }
         }
