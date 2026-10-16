@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.tealium.library)
 }
 
-version = "0.2.1"
+version = "0.7.0"
 
 tealiumLibrary {
     groupId = "com.tealium.prism"
