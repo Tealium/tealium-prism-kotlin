@@ -48,7 +48,7 @@ abstract class JavaScriptTransformerFactory(
             return null
         }
 
-        return JavaScriptTransformerImpl(adapter, context.logger)
+        return JavaScriptTransformerImpl(adapter, context.logger, context.schedulers.tealium)
     }
 
     companion object {

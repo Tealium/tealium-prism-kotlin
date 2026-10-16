@@ -4,6 +4,7 @@ import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.logger.logIfErrorEnabled
 import com.tealium.prism.core.api.misc.Callback
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.addTo
@@ -19,6 +20,7 @@ import org.json.JSONObject
 class JavaScriptTransformerImpl(
     private val adapter: JavaScriptEngineAdapter,
     private val logger: Logger,
+    private val scheduler: Scheduler,
 ) : JavaScriptTransformer {
 
     private val disposables = Disposables.composite()
@@ -54,15 +56,35 @@ class JavaScriptTransformerImpl(
             })(${dispatch.payload()}, $escapedScope)
         """.trimIndent()
 
-        // The subscription is already completed (disposed) when the adapter evaluates inline, and
-        // remains a live cancellation handle if an adapter ever completes asynchronously.
-        return adapter.evaluateJavaScript(js)
-            .subscribe { result ->
+        val pending = Disposables.composite()
+        disposables.add(pending)
+        if (pending.isDisposed) return Disposables.disposed()
+
+        var completed = false
+        // Cancellation handle returned to the caller. Disposing it before completion cancels the
+        // evaluation and removes `pending` from `disposables`; completion marks it disposed, after
+        // which disposing it has no effect.
+        val handle = Disposables.subscription {
+            if (completed) return@subscription
+            disposables.remove(pending)
+            pending.dispose()
+        }
+        pending.add(handle)
+
+        adapter.evaluateJavaScript(js) { result ->
+            // Defensive: hand the result back to the Tealium thread in case an adapter calls back
+            // from elsewhere. Runs inline when already on the Tealium thread.
+            scheduler.execute {
+                if (completed || pending.isDisposed) return@execute
+                completed = true
+                disposables.remove(pending)
+                handle.dispose()
+
                 result.onSuccess { payload ->
                     val newPayload = payload.getDataObject()
                     if (newPayload == null) {
                         completion.onComplete(null)
-                        return@subscribe
+                        return@execute
                     }
 
                     dispatch.replace(newPayload)
@@ -74,7 +96,10 @@ class JavaScriptTransformerImpl(
                 }
 
                 completion.onComplete(dispatch)
-            }.addTo(disposables)
+            }
+        }.addTo(pending)
+
+        return handle
     }
 
     private fun createTrackFunction(dispatch: Dispatch): String =

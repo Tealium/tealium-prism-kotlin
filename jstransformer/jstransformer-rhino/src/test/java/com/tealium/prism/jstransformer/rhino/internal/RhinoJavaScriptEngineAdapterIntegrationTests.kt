@@ -7,7 +7,6 @@ import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.persistence.DataStore
 import com.tealium.prism.core.api.persistence.Expiry
-import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.Tracker
@@ -64,14 +63,16 @@ class RhinoJavaScriptEngineAdapterIntegrationTests {
         }
     }
 
-    private fun eval(js: String): Observable<TealiumResult<DataItem>> =
-        adapter.evaluateJavaScript(js)
-
-    private fun evalAndGet(js: String): DataItem? {
-        var result: DataItem? = null
-        eval(js).subscribe { tResult -> result = tResult.getOrNull() }
+    private fun eval(js: String): TealiumResult<DataItem>? {
+        var result: TealiumResult<DataItem>? = null
+        var calls = 0
+        adapter.evaluateJavaScript(js) { calls++; result = it }
+        assertEquals(1, calls)
         return result
     }
+
+    private fun evalAndGet(js: String): DataItem? =
+        eval(js)?.getOrNull()
 
     @Test
     fun console_log_DelegatesToLoggerWithDebugLevel() {

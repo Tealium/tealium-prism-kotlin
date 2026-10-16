@@ -2,15 +2,15 @@ package com.tealium.prism.jstransformer.rhino.internal
 
 import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.logger.Logger
+import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumException
 import com.tealium.prism.core.api.misc.TealiumResult
+import com.tealium.prism.core.api.misc.failure
 import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.persistence.DataStore
 import com.tealium.prism.core.api.pubsub.CompositeDisposable
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Disposables
-import com.tealium.prism.core.api.pubsub.Observable
-import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.tracking.Tracker
 import com.tealium.prism.jstransformer.JavaScriptEngineAdapter
 import org.mozilla.javascript.Context
@@ -30,9 +30,10 @@ class RhinoJavaScriptEngineAdapter(
         rhino.context.close()
     }
 
-    override fun evaluateJavaScript(js: String): Observable<TealiumResult<DataItem>> {
+    override fun evaluateJavaScript(js: String, completion: Callback<TealiumResult<DataItem>>): Disposable {
         if (isDisposed) {
-            return Observables.just(TealiumResult.failure(TealiumException("Js Engine already shutdown")))
+            completion.failure(TealiumException("Js Engine already shutdown"))
+            return Disposables.disposed()
         }
 
         val result = try {
@@ -50,7 +51,8 @@ class RhinoJavaScriptEngineAdapter(
             TealiumResult.failure(e)
         }
 
-        return Observables.just(result)
+        completion.onComplete(result)
+        return Disposables.disposed()
     }
 
     companion object {
