@@ -6,6 +6,7 @@ import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.misc.failure
 import com.tealium.prism.core.api.misc.success
+import com.tealium.prism.core.api.pubsub.Consumer
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Disposables
 
@@ -17,12 +18,12 @@ import com.tealium.prism.core.api.pubsub.Disposables
  */
 internal class SyncCommand(
     override val name: String,
-    private val block: (DataObject) -> Unit
+    private val block: Consumer<DataObject>
 ) : Command {
 
     override fun execute(payload: DataObject, callback: Callback<TealiumResult<Unit>>): Disposable {
         try {
-            block(payload)
+            block.accept(payload)
             callback.success(Unit)
         } catch (e: Throwable) {
             callback.failure(e)

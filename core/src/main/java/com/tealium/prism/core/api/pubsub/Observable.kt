@@ -117,9 +117,9 @@ interface Observable<T> : Subscribable<T> {
      * Returns an observable that will call the given [block] with each source emission, before
      * passing the original emission downstream.
      */
-    fun forEach(block: (T) -> Unit): Observable<T> {
+    fun forEach(block: Consumer<T>): Observable<T> {
         return MapObservable(this) {
-            block(it)
+            block.accept(it)
             it
         }
     }

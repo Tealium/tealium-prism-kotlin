@@ -28,12 +28,23 @@ class SchedulersImpl(
  *
  * [schedule] with a delay parameter will always push tasks onto the back of the task queue.
  */
-class LooperScheduler internal constructor(
-    private val looper: Looper = Looper.getMainLooper(),
-    private val handler: Handler = Handler(looper)
+class LooperScheduler private constructor(
+    looperProvider: () -> Looper,
+    handlerProvider: (Looper) -> Handler
 ) : Scheduler {
 
-    constructor(looper: Looper) : this(looper = looper, handler = Handler(looper))
+    /**
+     * Creates a [LooperScheduler] for the main [Looper]. The [Looper] isn't resolved until the
+     * scheduler is first used, so that this can be created without Android being available.
+     */
+    internal constructor() : this({ Looper.getMainLooper() }, { Handler(it) })
+
+    constructor(looper: Looper) : this({ looper }, { Handler(it) })
+
+    internal constructor(looper: Looper, handler: Handler) : this({ looper }, { handler })
+
+    private val looper by lazy(looperProvider)
+    private val handler by lazy { handlerProvider(looper) }
 
     private fun isMyLooper(): Boolean = Looper.myLooper() == looper
 

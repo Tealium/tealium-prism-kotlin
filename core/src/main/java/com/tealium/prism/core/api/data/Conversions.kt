@@ -1,3 +1,5 @@
+@file:JvmName("ConversionUtils")
+
 package com.tealium.prism.core.api.data
 
 import org.json.JSONArray

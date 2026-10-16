@@ -65,14 +65,14 @@ class DisposableContainer(
  * this is disposed of - useful for clearing up references.
  */
 class Subscription(
-    private var onDispose: (() -> Unit)? = null
+    private var onDispose: Runnable? = null
 ) : BaseDisposable(), Disposable {
 
     override fun dispose() {
         if (isDisposed) return
         super.dispose()
 
-        onDispose?.invoke()
+        onDispose?.run()
         onDispose = null
     }
 }

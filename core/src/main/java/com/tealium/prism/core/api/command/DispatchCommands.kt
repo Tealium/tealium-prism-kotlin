@@ -1,3 +1,5 @@
+@file:JvmName("DispatchCommandUtils")
+
 package com.tealium.prism.core.api.command
 
 import com.tealium.prism.core.api.data.DataItem

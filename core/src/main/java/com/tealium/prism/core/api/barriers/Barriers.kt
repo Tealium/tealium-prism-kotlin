@@ -35,6 +35,7 @@ object Barriers {
      *                         Used to provide programmatic settings that will be enforced and remain constant during
      *                         the lifecycle of the [Barrier]. Other settings will still be affected by Local and Remote settings and updates.
      */
+    @JvmStatic
     @JvmOverloads
     fun connectivity(enforcedSettings: ((ConnectivityBarrierSettingsBuilder) -> ConnectivityBarrierSettingsBuilder)? = { it }): BarrierFactory {
         val settings = enforcedSettings?.invoke(ConnectivityBarrierSettingsBuilder())?.build()
@@ -71,6 +72,7 @@ object Barriers {
      *                         Used to provide programmatic settings that will be enforced and remain constant during
      *                         the lifecycle of the [Barrier]. Other settings will still be affected by Local and Remote settings and updates.
      */
+    @JvmStatic
     @JvmOverloads
     fun batching(enforcedSettings: ((BatchingBarrierSettingsBuilder) -> BatchingBarrierSettingsBuilder)? = { it }): BarrierFactory {
         val settings = enforcedSettings?.invoke(BatchingBarrierSettingsBuilder())?.build()

@@ -1,3 +1,6 @@
+// This facade class name is referenced by AndroidManifest.xml and consumer-rules.pro
+@file:JvmName("LifecycleKt")
+
 package com.tealium.prism.lifecycle
 
 import com.tealium.prism.core.api.Tealium

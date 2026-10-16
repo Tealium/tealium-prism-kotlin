@@ -23,8 +23,9 @@ object Disposables {
      *
      * @return A [Disposable] to use to dispose of the subscription
      */
+    @JvmStatic
     @JvmOverloads
-    fun subscription(onDispose: (() -> Unit)? = null): Disposable =
+    fun subscription(onDispose: Runnable? = null): Disposable =
         Subscription(onDispose)
 
     /**
@@ -39,6 +40,7 @@ object Disposables {
      *
      * @return A [Disposable] to use to dispose of multiple subscriptions at once.
      */
+    @JvmStatic
     fun composite(): CompositeDisposable =
         DisposableContainer()
 
@@ -56,6 +58,7 @@ object Disposables {
      * @return A [Disposable] to use to dispose of multiple subscriptions at once, whilst ensuring
      *          that all operations happen on the given [scheduler]
      */
+    @JvmStatic
     fun composite(scheduler: Scheduler): CompositeDisposable =
         AsyncDisposableContainer(scheduler)
 
@@ -66,6 +69,7 @@ object Disposables {
      *
      *  @return A disposed [Disposable]
      */
+    @JvmStatic
     fun disposed(): Disposable =
         CompletedDisposable
 }

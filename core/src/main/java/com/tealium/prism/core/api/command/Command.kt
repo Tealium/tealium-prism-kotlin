@@ -3,6 +3,7 @@ package com.tealium.prism.core.api.command
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
+import com.tealium.prism.core.api.pubsub.Consumer
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.internal.command.SyncCommand
 
@@ -35,7 +36,7 @@ interface Command {
          * [TealiumResult.failure] to the caller.
          */
         @JvmStatic
-        fun synchronous(name: String, block: (DataObject) -> Unit): Command =
+        fun synchronous(name: String, block: Consumer<DataObject>): Command =
             SyncCommand(name, block)
     }
 }

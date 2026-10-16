@@ -449,6 +449,7 @@ class DataItem private constructor(
          * string as if it were JSON
          * i.e. string values should be quoted "value"
          */
+        @JvmStatic
         fun parse(string: String): DataItem {
             return convert(parseSupported(string))
         }

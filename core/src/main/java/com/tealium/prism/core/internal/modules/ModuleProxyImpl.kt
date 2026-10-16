@@ -8,6 +8,7 @@ import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleManager
 import com.tealium.prism.core.api.modules.ModuleNotEnabledException
 import com.tealium.prism.core.api.modules.ModuleProxy
+import com.tealium.prism.core.api.pubsub.BiConsumer
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.pubsub.Single
@@ -84,8 +85,8 @@ class ModuleProxyImpl<T : Module>(
     override fun <R> executeModuleTask(task: (T) -> R): Single<TealiumResult<R>> =
         asyncProxy.executeTask(task)
 
-    override fun <R> executeAsyncModuleTask(task: (T, Callback<TealiumResult<R>>) -> Unit): Single<TealiumResult<R>> =
-        asyncProxy.executeAsyncTask(task)
+    override fun <R> executeAsyncModuleTask(task: BiConsumer<T, Callback<TealiumResult<R>>>): Single<TealiumResult<R>> =
+        asyncProxy.executeAsyncTask { module, callback -> task.accept(module, callback) }
 
     /**
      * Gets the [Module] as a [Observable] but also handles the checks for:

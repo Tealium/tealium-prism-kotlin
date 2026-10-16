@@ -41,6 +41,7 @@ object LenientConverters {
      * 2. Extraction as [String] and parsing via [toDoubleOrNull]
      *
      */
+    @JvmField
     val DOUBLE: DataItemConverter<Double> =
         LenientDoubleConverter
 
@@ -55,6 +56,7 @@ object LenientConverters {
      * bounds numbers will be coerced to between [Int.MIN_VALUE] and [Int.MAX_VALUE]
      *
      */
+    @JvmField
     val INT: DataItemConverter<Int> =
         LenientIntConverter
 
@@ -69,6 +71,7 @@ object LenientConverters {
      * bounds numbers will be coerced to between [Long.MIN_VALUE] and [Long.MAX_VALUE]
      *
      */
+    @JvmField
     val LONG: DataItemConverter<Long> =
         LenientLongConverter
 
@@ -86,6 +89,7 @@ object LenientConverters {
      * 0 or 1
      *
      */
+    @JvmField
     val BOOLEAN: DataItemConverter<Boolean> =
         LenientBooleanConverter
 
@@ -100,6 +104,7 @@ object LenientConverters {
      *    - Whole numbers: 1.0 → `"1"` (removes unnecessary ".0" suffix)
      *    - Disables scientific notation for better readability
      */
+    @JvmField
     val STRING: DataItemConverter<String> =
         LenientStringConverter
 

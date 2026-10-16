@@ -33,24 +33,19 @@ interface Scheduler {
 
     companion object {
 
-        private val _main by lazy { LooperScheduler() }
-        private val _synchronous by lazy { SynchronousScheduler() }
-
         /**
          * A shared [Scheduler] whose implementation submits tasks for execution on the Android main
          * thread.
          */
-        @JvmStatic
-        val MAIN: Scheduler
-            get() = _main
+        @JvmField
+        val MAIN: Scheduler = LooperScheduler()
 
         /**
          * A [Scheduler] implementation whereby all tasks that are submitted will be executed in a
          * synchronous manner. They will be executed immediately in the calling [Thread], and any
          * delays specified will be ignored.
          */
-        @JvmStatic
-        val SYNCHRONOUS: Scheduler
-            get() = _synchronous
+        @JvmField
+        val SYNCHRONOUS: Scheduler = SynchronousScheduler()
     }
 }

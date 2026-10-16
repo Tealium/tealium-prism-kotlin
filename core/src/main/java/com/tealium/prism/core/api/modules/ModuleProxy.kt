@@ -3,6 +3,7 @@ package com.tealium.prism.core.api.modules
 import com.tealium.prism.core.api.Tealium
 import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
+import com.tealium.prism.core.api.pubsub.BiConsumer
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Single
 import com.tealium.prism.core.api.pubsub.Subscribable
@@ -117,5 +118,5 @@ interface ModuleProxy<T: Module> {
      *
      * @return [Single] containing either the result of the task, or the failing exception
      */
-    fun <R> executeAsyncModuleTask(task: (T, Callback<TealiumResult<R>>) -> Unit): Single<TealiumResult<R>>
+    fun <R> executeAsyncModuleTask(task: BiConsumer<T, Callback<TealiumResult<R>>>): Single<TealiumResult<R>>
 }
