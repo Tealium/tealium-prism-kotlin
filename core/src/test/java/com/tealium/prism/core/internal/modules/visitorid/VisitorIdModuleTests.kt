@@ -2,34 +2,41 @@ package com.tealium.prism.core.internal.modules.visitorid
 
 import com.tealium.prism.core.BuildConfig
 import com.tealium.prism.core.api.Modules
+import com.tealium.prism.core.api.data.DataItem
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.persistence.DataStore
+import com.tealium.prism.core.api.persistence.Expiry
 import com.tealium.prism.core.api.persistence.ModuleStoreProvider
+import com.tealium.prism.core.api.persistence.PersistenceException
 import com.tealium.prism.core.api.pubsub.Observables
-import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.pubsub.Subject
 import com.tealium.prism.core.api.settings.modules.VisitorIdSettingsBuilder
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchContext
 import com.tealium.prism.core.internal.persistence.ModuleStoreProviderImpl
-import com.tealium.prism.core.internal.persistence.VisitorIdStorage
+import com.tealium.prism.core.internal.persistence.VisitorIdMigrator
 import com.tealium.prism.core.internal.persistence.database.InMemoryDatabaseProvider
 import com.tealium.prism.core.internal.persistence.repositories.SQLModulesRepository
+import com.tealium.prism.core.internal.persistence.stores.VisitorStorage
 import com.tealium.prism.core.internal.persistence.stores.VisitorStorageImpl
 import com.tealium.prism.core.internal.settings.ModuleSettings
 import com.tealium.prism.core.internal.utils.sha256
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.buildConfiguration
 import com.tealium.tests.common.getDefaultConfig
+import com.tealium.tests.common.mockkEditor
 import io.mockk.MockKAnnotations
+import io.mockk.confirmVerified
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -41,7 +48,10 @@ import org.robolectric.RuntimeEnvironment
 class VisitorIdModuleTests {
 
     @RelaxedMockK
-    private lateinit var storage: VisitorIdStorage
+    private lateinit var visitorStorage: VisitorStorage
+
+    @RelaxedMockK
+    private lateinit var visitorIdMigrator: VisitorIdMigrator
 
     @MockK
     private lateinit var dataLayer: DataStore
@@ -50,7 +60,12 @@ class VisitorIdModuleTests {
     private val dispatchContext =
         DispatchContext(DispatchContext.Source.application(), DataObject.EMPTY_OBJECT)
 
-    private lateinit var visitorId: StateSubject<String>
+    private val currentVisitorId = "visitor123"
+    private val ownerIdentity = "identity123"
+    private val hashedOwnerIdentity = ownerIdentity.sha256()
+    private val migratingVisitorId = "migrating_id"
+    private val existingVisitorId = "existing_visitor_id"
+
     private lateinit var onDataLayerUpdated: Subject<DataObject>
     private lateinit var module: VisitorIdModule
 
@@ -61,8 +76,10 @@ class VisitorIdModuleTests {
     fun setUp() {
         MockKAnnotations.init(this)
 
-        visitorId = Observables.stateSubject("visitor-id")
-        every { storage.visitorId } returns visitorId
+        every { visitorStorage.visitorId } returns "visitor-id"
+        every { visitorStorage.ownerIdentity } returns null
+        every { visitorStorage.getKnownVisitorId(any()) } returns null
+        every { visitorIdMigrator.visitorId } returns null
 
         onDataLayerUpdated = Observables.publishSubject()
         every { dataLayer.onDataUpdated } returns onDataLayerUpdated
@@ -80,47 +97,29 @@ class VisitorIdModuleTests {
 
     @Test
     fun collect_Returns_Updated_Visitor_Id_After_Visitor_Changes() {
-        visitorId.onNext("new-visitor-id")
+        val newVisitorId = module.regenerate()
 
         val result = module.collect(dispatchContext)
 
-        assertEquals("new-visitor-id", result.getString(Dispatch.Keys.TEALIUM_VISITOR_ID))
+        assertEquals(newVisitorId, result.getString(Dispatch.Keys.TEALIUM_VISITOR_ID))
     }
 
     @Test
     fun visitorId_Returns_Storage_Visitor_Id() {
-        assertSame(visitorId, module.visitorId)
         assertEquals("visitor-id", module.visitorId.value)
 
-        visitorId.onNext("new-visitor-id")
+        val newVisitorId = module.regenerate()
 
-        assertEquals("new-visitor-id", module.visitorId.value)
-    }
-
-    @Test
-    fun regenerate_Returns_New_Visitor_Id_From_Storage() {
-        every { storage.regenerate(any()) } returns "regenerated-visitor-id"
-
-        assertEquals("regenerated-visitor-id", module.regenerate())
-        verify { storage.regenerate(null) }
-    }
-
-    @Test
-    fun regenerate_Passes_Hashed_Identity_Read_From_DataLayer_To_Storage() {
-        every { dataLayer.getString(identityKey) } returns "user@example.com"
-
-        module.regenerate()
-
-        verify { storage.regenerate("user@example.com".sha256()) }
+        assertEquals(newVisitorId, module.visitorId.value)
     }
 
     @Test
     fun regenerate_Passes_Null_To_Storage_When_Identity_Blank_In_DataLayer() {
         every { dataLayer.getString(identityKey) } returns "  "
 
-        module.regenerate()
+        val newVisitorId = module.regenerate()
 
-        verify { storage.regenerate(null) }
+        verify { visitorStorage.changeVisitor(newVisitorId, null) }
     }
 
     @Test
@@ -130,33 +129,9 @@ class VisitorIdModuleTests {
         every { dataLayer.getString(any()) } returns "user@example.com"
         val module = createModule(VisitorIdConfiguration(visitorIdentityKey = null))
 
-        module.regenerate()
+        val newVisitorId = module.regenerate()
 
-        verify { storage.regenerate(null) }
-    }
-
-    @Test
-    fun eraseLocalHistory_Returns_New_Visitor_Id_From_Storage() {
-        every { storage.eraseLocalHistory(any()) } returns "erased-visitor-id"
-
-        assertEquals("erased-visitor-id", module.eraseLocalHistory())
-        verify { storage.eraseLocalHistory(null) }
-    }
-
-    @Test
-    fun eraseLocalHistory_Passes_Hashed_Identity_Read_From_DataLayer_To_Storage() {
-        every { dataLayer.getString(identityKey) } returns "user@example.com"
-
-        module.eraseLocalHistory()
-
-        verify { storage.eraseLocalHistory("user@example.com".sha256()) }
-    }
-
-    @Test
-    fun identify_Delegates_To_Storage() {
-        module.identify("user@example.com")
-
-        verify { storage.identify("user@example.com") }
+        verify { visitorStorage.changeVisitor(newVisitorId, null) }
     }
 
     @Test
@@ -164,7 +139,7 @@ class VisitorIdModuleTests {
         every { dataLayer.getString(identityKey) } returns "user@example.com"
         onDataLayerUpdated.onNext(DataObject.create { put(identityKey, "user@example.com") })
 
-        verify { storage.identify("user@example.com") }
+        verify { visitorStorage.changeVisitor("visitor-id", "user@example.com".sha256()) }
     }
 
     @Test
@@ -176,7 +151,7 @@ class VisitorIdModuleTests {
 
         onDataLayerUpdated.onNext(DataObject.create { put(identityKey, "user@example.com") })
 
-        verify(inverse = true) { storage.identify(any()) }
+        verify(inverse = true) { visitorStorage.changeVisitor(any(), any()) }
         assertTrue(module.visitorId.value.isNotEmpty())
     }
 
@@ -188,7 +163,7 @@ class VisitorIdModuleTests {
             VisitorIdSettingsBuilder().setVisitorIdentityKey("newIdentityKey").buildConfiguration()
         )
 
-        verify { storage.identify("newIdentity") }
+        verify { visitorStorage.changeVisitor("visitor-id", "newIdentity".sha256()) }
     }
 
     @Test
@@ -200,7 +175,9 @@ class VisitorIdModuleTests {
         every { dataLayer.getString(identityKey) } returns "user@example.com"
         onDataLayerUpdated.onNext(DataObject.create { put(identityKey, "user@example.com") })
 
-        verify(inverse = true) { storage.identify("user@example.com") }
+        verify(inverse = true) {
+            visitorStorage.changeVisitor(any(), "user@example.com".sha256())
+        }
     }
 
     @Test
@@ -217,7 +194,7 @@ class VisitorIdModuleTests {
         every { dataLayer.getString(identityKey) } returns "user@example.com"
         onDataLayerUpdated.onNext(DataObject.create { put(identityKey, "user@example.com") })
 
-        verify(inverse = true) { storage.identify(any()) }
+        verify(inverse = true) { visitorStorage.changeVisitor(any(), any()) }
     }
 
     @Test
@@ -298,9 +275,479 @@ class VisitorIdModuleTests {
         )
     }
 
+    @Test
+    fun init_MigratesKnownVisitorId_When_NoVisitorIdSaved_And_DeletesMigratedData() {
+        every { visitorStorage.visitorId } returns null
+        every { visitorIdMigrator.visitorId } returns migratingVisitorId
+
+        val visitorIdModule = createModule(existingVisitorId = existingVisitorId)
+
+        assertEquals(migratingVisitorId, visitorIdModule.visitorId.value)
+        verify {
+            visitorStorage.changeVisitor(migratingVisitorId, null)
+            visitorIdMigrator.delete()
+        }
+    }
+
+    @Test
+    fun init_MigratesKnownVisitorId_FromExistingId_When_NoVisitorIdSaved() {
+        every { visitorStorage.visitorId } returns null
+        val visitorIdModule = createModule(existingVisitorId = existingVisitorId)
+
+        assertEquals(existingVisitorId, visitorIdModule.visitorId.value)
+        verify {
+            visitorStorage.changeVisitor(existingVisitorId, null)
+        }
+    }
+
+    @Test
+    fun init_DoesNot_MigrateKnownVisitorId_FromExistingId_When_NoVisitorIdSaved_And_ExistingVisitorId_IsBlank() {
+        every { visitorStorage.visitorId } returns null
+        val visitorIdModule = createModule(existingVisitorId = " ")
+
+        assertTrue(visitorIdModule.visitorId.value.isNotBlank())
+        verify {
+            visitorStorage.changeVisitor(match { it.isNotBlank() }, null)
+        }
+    }
+
+    @Test
+    fun init_DoesNot_MigrateKnownVisitorId_FromExistingId_When_NoVisitorIdSaved_And_ExistingVisitorId_IsEmpty() {
+        every { visitorStorage.visitorId } returns null
+        val visitorIdModule = createModule(existingVisitorId = "")
+
+        assertTrue(visitorIdModule.visitorId.value.isNotEmpty())
+        verify {
+            visitorStorage.changeVisitor(match { it.isNotEmpty() }, null)
+        }
+    }
+
+    @Test
+    fun init_GeneratesNewId_When_NoVisitorIds() {
+        every { visitorStorage.visitorId } returns null
+        val visitorIdModule = createModule()
+
+        assertTrue(visitorIdModule.visitorId.value.isNotBlank())
+        assertNotEquals(currentVisitorId, visitorIdModule.visitorId.value)
+        assertNotEquals(migratingVisitorId, visitorIdModule.visitorId.value)
+        assertNotEquals(existingVisitorId, visitorIdModule.visitorId.value)
+    }
+
+    @Test
+    fun identify_DoesNot_UpdateAnything_When_BlankOrEmptyIdentity() {
+        every { visitorStorage.visitorId } returns currentVisitorId
+        every { visitorStorage.ownerIdentity } returns hashedOwnerIdentity
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdModule = createModule()
+        visitorIdModule.visitorId.subscribe(onNext)
+
+        visitorIdModule.identify("")
+        visitorIdModule.identify("   ")
+
+        verify(exactly = 0) {
+            visitorStorage.getKnownVisitorId(any())
+            visitorStorage.changeVisitor(any(), any())
+            onNext(neq(currentVisitorId))
+        }
+    }
+
+    @Test
+    fun identify_DoesNot_UpdateAnything_When_Identity_IsTheSame() {
+        every { visitorStorage.visitorId } returns currentVisitorId
+        every { visitorStorage.ownerIdentity } returns hashedOwnerIdentity
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdModule = createModule()
+        visitorIdModule.visitorId.subscribe(onNext)
+
+        visitorIdModule.identify(ownerIdentity)
+
+        verify(exactly = 0) {
+            visitorStorage.getKnownVisitorId(any())
+            visitorStorage.changeVisitor(any(), any())
+            onNext(neq(currentVisitorId))
+        }
+    }
+
+    @Test
+    fun identify_Restores_Known_Visitor_When_Current_Visitor_Id_Is_Unowned() {
+        // after a regenerate with no identity present, the current id is unowned; a returning
+        // identity restores its own visitor id instead of adopting the unowned one
+        every { visitorStorage.visitorId } returns currentVisitorId
+        every { visitorStorage.ownerIdentity } returns null
+        every { visitorStorage.getKnownVisitorId(hashedOwnerIdentity) } returns "knownVisitor"
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdModule = createModule()
+        visitorIdModule.visitorId.subscribe(onNext)
+
+        visitorIdModule.identify(ownerIdentity)
+
+        verify {
+            visitorStorage.changeVisitor("knownVisitor", hashedOwnerIdentity)
+            onNext("knownVisitor")
+        }
+        verify(inverse = true) {
+            visitorStorage.changeVisitor(currentVisitorId, hashedOwnerIdentity)
+        }
+    }
+
+    @Test
+    fun identify_Changes_To_Known_Visitor_When_Identity_IsNot_TheSame() {
+        every { visitorStorage.visitorId } returns currentVisitorId
+        every { visitorStorage.ownerIdentity } returns hashedOwnerIdentity
+        every { visitorStorage.getKnownVisitorId("newIdentity".sha256()) } returns "knownVisitor"
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdModule = createModule()
+        visitorIdModule.visitorId.subscribe(onNext)
+
+        visitorIdModule.identify("newIdentity")
+
+        verify {
+            visitorStorage.getKnownVisitorId("newIdentity".sha256())
+            visitorStorage.changeVisitor("knownVisitor", "newIdentity".sha256())
+            onNext("knownVisitor")
+        }
+    }
+
+    @Test
+    fun identify_Creates_New_VisitorId_WhenIdentityChanged_And_IsNot_Known_Visitor() {
+        every { visitorStorage.visitorId } returns currentVisitorId
+        every { visitorStorage.ownerIdentity } returns hashedOwnerIdentity
+        every { visitorStorage.getKnownVisitorId("newIdentity".sha256()) } returns null
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdModule = createModule()
+        visitorIdModule.visitorId.subscribe(onNext)
+
+        visitorIdModule.identify("newIdentity")
+
+        verify {
+            visitorStorage.changeVisitor(neq(currentVisitorId), "newIdentity".sha256())
+            onNext(neq(currentVisitorId))
+        }
+    }
+
+    @Test
+    fun identify_Associates_Current_VisitorId_With_NewIdentity_WhenIdentityChanged_But_No_Previous_Identity() {
+        every { visitorStorage.visitorId } returns currentVisitorId
+        every { visitorStorage.ownerIdentity } returns null
+        every { visitorStorage.getKnownVisitorId("newIdentity".sha256()) } returns null
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdModule = createModule()
+        visitorIdModule.visitorId.subscribe(onNext)
+
+        visitorIdModule.identify("newIdentity")
+
+        verify {
+            visitorStorage.changeVisitor(currentVisitorId, "newIdentity".sha256())
+        }
+        verify(exactly = 1) {
+            onNext(currentVisitorId)
+        }
+        confirmVerified(onNext)
+    }
+
+    @Test
+    fun identify_Stores_Known_Identity_As_Owner_When_It_Already_Uses_Current_Visitor_Id() {
+        every { visitorStorage.visitorId } returns currentVisitorId
+        every { visitorStorage.ownerIdentity } returns ownerIdentity
+        every { visitorStorage.getKnownVisitorId("newIdentity".sha256()) } returns currentVisitorId
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdModule = createModule()
+        visitorIdModule.visitorId.subscribe(onNext)
+
+        visitorIdModule.identify("newIdentity")
+
+        verify {
+            visitorStorage.changeVisitor(currentVisitorId, "newIdentity".sha256())
+        }
+        // once on subscribe; storing the switch to the current id is not a change
+        verify(exactly = 1) {
+            onNext(currentVisitorId)
+        }
+        confirmVerified(onNext)
+    }
+
+    @Test
+    fun identify_Completes_Switch_When_Same_Identity_Rewritten_After_Failed_Store() {
+        // identity A is known to use v1 while B owns the stored id v0; the first switch to v1 is
+        // published but not stored, so the repeated write of A must store it rather than only
+        // rewrite the owner against the stale v0
+        every { visitorStorage.visitorId } returns "v0"
+        every { visitorStorage.ownerIdentity } returns "B".sha256()
+        every { visitorStorage.getKnownVisitorId("A".sha256()) } returns "v1"
+        every {
+            visitorStorage.changeVisitor("v1", "A".sha256())
+        } throws PersistenceException("TestError", RuntimeException()) andThenAnswer { }
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdModule = createModule()
+        visitorIdModule.visitorId.subscribe(onNext)
+
+        visitorIdModule.identify("A")
+        assertEquals("v1", visitorIdModule.visitorId.value)
+
+        visitorIdModule.identify("A")
+
+        verify(exactly = 2) {
+            visitorStorage.changeVisitor("v1", "A".sha256())
+        }
+        verify(exactly = 1) {
+            onNext("v1")
+        }
+    }
+
+    @Test
+    fun regenerate_Replaces_Current_Visitor_Id_And_Associates_It_With_Identity_In_DataLayer() {
+        every { visitorStorage.visitorId } returns currentVisitorId
+        every { visitorStorage.ownerIdentity } returns hashedOwnerIdentity
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdModule = createModule()
+        visitorIdModule.visitorId.subscribe(onNext)
+
+        every { dataLayer.getString(identityKey) } returns ownerIdentity
+
+        val newVisitorId = visitorIdModule.regenerate()
+
+        assertNotEquals(currentVisitorId, newVisitorId)
+        verify {
+            visitorStorage.changeVisitor(newVisitorId, hashedOwnerIdentity)
+            onNext(newVisitorId)
+        }
+    }
+
+    @Test
+    fun regenerate_Leaves_New_Visitor_Id_Unowned_When_No_Identity_In_DataLayer() {
+        // the stored owner is not used: only the identity present at the time of the call counts
+        every { visitorStorage.visitorId } returns currentVisitorId
+        every { visitorStorage.ownerIdentity } returns hashedOwnerIdentity
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdModule = createModule()
+        visitorIdModule.visitorId.subscribe(onNext)
+
+        val newVisitorId = visitorIdModule.regenerate()
+
+        assertNotEquals(currentVisitorId, newVisitorId)
+        verify {
+            visitorStorage.changeVisitor(newVisitorId, null)
+            onNext(newVisitorId)
+        }
+        verify(inverse = true) {
+            visitorStorage.changeVisitor(any(), hashedOwnerIdentity)
+        }
+    }
+
+    @Test(expected = PersistenceException::class)
+    fun regenerate_Throws_When_DataStore_Throws() {
+        every { visitorStorage.changeVisitor(any(), any()) } throws PersistenceException("TestError", RuntimeException())
+
+        val visitorIdModule = createModule()
+
+        visitorIdModule.regenerate()
+    }
+
+    @Test
+    fun regenerate_Publishes_New_VisitorId_When_DataStore_Throws() {
+        val dataStore = createDataStoreHolding(currentVisitorId)
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdModule = createModule(visitorStorage = VisitorStorageImpl(dataStore))
+        visitorIdModule.visitorId.subscribe(onNext)
+        every { dataStore.edit() } throws PersistenceException("TestError", RuntimeException())
+
+        assertThrows(PersistenceException::class.java) { visitorIdModule.regenerate() }
+
+        assertNotEquals(currentVisitorId, visitorIdModule.visitorId.value)
+        verify {
+            onNext(visitorIdModule.visitorId.value)
+        }
+        // nothing stored, so the previous id is what the next launch restores
+        assertEquals(currentVisitorId, dataStore.getString(VisitorStorageImpl.KEY_VISITOR_ID))
+    }
+
+    @Test
+    fun eraseLocalHistory_Replaces_Current_Visitor_Id_And_Clears_Stored_Identities() {
+        every { visitorStorage.visitorId } returns currentVisitorId
+        every { visitorStorage.ownerIdentity } returns hashedOwnerIdentity
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdModule = createModule()
+        visitorIdModule.visitorId.subscribe(onNext)
+
+        val visitorId = visitorIdModule.eraseLocalHistory()
+
+        assertNotEquals(currentVisitorId, visitorId)
+        verify {
+            visitorStorage.clear(visitorId, null)
+            onNext(visitorId)
+        }
+    }
+
+    @Test
+    fun eraseLocalHistory_Reassociates_DataLayer_Identity_With_New_Visitor_Id() {
+        every { visitorStorage.visitorId } returns currentVisitorId
+        every { visitorStorage.ownerIdentity } returns hashedOwnerIdentity
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdModule = createModule()
+        visitorIdModule.visitorId.subscribe(onNext)
+
+        every { dataLayer.getString(identityKey) } returns ownerIdentity
+
+        val visitorId = visitorIdModule.eraseLocalHistory()
+
+        verify {
+            visitorStorage.clear(visitorId, hashedOwnerIdentity)
+            onNext(visitorId)
+        }
+    }
+
+    @Test(expected = PersistenceException::class)
+    fun eraseLocalHistory_Throws_When_DataStore_Throws() {
+        every { visitorStorage.clear(any(), any()) } throws PersistenceException("TestError", RuntimeException())
+
+        val visitorIdModule = createModule()
+
+        visitorIdModule.eraseLocalHistory()
+    }
+
+    @Test
+    fun eraseLocalHistory_Publishes_New_VisitorId_When_DataStore_Throws() {
+        val dataStore = createDataStoreHolding(currentVisitorId, hashedOwnerIdentity)
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdModule = createModule(visitorStorage = VisitorStorageImpl(dataStore))
+        visitorIdModule.visitorId.subscribe(onNext)
+        every { dataStore.edit() } throws PersistenceException("TestError", RuntimeException())
+
+        assertThrows(PersistenceException::class.java) { visitorIdModule.eraseLocalHistory() }
+
+        assertNotEquals(currentVisitorId, visitorIdModule.visitorId.value)
+        verify {
+            onNext(visitorIdModule.visitorId.value)
+        }
+        // nothing erased, so the previous id and its associations are what the next launch restores
+        assertEquals(currentVisitorId, dataStore.getString(VisitorStorageImpl.KEY_VISITOR_ID))
+        assertEquals(
+            hashedOwnerIdentity,
+            dataStore.getString(VisitorStorageImpl.KEY_OWNER_IDENTITY)
+        )
+        assertEquals(
+            currentVisitorId,
+            dataStore.getString(VisitorStorageImpl.IDENTITY_KEY_PREFIX + hashedOwnerIdentity)
+        )
+    }
+
+    @Test
+    fun identify_Publishes_New_VisitorId_And_DoesNot_Throw_When_DataStore_Throws() {
+        // another identity owns the current id and the new one is unknown, so a new id is minted
+        every { visitorStorage.visitorId } returns currentVisitorId
+        every { visitorStorage.ownerIdentity } returns hashedOwnerIdentity
+        every { visitorStorage.getKnownVisitorId("newIdentity".sha256()) } returns null
+        val onNext = mockk<(String) -> Unit>(relaxed = true)
+
+        val visitorIdModule = createModule()
+        visitorIdModule.visitorId.subscribe(onNext)
+        every {
+            visitorStorage.changeVisitor(any(), any())
+        } throws PersistenceException("TestError", RuntimeException())
+
+        visitorIdModule.identify("newIdentity")
+
+        assertNotEquals(currentVisitorId, visitorIdModule.visitorId.value)
+        verify {
+            onNext(visitorIdModule.visitorId.value)
+        }
+    }
+
+    @Test
+    fun init_Uses_New_VisitorId_Without_Persisting_When_DataStore_Throws() {
+        val dataStore = createDataStoreHolding(storedVisitorId = null)
+        every { dataStore.edit() } throws PersistenceException("TestError", RuntimeException())
+
+        val visitorIdModule = createModule(visitorStorage = VisitorStorageImpl(dataStore))
+
+        assertTrue(visitorIdModule.visitorId.value.isNotBlank())
+        assertEquals(null, dataStore.getString(VisitorStorageImpl.KEY_VISITOR_ID))
+    }
+
+    @Test
+    fun identify_Hashes_Identity_As_Lowercase_Sha256_Hex_When_New_Identity() {
+        every { visitorStorage.visitorId } returns currentVisitorId
+        every { visitorStorage.getKnownVisitorId(any()) } returns null
+
+        val visitorIdModule = createModule()
+        visitorIdModule.identify("newIdentity")
+
+        verify {
+            visitorStorage.getKnownVisitorId(NEW_IDENTITY_SHA256)
+            visitorStorage.changeVisitor(any(), NEW_IDENTITY_SHA256)
+        }
+    }
+
+    @Test
+    fun identify_Stores_Identity_Key_With_Lowercase_Sha256_When_New_Identity() {
+        val editor = mockkEditor()
+        val dataStore = mockk<DataStore>()
+        every { dataStore.getString(any()) } returns null
+        every { dataStore.edit() } returns editor
+
+        val visitorIdModule = createModule(
+            visitorStorage = VisitorStorageImpl(dataStore),
+            existingVisitorId = existingVisitorId
+        )
+        visitorIdModule.identify("newIdentity")
+
+        verify {
+            editor.put(
+                VisitorStorageImpl.IDENTITY_KEY_PREFIX + NEW_IDENTITY_SHA256,
+                DataItem.string(visitorIdModule.visitorId.value),
+                Expiry.FOREVER
+            )
+        }
+    }
+
     private fun createModule(
-        configuration: VisitorIdConfiguration = VisitorIdConfiguration(identityKey)
-    ): VisitorIdModule = VisitorIdModule(storage, configuration, dataLayer)
+        configuration: VisitorIdConfiguration = VisitorIdConfiguration(identityKey),
+        visitorStorage: VisitorStorage = this.visitorStorage,
+        existingVisitorId: String? = null
+    ): VisitorIdModule = VisitorIdModule(
+        visitorStorage = visitorStorage,
+        migrator = visitorIdMigrator,
+        existingVisitorId = existingVisitorId,
+        dataLayer = dataLayer,
+        configuration = configuration,
+        logger = SystemLogger
+    )
+
+    /**
+     * A [DataStore] mock that reads back [storedVisitorId] and, when given, [storedOwnerIdentity]
+     * with its association, so a [VisitorStorageImpl] over it behaves like one restored from disk.
+     * Writes are left unstubbed for the test to control.
+     */
+    private fun createDataStoreHolding(
+        storedVisitorId: String?,
+        storedOwnerIdentity: String? = null
+    ): DataStore {
+        val stored = buildMap<String, String?> {
+            storedVisitorId?.let { put(VisitorStorageImpl.KEY_VISITOR_ID, it) }
+            storedOwnerIdentity?.let {
+                put(VisitorStorageImpl.KEY_OWNER_IDENTITY, it)
+                put(VisitorStorageImpl.IDENTITY_KEY_PREFIX + it, storedVisitorId)
+            }
+        }
+        val dataStore = mockk<DataStore>()
+        every { dataStore.getString(any()) } answers { stored[firstArg()] }
+        every { dataStore.keys() } returns stored.keys.toList()
+        return dataStore
+    }
 
     /**
      * A [TealiumContext] backed by real in-memory stores, with the data layer store replaced by
@@ -326,5 +773,11 @@ class VisitorIdModuleTests {
         every { context.logger } returns SystemLogger
 
         return context
+    }
+
+    private companion object {
+        /** Lowercase hex SHA-256 of "newIdentity", matching the Swift SDK output. */
+        const val NEW_IDENTITY_SHA256 =
+            "2d66ba8ba26bf2ee9c7b40d5225e73c1db3a56f158cc9f669fbe340590af62db"
     }
 }

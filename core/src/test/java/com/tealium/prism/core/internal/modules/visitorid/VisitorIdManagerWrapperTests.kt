@@ -22,7 +22,7 @@ import com.tealium.prism.core.api.settings.modules.VisitorIdSettingsBuilder
 import com.tealium.prism.core.internal.modules.ModuleManagerImpl
 import com.tealium.prism.core.internal.modules.ModuleProxyImpl
 import com.tealium.prism.core.internal.persistence.ModuleStoreProviderImpl
-import com.tealium.prism.core.internal.persistence.VisitorIdStorageImpl
+import com.tealium.prism.core.internal.persistence.VisitorIdMigratorImpl
 import com.tealium.prism.core.internal.persistence.database.InMemoryDatabaseProvider
 import com.tealium.prism.core.internal.persistence.repositories.SQLModulesRepository
 import com.tealium.prism.core.internal.persistence.stores.VisitorStorage
@@ -387,13 +387,12 @@ class VisitorIdManagerWrapperTests {
         val dataLayer = storeProvider.getModuleStore(Modules.Types.DATA_LAYER)
         dataLayer.edit().put(IDENTITY_KEY, "seed", Expiry.SESSION).commit()
         val module = VisitorIdModule(
-            VisitorIdStorageImpl(
-                config,
-                storeProvider.getModuleStore(Modules.Types.VISITOR_ID),
-                SystemLogger
-            ),
+            VisitorStorageImpl(storeProvider.getModuleStore(Modules.Types.VISITOR_ID)),
+            VisitorIdMigratorImpl(),
+            config.existingVisitorId,
+            dataLayer,
             VisitorIdConfiguration(IDENTITY_KEY),
-            dataLayer
+            SystemLogger
         )
         return DataLayerFixture(createWrapper(module), dataLayer)
     }
@@ -407,14 +406,12 @@ class VisitorIdManagerWrapperTests {
         val visitorStorage = mockk<VisitorStorage>(relaxed = true)
         every { visitorStorage.visitorId } returns STORED_VISITOR_ID
         val module = VisitorIdModule(
-            VisitorIdStorageImpl(
-                visitorStorage,
-                VisitorIdStorageImpl.VisitorIdMigratorImpl(),
-                null,
-                SystemLogger
-            ),
+            visitorStorage,
+            VisitorIdMigratorImpl(),
+            null,
+            createStoreProvider(config).getModuleStore(Modules.Types.DATA_LAYER),
             VisitorIdConfiguration(null),
-            createStoreProvider(config).getModuleStore(Modules.Types.DATA_LAYER)
+            SystemLogger
         )
         return ThrowingStorageFixture(createWrapper(module), visitorStorage)
     }

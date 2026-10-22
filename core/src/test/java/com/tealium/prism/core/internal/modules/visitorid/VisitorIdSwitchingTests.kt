@@ -5,7 +5,7 @@ import com.tealium.prism.core.api.TealiumConfig
 import com.tealium.prism.core.api.persistence.DataStore
 import com.tealium.prism.core.api.persistence.Expiry
 import com.tealium.prism.core.internal.persistence.ModuleStoreProviderImpl
-import com.tealium.prism.core.internal.persistence.VisitorIdStorageImpl
+import com.tealium.prism.core.internal.persistence.VisitorIdMigratorImpl
 import com.tealium.prism.core.internal.persistence.database.InMemoryDatabaseProvider
 import com.tealium.prism.core.internal.persistence.database.getTimestamp
 import com.tealium.prism.core.internal.persistence.repositories.ModulesRepository
@@ -319,9 +319,12 @@ class VisitorIdSwitchingTests {
             .throws(RuntimeException("Simulated write failure"))
             .andThenAnswer { callOriginal() }
         val module = VisitorIdModule(
-            VisitorIdStorageImpl(failOnceStorage, VisitorIdStorageImpl.VisitorIdMigratorImpl(), null, SystemLogger),
+            failOnceStorage,
+            VisitorIdMigratorImpl(),
+            null,
+            dataLayer,
             VisitorIdConfiguration(IDENTITY_KEY),
-            dataLayer
+            SystemLogger
         )
         login("a@example.com") // a in -> v1 used in memory, not stored
         assertEquals("v1", module.visitorId.value)
@@ -331,9 +334,12 @@ class VisitorIdSwitchingTests {
     }
 
     private fun createModule(): VisitorIdModule = VisitorIdModule(
-        VisitorIdStorageImpl(config, visitorStore, SystemLogger),
+        VisitorStorageImpl(visitorStore),
+        VisitorIdMigratorImpl(),
+        config.existingVisitorId,
+        dataLayer,
         VisitorIdConfiguration(IDENTITY_KEY),
-        dataLayer
+        SystemLogger
     )
 
     private fun login(identity: String) {

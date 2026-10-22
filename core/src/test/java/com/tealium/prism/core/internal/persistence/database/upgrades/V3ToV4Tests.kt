@@ -11,8 +11,10 @@ import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.persistence.DataStore
 import com.tealium.prism.core.internal.logger.LogCategory
+import com.tealium.prism.core.internal.modules.visitorid.VisitorIdConfiguration
+import com.tealium.prism.core.internal.modules.visitorid.VisitorIdModule
 import com.tealium.prism.core.internal.persistence.ModuleStoreProviderImpl
-import com.tealium.prism.core.internal.persistence.VisitorIdStorageImpl
+import com.tealium.prism.core.internal.persistence.VisitorIdMigratorImpl
 import com.tealium.prism.core.internal.persistence.database.DatabaseHelper
 import com.tealium.prism.core.internal.persistence.database.DatabaseProvider
 import com.tealium.prism.core.internal.persistence.database.DatabaseUpgradeException
@@ -461,7 +463,7 @@ class V3ToV4Tests {
     }
 
     /**
-     * End to end: [VisitorIdStorageImpl] built over the `VisitorId` store that holds the moved rows
+     * End to end: [VisitorIdModule] built over the `VisitorId` store that holds the moved rows
      * resolves an identity whose association was carried over by the upgrade back to its previous
      * visitor id. `identify` hashes the raw identity through the live, lower-case [sha256], and the
      * lookup only matches because the upgrade lower-cased the same digest when it moved the
@@ -472,17 +474,20 @@ class V3ToV4Tests {
         createV3Database(dbPath) { seedPopulatedSharedStore() }
 
         openUpgraded { _, db ->
-            val visitorIdStorage = VisitorIdStorageImpl(
+            val visitorIdModule = VisitorIdModule(
                 visitorStorage = VisitorStorageImpl(db.visitorIdStore()),
-                migrator = VisitorIdStorageImpl.VisitorIdMigratorImpl(),
+                migrator = VisitorIdMigratorImpl(),
+                existingVisitorId = null,
+                dataLayer = mockk(relaxed = true),
+                configuration = VisitorIdConfiguration(visitorIdentityKey = null),
                 logger = SystemLogger
             )
-            assertEquals(VISITOR_ID_1, visitorIdStorage.visitorId.value)
+            assertEquals(VISITOR_ID_1, visitorIdModule.visitorId.value)
 
             // "identity_b" was associated with VISITOR_ID_0 before the upgrade, as hashB
-            visitorIdStorage.identify("identity_b")
+            visitorIdModule.identify("identity_b")
 
-            assertEquals(VISITOR_ID_0, visitorIdStorage.visitorId.value)
+            assertEquals(VISITOR_ID_0, visitorIdModule.visitorId.value)
         }
     }
 
