@@ -2,17 +2,35 @@ name: Kotlin
 
 on: [pull_request]
 
+# A new push to a PR cancels that PR's older run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# These jobs only restore the CI caches; ci-cache-warm.yml (on dev) fills them by building what the Gradle steps here
+# build. When you change a Gradle command here, update its "Build what the PR jobs build" step too.
 jobs:
   unit-test:
     name: Setup Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       unit-tests: ${{ steps.unit-test-modules.outputs.unit-tests }}
-      inst-tests: ${{ steps.inst-test-modules.outputs.inst-tests }}
     env:
       CI_TASKS_ENABLED: true
     steps:
-      - uses: actions/checkout@v4
+      # Runner image version for every measured job: the image changes between runners even with the label pinned.
+      - name: Runner image
+        run: echo "$ImageOS $ImageVersion" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Offline: fails if .github/robolectric/ is stale for the catalog's Robolectric version or the test sources'
+      # @Config levels (an unused listed level is only a warning).
+      - name: Check the Robolectric jar lists
+        run: python3 -I .github/scripts/update_robolectric_jars.py --check
 
       - name: Setup Android
         uses: ./.github/actions/android-setup
@@ -20,79 +38,203 @@ jobs:
       - name: Fetch base branch
         uses: ./.github/actions/fetch-base
 
+      # Downloads and unzips the Gradle distribution if it wasn't restored, in its own step, so the first build's phase
+      # timings don't include it (starts no daemon).
+      - name: Gradle distribution
+        run: ./gradlew --version
+
       - name: Build
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleDebug -I .github/scripts/phases.init.gradle.kts
 
       - name: Get Updated Modules For Unit Tests
         id: unit-test-modules
         run:  echo "unit-tests=$(./gradlew -q updatedUnitTestModules)" >> "$GITHUB_OUTPUT"
 
-      - name: Get Updated Modules For Instrumented Tests
-        id: inst-test-modules
-        run:  echo "inst-tests=$(./gradlew -q updatedInstrumentedTestModules)" >> "$GITHUB_OUTPUT"
+      # Robolectric runs offline from this folder (see TealiumLibraryPlugin). GITHUB_ENV: the runner context isn't
+      # available in a job-level env.
+      - name: Robolectric jar folder
+        run: echo "ROBOLECTRIC_DEPENDENCY_DIR=$RUNNER_TEMP/robolectric-jars" >> "$GITHUB_ENV"
+
+      # ROBOLECTRIC_REPO: see robolectric_prefetch.sh
+      - name: Prefetch Robolectric jars
+        if: ${{ steps.unit-test-modules.outputs.unit-tests != '' }}
+        timeout-minutes: 15
+        env:
+          ROBOLECTRIC_REPO: ${{ vars.ROBOLECTRIC_REPO }}
+        run: bash .github/scripts/robolectric_prefetch.sh
 
       - name: Unit tests
         if: ${{ steps.unit-test-modules.outputs.unit-tests != '' }}
-        run: ./gradlew testModifiedDebugUnitTest -PMODIFIED_PROJECTS=${{ steps.unit-test-modules.outputs.unit-tests }}
+        env:
+          UNIT_MODULES: ${{ steps.unit-test-modules.outputs.unit-tests }}
+        run: ./gradlew testModifiedDebugUnitTest -PMODIFIED_PROJECTS="$UNIT_MODULES" -I .github/scripts/phases.init.gradle.kts
+
+      - name: Gradle phase summary
+        if: ${{ always() }}
+        run: python3 -I .github/scripts/phases_summary.py
 
       - uses: ./.github/actions/upload-reports
         if: ${{ always() }}
         with:
           artifact-name: Reports-Unit-Tests
   instrumented-test:
-    needs: unit-test
     name: Run Instrumented Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         api-level: [ 23, 33 ]
-    if: ${{ needs.unit-test.outputs.inst-tests != '' }}
+    timeout-minutes: 30
     env:
       CI_TASKS_ENABLED: true
+      AVD_TARGET: default # single source of truth for the sdkmanager install and the emulator action's target/arch
+      AVD_ARCH: x86_64
     steps:
-      - uses: actions/checkout@v4
+      # Runner image version for every measured job: the image changes between runners even with the label pinned.
+      - name: Runner image
+        run: echo "$ImageOS $ImageVersion" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Starts right after checkout (it needs the script), in the background: the download overlaps android-setup,
+      # module detection and the APK build. The "Wait for the SDK package download" step below joins it. Details
+      # and the files it writes: sdk_install.sh. The emulator is installed first (AGP reads its package.xml as a
+      # configuration-cache input), then the platform and system image.
+      - name: Start SDK package download (emulator, platform, system image)
+        env:
+          API_LEVEL: ${{ matrix.api-level }}
+        run: bash .github/scripts/sdk_install.sh start "$API_LEVEL"
 
       - uses: ./.github/actions/android-setup
 
       - uses: ./.github/actions/fetch-base
 
-      - name: Enable KVM group perms
+      # Downloads and unzips the Gradle distribution if it wasn't restored, in its own step, so the first build's phase
+      # timings don't include it (starts no daemon).
+      - name: Gradle distribution
+        run: ./gradlew --version
+
+      # Selected in this job (not by the unit job) so the emulators don't wait for the unit job to finish. Every later
+      # step is skipped when no instrumented-test module changed.
+      - name: Get Updated Modules For Instrumented Tests
+        id: inst-modules
+        run: echo "modules=$(./gradlew -q updatedInstrumentedTestModules)" >> "$GITHUB_OUTPUT"
+
+      # Fails here, with a clear message, if the runner has no usable /dev/kvm: without it the emulator would run
+      # without hardware acceleration (see -accel on below). `udevadm settle` waits until the rule has been applied
+      # before the permissions are checked.
+      - name: Enable and verify KVM permissions
+        if: ${{ steps.inst-modules.outputs.modules != '' }}
         run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          test -c /dev/kvm || { echo "::error::No /dev/kvm on this runner"; exit 1; }
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules > /dev/null
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+          sudo udevadm settle
+          test -r /dev/kvm && test -w /dev/kvm || { echo "::error::/dev/kvm is not readable and writable"; exit 1; }
 
-      - name: AVD cache
-        uses: actions/cache@v4
-        id: avd-cache
-        with:
-          path: |
-            ~/.android/avd/*
-            ~/.android/adb*
-          key: avd-${{ matrix.api-level }}
+      # Runs the emulator step's exact Gradle command with CI_SKIP_DEVICE_TESTS=1, which skips the connected tasks (see
+      # TealiumGradlePlugin), builds the test APKs and stores the configuration cache entry; the emulator step's
+      # identical command (without the variable) then reuses the entry and finds the APKs up to date, so it only
+      # installs and runs the tests. Only the download is overlapped, not the build with the emulator *boot*: that is
+      # slower.
+      - name: Build test APKs (connected tasks skipped)
+        if: ${{ steps.inst-modules.outputs.modules != '' }}
+        env:
+          INST_MODULES: ${{ steps.inst-modules.outputs.modules }}
+        run: |
+          echo "gradle start $(date +%s)"
+          CI_SKIP_DEVICE_TESTS=1 ./gradlew testModifiedDebugInstrumentedTest -PMODIFIED_PROJECTS="$INST_MODULES" -I .github/scripts/phases.init.gradle.kts
+          echo "gradle end $(date +%s)"
 
-      - name: Create AVD and generate snapshot for caching
-        if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: ${{ matrix.api-level }}
-          arch: x86_64
-          force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          disable-animations: false
-          script: echo "Generated AVD snapshot for caching."
+      # Bounded (300 s from the start of this step, i.e. after the build); prints the sdkmanager log on failure.
+      - name: Wait for the SDK package download
+        if: ${{ steps.inst-modules.outputs.modules != '' }}
+        run: bash .github/scripts/sdk_install.sh wait 300
 
+      # Makes room only if needed, and fails fast; the 9000 MB threshold is explained in ensure_free_disk.sh.
+      - name: Ensure 9000 MB free for the emulator
+        if: ${{ steps.inst-modules.outputs.modules != '' }}
+        env:
+          API_LEVEL: ${{ matrix.api-level }}
+        run: bash .github/scripts/ensure_free_disk.sh 9000
+
+      # Inputs and options (emulator-options is a folded scalar, so it can't carry inline comments):
+      # - No AVD cache: per-PR scope made it a net loss; revisit via the dev cache writer. Each run creates a fresh
+      #   AVD and cold-boots it (-no-snapshot: no snapshot load or save).
+      # - No disk-size: below 6 GiB it is ignored on API >= 24 (the emulator forces that minimum), and on API 23 a
+      #   larger partition only raises the free space needed.
+      # - emulator-boot-timeout is a backstop: boots take 25-39 s, and a dead emulator otherwise costs the action's
+      #   default 600 s.
+      # - disable-linux-hw-accel: false plus `-accel on`: use KVM or fail, never fall back to software emulation.
+      # - -no-metrics (named in the emulator's banner, not in the public docs): avoids its upcoming blocking
+      #   metrics-consent prompt. -gpu software: the current software renderer (swiftshader_indirect is deprecated).
       - name: Run Instrumented tests
-        uses: reactivecircus/android-emulator-runner@v2
+        if: ${{ steps.inst-modules.outputs.modules != '' }}
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          INST_MODULES: ${{ steps.inst-modules.outputs.modules }}
         with:
           api-level: ${{ matrix.api-level }}
-          arch: x86_64
-          force-avd-creation: false
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          target: ${{ env.AVD_TARGET }}
+          arch: ${{ env.AVD_ARCH }}
+          disable-linux-hw-accel: false
+          emulator-boot-timeout: 180
+          # Pre-initialised data partition so the emulator skips its first-time setup; the rationale is in the script.
+          # `|| true`: it cannot fail the step (each line runs as its own sh -c).
+          pre-emulator-launch-script: |
+            df -h / && df -i /
+            bash .github/scripts/avd_prefill_userdata.sh || true
+          emulator-options: >-
+            -accel on
+            -no-metrics
+            -no-window
+            -gpu software
+            -noaudio
+            -no-boot-anim
+            -no-snapshot
+            -camera-back none
           disable-animations: true
-          script: ./gradlew testModifiedDebugInstrumentedTest -PMODIFIED_PROJECTS=${{ needs.unit-test.outputs.inst-tests }}
+          # The action runs the script line by line (each through sh -c); adb is on its PATH. A failing line aborts the
+          # rest, so the logcat dump is on the Gradle line: it is captured whatever Gradle's exit code is, which is then
+          # returned. The ring buffer is enlarged first so a long run keeps its early lines; the artifact step uploads it
+          # with the sdkmanager log.
+          script: |
+            test -z "${CI_SKIP_DEVICE_TESTS:-}" || { echo "::error::CI_SKIP_DEVICE_TESTS must not be set in the emulator step"; exit 1; }
+            adb logcat -G 16M || true
+            ./gradlew testModifiedDebugInstrumentedTest -PMODIFIED_PROJECTS="$INST_MODULES" -I .github/scripts/phases.init.gradle.kts; rc=$?; adb logcat -d -v threadtime > "$RUNNER_TEMP/logcat.txt" 2>&1; exit $rc
+
+      # The build step skips the connected tasks on purpose; fail if the emulator step skipped them too. Judged on the
+      # task outcomes in the phases file (the emulator step's Gradle build is the last one so far), not on test counts:
+      # a module without androidTest sources runs its connected task with no tests and writes no results, and passes.
+      - name: Check that the connected tasks ran
+        if: ${{ steps.inst-modules.outputs.modules != '' }}
+        run: |
+          tsv="$RUNNER_TEMP/gradle-phases.tsv"  # columns: kind id name start end outcome detail (see phases.init.gradle.kts)
+          run=$(awk -F'\t' '$1 == "task" { r = $2 } END { print r }' "$tsv")
+          connected=$(awk -F'\t' -v r="$run" '$1 == "task" && $2 == r && $3 ~ /:connected[A-Za-z]*AndroidTest$/ { print $3, $6 }' "$tsv")
+          echo "${connected:-no connected task in the last Gradle build}"
+          if [ -z "$connected" ] || grep -qw skipped <<< "$connected"; then
+            echo "::error::The emulator step didn't run every connected task (is CI_SKIP_DEVICE_TESTS set there?)"
+            exit 1
+          fi
+
+      # The sdkmanager log always (it times the install), the logcat only exists when the emulator step ran.
+      - name: Upload CI logs
+        if: ${{ always() && steps.inst-modules.outputs.modules != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ci-logs-${{ matrix.api-level }}
+          path: |
+            ${{ runner.temp }}/sdk-install.log
+            ${{ runner.temp }}/logcat.txt
+          if-no-files-found: ignore
+
+      - name: Gradle phase summary
+        if: ${{ always() && steps.inst-modules.outputs.modules != '' }}
+        run: python3 -I .github/scripts/phases_summary.py
 
       - uses: ./.github/actions/upload-reports
-        if: ${{ always() }}
+        if: ${{ always() && steps.inst-modules.outputs.modules != '' }}
         with:
           artifact-name: Reports-${{ matrix.api-level }}

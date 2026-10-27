@@ -14,12 +14,16 @@ import org.gradle.api.Project
 import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.api.file.Directory
 import org.gradle.api.file.FileCollection
+import org.gradle.api.provider.Provider
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.testing.Test
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.kotlin.dsl.apply
 import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.support.uppercaseFirstChar
+import org.gradle.kotlin.dsl.withType
+import org.gradle.process.CommandLineArgumentProvider
 import org.gradle.testing.jacoco.plugins.JacocoPlugin
 import org.gradle.testing.jacoco.plugins.JacocoPluginExtension
 import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
@@ -43,6 +47,7 @@ class TealiumLibraryPlugin : Plugin<Project> {
             apply<TealiumPublishPlugin>()
 
             configureJacocoPlugin()
+            configureTestTasks()
             configureAndroidExtensions()
             configureDefaultDependencies()
         }
@@ -60,7 +65,7 @@ class TealiumLibraryPlugin : Plugin<Project> {
         val android = extensions.getByType<LibraryExtension>()
         val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
         android.compileSdk = libs.findVersion("compileSdk").get().requiredVersion.toInt()
-        android.defaultConfig.minSdk = libs.findVersion("minSdk").get().requiredVersion.toInt()
+        android.defaultConfig.minSdk = catalogMinSdk()
 
         configureLanguageDefaults(android)
         configurePublishingVariant(android)
@@ -143,15 +148,47 @@ class TealiumLibraryPlugin : Plugin<Project> {
         val jacoco = extensions.getByType<JacocoPluginExtension>()
         jacoco.toolVersion = "0.8.7"
 
-        tasks.withType(Test::class.java) {
+        tasks.withType<Test>().configureEach {
             val jacocoTask = extensions.getByType(JacocoTaskExtension::class.java)
             jacocoTask.isIncludeNoLocationClasses = true
             jacocoTask.excludes = listOf("jdk.internal.*")
+        }
+    }
 
+    /**
+     * Configures every [Test] task's JVM: failure logging and Robolectric's offline jar folder.
+     */
+    private fun Project.configureTestTasks() {
+        tasks.withType<Test>().configureEach {
             testLogging {
                 exceptionFormat = TestExceptionFormat.FULL
             }
+
+            jvmArgumentProviders.add(
+                RobolectricOfflineArguments(providers.environmentVariable(ROBOLECTRIC_DEPENDENCY_DIR))
+            )
         }
+    }
+
+    /**
+     * CI only: when [ROBOLECTRIC_DEPENDENCY_DIR] is set, the test JVMs get `-Drobolectric.offline=true` and
+     * `-Drobolectric.dependency.dir=<path>`, so Robolectric loads its android-all jars only from that folder
+     * (prefetched by `.github/scripts/robolectric_prefetch.sh`) and never downloads them; a missing jar fails
+     * the test. Unset, the test JVMs get no extra argument.
+     *
+     * `offline` is redundant in Robolectric 4.13 (`LegacyDependencyResolver` already picks the local resolver
+     * when the folder is set), but guards against a future Robolectric that requires it
+     * (robolectric/robolectric#11439, not merged).
+     *
+     * The path is [Internal], so it isn't part of the test task's build-cache key: the jars are implied
+     * by the Robolectric version on the test classpath.
+     */
+    private class RobolectricOfflineArguments(
+        @get:Internal val dir: Provider<String>
+    ) : CommandLineArgumentProvider {
+        override fun asArguments(): Iterable<String> =
+            dir.map { listOf("-Drobolectric.offline=true", "-Drobolectric.dependency.dir=$it") }
+                .getOrElse(emptyList())
     }
 
     /**
@@ -266,8 +303,14 @@ class TealiumLibraryPlugin : Plugin<Project> {
         return JacocoConfig(exclusions, jacocoSourceDirectories, jacocoExecutionData)
     }
 
+    private fun Project.catalogMinSdk(): Int =
+        extensions.getByType<VersionCatalogsExtension>().named("libs")
+            .findVersion("minSdk").get().requiredVersion.toInt()
+
     private fun Project.configureDefaultDependencies() {
         dependencies.add("lintChecks", project(":lint"))
+        // Shared test helpers, and the Robolectric default-SDK provider every module's unit tests need.
+        dependencies.add("testImplementation", project(":tests-common"))
     }
 
     private class JacocoConfig(
@@ -275,4 +318,8 @@ class TealiumLibraryPlugin : Plugin<Project> {
         val sourceDirectory: Directory,
         val executionData: FileCollection
     )
+
+    private companion object {
+        const val ROBOLECTRIC_DEPENDENCY_DIR = "ROBOLECTRIC_DEPENDENCY_DIR"
+    }
 }

@@ -1,0 +1,47 @@
+# The only workflow that saves CI caches. It runs on pushes to dev, plus manual dispatch, so pull_request runs (which
+# only restore, see android-setup's cache input) read dev's entries. An entry expires 7 days after its last access and
+# every PR restore is an access, so normal PR and dev activity keeps the entries alive. After a week with no PR and no
+# push to dev, the next push to dev, or a manual dispatch from dev, re-seeds them. The public mirror has no dev branch,
+# so nothing runs there.
+name: Warm CI caches
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+jobs:
+  warm:
+    runs-on: ubuntu-24.04
+    # A newer run of this job cancels the older one.
+    concurrency:
+      group: ci-cache-warm-gradle
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Android
+        uses: ./.github/actions/android-setup
+        with:
+          cache: write
+
+      # Builds what the PR jobs (kotlin-unit-tests.yml) build, without running a test, so their dependencies, artifact
+      # transforms (dexing, JaCoCo instrumentation, mockable android.jar), build-cache entries and compiled build
+      # scripts are used here and survive setup-gradle's cleanup:
+      #   assembleDebug            = the unit job's Build step
+      #   testDebugUnitTest        = behind testModifiedDebugUnitTest (cache-warm.init.gradle.kts selects no tests)
+      #   assembleDebugAndroidTest = everything connectedDebugAndroidTest builds before it needs a device
+      # The PR jobs' Gradle work must stay mirrored here: when a PR job gains a Gradle task, add it.
+      # One invocation on purpose: a second, identical one would hit the configuration cache, and a hit makes
+      # setup-gradle skip its cleanup for the whole job. --continue: a compile error in one module still leaves the
+      # others' outputs; on a failed build setup-gradle skips cleanup but still saves, and the next green run prunes.
+      - name: Build what the PR jobs build (no tests run)
+        run: >-
+          ./gradlew --continue
+          -I .github/scripts/phases.init.gradle.kts
+          -I .github/scripts/cache-warm.init.gradle.kts
+          assembleDebug assembleDebugAndroidTest testDebugUnitTest
+
+      - name: Gradle phase summary
+        if: ${{ always() }}
+        run: python3 -I .github/scripts/phases_summary.py

@@ -15,6 +15,13 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles.add(file("consumer-rules.pro"))
+
+        // Read by RobolectricDefaultSdk: the default API level of every module's Robolectric tests.
+        buildConfigField("int", "ROBOLECTRIC_DEFAULT_SDK", libs.versions.minSdk.get().toInt().toString())
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     compileOptions {
@@ -35,4 +42,5 @@ dependencies {
     implementation(project(":core"))
     compileOnly(libs.test.mockk.jvm)
     compileOnly(libs.test.junit)
+    compileOnly(libs.test.robolectric)
 }

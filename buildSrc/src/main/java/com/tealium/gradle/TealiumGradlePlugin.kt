@@ -149,6 +149,18 @@ class TealiumGradlePlugin : Plugin<Project> {
                 dependsOn.addAll(modifiedProjects.taskNames(testType.taskName(variant)))
             }
         }
+
+        // CI builds the emulator step's exact command once before the emulator boots, with CI_SKIP_DEVICE_TESTS=1: the
+        // connected tasks are skipped, everything they depend on is built, and the configuration cache entry is stored
+        // for the emulator step to reuse. The skip is opt-in, so a run without the variable always runs the tests. The
+        // variable is read only when the task is about to run, so it isn't a configuration cache input.
+        val skipDeviceTests = providers.environmentVariable("CI_SKIP_DEVICE_TESTS")
+        val connectedTaskName = TestType.InstrumentedTest.taskName(variant)
+        modifiedProjects.forEach { modified ->
+            modified.tasks.named { it == connectedTaskName }.configureEach {
+                onlyIf("CI_SKIP_DEVICE_TESTS is not 1") { skipDeviceTests.orNull != "1" }
+            }
+        }
     }
 
     /**

@@ -24,7 +24,6 @@ dependencies {
 
     implementation(libs.rhino)
 
-    testImplementation(project(":tests-common"))
     testImplementation(libs.test.junit)
     testImplementation(libs.test.mockk.jvm)
     testImplementation(libs.test.robolectric)

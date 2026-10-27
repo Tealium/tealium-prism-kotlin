@@ -36,7 +36,6 @@ dependencies {
     api(libs.kotlinx.coroutines.core)
     api(libs.kotlinx.coroutines.android)
 
-    testImplementation(project(":tests-common"))
     testImplementation(libs.test.androidx.core)
     testImplementation(libs.test.junit)
     testImplementation(libs.test.kotlinx.coroutines)

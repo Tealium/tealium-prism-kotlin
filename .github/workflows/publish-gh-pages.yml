@@ -17,14 +17,16 @@ jobs:
   # Build job
   build:
     # Specify runner +  build & upload the static files as an artifact
-    runs-on: 'ubuntu-latest'
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: "Setup Android"
         uses: ./.github/actions/android-setup
+        with:
+          cache: 'off' # publishing builds cold: no restored Gradle state, nothing saved
 
       - name: "Build documentation"
         id: build
@@ -32,7 +34,7 @@ jobs:
 
       - name: "Upload static files as artifact"
         id: upload-artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: docs/build/dokka/html
 
@@ -40,7 +42,7 @@ jobs:
         run: ./gradlew :docs:dokkaGenerate -PDOKKA_TEMPLATES_DIR=docs-tealium-com
 
       - name: "Push to gh-pages branch"
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
@@ -58,9 +60,9 @@ jobs:
     permissions:
       pages: write      # to deploy to Pages
       id-token: write   # to verify the deployment originates from an appropriate source
-    runs-on: 'ubuntu-latest'
+    runs-on: ubuntu-24.04
     needs: build
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

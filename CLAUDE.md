@@ -106,6 +106,8 @@ these to coroutines/Flow.
 
 Tests use JUnit 4 + MockK + Robolectric.
 
+Robolectric tests without `@Config(sdk = ...)` run on the catalog `minSdk`, set by `RobolectricDefaultSdk` in `tests-common` (the value comes from the catalog `minSdk`, via `tests-common`'s `BuildConfig`). CI downloads only the API levels in `.github/robolectric/levels.txt`: after adding a new `@Config(sdk = ...)` level, regenerate it with `python3 -I .github/scripts/update_robolectric_jars.py`.
+
 **Naming convention:** `<methodName>_Does_Something_When_Some_Condition`
 
 **Schedulers:**

@@ -25,7 +25,6 @@ dependencies {
     testImplementation(libs.test.junit)
     testImplementation(libs.test.mockk.jvm)
     testImplementation(libs.test.robolectric)
-    testImplementation(project(":tests-common"))
 
     androidTestImplementation(libs.test.androidx.junit)
 }

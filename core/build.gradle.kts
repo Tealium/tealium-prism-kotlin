@@ -40,7 +40,6 @@ dependencies {
 
     implementation(libs.androidx.annotations)
 
-    testImplementation(project(":tests-common"))
     testImplementation(libs.test.androidx.core)
     testImplementation(libs.test.junit)
     testImplementation(libs.test.kotlinx.coroutines)
