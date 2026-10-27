@@ -12,7 +12,10 @@ interface Dispatcher : Module {
 
     /**
      * Sets the maximum number of [Dispatch]es that can safely be processed by the [dispatch] implementation.
-     * Default is 1
+     * Default is 1.
+     *
+     * A batch is also capped at the dispatch manager's in-flight threshold (50), and values below 1
+     * are treated as 1.
      */
     val dispatchLimit: Int
         get() = 1

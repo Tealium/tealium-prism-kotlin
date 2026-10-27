@@ -268,8 +268,18 @@ interface Observable<T> : Subscribable<T> {
     /**
      * Returns an observable that will continually resubscribe until the [predicate] returns false.
      *
+     * **Warning:** known issues, so it shouldn't be relied upon:
+     *  - a source that emits synchronously on subscription resubscribes recursively, one level per
+     *  emission, and so can overflow the stack;
+     *  - disposing the subscription while an emission is being delivered downstream still
+     *  resubscribes once to the source.
+     *
      * @param predicate The test to decide when to stop subscribing.
      */
+    @Deprecated(
+        "No longer used by the SDK. It will be removed in a future version.",
+        level = DeprecationLevel.WARNING
+    )
     fun resubscribingWhile(predicate: (T) -> Boolean): Observable<T> {
         return ResubscribingObservable(this, predicate)
     }

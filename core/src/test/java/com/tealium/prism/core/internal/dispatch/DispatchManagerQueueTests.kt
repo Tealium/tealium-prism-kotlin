@@ -1,6 +1,7 @@
 package com.tealium.prism.core.internal.dispatch
 
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
@@ -12,6 +13,8 @@ import io.mockk.verify
 import org.junit.Test
 
 class DispatchManagerQueueTests : DispatchManagerTestsBase() {
+
+    override val dispatchScheduler: Scheduler get() = scheduler
 
     private val dispatch3: Dispatch =
         Dispatch.create("test3", DispatchType.Event, DataObject.EMPTY_OBJECT)
@@ -46,8 +49,10 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
             dispatch5,
         )
 
+        dispatchManager = createDispatchManager(scheduler = manualScheduler)
         scheduler.execute {
             dispatchManager.startDispatchLoop()
+            manualScheduler.runAll() // drain the queued batches before dispatch1 is tracked again
             dispatchManager.track(dispatch1)
         }
 

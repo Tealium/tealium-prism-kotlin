@@ -9,6 +9,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
+@Suppress("DEPRECATION")
 class ResubscribingObservableTests {
 
     private lateinit var observer: Observer<Int>

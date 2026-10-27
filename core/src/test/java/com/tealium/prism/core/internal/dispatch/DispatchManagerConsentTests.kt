@@ -140,6 +140,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
         )
 
         dispatchManager.startDispatchLoop()
+        manualScheduler.runAll() // run the follow-up dequeue requested by the first full batch
 
         verify {
             dispatcher1.dispatch(listOf(dispatch1), any())
@@ -193,6 +194,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
         )
 
         dispatchManager.startDispatchLoop()
+        manualScheduler.runAll() // run the follow-up dequeue requested by the first full batch
 
         verify {
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
@@ -229,6 +231,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
         )
 
         dispatchManager.startDispatchLoop()
+        manualScheduler.runAll() // run the follow-up dequeue requested by the first full batch
 
         verify(timeout = 1000) {
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
@@ -261,6 +264,7 @@ class DispatchManagerConsentTests : DispatchManagerTestsBase() {
         )
 
         dispatchManager.startDispatchLoop()
+        manualScheduler.runAll() // run the follow-up dequeue requested by the first full batch
 
         verify {
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)

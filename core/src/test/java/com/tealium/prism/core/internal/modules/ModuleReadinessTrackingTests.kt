@@ -25,6 +25,7 @@ import com.tealium.tests.common.TestCollector
 import com.tealium.tests.common.TestDispatcher
 import com.tealium.tests.common.TestModule
 import com.tealium.tests.common.TestModuleFactory
+import com.tealium.tests.common.ManualScheduler
 import com.tealium.tests.common.ModuleSettingRow
 import com.tealium.tests.common.getDefaultConfig
 import com.tealium.tests.common.settingsPass
@@ -107,7 +108,8 @@ class ModuleReadinessTrackingTests {
             loadRuleEngine = loadRuleEngine,
             mappingsEngine = mappingsEngine,
             consentManager = null,
-            logger = SystemLogger
+            logger = SystemLogger,
+            scheduler = ManualScheduler()
         )
 
         // Mirrors the TealiumImpl wiring exactly: TrackerImpl must consume the gated stream, not the

@@ -15,6 +15,7 @@ import com.tealium.prism.core.api.network.RetryPolicy.DoNotRetry
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.internal.logger.LogCategory
+import com.tealium.prism.core.internal.misc.async
 import java.util.concurrent.TimeUnit
 import kotlin.math.max
 
@@ -223,11 +224,9 @@ private fun <T> waitForEvent(
         .subscribe {
             if (!holder.isDisposed) {
                 // never retry inline: an event that emits during the subscription would otherwise
-                // retry inside wait(), before the loop stores the wait. A delayed task, even with
-                // no delay, always runs on a later turn
-                holder.scheduledTask = scheduler.schedule(TimeFrame(0, TimeUnit.MILLISECONDS)) {
-                    retry()
-                }
+                // retry inside wait(), before the loop stores the wait. `async` always runs on a
+                // later turn
+                holder.scheduledTask = scheduler.async { retry() }
             }
         }
 

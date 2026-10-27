@@ -49,6 +49,7 @@ class DispatchManagerBarrierTests : DispatchManagerTestsBase() {
         queue[dispatcher1.id] = mutableSetOf(dispatch1, dispatch2)
 
         barrierFlow.onNext(BarrierState.Open)
+        manualScheduler.runAll() // run the follow-up dequeue requested by the first full batch
 
         verify(timeout = 5000) {
             dispatcher1.dispatch(listOf(dispatch1), any())

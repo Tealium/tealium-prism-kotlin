@@ -25,6 +25,7 @@ import com.tealium.prism.core.internal.persistence.repositories.VolatileQueueRep
 import com.tealium.prism.core.internal.modules.sameModules
 import com.tealium.prism.core.internal.rules.LoadRuleEngine
 import com.tealium.prism.core.internal.settings.CoreSettingsImpl
+import com.tealium.tests.common.ManualScheduler
 import com.tealium.tests.common.SystemLogger
 import com.tealium.tests.common.TestDispatcher
 import com.tealium.tests.common.TestTransformer
@@ -51,6 +52,12 @@ open class DispatchManagerTestsBase {
     protected var consentManager: ConsentManager? = null
     protected lateinit var logger: Logger
     protected lateinit var scheduler: Scheduler
+
+    /**
+     * The default scheduler of the [DispatchManagerImpl]s created by [createDispatchManager]: the
+     * dequeues that follow a full batch only run when a test drains it.
+     */
+    protected lateinit var manualScheduler: ManualScheduler
     protected lateinit var dispatcher1Name: String
     protected lateinit var dispatcher2Name: String
     protected lateinit var dispatcher1: Dispatcher
@@ -88,6 +95,7 @@ open class DispatchManagerTestsBase {
 
         logger = SystemLogger
         scheduler = testTealiumScheduler
+        manualScheduler = ManualScheduler()
 
         // Two available test dispatchers
         dispatcher1Name =
@@ -149,6 +157,9 @@ open class DispatchManagerTestsBase {
      * `ModuleManagerImpl.observeModules` applies, since [DispatchManagerImpl] relies on its source
      * de-duplicating by identity and order rather than doing it itself.
      */
+    /** The scheduler the [DispatchManagerImpl] created in [setUp] uses for follow-up dequeues. */
+    protected open val dispatchScheduler: Scheduler get() = manualScheduler
+
     protected fun createDispatchManager(
         onDispatchers: Observable<List<Dispatcher>> = this.dispatchers.distinct(::sameModules),
         barrierCoordinator: BarrierCoordinator = this.barrierCoordinator,
@@ -158,7 +169,8 @@ open class DispatchManagerTestsBase {
         mappingsEngine: MappingsEngine = this.mappingsEngine,
         consentManager: ConsentManager? = this.consentManager,
         logger: Logger = this.logger,
-        maxInFlight: Int = DispatchManagerImpl.MAXIMUM_INFLIGHT_EVENTS_PER_DISPATCHER
+        maxInFlight: Int = DispatchManagerImpl.MAXIMUM_INFLIGHT_EVENTS_PER_DISPATCHER,
+        scheduler: Scheduler = this.dispatchScheduler
     ): DispatchManagerImpl = DispatchManagerImpl(
         onDispatchers,
         barrierCoordinator,
@@ -168,7 +180,8 @@ open class DispatchManagerTestsBase {
         mappingsEngine,
         consentManager,
         logger,
-        maxInFlight
+        maxInFlight,
+        scheduler
     )
 
     protected fun testDispatch(

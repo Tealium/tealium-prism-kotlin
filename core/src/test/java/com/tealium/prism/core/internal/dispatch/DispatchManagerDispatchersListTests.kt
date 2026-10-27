@@ -118,7 +118,7 @@ class DispatchManagerDispatchersListTests : DispatchManagerTestsBase() {
     @Test
     fun dispatchManager_Keeps_One_Dequeue_Loop_Per_Survivor_When_Modules_List_Changes() {
         dispatcher1 = spyk(
-            // dispatchLimit > 1 so a single queued dispatch doesn't spin the resubscribing loop, and
+            // dispatchLimit > 1 so a single queued dispatch isn't a full batch, which would request a follow-up dequeue, and
             // a handler that never completes so the dispatch stays in-flight during the measurement.
             TestDispatcher(dispatcher1Name, dispatchLimit = 2) { _, _ -> Subscription() }
         )

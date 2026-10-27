@@ -31,6 +31,8 @@ import java.util.concurrent.TimeUnit
 
 class DispatchManagerTrackTests : DispatchManagerTestsBase() {
 
+    override val dispatchScheduler: Scheduler get() = scheduler
+
     private val dispatch3: Dispatch =
         Dispatch.create("test3", DispatchType.Event, DataObject.EMPTY_OBJECT)
 

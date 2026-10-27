@@ -208,7 +208,8 @@ class TealiumImpl(
             loadRuleEngine = loadRuleEngine,
             mappingsEngine = mappingsEngine,
             consentManager = consentManager,
-            logger = logger
+            logger = logger,
+            scheduler = schedulers.tealium
         )
         tracker = TrackerImpl(
             moduleManager.observeModules(Collector::class.java),

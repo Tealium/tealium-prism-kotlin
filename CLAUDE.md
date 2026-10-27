@@ -98,9 +98,9 @@ dataObject.getDataObject("key")
 
 The SDK uses its **own** reactive primitives, **not RxJava or Kotlin Flow** — the names look Rx but
 the semantics are the SDK's own, so don't assume Rx behavior. Beyond the usual operators, note the
-non-obvious ones: `flatMapLatest`, `resubscribingWhile`, `distinct`, `asSingle`, and the
-`StateSubject` (holds latest value) / `ReplaySubject` (caches N) distinction. `core-ktx` bridges
-these to coroutines/Flow.
+non-obvious ones: `flatMapLatest`, `distinct`, `asSingle`, and the `StateSubject` (holds latest
+value) / `ReplaySubject` (caches N) distinction. `resubscribingWhile` is deprecated; don't use it
+in new code. `core-ktx` bridges these to coroutines/Flow.
 
 ## Testing
 
