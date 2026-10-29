@@ -29,7 +29,7 @@ class DispatchCommandsTests {
 
     @Test
     fun getCommands_Ignores_Blank_Commands() {
-        val dispatch = dispatchWithCommands("a", "  ", "", "b")
+        val dispatch = dispatchWithCommands("a", "  ", "", "\t\n", "b")
 
         assertEquals(listOf("a", "b"), dispatch.getCommands())
     }
@@ -45,14 +45,42 @@ class DispatchCommandsTests {
     fun getCommands_Removes_Duplicates_Differing_By_Case() {
         val dispatch = dispatchWithCommands("Log", "LOG", "log")
 
-        assertEquals(listOf("Log"), dispatch.getCommands())
+        assertEquals(listOf("log"), dispatch.getCommands())
     }
 
     @Test
     fun getCommands_Removes_Duplicates_Differing_By_Whitespace() {
-        val dispatch = dispatchWithCommands("log", "  log  ", "log\n")
+        val dispatch = dispatchWithCommands("  log  ", "log", "log\n")
 
         assertEquals(listOf("log"), dispatch.getCommands())
+    }
+
+    @Test
+    fun getCommands_Returns_Lowercased_Names() {
+        val dispatch = dispatchWithCommands("Log", "MY_Command")
+
+        assertEquals(listOf("log", "my_command"), dispatch.getCommands())
+    }
+
+    @Test
+    fun getCommands_Returns_Names_Trimmed_Of_Spaces_And_Tabs() {
+        val dispatch = dispatchWithCommands("  log  ", "\tview\t")
+
+        assertEquals(listOf("log", "view"), dispatch.getCommands())
+    }
+
+    @Test
+    fun getCommands_Returns_Names_Trimmed_Of_Newlines() {
+        val dispatch = dispatchWithCommands("log\n", "\r\nview")
+
+        assertEquals(listOf("log", "view"), dispatch.getCommands())
+    }
+
+    @Test
+    fun getCommands_Returns_Normalized_Names_When_Case_And_Whitespace_Are_Mixed() {
+        val dispatch = dispatchWithCommands(" \tLog\n", "VIEW ")
+
+        assertEquals(listOf("log", "view"), dispatch.getCommands())
     }
 
     @Test

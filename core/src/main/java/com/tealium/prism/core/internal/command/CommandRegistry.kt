@@ -18,6 +18,7 @@ internal class CommandRegistry(commands: List<Command>) {
     companion object {
         /**
          * The form of a command name used to match command names: trimmed of whitespace and lowercased.
+         * Applied to [Command.name] at registration and by `Dispatch.getCommands()`.
          */
         fun normalize(name: String): String = name.trim().lowercase()
     }
@@ -25,12 +26,16 @@ internal class CommandRegistry(commands: List<Command>) {
     private val commands: Map<String, Command> =
         commands.associate { normalize(it.name) to it }
 
+    /**
+     * Executes the command registered under [commandName], which must already be normalized with [normalize],
+     * as `Dispatch.getCommands()` returns it.
+     */
     fun execute(
         commandName: String,
         payload: DataObject,
         callback: Callback<TealiumResult<Unit>>
     ): Disposable {
-        val command = commands[normalize(commandName)]
+        val command = commands[commandName]
             ?: run {
                 callback.failure(CommandException.commandNotFound(commandName))
                 return Disposables.disposed()

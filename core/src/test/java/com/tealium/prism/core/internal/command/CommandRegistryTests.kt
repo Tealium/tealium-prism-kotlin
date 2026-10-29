@@ -29,21 +29,11 @@ class CommandRegistryTests {
     }
 
     @Test
-    fun registry_NormalizesName_CaseInsensitive() {
+    fun registry_ExecutesCommand_WhenRegisteredNameIsNotNormalized() {
         val command = TestCommand("My_Command")
         val registry = CommandRegistry(listOf(command))
 
-        registry.execute("MY_COMMAND", payload) { }
-
-        assertTrue(command.executeCalled)
-    }
-
-    @Test
-    fun registry_NormalizesName_TrimsWhitespace() {
-        val command = TestCommand("trimmed")
-        val registry = CommandRegistry(listOf(command))
-
-        registry.execute("  trimmed  ", payload) { }
+        registry.execute("my_command", payload) { }
 
         assertTrue(command.executeCalled)
     }
