@@ -5,7 +5,8 @@ import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.internal.pubsub.DisposableContainer
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Models an asynchronous task, in that the callback provided will signal that the task is completed
@@ -16,6 +17,9 @@ fun interface CompletableTask<T> {
     /**
      * The block of code to execute, prior to executing the given [onComplete] callback with the
      * result of the block.
+     *
+     * [onComplete] should be invoked exactly once, and may be invoked from any thread.
+     * [Tasks.execute] ignores any invocation after the first.
      *
      * @param onComplete the block of code to execute on completion.
      * @return A [Disposable] that cancels the task's in-progress work when disposed.
@@ -30,6 +34,8 @@ object Tasks {
 
     /**
      * Executes all given tasks, and then notifies the result using the given executor.
+     * [notify] is invoked at most once, after every task has signaled completion, unless the
+     * returned [Disposable] has been disposed first.
      * Resulting notification will be in the same order as the tasks were provided - although if any
      * tasks return a null result, then it will be omitted from the results.
      *
@@ -51,16 +57,18 @@ object Tasks {
 
         val container = DisposableContainer()
         val results = ConcurrentHashMap<Int, T>(completableTasks.size)
-        val latch = CountDownLatch(completableTasks.size)
+        val remaining = AtomicInteger(completableTasks.size)
 
         completableTasks.forEachIndexed { idx, task ->
+            val completed = AtomicBoolean(false)
             container.add(task.execute { result ->
+                if (!completed.compareAndSet(false, true)) return@execute
+
                 if (result != null) {
                     results[idx] = result
                 }
-                latch.countDown()
 
-                if (latch.count == 0L) {
+                if (remaining.decrementAndGet() == 0) {
                     val sorted = results.entries.sortedBy { it.key }.map { it.value }.toList()
                     notifyOn.execute {
                         if (!container.isDisposed) notify(sorted)

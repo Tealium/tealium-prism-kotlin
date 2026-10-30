@@ -1,19 +1,30 @@
 package com.tealium.prism.core.internal.dispatch
 
+import com.tealium.prism.core.api.misc.Scheduler
+import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.internal.misc.SingleThreadedScheduler
+import com.tealium.tests.common.race
 import com.tealium.tests.common.testTealiumScheduler
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.After
 import org.junit.Assert
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.Timeout
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 
 class TasksTests {
+
+    // race() only bounds its background side; a blocked caller-side action would otherwise hang
+    // the run instead of failing. The race test normally completes in tens of milliseconds.
+    @get:Rule
+    val timeout: Timeout = Timeout.seconds(30)
 
     lateinit var executorService: ScheduledExecutorService
 
@@ -139,6 +150,97 @@ class TasksTests {
 
         verify(timeout = 1000, inverse = true) {
             notify(any())
+        }
+    }
+
+    @Test
+    fun execute_Notifies_Once_With_First_Results_When_A_Task_Completes_Twice() {
+        val notifications = mutableListOf<List<Int>>()
+        val pending = HeldTask<Int>()
+
+        Tasks.execute(
+            notifyOn = Scheduler.SYNCHRONOUS,
+            listOf(doubleCompletingTask(1, 99), pending)
+        ) { notifications.add(it) }
+
+        // The duplicate completion must not count for the still-pending task.
+        Assert.assertEquals(emptyList<List<Int>>(), notifications)
+
+        pending.complete(2)
+
+        Assert.assertEquals(listOf(listOf(1, 2)), notifications)
+
+        // A duplicate completion after notify must be ignored too.
+        pending.complete(3)
+
+        Assert.assertEquals(listOf(listOf(1, 2)), notifications)
+    }
+
+    /**
+     * Probabilistic race test (see [race]): it never fails on correct code, but a regression is
+     * only caught with high probability, not on every run. An intermittent failure here
+     * therefore indicates a real bug, not flakiness.
+     *
+     * Guards against two tasks completing at the same moment on different threads and both
+     * notifying (the old `countDown()` then `count == 0` check-then-act).
+     */
+    @Test
+    fun execute_Notifies_Once_When_Tasks_Complete_Concurrently_On_Different_Threads() {
+        repeat(2000) { iteration ->
+            val first = HeldTask<Int>()
+            val second = HeldTask<Int>()
+            val notifications = CopyOnWriteArrayList<List<Int>>()
+            Tasks.execute(notifyOn = Scheduler.SYNCHRONOUS, listOf(first, second)) {
+                notifications.add(it)
+            }
+
+            race({ first.complete(1) }, { second.complete(2) })
+
+            Assert.assertEquals("Iteration $iteration", listOf(listOf(1, 2)), notifications.toList())
+        }
+    }
+
+    @Test
+    fun execute_Notifies_Results_In_Original_Order_When_Tasks_Complete_In_Reverse_Order() {
+        val tasks = listOf(HeldTask<Int>(), HeldTask<Int>(), HeldTask<Int>())
+        val notifications = mutableListOf<List<Int>>()
+
+        Tasks.execute(notifyOn = Scheduler.SYNCHRONOUS, tasks) { notifications.add(it) }
+
+        for (idx in tasks.indices.reversed()) {
+            tasks[idx].complete(idx + 1)
+        }
+
+        Assert.assertEquals(listOf(listOf(1, 2, 3)), notifications)
+    }
+
+    /**
+     * A task that signals completion twice, synchronously: [first] and then [second]. Only the
+     * first result should be kept.
+     */
+    private fun <T> doubleCompletingTask(first: T, second: T): CompletableTask<T> {
+        return CompletableTask { callback ->
+            callback(first)
+            callback(second)
+            Disposables.disposed()
+        }
+    }
+
+    /**
+     * A task that holds on to its completion callback so the test can trigger it, from any thread,
+     * via [complete].
+     */
+    private class HeldTask<T> : CompletableTask<T> {
+        @Volatile
+        private var onComplete: ((T) -> Unit)? = null
+
+        override fun execute(onComplete: (T) -> Unit): Disposable {
+            this.onComplete = onComplete
+            return Disposables.disposed()
+        }
+
+        fun complete(result: T) {
+            onComplete!!.invoke(result)
         }
     }
 }

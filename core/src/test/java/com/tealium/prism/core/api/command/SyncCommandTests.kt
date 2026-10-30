@@ -5,6 +5,7 @@ import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.tests.common.TestSyncCommand
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -81,6 +82,45 @@ class SyncCommandTests {
         val command = Command.synchronous("my_command") { }
 
         assertEquals("my_command", command.name)
+    }
+
+    @Test
+    fun execute_Calls_Callback_Once_When_Callback_Throws() {
+        val command = Command.synchronous("cmd") { }
+        val cause = IllegalStateException("callback failed")
+        val results = mutableListOf<TealiumResult<Unit>>()
+
+        val thrown = assertThrows(IllegalStateException::class.java) {
+            command.execute(payload) {
+                results.add(it)
+                throw cause
+            }
+        }
+
+        assertSame(cause, thrown)
+        assertTrue(results.single().isSuccess)
+    }
+
+    @Test
+    fun execute_Calls_Callback_Once_When_Block_Throws_And_Callback_Throws() {
+        val blockError = RuntimeException("block failed")
+        val command = Command.synchronous("cmd") { throw blockError }
+        val cause = IllegalStateException("callback failed")
+        var invocations = 0
+        var result: TealiumResult<Unit>? = null
+
+        val thrown = assertThrows(IllegalStateException::class.java) {
+            command.execute(payload) {
+                result = it
+                invocations++
+                throw cause
+            }
+        }
+
+        assertSame(cause, thrown)
+        assertEquals(1, invocations)
+        assertTrue(result!!.isFailure)
+        assertSame(blockError, result!!.exceptionOrNull())
     }
 
     // TestSyncCommand is a test-only helper — verify it behaves consistently with the factory.

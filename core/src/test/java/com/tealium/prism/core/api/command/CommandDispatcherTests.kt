@@ -16,9 +16,12 @@ import io.mockk.mockk
 import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.util.concurrent.atomic.AtomicInteger
 
 class CommandDispatcherTests {
 
@@ -219,6 +222,61 @@ class CommandDispatcherTests {
 
         verify(exactly = 0) { callback.onComplete(any()) }
         confirmVerified(callback)
+    }
+
+    // --- Callback invoked exactly once per dispatch ---
+
+    // Concurrent completion of a dispatch's commands isn't tested here: CommandDispatcher
+    // delegates the counting to Tasks.execute, whose race is covered in TasksTests. A stress
+    // test at this level misses the race: the log call on the completion path keeps the two
+    // threads from overlapping. A deterministic test (e.g. Lincheck) is a possible follow-up.
+
+    @Test
+    fun dispatch_Calls_Callback_Once_Per_Dispatch_When_A_Command_Completes_Twice() {
+        val doubleCompleting = TestCommand("double_cmd") { _, callback ->
+            callback.success(Unit)
+            callback.success(Unit)
+            Disposables.disposed()
+        }
+        var deferred: (() -> Unit)? = null
+        val pending = TestCommand("pending_cmd") { _, callback ->
+            deferred = { callback.success(Unit) }
+            Disposables.disposed()
+        }
+        dispatcher = TestCommandDispatcher(listOf(doubleCompleting, pending))
+        val dispatch = dispatchWithCommands("double_cmd", "pending_cmd")
+        val callback = mockk<Callback<List<Dispatch>>>(relaxed = true)
+
+        dispatcher.dispatch(listOf(dispatch), callback)
+
+        // The double completion must not count for the still-pending command.
+        verify(exactly = 0) { callback.onComplete(any()) }
+
+        deferred?.invoke()
+
+        verify(exactly = 1) { callback.onComplete(listOf(dispatch)) }
+        confirmVerified(callback)
+    }
+
+    @Test
+    fun dispatch_Calls_Callback_Once_Per_Dispatch_When_Callback_Throws_From_Synchronous_Command() {
+        dispatcher = TestCommandDispatcher(listOf(Command.synchronous("sync_cmd") { }))
+        val dispatch = dispatchWithCommands("sync_cmd")
+        val cause = IllegalStateException("callback failed")
+        val invocations = AtomicInteger()
+        val callback = Callback<List<Dispatch>> {
+            // Throw on the first invocation only, so a second invocation would be observable.
+            if (invocations.incrementAndGet() == 1) throw cause
+        }
+
+        // With Scheduler.SYNCHRONOUS the whole chain runs inline on the calling thread, so the
+        // exception thrown by the callback surfaces from dispatch() itself.
+        val thrown = assertThrows(IllegalStateException::class.java) {
+            dispatcher.dispatch(listOf(dispatch), callback)
+        }
+
+        assertSame(cause, thrown)
+        assertEquals(1, invocations.get())
     }
 
     // --- Single string command name ---
