@@ -46,9 +46,9 @@ object IdentityUpdatedObserver {
     private fun identityUpdates(dataLayer: DataStore, key: String?): Observable<String> {
         if (key == null) return Observables.empty()
 
-        // Re-read the store, as the event payload may not be the value actually present: a put
-        // whose expiry has already passed is still published, and a transaction that both puts and
-        // removes the key publishes each edit separately, whatever the edit order.
+        // Read the identity from the data layer instead of the event payload: if an earlier
+        // subscriber commits to the data layer while handling this update, its nested update is
+        // delivered first and this payload is stale.
         return dataLayer.onDataUpdated
             .filter { it.get(key) != null }
             .map { dataLayer.getString(key) }

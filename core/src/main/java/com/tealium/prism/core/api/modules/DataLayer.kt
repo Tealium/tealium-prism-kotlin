@@ -347,12 +347,21 @@ interface DataLayer {
     /**
      * Returns a [Subscribable] object with which to receive notifications of [DataLayer] entries
      * being updated.
+     *
+     * After each write, whether a single call or a [transactionally] block, each key is reported in
+     * at most one of [onDataUpdated] and [onDataRemoved], according to its last edit, so the event
+     * matches the state stored by that write. A key that is both put and removed in the same
+     * transaction is reported only by its final edit. A put whose [Expiry] has already passed
+     * removes the key instead.
      */
     val onDataUpdated: Subscribable<DataObject>
 
     /**
      * Returns a [Subscribable] object with which to receive notifications of [DataLayer] entries
-     * being removed.
+     * being removed or expired. Expired keys are reported when the SDK cleans up expired data,
+     * which may be later than the moment the value expired. After each write, each key is reported
+     * in at most one of [onDataUpdated] and [onDataRemoved]; see [onDataUpdated]. A removal that
+     * deleted nothing is not reported.
      */
     val onDataRemoved: Subscribable<List<String>>
 }

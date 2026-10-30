@@ -210,7 +210,7 @@ internal class SQLKeyValueRepository(
             "(${Schema.ModuleStorageTable.COLUMN_EXPIRY} < 0 OR ${Schema.ModuleStorageTable.COLUMN_EXPIRY} > ?)"
 
         internal const val IS_EXPIRED_CLAUSE =
-            "(${Schema.ModuleStorageTable.COLUMN_EXPIRY} >= 0 AND ${Schema.ModuleStorageTable.COLUMN_EXPIRY} < ?)"
+            "(${Schema.ModuleStorageTable.COLUMN_EXPIRY} >= 0 AND ${Schema.ModuleStorageTable.COLUMN_EXPIRY} <= ?)"
 
         internal const val IS_MODULE_OWNER =
             "${Schema.ModuleStorageTable.COLUMN_MODULE_ID} = ?"

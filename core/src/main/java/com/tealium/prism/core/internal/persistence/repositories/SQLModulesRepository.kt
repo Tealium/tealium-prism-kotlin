@@ -96,7 +96,7 @@ class SQLModulesRepository(
     }
 
     override fun deleteExpired(expirationType: ModulesRepository.ExpirationType, timestamp: Long) {
-        val whereClause = "(${Schema.ModuleStorageTable.COLUMN_EXPIRY} >= 0 AND ${Schema.ModuleStorageTable.COLUMN_EXPIRY} < ?) OR ${Schema.ModuleStorageTable.COLUMN_EXPIRY} = ?"
+        val whereClause = "${SQLKeyValueRepository.IS_EXPIRED_CLAUSE} OR ${Schema.ModuleStorageTable.COLUMN_EXPIRY} = ?"
         val whereArgs: Array<String> = arrayOf(timestamp.toString(), expirationType.expiryTime.toString())
 
         val expiredData = getExpiredData(whereClause, whereArgs)

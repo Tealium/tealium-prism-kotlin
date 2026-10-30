@@ -607,4 +607,212 @@ class ModuleStoreTests {
             })
         }
     }
+
+    @Test
+    fun commit_Deletes_Instead_Of_Upserting_When_Put_Expiry_Has_Passed() {
+        dataStore.edit()
+            .put("key", DataItem.string("value"), Expiry.afterEpochTime(1))
+            .commit()
+
+        verify { keyValueRepository.delete("key") }
+        verify(inverse = true) { keyValueRepository.upsert(any(), any(), any()) }
+    }
+
+    @Test
+    fun commit_Emits_Nothing_When_Already_Expired_Put_Has_No_Existing_Value() {
+        every { keyValueRepository.delete("key") } returns 0
+
+        val onUpdated = mockk<(DataObject) -> Unit>(relaxed = true)
+        val onRemoved = mockk<(List<String>) -> Unit>(relaxed = true)
+        dataStore.onDataUpdated.subscribe(onUpdated)
+        dataStore.onDataRemoved.subscribe(onRemoved)
+
+        dataStore.edit()
+            .put("key", DataItem.string("value"), Expiry.afterEpochTime(1))
+            .commit()
+
+        verify(exactly = 0) {
+            onUpdated(any())
+            onRemoved(any())
+        }
+    }
+
+    @Test
+    fun commit_Emits_Only_Removed_When_Already_Expired_Put_Overwrites_Existing_Value() {
+        every { keyValueRepository.delete("key") } returns 1
+
+        val onUpdated = mockk<(DataObject) -> Unit>(relaxed = true)
+        val onRemoved = mockk<(List<String>) -> Unit>(relaxed = true)
+        dataStore.onDataUpdated.subscribe(onUpdated)
+        dataStore.onDataRemoved.subscribe(onRemoved)
+
+        dataStore.edit()
+            .put("key", DataItem.string("value"), Expiry.afterEpochTime(1))
+            .commit()
+
+        verify { onRemoved(listOf("key")) }
+        verify(inverse = true) { onUpdated(any()) }
+    }
+
+    @Test
+    fun commit_Emits_Only_Removed_When_Put_Expiry_Is_Before_Epoch() {
+        every { keyValueRepository.delete("key") } returns 1
+
+        val onUpdated = mockk<(DataObject) -> Unit>(relaxed = true)
+        val onRemoved = mockk<(List<String>) -> Unit>(relaxed = true)
+        dataStore.onDataUpdated.subscribe(onUpdated)
+        dataStore.onDataRemoved.subscribe(onRemoved)
+
+        dataStore.edit()
+            .put("key", DataItem.string("value"), Expiry.afterEpochTime(-1L))
+            .commit()
+
+        verify { keyValueRepository.delete("key") }
+        verify(exactly = 0) { keyValueRepository.upsert(any(), any(), any()) }
+        verify { onRemoved(listOf("key")) }
+        verify(exactly = 0) { onUpdated(any()) }
+    }
+
+    @Test
+    fun commit_Upserts_When_Put_Expiry_Is_In_The_Future() {
+        val value = DataItem.string("value")
+        val expiry = Expiry.afterEpochTime(nowInSeconds() + 3600)
+
+        dataStore.edit()
+            .put("key", value, expiry)
+            .commit()
+
+        verify { keyValueRepository.upsert("key", value, expiry) }
+        verify(inverse = true) { keyValueRepository.delete(any()) }
+    }
+
+    @Test
+    fun commit_Emits_Updated_And_Removed_Separately_When_Future_And_Expired_Puts_Are_Mixed() {
+        every { keyValueRepository.upsert("a", any(), any()) } returns 1L
+        every { keyValueRepository.delete("b") } returns 1
+
+        val onUpdated = mockk<(DataObject) -> Unit>(relaxed = true)
+        val onRemoved = mockk<(List<String>) -> Unit>(relaxed = true)
+        dataStore.onDataUpdated.subscribe(onUpdated)
+        dataStore.onDataRemoved.subscribe(onRemoved)
+
+        dataStore.edit()
+            .put("a", DataItem.string("future"), Expiry.afterEpochTime(nowInSeconds() + 3600))
+            .put("b", DataItem.string("expired"), Expiry.afterEpochTime(1))
+            .commit()
+
+        verify {
+            onUpdated(match { updated ->
+                updated.getAll().keys == setOf("a") && updated.getString("a") == "future"
+            })
+            onRemoved(listOf("b"))
+        }
+        verify(inverse = true) { keyValueRepository.upsert("b", any(), any()) }
+    }
+
+    @Test
+    fun onData_Notifies_Only_Removed_When_Put_Then_Remove_Same_Key() {
+        val events = recordEvents()
+
+        dataStore.edit()
+            .put("key", DataItem.string("value"), Expiry.SESSION)
+            .remove("key")
+            .commit()
+
+        assertEquals(listOf(StoreEvent.Removed(listOf("key"))), events)
+    }
+
+    @Test
+    fun onData_Notifies_Only_Updated_When_Remove_Then_Put_Same_Key() {
+        val events = recordEvents()
+
+        dataStore.edit()
+            .remove("key")
+            .put("key", DataItem.string("value"), Expiry.SESSION)
+            .commit()
+
+        assertEquals(listOf(StoreEvent.Updated(DataObject.create { put("key", "value") })), events)
+    }
+
+    @Test
+    fun onData_Notifies_Last_Value_When_Put_Twice_Same_Key() {
+        val events = recordEvents()
+
+        dataStore.edit()
+            .put("key", DataItem.string("value1"), Expiry.SESSION)
+            .put("key", DataItem.string("value2"), Expiry.SESSION)
+            .commit()
+
+        assertEquals(listOf(StoreEvent.Updated(DataObject.create { put("key", "value2") })), events)
+    }
+
+    @Test
+    fun onData_Notifies_Updated_Before_Removed_When_Put_And_Remove_Different_Keys() {
+        val events = recordEvents()
+
+        dataStore.edit()
+            .remove("removed")
+            .put("added", DataItem.string("value"), Expiry.SESSION)
+            .commit()
+
+        assertEquals(
+            listOf(
+                StoreEvent.Updated(DataObject.create { put("added", "value") }),
+                StoreEvent.Removed(listOf("removed"))
+            ),
+            events
+        )
+    }
+
+    @Test
+    fun onData_Notifies_Only_Updated_For_Key_Put_After_Clear() {
+        every { keyValueRepository.keys() } returns listOf("key", "other")
+        val events = recordEvents()
+
+        dataStore.edit()
+            .clear()
+            .put("key", DataItem.string("value"), Expiry.SESSION)
+            .commit()
+
+        assertEquals(
+            listOf(
+                StoreEvent.Updated(DataObject.create { put("key", "value") }),
+                StoreEvent.Removed(listOf("other"))
+            ),
+            events
+        )
+    }
+
+    @Test
+    fun onData_Notifies_Only_Removed_When_Put_Then_Already_Expired_Put_Same_Key() {
+        val events = recordEvents()
+
+        dataStore.edit()
+            .put("key", DataItem.string("value"), Expiry.SESSION)
+            .put("key", DataItem.string("value2"), Expiry.afterEpochTime(1))
+            .commit()
+
+        assertEquals(listOf(StoreEvent.Removed(listOf("key"))), events)
+    }
+
+    private fun nowInSeconds(): Long = System.currentTimeMillis() / 1000
+
+    private sealed class StoreEvent {
+        data class Updated(val data: DataObject) : StoreEvent()
+        data class Removed(val keys: List<String>) : StoreEvent()
+    }
+
+    /**
+     * Records every event emitted by [dataStore], in emission order. Every edit is reported as
+     * applied, as if each removed key existed in storage.
+     */
+    private fun recordEvents(): List<StoreEvent> {
+        every { keyValueRepository.upsert(any(), any(), any()) } returns 1L
+        every { keyValueRepository.delete(any()) } returns 1
+
+        val events = mutableListOf<StoreEvent>()
+        dataStore.onDataUpdated.subscribe { events.add(StoreEvent.Updated(it)) }
+        dataStore.onDataRemoved.subscribe { events.add(StoreEvent.Removed(it)) }
+        return events
+    }
 }

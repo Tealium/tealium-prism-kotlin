@@ -13,6 +13,7 @@ import com.tealium.prism.core.internal.persistence.repositories.ModulesRepositor
 import com.tealium.prism.core.internal.persistence.repositories.SQLModulesRepository
 import com.tealium.tests.common.getDefaultConfig
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -190,6 +191,51 @@ class IdentityUpdatedObserverTests {
         assertEquals(listOf("identityValue"), identified)
     }
 
+    @Test
+    fun subscribeIdentityUpdates_Calls_Identify_With_Stored_Identity_Last_When_Earlier_Subscriber_Normalizes_Identity() {
+        disposable.dispose()
+        subscribeIdentityNormalizer()
+        subscribe(configuration)
+
+        storeIdentity("User@Example.com")
+
+        assertEquals("user@example.com", dataLayer.getString(IDENTITY_KEY))
+        assertEquals("user@example.com", identified.lastOrNull())
+    }
+
+    @Test
+    fun subscribeIdentityUpdates_Calls_Identify_With_Stored_Identity_Last_When_Identity_Key_Change_Resubscribes_After_Normalizer() {
+        subscribeIdentityNormalizer()
+        configuration.onNext(VisitorIdConfiguration(visitorIdentityKey = "otherKey"))
+        configuration.onNext(VisitorIdConfiguration(visitorIdentityKey = IDENTITY_KEY))
+
+        storeIdentity("User@Example.com")
+
+        assertEquals("user@example.com", dataLayer.getString(IDENTITY_KEY))
+        assertEquals("user@example.com", identified.lastOrNull())
+    }
+
+    @Test
+    fun subscribeIdentityUpdates_Emits_Nothing_When_Earlier_Subscriber_Removes_Identity() {
+        disposable.dispose()
+        subscribeIdentityValidator()
+        subscribe(configuration)
+
+        storeIdentity("not-an-email")
+
+        assertNull(dataLayer.getString(IDENTITY_KEY))
+        assertEquals(emptyList<String>(), identified)
+    }
+
+    @Test
+    fun subscribeIdentityUpdates_Calls_Identify_With_Each_Identity_In_Order_When_Normalizer_Subscribes_After_Observer() {
+        subscribeIdentityNormalizer()
+
+        storeIdentity("User@Example.com")
+
+        assertEquals(listOf("User@Example.com", "user@example.com"), identified)
+    }
+
     private fun subscribe(configuration: Observable<VisitorIdConfiguration>): Disposable =
         IdentityUpdatedObserver.subscribeIdentityUpdates(configuration, dataLayer) {
             identified.add(it)
@@ -198,6 +244,24 @@ class IdentityUpdatedObserverTests {
     private fun storeIdentity(value: String, key: String = IDENTITY_KEY) {
         dataLayer.edit().put(key, value, Expiry.FOREVER).commit()
     }
+
+    /**
+     * App-side subscriber that stores the identity lowercased. The SDK hashes identities as
+     * stored, so a different case is a different identity.
+     */
+    private fun subscribeIdentityNormalizer(): Disposable =
+        dataLayer.onDataUpdated.subscribe { update ->
+            val identity = update.getString(IDENTITY_KEY) ?: return@subscribe
+            val normalized = identity.lowercase()
+            if (normalized != identity) storeIdentity(normalized)
+        }
+
+    /** App-side subscriber that removes an identity that is not an email address. */
+    private fun subscribeIdentityValidator(): Disposable =
+        dataLayer.onDataUpdated.subscribe { update ->
+            val identity = update.getString(IDENTITY_KEY) ?: return@subscribe
+            if (!identity.contains("@")) dataLayer.edit().remove(IDENTITY_KEY).commit()
+        }
 
     /**
      * Runs the repository expiry sweep with a timestamp [hours] in the future, so that rows with a

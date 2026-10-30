@@ -35,8 +35,12 @@ class ModuleStore(
 
     override fun edit(): DataStore.Editor =
         DataStorageEditor(keyValueRepository, this) { edits ->
-            val updates = edits.filterIsInstance(Edit.Put::class.java)
-            val removals = edits.filterIsInstance(Edit.Remove::class.java)
+            // Only the last applied edit per key reflects what is stored. distinctBy keeps the
+            // first occurrence, so on the reversed list it keeps the last edit per key; reversing
+            // back restores edit order.
+            val lastEdits = edits.asReversed().distinctBy { it.key }.asReversed()
+            val updates = lastEdits.filterIsInstance(Edit.Put::class.java)
+            val removals = lastEdits.filterIsInstance(Edit.Remove::class.java)
 
             if (updates.isNotEmpty()) {
                 val dataObject = DataObject.create {
@@ -149,17 +153,22 @@ class ModuleStore(
                     }
 
                     edits.forEach { edit ->
-                        val result: Long = when (edit) {
+                        // A put whose expiry has already passed would never be readable: apply it
+                        // as a removal of whatever is stored at the key, which the upsert would
+                        // have overwritten, so subscribers only hear about the removal.
+                        val appliedEdit = edit.asRemoveIfExpired()
+
+                        val result: Long = when (appliedEdit) {
                             is Edit.Put -> {
-                                store.upsert(edit.key, edit.value, edit.expiry)
+                                store.upsert(appliedEdit.key, appliedEdit.value, appliedEdit.expiry)
                             }
 
                             is Edit.Remove -> {
-                                store.delete(edit.key).toLong()
+                                store.delete(appliedEdit.key).toLong()
                             }
                         }
                         if (result > 0) {
-                            appliedEdits.add(edit)
+                            appliedEdits.add(appliedEdit)
                         }
                     }
                 }
@@ -208,7 +217,16 @@ class ModuleStore(
     }
 
     sealed class Edit {
-        class Put(val key: String, val value: DataItem, val expiry: Expiry) : Edit()
-        class Remove(val key: String) : Edit()
+        abstract val key: String
+
+        /**
+         * Returns a [Remove] of the same key when this is a [Put] whose [Expiry] has already passed,
+         * otherwise this edit.
+         */
+        fun asRemoveIfExpired(): Edit =
+            if (this is Put && Expiry.isExpired(expiry)) Remove(key) else this
+
+        class Put(override val key: String, val value: DataItem, val expiry: Expiry) : Edit()
+        class Remove(override val key: String) : Edit()
     }
 }

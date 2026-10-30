@@ -34,7 +34,7 @@ sealed class Expiry {
      * For special cases, this value will be negative.
      * For specific times in the future, this value will be:
      *  - positive when not expired
-     *  - negative when expired
+     *  - zero or negative when expired
      *
      * @return The expiry time associated with this [Expiry]
      */
@@ -183,7 +183,12 @@ sealed class Expiry {
 
         /**
          * Helper to determine whether an [Expiry] object is classed as expired.
-         * Note. [FOREVER] and [SESSION] will always be false.
+         *
+         * A time-based [Expiry] is expired as soon as no time remains, i.e. when its
+         * [expiryTime] is less than or equal to the current timestamp in seconds. This matches
+         * the boundary used by the persistence layer when hiding and deleting expired entries.
+         *
+         * Note. [FOREVER], [SESSION] and [UNTIL_RESTART] will always be false.
          */
         @JvmStatic
         fun isExpired(expiry: Expiry?): Boolean {
@@ -193,7 +198,7 @@ sealed class Expiry {
                 is Session -> false
                 is UntilRestart -> false
                 else -> {
-                    expiry.timeRemaining() < 0
+                    expiry.timeRemaining() <= 0
                 }
             }
         }

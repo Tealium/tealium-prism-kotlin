@@ -28,6 +28,9 @@ interface DataStore : ReadableDataStore, Iterable<Map.Entry<String, DataItem>> {
      *
      * All updating/reading methods will throw [EditorClosedException] if the [Editor] has already
      * been closed.
+     *
+     * Storing a value whose [Expiry] has already passed removes any existing value at that key and
+     * stores nothing.
      */
     interface Editor: ReadableDataStore, AutoCloseable {
 
@@ -35,7 +38,8 @@ interface DataStore : ReadableDataStore, Iterable<Map.Entry<String, DataItem>> {
          * Adds all key-value pairs from the [dataObject] into the storage.
          *
          * @param dataObject A [DataObject] containing the key-value pairs to be stored
-         * @param expiry The time frame for this data to remain stored
+         * @param expiry The time frame for this data to remain stored. If it has already passed,
+         *   any existing value at each key is removed and nothing is stored.
          *
          * @return Editor to continue editing this storage
          */
@@ -46,7 +50,8 @@ interface DataStore : ReadableDataStore, Iterable<Map.Entry<String, DataItem>> {
          *
          * @param key The key to store the [value] under
          * @param value The value to be stored
-         * @param expiry The time frame for this data to remain stored
+         * @param expiry The time frame for this data to remain stored. If it has already passed,
+         *   any existing value at the key is removed and nothing is stored.
          *
          * @return Editor to continue editing this storage
          */
@@ -57,7 +62,8 @@ interface DataStore : ReadableDataStore, Iterable<Map.Entry<String, DataItem>> {
          *
          * @param key The key to store the [value] under
          * @param value The value to be stored
-         * @param expiry The time frame for this data to remain stored
+         * @param expiry The time frame for this data to remain stored. If it has already passed,
+         *   any existing value at the key is removed and nothing is stored.
          *
          * @return Editor to continue editing this storage
          */
@@ -69,7 +75,8 @@ interface DataStore : ReadableDataStore, Iterable<Map.Entry<String, DataItem>> {
          *
          * @param key The key to store the [value] under
          * @param value The value to be stored
-         * @param expiry The time frame for this data to remain stored
+         * @param expiry The time frame for this data to remain stored. If it has already passed,
+         *   any existing value at the key is removed and nothing is stored.
          *
          * @return Editor to continue editing this storage
          */
@@ -81,7 +88,8 @@ interface DataStore : ReadableDataStore, Iterable<Map.Entry<String, DataItem>> {
          *
          * @param key The key to store the [value] under
          * @param value The value to be stored
-         * @param expiry The time frame for this data to remain stored
+         * @param expiry The time frame for this data to remain stored. If it has already passed,
+         *   any existing value at the key is removed and nothing is stored.
          *
          * @return Editor to continue editing this storage
          */
@@ -93,7 +101,8 @@ interface DataStore : ReadableDataStore, Iterable<Map.Entry<String, DataItem>> {
          *
          * @param key The key to store the [value] under
          * @param value The value to be stored
-         * @param expiry The time frame for this data to remain stored
+         * @param expiry The time frame for this data to remain stored. If it has already passed,
+         *   any existing value at the key is removed and nothing is stored.
          *
          * @return Editor to continue editing this storage
          */
@@ -105,7 +114,8 @@ interface DataStore : ReadableDataStore, Iterable<Map.Entry<String, DataItem>> {
          *
          * @param key The key to store the [value] under
          * @param value The value to be stored
-         * @param expiry The time frame for this data to remain stored
+         * @param expiry The time frame for this data to remain stored. If it has already passed,
+         *   any existing value at the key is removed and nothing is stored.
          *
          * @return Editor to continue editing this storage
          */
@@ -117,7 +127,8 @@ interface DataStore : ReadableDataStore, Iterable<Map.Entry<String, DataItem>> {
          *
          * @param key The key to store the [value] under
          * @param value The value to be stored
-         * @param expiry The time frame for this data to remain stored
+         * @param expiry The time frame for this data to remain stored. If it has already passed,
+         *   any existing value at the key is removed and nothing is stored.
          *
          * @return Editor to continue editing this storage
          */
@@ -129,7 +140,8 @@ interface DataStore : ReadableDataStore, Iterable<Map.Entry<String, DataItem>> {
          *
          * @param key The key to store the [value] under
          * @param value The value to be stored
-         * @param expiry The time frame for this data to remain stored
+         * @param expiry The time frame for this data to remain stored. If it has already passed,
+         *   any existing value at the key is removed and nothing is stored.
          *
          * @return Editor to continue editing this storage
          */
@@ -141,7 +153,8 @@ interface DataStore : ReadableDataStore, Iterable<Map.Entry<String, DataItem>> {
          *
          * @param key The key to store the [value] under
          * @param value The value to be stored
-         * @param expiry The time frame for this data to remain stored
+         * @param expiry The time frame for this data to remain stored. If it has already passed,
+         *   any existing value at the key is removed and nothing is stored.
          *
          * @return Editor to continue editing this storage
          */
@@ -217,11 +230,19 @@ interface DataStore : ReadableDataStore, Iterable<Map.Entry<String, DataItem>> {
 
     /**
      * Flow of key-value pairs from this [DataStore] that have been updated.
+     *
+     * After a transaction, each key is reported in at most one of [onDataUpdated] and
+     * [onDataRemoved], according to its last edit, so the event matches the state stored by that
+     * transaction. A key that is both put and removed in the same transaction is reported only by
+     * its final edit. A put whose [Expiry] has already passed removes the key instead.
      */
     val onDataUpdated: Observable<DataObject>
 
     /**
-     * Flow of keys from this [DataStore] that have been removed.
+     * Flow of keys from this [DataStore] that have been removed or expired. Expired keys are reported
+     * when the SDK cleans up expired data, which may be later than the moment the value expired.
+     * After a transaction, each key is reported in at most one of [onDataUpdated] and
+     * [onDataRemoved]; see [onDataUpdated]. A removal that deleted nothing is not reported.
      */
     val onDataRemoved: Observable<List<String>>
 

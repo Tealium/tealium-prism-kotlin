@@ -342,6 +342,23 @@ class SQLKeyValueRepositoryTests {
     }
 
     @Test
+    fun get_DoesNotReturn_Data_When_Expiry_Time_Equals_Now() {
+        val storage = getEmptyStorage(module1Id)
+        val now = getTimestamp()
+
+        storage.upsert(
+            "expires_now",
+            DataItem.string("expires_now"),
+            Expiry.afterEpochTime(now)
+        )
+
+        // Row is written, but hidden from reads as soon as expiry == now
+        assertEquals(Expiry.afterEpochTime(now), storage.getExpiry("expires_now"))
+        storage.get("expires_now").assertNull()
+        assertFalse(storage.contains("expires_now"))
+    }
+
+    @Test
     fun getAll_DoesNotReturn_ExpiredData() {
         val storage = getEmptyStorage(module1Id)
 

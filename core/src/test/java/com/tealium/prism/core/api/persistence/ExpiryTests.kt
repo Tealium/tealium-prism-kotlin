@@ -88,4 +88,35 @@ class ExpiryTests {
         assertNotEquals(after4.hashCode(), Expiry.SESSION.hashCode())
 
     }
+
+    @Test
+    fun isExpired_Returns_True_When_Expiry_Time_Equals_Now() {
+        // Captured before building the Expiry: if the clock ticks over to the next second between
+        // here and the assertion, the expiry is in the past and still classed as expired.
+        val now = currentTimestampSeconds()
+
+        assertTrue(Expiry.isExpired(Expiry.afterEpochTime(now)))
+    }
+
+    @Test
+    fun isExpired_Returns_False_When_Expiry_Time_Is_In_The_Future() {
+        val now = currentTimestampSeconds()
+
+        assertFalse(Expiry.isExpired(Expiry.afterEpochTime(now + 60)))
+    }
+
+    @Test
+    fun isExpired_Returns_False_For_Special_Expiry_Values() {
+        assertFalse(Expiry.isExpired(null))
+        assertFalse(Expiry.isExpired(Expiry.FOREVER))
+        assertFalse(Expiry.isExpired(Expiry.SESSION))
+        assertFalse(Expiry.isExpired(Expiry.UNTIL_RESTART))
+    }
+
+    @Test
+    fun isExpired_Returns_True_When_Expiry_Time_Is_Before_Epoch() {
+        assertTrue(Expiry.isExpired(Expiry.afterEpochTime(-1L)))
+    }
+
+    private fun currentTimestampSeconds(): Long = System.currentTimeMillis() / 1000
 }

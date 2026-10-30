@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -236,6 +237,44 @@ open class SQLModulesRepositoryTests {
 
             assertEquals(1, verifierCalled)
         }
+
+        @Test
+        fun deleteExpired_Removes_Data_When_Expiry_Time_Equals_Timestamp() {
+            val moduleId = preregisterModule(module1)
+            val storage = getRepository(moduleId)
+            val timestamp = getTimestamp() + 3600
+
+            storage.upsert(
+                "boundary",
+                DataItem.boolean(true),
+                Expiry.afterEpochTime(timestamp)
+            )
+
+            moduleRepository.deleteExpired(expirationType, timestamp)
+
+            // Row should be gone when read without the expiry filter
+            assertNull(storage.getExpiry("boundary"))
+        }
+
+        @Test
+        fun deleteExpired_Keeps_Data_When_Expiry_Time_Is_One_Second_After_Timestamp() {
+            val moduleId = preregisterModule(module1)
+            val storage = getRepository(moduleId)
+            val timestamp = getTimestamp() + 3600
+
+            storage.upsert(
+                "boundary",
+                DataItem.boolean(true),
+                Expiry.afterEpochTime(timestamp + 1)
+            )
+
+            moduleRepository.deleteExpired(expirationType, timestamp)
+
+            // Row should still exist when read without the expiry filter
+            assertEquals(Expiry.afterEpochTime(timestamp + 1), storage.getExpiry("boundary"))
+            // Value should still be retrievable
+            assertEquals(true, storage.get("boundary")?.value)
+        }
     }
 
     protected fun preregisterModule(module: Module, shouldPopulate: Boolean = false): Long {
@@ -287,5 +326,9 @@ open class SQLModulesRepositoryTests {
         return ModuleStore(
             SQLKeyValueRepository(dbProvider, moduleId)
         )
+    }
+
+    protected fun getRepository(moduleId: Long): KeyValueRepository {
+        return SQLKeyValueRepository(dbProvider, moduleId)
     }
 }
