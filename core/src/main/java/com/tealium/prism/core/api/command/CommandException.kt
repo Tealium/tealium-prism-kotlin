@@ -27,6 +27,16 @@ class CommandException(
         fun emptyParameter(key: String) =
             CommandException("Parameter '$key' is empty")
 
+        /**
+         * A parameter was present with the correct type, but its value is not acceptable.
+         *
+         * [reason] states what is accepted (for example `expected one of granted, denied`) and must
+         * not include the received value: command errors are logged and values can be personal data.
+         */
+        @JvmStatic
+        fun invalidParameterValue(key: String, reason: String) =
+            CommandException("Invalid value for '$key' - $reason")
+
         /** An array parameter was present but contained no elements. */
         @JvmStatic
         fun emptyArray(key: String) =
@@ -37,19 +47,35 @@ class CommandException(
         fun arrayLengthMismatch(keyA: String, keyB: String) =
             CommandException("Arrays '$keyA' and '$keyB' have different lengths")
 
-        /** None of the payload's parameters were usable by the command. */
+        /**
+         * None of the payload's parameters were usable by the command.
+         *
+         * When [expected] is not empty, its entries are listed in the message.
+         */
         @JvmStatic
-        fun noValidParameters() =
-            CommandException("No valid parameters found")
+        @JvmOverloads
+        fun noValidParameters(expected: List<String> = emptyList()): CommandException {
+            var message = "No valid parameter found."
+            if (expected.isNotEmpty()) {
+                message += " Expected one of: ${expected.joinToString(", ") { "'$it'" }}"
+            }
+            return CommandException(message)
+        }
 
         /** No command was registered under the given name. */
         @JvmStatic
         fun commandNotFound(commandName: String) =
             CommandException("Command not found: $commandName")
 
-        /** An unexpected throwable was caught during command execution. */
+        /**
+         * An unexpected throwable was caught during command execution.
+         *
+         * The message uses [Throwable.message], falling back to the class name when absent. The class
+         * name is not used otherwise because it is obfuscated in release builds; the type is still
+         * available through [cause].
+         */
         @JvmStatic
         fun unknown(cause: Throwable) =
-            CommandException(cause.message, cause)
+            CommandException("Command failed due to error: ${cause.message ?: cause.javaClass.name}", cause)
     }
 }
