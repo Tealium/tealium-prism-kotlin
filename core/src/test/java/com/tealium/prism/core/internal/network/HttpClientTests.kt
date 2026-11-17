@@ -21,6 +21,7 @@ import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.internal.logger.LogCategory
 import com.tealium.prism.core.internal.misc.ThreadPoolScheduler
+import com.tealium.tests.common.ManualScheduler
 import com.tealium.tests.common.Recorder
 import com.tealium.tests.common.RecordingInterceptor
 import com.tealium.tests.common.SystemLogger
@@ -28,6 +29,7 @@ import com.tealium.tests.common.assertCancelled
 import com.tealium.tests.common.awaitQueuedTasks
 import com.tealium.tests.common.testNetworkScheduler
 import com.tealium.tests.common.testTealiumScheduler
+import io.mockk.MockKVerificationScope
 import io.mockk.Runs
 import io.mockk.confirmVerified
 import io.mockk.every
@@ -45,13 +47,12 @@ import okio.Buffer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
+import org.junit.rules.TestName
 import java.io.ByteArrayOutputStream
 import java.nio.charset.Charset
 import java.util.Collections.synchronizedList
@@ -61,8 +62,10 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 
-@RunWith(RobolectricTestRunner::class)
 class HttpClientTests {
+
+    @get:Rule
+    val testName = TestName()
 
     lateinit var mockWebServer: MockWebServer
 
@@ -93,6 +96,27 @@ class HttpClientTests {
         }
     }
 
+    /**
+     * Waits up to [VERIFY_LIMIT_MS] for the verification and prints a line past
+     * [VERIFY_EXPECTED_MS], so a slow runner leaves a trace in the report.
+     */
+    private fun verifyWithTimeout(block: MockKVerificationScope.() -> Unit) {
+        val start = System.nanoTime()
+        verify(timeout = VERIFY_LIMIT_MS, verifyBlock = block)
+        val elapsed = (System.nanoTime() - start) / 1_000_000
+        if (elapsed > VERIFY_EXPECTED_MS) {
+            println(
+                "HttpClientTests.${testName.methodName}: verified after $elapsed ms, " +
+                        "late by ${elapsed - VERIFY_EXPECTED_MS} ms (limit $VERIFY_LIMIT_MS ms)"
+            )
+        }
+    }
+
+    /** Takes the next request the [mockWebServer] received, failing if none arrives within [TAKE_REQUEST_TIMEOUT_S]. */
+    private fun takeRecordedRequest(): RecordedRequest =
+        mockWebServer.takeRequest(TAKE_REQUEST_TIMEOUT_S, TimeUnit.SECONDS)
+            ?: throw AssertionError("No request received within $TAKE_REQUEST_TIMEOUT_S s")
+
     private fun startMockWebServer(vararg responses: MockResponse) {
         mockWebServer = MockWebServer()
 
@@ -120,12 +144,12 @@ class HttpClientTests {
 
         httpClient.sendRequest(httpRequest, completion)
 
-        val mockRequest = mockWebServer.takeRequest()
+        val mockRequest = takeRecordedRequest()
 
         assertEquals("GET / HTTP/1.1", mockRequest.requestLine)
 
         val result = slot<NetworkResult>()
-        verify(timeout = 1000) { completion(capture(result)) }
+        verifyWithTimeout { completion(capture(result)) }
 
         val success = result.captured as Success
         assertEquals(200, success.httpResponse.statusCode)
@@ -147,12 +171,12 @@ class HttpClientTests {
 
         httpClient.sendRequest(httpRequest, completion)
 
-        val mockRequest = mockWebServer.takeRequest()
+        val mockRequest = takeRecordedRequest()
 
         assertEquals("GET / HTTP/1.1", mockRequest.requestLine)
 
         val result = slot<NetworkResult>()
-        verify(timeout = 1000) { completion(capture(result)) }
+        verifyWithTimeout { completion(capture(result)) }
 
         val failure = result.captured as Failure
         assertEquals(500, (failure.networkException as Non200Exception).statusCode)
@@ -211,11 +235,11 @@ class HttpClientTests {
             completion
         )
 
-        val mockRequest = mockWebServer.takeRequest()
+        val mockRequest = takeRecordedRequest()
 
         assertEquals("GET / HTTP/1.1", mockRequest.requestLine)
 
-        verify(timeout = 1000) {
+        verifyWithTimeout {
             completion(match { result ->
                 result is Success
                         && result.httpResponse.statusCode == 200
@@ -240,11 +264,11 @@ class HttpClientTests {
             completion
         )
 
-        val mockRequest = mockWebServer.takeRequest()
+        val mockRequest = takeRecordedRequest()
 
         assertEquals("POST / HTTP/1.1", mockRequest.requestLine)
 
-        verify(timeout = 1000) {
+        verifyWithTimeout {
             completion(match { result ->
                 result is Success
                         && "Successful POST" == result.httpResponse.bodyText()
@@ -275,9 +299,9 @@ class HttpClientTests {
             ).build(), completion
         )
 
-        mockWebServer.takeRequest()
+        takeRecordedRequest()
 
-        verify(timeout = 1000) {
+        verifyWithTimeout {
             mockInterceptor.shouldRetry(any(), 0, any())
             mockInterceptor.shouldRetry(any(), 1, any())
             mockInterceptor.shouldRetry(any(), 2, any())
@@ -537,7 +561,7 @@ class HttpClientTests {
         val request = HttpRequest.get(urlString).build()
         httpClient.sendRequest(request, callback)
 
-        verify(timeout = 1000) {
+        verifyWithTimeout {
             callback.onComplete(match {
                 it is Success
                         && it.httpResponse.bodyText() == text
@@ -561,7 +585,7 @@ class HttpClientTests {
         val request = HttpRequest.get(urlString).build()
         httpClient.sendRequest(request, callback)
 
-        verify(timeout = 1000) {
+        verifyWithTimeout {
             callback.onComplete(match {
                 it is Success
                         && it.httpResponse.body.contentEquals(bytes)
@@ -585,7 +609,7 @@ class HttpClientTests {
         val request = HttpRequest.get(urlString).build()
         httpClient.sendRequest(request, callback)
 
-        verify(timeout = 1000) {
+        verifyWithTimeout {
             callback.onComplete(match {
                 it is Success
                         && it.httpResponse.body.contentEquals(bytes)
@@ -606,7 +630,7 @@ class HttpClientTests {
 
         httpClient.sendRequest(HttpRequest.get(urlString).build(), callback)
 
-        verify(timeout = 1000) {
+        verifyWithTimeout {
             callback.onComplete(match { result ->
                 val response = (result as? Failure)
                     ?.let { it.networkException as? Non200Exception }
@@ -631,7 +655,7 @@ class HttpClientTests {
 
         httpClient.sendRequest(HttpRequest.get(urlString).build(), callback)
 
-        verify(timeout = 1000) {
+        verifyWithTimeout {
             callback.onComplete(match { result ->
                 val exception = (result as? Failure)?.networkException as? Non200Exception
 
@@ -655,7 +679,7 @@ class HttpClientTests {
 
         httpClient.sendRequest(HttpRequest.get(urlString).build(), callback)
 
-        verify(timeout = 1000) {
+        verifyWithTimeout {
             callback.onComplete(match { result ->
                 val exception = (result as? Failure)?.networkException as? Non200Exception
 
@@ -677,7 +701,7 @@ class HttpClientTests {
 
         httpClient.sendRequest(HttpRequest.get(urlString).build(), callback)
 
-        verify(timeout = 1000) {
+        verifyWithTimeout {
             callback.onComplete(match { result ->
                 // the status code is still reported, whatever happened to the body
                 (result as? Failure)?.networkException
@@ -701,7 +725,7 @@ class HttpClientTests {
 
         httpClient.sendRequest(HttpRequest.get(urlString).build(), callback)
 
-        verify(timeout = 1000) {
+        verifyWithTimeout {
             callback.onComplete(match { result ->
                 val response = (result as? Failure)?.networkException?.httpResponse
 
@@ -726,7 +750,7 @@ class HttpClientTests {
 
         httpClient.sendRequest(HttpRequest.get(urlString).build(), callback)
 
-        verify(timeout = 1000) {
+        verifyWithTimeout {
             callback.onComplete(match { result ->
                 val exception = (result as? Failure)?.networkException as? UnexpectedException
 
@@ -753,7 +777,7 @@ class HttpClientTests {
 
         httpClient.sendRequest(HttpRequest.get(urlString).build(), callback)
 
-        verify(timeout = 1000) {
+        verifyWithTimeout {
             callback.onComplete(match { result ->
                 val exception = (result as? Failure)?.networkException as? NetworkIOException
 
@@ -773,7 +797,7 @@ class HttpClientTests {
 
         httpClient.sendRequest(HttpRequest.get(urlString).build(), callback)
 
-        verify(timeout = 1000) {
+        verifyWithTimeout {
             callback.onComplete(match { result ->
                 val exception = (result as? Failure)?.networkException
 
@@ -795,7 +819,7 @@ class HttpClientTests {
 
         httpClient.sendRequest(request, callback)
 
-        verify(timeout = 1000) { callback.onComplete(any()) }
+        verifyWithTimeout { callback.onComplete(any()) }
 
         val message = captureLogMessage(LogLevel.ERROR)
         assertEquals(
@@ -812,7 +836,7 @@ class HttpClientTests {
 
         httpClient.sendRequest(request, callback)
 
-        verify(timeout = 1000) { callback.onComplete(any()) }
+        verifyWithTimeout { callback.onComplete(any()) }
 
         // an unchanged resource is the expected outcome of a conditional request, not an error
         val message = captureLogMessage(LogLevel.DEBUG)
@@ -838,7 +862,7 @@ class HttpClientTests {
 
         httpClient.sendRequest(request, callback)
 
-        verify(timeout = 1000) { callback.onComplete(any()) }
+        verifyWithTimeout { callback.onComplete(any()) }
 
         val message = captureLogMessage(LogLevel.DEBUG)
         assertTrue(message.startsWith("Completed request ${request.url} with Success("))
@@ -858,7 +882,7 @@ class HttpClientTests {
 
         httpClient.sendRequest(HttpRequest.get(urlString).build(), callback)
 
-        verify(timeout = 1000) { callback.onComplete(any()) }
+        verifyWithTimeout { callback.onComplete(any()) }
 
         val message = captureTraceLogMessage()
         assertTrue(message.contains("Headers: "))
@@ -878,7 +902,7 @@ class HttpClientTests {
 
         httpClient.sendRequest(HttpRequest.get(urlString).build(), callback)
 
-        verify(timeout = 1000) { callback.onComplete(any()) }
+        verifyWithTimeout { callback.onComplete(any()) }
 
         val message = captureTraceLogMessage()
         assertTrue(message.contains("Headers: "))
@@ -898,7 +922,7 @@ class HttpClientTests {
 
         httpClient.sendRequest(HttpRequest.get(urlString).build(), callback)
 
-        verify(timeout = 1000) { callback.onComplete(any()) }
+        verifyWithTimeout { callback.onComplete(any()) }
 
         assertTrue(captureTraceLogMessage().contains("Body: $body"))
     }
@@ -916,7 +940,7 @@ class HttpClientTests {
 
         httpClient.sendRequest(HttpRequest.get(urlString).build(), callback)
 
-        verify(timeout = 1000) { callback.onComplete(any()) }
+        verifyWithTimeout { callback.onComplete(any()) }
 
         // the failure is still summarised at ERROR, but no response details are written
         assertTrue(captureLogMessage(LogLevel.ERROR).contains("Non200Exception(401)"))
@@ -933,7 +957,7 @@ class HttpClientTests {
         val callback = mockk<Callback<NetworkResult>>(relaxed = true)
         httpClient.sendRequest(request, callback)
 
-        verify(timeout = 1000) {
+        verifyWithTimeout {
             callback.onComplete(match { it is Failure && it.networkException is NetworkIOException })
         }
 
@@ -950,9 +974,9 @@ class HttpClientTests {
 
         httpClient.sendRequest(HttpRequest.get(urlString).build(), callback)
 
-        verify(timeout = 1000) { callback.onComplete(any()) }
+        verifyWithTimeout { callback.onComplete(any()) }
 
-        val mockRequest = mockWebServer.takeRequest()
+        val mockRequest = takeRecordedRequest()
         assertEquals("gzip", mockRequest.getHeader(HttpRequest.Headers.ACCEPT_ENCODING))
     }
 
@@ -968,9 +992,9 @@ class HttpClientTests {
             callback
         )
 
-        verify(timeout = 1000) { callback.onComplete(any()) }
+        verifyWithTimeout { callback.onComplete(any()) }
 
-        val mockRequest = mockWebServer.takeRequest()
+        val mockRequest = takeRecordedRequest()
         assertEquals("identity", mockRequest.getHeader(HttpRequest.Headers.ACCEPT_ENCODING))
     }
 
@@ -981,9 +1005,9 @@ class HttpClientTests {
 
         httpClient.sendRequest(HttpRequest.post(urlString, "Test Body").build(), callback)
 
-        verify(timeout = 1000) { callback.onComplete(any()) }
+        verifyWithTimeout { callback.onComplete(any()) }
 
-        val mockRequest = mockWebServer.takeRequest()
+        val mockRequest = takeRecordedRequest()
         assertEquals("application/json", mockRequest.getHeader(HttpRequest.Headers.CONTENT_TYPE))
         assertEquals("Test Body", mockRequest.body.readUtf8())
     }
@@ -998,9 +1022,9 @@ class HttpClientTests {
             callback
         )
 
-        verify(timeout = 1000) { callback.onComplete(any()) }
+        verifyWithTimeout { callback.onComplete(any()) }
 
-        val mockRequest = mockWebServer.takeRequest()
+        val mockRequest = takeRecordedRequest()
         assertEquals("gzip", mockRequest.getHeader(HttpRequest.Headers.CONTENT_ENCODING))
         assertEquals(
             "Test Body",
@@ -1016,7 +1040,7 @@ class HttpClientTests {
         val callback = mockk<Callback<NetworkResult>>(relaxed = true)
         httpClient.sendRequest(HttpRequest.get(urlString), callback)
 
-        verify(timeout = 1000) {
+        verifyWithTimeout {
             callback.onComplete(match {
                 it is Success && it.httpResponse.bodyText() == "result"
             })
@@ -1067,10 +1091,12 @@ class HttpClientTests {
 
     @Test
     fun logResult_Logs_Concise_Summary_At_Debug_For_Cancelled_Request() {
+        // any attempt is queued but never run, so only the dispose can complete the request
+        val client = HttpClient(mockLogger, testTealiumScheduler, ManualScheduler(), listOf(mockInterceptor))
         val request = HttpRequest.get(urlString).build()
         val completion = Recorder<NetworkResult>()
 
-        httpClient.sendRequest(request, completion::record).dispose()
+        client.sendRequest(request, completion::record).dispose()
 
         assertCancelled(completion.await())
         assertEquals(
@@ -1080,6 +1106,7 @@ class HttpClientTests {
         verify(exactly = 0) {
             mockLogger.log(LogLevel.ERROR, LogCategory.HTTP_CLIENT, any<() -> String>())
         }
+        verify(exactly = 0) { mockInterceptor.onAttemptResult(any(), any(), any()) }
     }
 
     @Test
@@ -1119,7 +1146,7 @@ class HttpClientTests {
         val startTime = System.nanoTime()
 
         val request = abortable.client.sendRequest(HttpRequest.get(urlString).build(), completion::record)
-        assertNotNull(mockWebServer.takeRequest(5, TimeUnit.SECONDS))
+        takeRecordedRequest()
         request.dispose()
 
         assertCancelled(completion.await())
@@ -1139,7 +1166,7 @@ class HttpClientTests {
         val blocked = abortable.client.sendRequest(
             HttpRequest.get("$urlString/blocked").build(), blockedCompletion::record
         )
-        assertEquals("/blocked", mockWebServer.takeRequest(5, TimeUnit.SECONDS)?.path)
+        assertEquals("/blocked", takeRecordedRequest().path)
         val queued = abortable.client.sendRequest(
             HttpRequest.get("$urlString/queued").build(), queuedCompletion::record
         )
@@ -1151,7 +1178,7 @@ class HttpClientTests {
         assertCancelled(blockedCompletion.await())
 
         assertTrue(sendAndAwait(abortable.client, "$urlString/after") is Success)
-        assertEquals("/after", mockWebServer.takeRequest(5, TimeUnit.SECONDS)?.path)
+        assertEquals("/after", takeRecordedRequest().path)
         assertEquals(2, mockWebServer.requestCount)
     }
 
@@ -1167,13 +1194,13 @@ class HttpClientTests {
         val blocked = abortable.client.sendRequest(
             HttpRequest.get("$urlString/blocked").build(), blockedCompletion::record
         )
-        assertEquals("/blocked", mockWebServer.takeRequest(5, TimeUnit.SECONDS)?.path)
+        assertEquals("/blocked", takeRecordedRequest().path)
         abortable.client.sendRequest(HttpRequest.get("$urlString/queued").build(), queuedCompletion::record)
         blocked.dispose()
 
         assertCancelled(blockedCompletion.await())
         assertTrue(queuedCompletion.await() is Success)
-        assertEquals("/queued", mockWebServer.takeRequest(5, TimeUnit.SECONDS)?.path)
+        assertEquals("/queued", takeRecordedRequest().path)
         assertTrue(System.nanoTime() - startTime < TimeUnit.SECONDS.toNanos(10))
     }
 
@@ -1190,7 +1217,7 @@ class HttpClientTests {
         val completion = Recorder<NetworkResult>()
 
         val request = abortable.client.sendRequest(HttpRequest.get(urlString).build(), completion::record)
-        assertNotNull(mockWebServer.takeRequest(5, TimeUnit.SECONDS))
+        takeRecordedRequest()
         request.dispose()
 
         // the JDK's disconnect() can block until a body read in progress returns, and doesn't
@@ -1329,5 +1356,14 @@ class HttpClientTests {
          * The name of the [testTealiumScheduler]'s thread.
          */
         const val TEALIUM_TEST_THREAD_NAME = "tealium-test"
+
+        /** How long a verified call is expected to take at most. */
+        const val VERIFY_EXPECTED_MS = 1000L
+
+        /** The hard limit after which a verification fails. */
+        const val VERIFY_LIMIT_MS = 5000L
+
+        /** The seconds to wait for the [mockWebServer] to receive a request. */
+        const val TAKE_REQUEST_TIMEOUT_S = 5L
     }
 }
