@@ -3,14 +3,22 @@ package com.tealium.prism.core.internal.modules
 import android.content.Context
 import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchContext
+import io.mockk.Called
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DeviceDataModuleTests {
+
+    private val logger = mockk<Logger>(relaxed = true)
 
     @Test
     fun collect_Collects_All_DeviceDataProvider_Data_In_Correct_Keys() {
@@ -39,7 +47,7 @@ class DeviceDataModuleTests {
         every { mockDeviceDataProvider.deviceBatteryPercent } returns 85
         every { mockDeviceDataProvider.deviceIsCharging } returns false
 
-        val deviceDataModule = DeviceDataModule(mockContext, mockDeviceDataProvider)
+        val deviceDataModule = DeviceDataModule(mockContext, logger, mockDeviceDataProvider)
         val collectedData = deviceDataModule.collect(dispatchContext)
 
         assertEquals("Google Pixel 7", collectedData.getString(Dispatch.Keys.DEVICE))
@@ -61,10 +69,106 @@ class DeviceDataModuleTests {
         assertEquals("Landscape Right", collectedData.getString(Dispatch.Keys.DEVICE_ORIENTATION))
         assertEquals(85, collectedData.getInt(Dispatch.Keys.DEVICE_BATTERY_PERCENT))
         assertEquals(false, collectedData.getBoolean(Dispatch.Keys.DEVICE_ISCHARGING))
+        verify { logger wasNot Called }
+    }
+
+    @Test
+    fun collect_OmitsStorageKeys_And_CollectsOtherData_When_StorageReadsThrow() {
+        val mockDeviceDataProvider = relaxedProvider()
+        every { mockDeviceDataProvider.deviceAvailableSystemStorage } throws invalidPath("/system")
+        every {
+            mockDeviceDataProvider.deviceAvailableExternalStorage
+        } throws invalidPath("/sdcard")
+
+        val collectedData = DeviceDataModule(mockk<Context>(), logger, mockDeviceDataProvider)
+            .collect(dispatchContext())
+
+        assertNull(collectedData.get(Dispatch.Keys.DEVICE_AVAILABLE_SYSTEM_STORAGE))
+        assertNull(collectedData.get(Dispatch.Keys.DEVICE_AVAILABLE_EXTERNAL_STORAGE))
+        assertEquals("Pixel 7", collectedData.getString(Dispatch.Keys.DEVICE_MODEL))
+        assertEquals("en-US", collectedData.getString(Dispatch.Keys.DEVICE_LANGUAGE))
+        assertEquals(85, collectedData.getInt(Dispatch.Keys.DEVICE_BATTERY_PERCENT))
+    }
+
+    @Test
+    fun collect_OmitsOnlyFailingStorageKey_When_OneStorageReadThrows() {
+        val mockDeviceDataProvider = relaxedProvider()
+        every { mockDeviceDataProvider.deviceAvailableSystemStorage } returns 2000L
+        every {
+            mockDeviceDataProvider.deviceAvailableExternalStorage
+        } throws invalidPath("/sdcard")
+
+        val collectedData = DeviceDataModule(mockk<Context>(), logger, mockDeviceDataProvider)
+            .collect(dispatchContext())
+
+        assertEquals(2000L, collectedData.getLong(Dispatch.Keys.DEVICE_AVAILABLE_SYSTEM_STORAGE))
+        assertNull(collectedData.get(Dispatch.Keys.DEVICE_AVAILABLE_EXTERNAL_STORAGE))
+    }
+
+    @Test
+    fun collect_LogsWarningOnce_When_StorageReadsThrowRepeatedly() {
+        val mockDeviceDataProvider = relaxedProvider()
+        every { mockDeviceDataProvider.deviceAvailableSystemStorage } throws invalidPath("/system")
+        every {
+            mockDeviceDataProvider.deviceAvailableExternalStorage
+        } throws invalidPath("/sdcard")
+        val module = DeviceDataModule(mockk<Context>(), logger, mockDeviceDataProvider)
+
+        repeat(3) { module.collect(dispatchContext()) }
+
+        verify(exactly = 1) { logger.warn(Modules.Types.DEVICE_DATA, any<String>()) }
+    }
+
+    @Test
+    fun collect_IncludesStorageKey_When_ReadSucceedsAfterFailure() {
+        val mockDeviceDataProvider = relaxedProvider()
+        every {
+            mockDeviceDataProvider.deviceAvailableSystemStorage
+        } throws invalidPath("/system") andThen 2000L
+        val module = DeviceDataModule(mockk<Context>(), logger, mockDeviceDataProvider)
+
+        val first = module.collect(dispatchContext())
+        val second = module.collect(dispatchContext())
+
+        assertNull(first.get(Dispatch.Keys.DEVICE_AVAILABLE_SYSTEM_STORAGE))
+        assertEquals(2000L, second.getLong(Dispatch.Keys.DEVICE_AVAILABLE_SYSTEM_STORAGE))
+        verify(exactly = 1) { logger.warn(Modules.Types.DEVICE_DATA, any<String>()) }
+    }
+
+    @Test
+    fun collect_WarningNamesKeyAndCause_When_StorageReadThrows() {
+        val mockDeviceDataProvider = relaxedProvider()
+        every { mockDeviceDataProvider.deviceAvailableSystemStorage } throws invalidPath("/system")
+        every { mockDeviceDataProvider.deviceAvailableExternalStorage } returns 1000L
+        val message = slot<String>()
+
+        DeviceDataModule(mockk<Context>(), logger, mockDeviceDataProvider)
+            .collect(dispatchContext())
+
+        verify { logger.warn(Modules.Types.DEVICE_DATA, capture(message)) }
+        assertTrue(message.captured.contains(Dispatch.Keys.DEVICE_AVAILABLE_SYSTEM_STORAGE))
+        assertTrue(message.captured.contains("Invalid path: /system"))
+        assertTrue(message.captured.contains("(statvfs failed: ENOENT"))
     }
 
     @Test
     fun factory_ModuleType_Matches_Module_Id() {
         assertEquals(Modules.Types.DEVICE_DATA, DeviceDataModule.Factory().moduleType)
     }
+
+    private fun relaxedProvider(): DeviceDataProvider {
+        val provider = mockk<DeviceDataProvider>(relaxed = true)
+        every { provider.deviceModel } returns "Pixel 7"
+        every { provider.deviceLanguage } returns "en-US"
+        every { provider.deviceBatteryPercent } returns 85
+        return provider
+    }
+
+    private fun dispatchContext() =
+        DispatchContext(DispatchContext.Source.application(), DataObject.EMPTY_OBJECT)
+
+    private fun invalidPath(path: String) = IllegalArgumentException(
+        "Invalid path: $path",
+        Exception("statvfs failed: ENOENT (No such file or directory)")
+    )
 }

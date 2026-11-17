@@ -34,7 +34,16 @@ interface DeviceDataProvider {
     val deviceOsName: String
     val deviceOsBuild: String
     val deviceOsVersion: String
+    /**
+     * The available system storage in bytes.
+     * Throws [IllegalArgumentException] when [android.os.StatFs] can't read the file system.
+     */
     val deviceAvailableSystemStorage: Long
+
+    /**
+     * The available external storage in bytes.
+     * Throws [IllegalArgumentException] when [android.os.StatFs] can't read the file system.
+     */
     val deviceAvailableExternalStorage: Long
     val deviceOrientation: String
     val deviceLanguage: String

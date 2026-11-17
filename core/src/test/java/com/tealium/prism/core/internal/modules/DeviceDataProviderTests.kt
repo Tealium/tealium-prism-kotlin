@@ -15,10 +15,14 @@ import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockkConstructor
 import io.mockk.slot
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.Implementation
+import org.robolectric.annotation.Implements
 import org.robolectric.util.ReflectionHelpers
 
 @RunWith(RobolectricTestRunner::class)
@@ -249,6 +253,28 @@ class DeviceDataProviderTests {
     }
 
     @Test
+    @Config(shadows = [ThrowingStatFsShadow::class])
+    fun deviceAvailableSystemStorage_throwsIllegalArgument_When_StatFs_Fails() {
+        deviceDataProvider =
+            DeviceDataProviderImpl(context, displayManager, uiModeManager, defaultDisplay)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            deviceDataProvider.deviceAvailableSystemStorage
+        }
+    }
+
+    @Test
+    @Config(shadows = [ThrowingStatFsShadow::class])
+    fun deviceAvailableExternalStorage_throwsIllegalArgument_When_StatFs_Fails() {
+        deviceDataProvider =
+            DeviceDataProviderImpl(context, displayManager, uiModeManager, defaultDisplay)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            deviceDataProvider.deviceAvailableExternalStorage
+        }
+    }
+
+    @Test
     fun deviceOrientation_returnsDeviceOrientation() {
         every { displayManager.getDisplay(Display.DEFAULT_DISPLAY) } returns defaultDisplay
         every { defaultDisplay.rotation } returns Surface.ROTATION_0
@@ -280,5 +306,20 @@ class DeviceDataProviderTests {
         } finally {
             if (previous == null) System.clearProperty(key) else System.setProperty(key, previous)
         }
+    }
+}
+
+/**
+ * Replaces Robolectric's [StatFs] shadow with one whose constructor throws, as a real device does
+ * when `statvfs` fails. The cause stands in for the platform's `ErrnoException`.
+ */
+@Implements(StatFs::class)
+class ThrowingStatFsShadow {
+    @Implementation
+    protected fun __constructor__(path: String) {
+        throw IllegalArgumentException(
+            "Invalid path: $path",
+            Exception("statvfs failed: ENOENT (No such file or directory)")
+        )
     }
 }

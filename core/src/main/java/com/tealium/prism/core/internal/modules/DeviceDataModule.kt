@@ -4,6 +4,7 @@ import android.content.Context
 import com.tealium.prism.core.BuildConfig
 import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.modules.Collector
 import com.tealium.prism.core.api.modules.Module
 import com.tealium.prism.core.api.modules.ModuleFactory
@@ -17,8 +18,11 @@ import com.tealium.prism.core.api.tracking.DispatchContext
  */
 class DeviceDataModule(
     private val context: Context,
+    private val logger: Logger,
     private val deviceDataProvider: DeviceDataProvider = DeviceDataProviderImpl(context)
 ) : Collector {
+
+    private var hasWarnedStorageFailure = false
 
     private val baseData = DataObject.create {
         put(Dispatch.Keys.DEVICE, deviceDataProvider.device)
@@ -38,20 +42,40 @@ class DeviceDataModule(
 
     override fun collect(dispatchContext: DispatchContext): DataObject {
         return baseData.copy {
-            put(
-                Dispatch.Keys.DEVICE_AVAILABLE_SYSTEM_STORAGE,
+            readStorage(Dispatch.Keys.DEVICE_AVAILABLE_SYSTEM_STORAGE) {
                 deviceDataProvider.deviceAvailableSystemStorage
-            )
-            put(
-                Dispatch.Keys.DEVICE_AVAILABLE_EXTERNAL_STORAGE,
+            }?.let { put(Dispatch.Keys.DEVICE_AVAILABLE_SYSTEM_STORAGE, it) }
+            readStorage(Dispatch.Keys.DEVICE_AVAILABLE_EXTERNAL_STORAGE) {
                 deviceDataProvider.deviceAvailableExternalStorage
-            )
+            }?.let { put(Dispatch.Keys.DEVICE_AVAILABLE_EXTERNAL_STORAGE, it) }
             put(Dispatch.Keys.DEVICE_ORIENTATION, deviceDataProvider.deviceOrientation)
             put(Dispatch.Keys.DEVICE_LANGUAGE, deviceDataProvider.deviceLanguage)
             put(Dispatch.Keys.DEVICE_BATTERY_PERCENT, deviceDataProvider.deviceBatteryPercent)
             put(Dispatch.Keys.DEVICE_ISCHARGING, deviceDataProvider.deviceIsCharging)
         }
     }
+
+    /**
+     * Reads one storage value, or returns null when [read] throws [IllegalArgumentException] (see
+     * [DeviceDataProvider]). [collect] runs for every dispatch, so only the first failure is
+     * logged.
+     */
+    private inline fun readStorage(key: String, read: () -> Long): Long? =
+        try {
+            read()
+        } catch (e: IllegalArgumentException) {
+            if (!hasWarnedStorageFailure) {
+                hasWarnedStorageFailure = true
+                logger.warn(
+                    id,
+                    "Failed to read $key: ${e.message}" +
+                            (e.cause?.message?.let { " ($it)" } ?: "") +
+                            ". Leaving it out of the device data; later storage read failures " +
+                            "are not logged."
+                )
+            }
+            null
+        }
 
     override val id: String = Modules.Types.DEVICE_DATA
     override val version: String
@@ -71,7 +95,7 @@ class DeviceDataModule(
         override val moduleType: String = Modules.Types.DEVICE_DATA
 
         override fun create(moduleId: String, context: TealiumContext, configuration: DataObject): Module? {
-            return DeviceDataModule(context.context)
+            return DeviceDataModule(context.context, context.logger)
         }
     }
 }
