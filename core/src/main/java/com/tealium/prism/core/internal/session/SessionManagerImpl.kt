@@ -3,6 +3,7 @@ package com.tealium.prism.core.internal.session
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.logger.logIfDebugEnabled
+import com.tealium.prism.core.api.logger.logIfErrorEnabled
 import com.tealium.prism.core.api.logger.logIfWarnEnabled
 import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.misc.TimeFrame
@@ -76,6 +77,8 @@ class SessionManagerImpl(
         // subscribe persistence and expiration listener
         _session.subscribe { updatedSession ->
             if (updatedSession.status == Session.Status.Ended) {
+                // Runs from the expiration task and, during init, for a stored session that has
+                // already expired. A failed cleanup doesn't stop the session from ending.
                 deleteModuleSessionData()
                 return@subscribe
             }
@@ -92,10 +95,21 @@ class SessionManagerImpl(
     }
 
     /**
-     * Clears all session-scoped data stored by the modules
+     * Deletes the session-scoped data stored by the modules, and any data whose expiry time has
+     * passed. If the deletion fails (a full disk, for example), the error is logged and the data
+     * stays in place; session-scoped data stays readable until a later deletion succeeds.
+     *
+     * [DataStore.onDataRemoved] observers run inside this call, after the delete, so an observer
+     * that throws is handled as a failed deletion, although the data was deleted.
      */
     private fun deleteModuleSessionData() {
-        modulesRepository.deleteExpired(ModulesRepository.ExpirationType.Session)
+        try {
+            modulesRepository.deleteExpired(ModulesRepository.ExpirationType.Session)
+        } catch (ex: Exception) {
+            logger.logIfErrorEnabled(LogCategory.SESSION_MANAGER) {
+                "Failed to delete session-scoped data: ${ex.message}"
+            }
+        }
     }
 
     /**

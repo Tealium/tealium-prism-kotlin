@@ -45,12 +45,6 @@ class PersistDataValueTransformer(private val context: TealiumContext) : Transfo
         val expiryPolicy = config.expiryPolicy
         val updatePolicy = config.updatePolicy
 
-        if (updatePolicy == UpdatePolicy.KEEP_FIRST_VALUE && dataLayer.extract(destination) != null) {
-            // do not overwrite existing value
-            completion.onComplete(dispatch)
-            return Disposables.disposed()
-        }
-
         val dataItem = when (input) {
             is ValueSource.Constant -> {
                 input.value.value
@@ -66,13 +60,30 @@ class PersistDataValueTransformer(private val context: TealiumContext) : Transfo
             return Disposables.disposed()
         }
 
-        try {
-            dataLayer.buildPath(destination, dataItem, expiryPolicy.resolve())
-            val updatedPayload = payload.buildPath(destination, dataItem)
-            dispatch.replace(updatedPayload)
+        val keepExistingValue = updatePolicy == UpdatePolicy.KEEP_FIRST_VALUE && try {
+            dataLayer.extract(destination) != null
         } catch (e: Exception) {
+            // Exception, not PersistenceException: a failed read throws the database's own exception
+            // (SQLiteException or IllegalStateException, for example). A narrower catch fits only if
+            // reads throw PersistenceException. A value that can't be read is not overwritten.
             logger.logIfErrorEnabled(PERSIST_DATA_VALUE) {
-                "Failed to persist data value for path $destination"
+                "Failed to read data value for path $destination; not overwriting it: ${e.message}"
+            }
+            true
+        }
+
+        if (!keepExistingValue) {
+            try {
+                dataLayer.buildPath(destination, dataItem, expiryPolicy.resolve())
+                val updatedPayload = payload.buildPath(destination, dataItem)
+                dispatch.replace(updatedPayload)
+            } catch (e: Exception) {
+                // Exception: for a nested path buildPath first reads the existing value, and a failed read
+                // throws the database's own exception; onDataUpdated/onDataRemoved subscribers, app code
+                // included, run inside it and can throw anything.
+                logger.logIfErrorEnabled(PERSIST_DATA_VALUE) {
+                    "Failed to persist data value for path $destination: ${e.message}"
+                }
             }
         }
         completion.onComplete(dispatch)

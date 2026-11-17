@@ -2,6 +2,8 @@ import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.JsonPath
 import com.tealium.prism.core.api.data.ReferenceContainer
+import com.tealium.prism.core.api.logger.LogLevel
+import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.misc.ExpiryPolicy
 import com.tealium.prism.core.api.modules.TealiumContext
 import com.tealium.prism.core.api.tracking.Dispatch
@@ -10,10 +12,12 @@ import com.tealium.prism.core.api.transform.TransformationScope
 import com.tealium.prism.core.api.transform.TransformationSettings
 import com.tealium.prism.extensions.api.persistdatavalue.PersistDataValueSettingsBuilder
 import com.tealium.prism.extensions.api.persistdatavalue.UpdatePolicy
-import com.tealium.tests.common.buildTransformationSettings
+import com.tealium.prism.extensions.internal.PERSIST_DATA_VALUE
 import com.tealium.prism.extensions.internal.persistdatavalue.PersistDataValueTransformer
+import com.tealium.tests.common.buildTransformationSettings
 import io.mockk.MockKAnnotations
 import io.mockk.every
+import io.mockk.mockk
 import io.mockk.verify
 import io.mockk.impl.annotations.RelaxedMockK
 import org.junit.Assert.assertEquals
@@ -151,6 +155,8 @@ class PersistDataValueTransformerTests {
 
         assertEquals(listOf<Dispatch?>(dispatch), completions)
         assertTrue(disposable.isDisposed)
+        val dataLayer = tealiumContext.dataLayer
+        verify(exactly = 0) { dataLayer.buildPath(any(), any(), any()) }
     }
 
     @Test
@@ -361,6 +367,8 @@ class PersistDataValueTransformerTests {
             val value = payload?.extract(JsonPath["destination_key"])
             assertEquals("existing_value", value?.value)
         }
+        val dataLayer = tealiumContext.dataLayer
+        verify(exactly = 0) { dataLayer.buildPath(any(), any(), any()) }
     }
 
     @Test
@@ -396,6 +404,9 @@ class PersistDataValueTransformerTests {
     @Test
     fun applyTransformation_KeepsOriginalDispatch_WhenBuildPathFails() {
         every { tealiumContext.dataLayer.buildPath(any(), any(), any()) } throws Exception("build path failed")
+        val logger = mockk<Logger>(relaxed = true)
+        every { logger.shouldLog(LogLevel.ERROR) } returns true
+        every { tealiumContext.logger } returns logger
         val transformer = PersistDataValueTransformer(tealiumContext)
         val dispatch =
             Dispatch.create(
@@ -420,6 +431,42 @@ class PersistDataValueTransformerTests {
             assertEquals(dispatch, result)
             assertEquals(dispatch.payload(), result?.payload())
         }
+        verify(exactly = 1) { logger.error(PERSIST_DATA_VALUE, any<String>()) }
     }
 
+    @Test
+    fun applyTransformation_KeepsOriginalDispatch_WhenKeepFirstValueReadFails() {
+        val dataLayer = tealiumContext.dataLayer
+        every { dataLayer.extract(any()) } throws RuntimeException("read failed")
+        val logger = mockk<Logger>(relaxed = true)
+        every { logger.shouldLog(LogLevel.ERROR) } returns true
+        every { tealiumContext.logger } returns logger
+        val transformer = PersistDataValueTransformer(tealiumContext)
+        val dispatch =
+            Dispatch.create(
+                "test_event",
+                dataObject = DataObject.create { put("source_key", "new_value") })
+
+        val settings = PersistDataValueSettingsBuilder("test")
+            .persistFrom(
+                ReferenceContainer.key("source_key"),
+                ReferenceContainer.key("destination_key")
+            )
+            .setExpiryPolicy(ExpiryPolicy.SESSION)
+            .setUpdatePolicy(UpdatePolicy.KEEP_FIRST_VALUE)
+            .setScope(TransformationScope.AfterCollectors)
+            .buildTransformationSettings()
+
+        val completions = mutableListOf<Dispatch?>()
+        transformer.applyTransformation(
+            settings,
+            dispatch,
+            DispatchScope.AfterCollectors
+        ) { completions.add(it) }
+
+        assertEquals(listOf<Dispatch?>(dispatch), completions)
+        assertNull(dispatch.payload().extract(JsonPath["destination_key"]))
+        verify(exactly = 0) { dataLayer.buildPath(any(), any(), any()) }
+        verify(exactly = 1) { logger.error(PERSIST_DATA_VALUE, any<String>()) }
+    }
 }
