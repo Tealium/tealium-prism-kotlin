@@ -9,6 +9,7 @@ import com.tealium.prism.core.api.data.ReferenceContainer.Companion.path
 import com.tealium.prism.core.api.data.get
 import com.tealium.prism.core.api.rules.Condition
 import com.tealium.prism.core.api.rules.ConditionEvaluationException
+import com.tealium.prism.core.api.rules.InvalidRegexException
 import com.tealium.prism.core.api.rules.MissingDataItemException
 import com.tealium.prism.core.api.rules.MissingFilterException
 import com.tealium.prism.core.api.rules.UnsupportedOperatorException
@@ -193,6 +194,17 @@ class ConditionsRegexTests {
             regex = "{\"key\""
         )
         assertThrows<ConditionEvaluationException>(cause = UnsupportedOperatorException::class) {
+            condition.matches(payload)
+        }
+    }
+
+    @Test
+    fun regularExpression_Throws_When_Pattern_Is_Invalid() {
+        val condition = Condition.regularExpression(
+            variable = "string",
+            regex = "["
+        )
+        assertThrows<ConditionEvaluationException>(cause = InvalidRegexException::class) {
             condition.matches(payload)
         }
     }

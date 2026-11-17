@@ -1,6 +1,7 @@
 package com.tealium.prism.core.internal.settings
 
 import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
+import com.tealium.prism.core.api.data.DataList
 import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.ReferenceContainer
 import com.tealium.prism.core.api.data.StringContainer
@@ -92,6 +93,21 @@ class ModuleSettingsTests {
 
         val settings = ModuleSettings.Converter.convert(settingsObject)!!
         assertEquals(rule, settings.rules)
+    }
+
+    @Test
+    fun convert_Sets_Rules_To_Null_When_Not_Rule_Has_No_Children() {
+        val settingsObject = DataObject.create {
+            put(ModuleSettings.KEY_MODULE_ID, "module")
+            put(ModuleSettings.KEY_MODULE_TYPE, "module")
+            put(ModuleSettings.KEY_RULES, DataObject.create {
+                put(Rule.KEY_OPERATOR, Rule.OPERATOR_NOT)
+                put(Rule.KEY_CHILDREN, DataList.EMPTY_LIST)
+            })
+        }
+
+        val settings = ModuleSettings.Converter.convert(settingsObject)!!
+        assertNull(settings.rules)
     }
 
     @Test

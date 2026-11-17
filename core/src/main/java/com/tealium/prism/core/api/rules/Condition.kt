@@ -30,6 +30,10 @@ import com.tealium.prism.core.internal.rules.Operators
  *  - throw [MissingFilterException] if the filter is `null`
  *  - throw [NumberParseException] if it requires a numeric value in the payload or filter, but they were not parseable as such
  *  - throw [UnsupportedOperatorException] if the operator is not supported for the type of data found in the payload
+ *  - throw [InvalidRegexException] if the [regularExpression] filter is not a valid regular expression
+ *
+ * Any other failure is reported as another subclass of [OperatorFailedException], so catching that
+ * type covers every operator failure.
  *
  * @param variable The actual key in the [DataObject] to get the value from
  * @param operator The behavior of this [Condition]
@@ -609,6 +613,10 @@ data class Condition internal constructor(
          * Returns an [Operator] that checks whether the value found at key [variable], is matched
          * by the given [regex] string.
          *
+         * If [regex] is not a valid regular expression, matching the returned [Condition] fails:
+         * [Condition.matches] throws a [ConditionEvaluationException] whose cause is an
+         * [InvalidRegexException].
+         *
          * @param variable the key to extract the value from for the comparison
          * @param regex the target regex to check against
          */
@@ -619,6 +627,10 @@ data class Condition internal constructor(
         /**
          * Returns an [Operator] that checks whether the value found at key [variable], is matched
          * by the given [regex] string.
+         *
+         * If [regex] is not a valid regular expression, matching the returned [Condition] fails:
+         * [Condition.matches] throws a [ConditionEvaluationException] whose cause is an
+         * [InvalidRegexException].
          *
          * @param variable the path to the key to extract the value from for the comparison
          * @param regex the target regex to check against

@@ -47,6 +47,12 @@ class LoadRuleEngineTests {
             "throwing", Rule.all(
                 just(Condition.isGreaterThan(false, "number", "not-a-number"))
             )
+        ),
+        "invalid_regex" to LoadRule("invalid_regex", Rule.just(invalidRegex)),
+        "not_invalid_regex" to LoadRule("not_invalid_regex", Rule.not(Rule.just(invalidRegex))),
+        "invalid_regex_or_match" to LoadRule(
+            "invalid_regex_or_match",
+            Rule.any(Rule.just(invalidRegex), Rule.just(Condition.isEqual(false, "key", "value")))
         )
     )
 
@@ -81,6 +87,12 @@ class LoadRuleEngineTests {
                 rules = Rule.all(
                     just("throwing")
                 )
+            ), ModuleSettings("invalid_regex",
+                rules = just("invalid_regex")
+            ), ModuleSettings("not_invalid_regex",
+                rules = just("not_invalid_regex")
+            ), ModuleSettings("invalid_regex_or_match",
+                rules = just("invalid_regex_or_match")
             )
         ).associateBy { it.moduleId }
     )
@@ -93,6 +105,9 @@ class LoadRuleEngineTests {
     private val module1AndNot2 = DispatchingCollectorModule("1_and_not_2")
     private val moduleMissingRules = DispatchingCollectorModule("missing_rules")
     private val moduleWithThrowingRule = DispatchingCollectorModule("throwing_rules")
+    private val moduleWithInvalidRegex = DispatchingCollectorModule("invalid_regex")
+    private val moduleWithNotInvalidRegex = DispatchingCollectorModule("not_invalid_regex")
+    private val moduleWithInvalidRegexOrMatch = DispatchingCollectorModule("invalid_regex_or_match")
     private lateinit var engine: LoadRuleEngineImpl
 
     @Before
@@ -386,6 +401,54 @@ class LoadRuleEngineTests {
         assertTrue(result.unsuccessful.containsAll(listOf(withNumber, withInvalidNumber)))
     }
 
+    @Test
+    fun rulesAllow_Returns_False_When_Rule_Has_An_Invalid_Regex() {
+        assertFalse(engine.rulesAllow(moduleWithInvalidRegex, dispatchWithKey()))
+    }
+
+    @Test
+    fun rulesAllow_Returns_False_When_Rule_Negates_An_Invalid_Regex() {
+        assertFalse(engine.rulesAllow(moduleWithNotInvalidRegex, dispatchWithKey()))
+    }
+
+    @Test
+    fun rulesAllow_Returns_False_When_Invalid_Regex_Is_Evaluated_Before_A_Matching_Sibling_In_An_Or() {
+        assertFalse(engine.rulesAllow(moduleWithInvalidRegexOrMatch, dispatchWithKey()))
+    }
+
+    @Test
+    fun evaluateLoadRules_Returns_Failed_When_Rule_Has_An_Invalid_Regex() {
+        val dispatch = dispatchWithKey()
+
+        val result = engine.evaluateLoadRules(moduleWithInvalidRegex, listOf(dispatch))
+
+        assertTrue(result.successful.isEmpty())
+        assertTrue(result.unsuccessful.contains(dispatch))
+    }
+
+    @Test
+    fun evaluateLoadRules_Returns_Failed_When_Rule_Negates_An_Invalid_Regex() {
+        val dispatch = dispatchWithKey()
+
+        val result = engine.evaluateLoadRules(moduleWithNotInvalidRegex, listOf(dispatch))
+
+        assertTrue(result.successful.isEmpty())
+        assertTrue(result.unsuccessful.contains(dispatch))
+    }
+
+    @Test
+    fun evaluateLoadRules_Returns_Failed_When_Invalid_Regex_Is_Evaluated_Before_A_Matching_Sibling_In_An_Or() {
+        val dispatch = dispatchWithKey()
+
+        val result = engine.evaluateLoadRules(moduleWithInvalidRegexOrMatch, listOf(dispatch))
+
+        assertTrue(result.successful.isEmpty())
+        assertTrue(result.unsuccessful.contains(dispatch))
+    }
+
+    private fun dispatchWithKey(): Dispatch =
+        createDispatch(DataObject.create { put("key", "value") })
+
     private fun createDispatch(payload: DataObject, eventName: String = "event"): Dispatch =
         Dispatch.create(eventName, DispatchType.Event, payload)
 
@@ -409,5 +472,9 @@ class LoadRuleEngineTests {
 
         override fun collect(dispatchContext: DispatchContext): DataObject = DataObject.EMPTY_OBJECT
 
+    }
+
+    private companion object {
+        val invalidRegex = Condition.regularExpression(variable = "key", regex = "[")
     }
 }

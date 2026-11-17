@@ -10,6 +10,7 @@ import com.tealium.prism.core.api.pubsub.ReplaySubject
 import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.rules.Condition
 import com.tealium.prism.core.api.rules.Condition.Companion.isDefined
+import com.tealium.prism.core.api.rules.Condition.Companion.isEqual
 import com.tealium.prism.core.api.rules.Condition.Companion.isGreaterThan
 import com.tealium.prism.core.api.rules.Rule
 import com.tealium.prism.core.api.tracking.Dispatch
@@ -551,6 +552,35 @@ class TransformerCoordinatorTests {
     }
 
     @Test
+    fun transform_Does_Not_Apply_Transformation_When_Condition_Has_Invalid_Regex() {
+        val settings = addTransformation(conditions = Rule.just(invalidRegex))
+
+        transformWithKey()
+
+        verifyNotApplied(settings)
+    }
+
+    @Test
+    fun transform_Does_Not_Apply_Transformation_When_Condition_Negates_An_Invalid_Regex() {
+        val settings = addTransformation(conditions = Rule.not(Rule.just(invalidRegex)))
+
+        transformWithKey()
+
+        verifyNotApplied(settings)
+    }
+
+    @Test
+    fun transform_Does_Not_Apply_Transformation_When_Invalid_Regex_Is_Evaluated_Before_A_Matching_Sibling_In_An_Or() {
+        val settings = addTransformation(
+            conditions = Rule.any(Rule.just(invalidRegex), Rule.just(isEqual(false, "key", "value")))
+        )
+
+        transformWithKey()
+
+        verifyNotApplied(settings)
+    }
+
+    @Test
     fun transform_Evaluates_Conditions_With_Result_Of_Previous_Transformations() {
         val dispatch = Dispatch.create("event")
         val first =
@@ -771,6 +801,19 @@ class TransformerCoordinatorTests {
             listOf(firstProgrammatic, secondProgrammatic, thirdProgrammatic),
             transformerCoordinator.sortedTransformations
         )
+    }
+
+    private val invalidRegex = Condition.regularExpression(variable = "key", regex = "[")
+
+    private fun transformWithKey() {
+        val dispatch = Dispatch.create("event", dataObject = DataObject.create { put("key", "value") })
+        transformerCoordinator.transform(dispatch, DispatchScope.AfterCollectors, onTransformed)
+    }
+
+    private fun verifyNotApplied(settings: TransformationSettings) {
+        verify(exactly = 0) {
+            mockTransformer4.applyTransformation(settings, any(), any(), any())
+        }
     }
 
     private fun addTransformation(

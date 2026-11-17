@@ -80,6 +80,39 @@ class SdkSettingsTests {
     }
 
     @Test
+    fun fromDataObject_With_LoadRules_Returns_SdkSettings_Without_LoadRule_When_Conditions_Have_No_Children() {
+        val settingsObject = DataObject.create {
+            put(SdkSettings.KEY_LOAD_RULES, DataObject.create {
+                put("rule-1", DataObject.create {
+                    put(LoadRule.Converter.KEY_ID, "rule-1")
+                    put(LoadRule.Converter.KEY_CONDITIONS, notWithoutChildren())
+                })
+            })
+        }
+
+        val settings = SdkSettings.fromDataObject(settingsObject)
+
+        assertTrue(settings.loadRules.isEmpty())
+    }
+
+    @Test
+    fun fromDataObject_With_Transformations_Returns_Transformation_With_Null_Conditions_When_Conditions_Have_No_Children() {
+        val transformation = TestTransformationSettingsBuilder("id")
+            .setScope(TransformationScope.AllDispatchers)
+            .build()
+            .copy { put(TransformationSettings.Converter.KEY_CONDITIONS, notWithoutChildren()) }
+        val settingsObject = DataObject.create {
+            put(SdkSettings.KEY_TRANSFORMATIONS, DataObject.create {
+                put("transformer-id", transformation)
+            })
+        }
+
+        val settings = SdkSettings.fromDataObject(settingsObject)
+
+        assertNull(settings.transformations["transformer-id"]!!.conditions)
+    }
+
+    @Test
     fun fromDataObject_With_Transformations_Returns_SdkSettings_With_Transformations() {
         val expected = TransformationSettings(
             "id",
@@ -190,5 +223,10 @@ class SdkSettingsTests {
 
         val recreatedConsent = settings.consent
         assertNull(recreatedConsent)
+    }
+
+    private fun notWithoutChildren() = DataObject.create {
+        put(Rule.KEY_OPERATOR, Rule.OPERATOR_NOT)
+        put(Rule.KEY_CHILDREN, DataList.EMPTY_LIST)
     }
 }

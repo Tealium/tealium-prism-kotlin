@@ -64,3 +64,15 @@ class UnsupportedOperatorException(message: String, cause: Throwable?) :
         cause
     )
 }
+
+/**
+ * Indicates that the [Condition.filter] of a regular expression operator is not a valid regular
+ * expression.
+ *
+ * This is a configuration error.
+ *
+ * @param pattern The filter that could not be compiled as a regular expression
+ * @param cause The underlying exception thrown when compiling the pattern, if any
+ */
+class InvalidRegexException(pattern: String, cause: Throwable? = null) :
+    OperatorFailedException("Invalid regular expression: \"$pattern\"", cause)

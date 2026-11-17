@@ -8,6 +8,7 @@ import com.tealium.prism.core.api.rules.Condition.Companion.isLessThan
 import com.tealium.prism.core.internal.rules.conditionConverter
 import com.tealium.tests.common.trimJson
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -202,6 +203,26 @@ class RuleConverterTests {
     }
 
     @Test
+    fun converter_Returns_Null_When_Not_Has_No_Children() {
+        assertNull(converter.convert(operatorWithChildren("not", "")))
+    }
+
+    @Test
+    fun converter_Returns_Null_When_Not_Has_Only_Unconvertible_Children() {
+        assertNull(converter.convert(operatorWithChildren("not", UNKNOWN_CHILD)))
+    }
+
+    @Test
+    fun converter_Returns_Null_When_And_Has_Only_Unconvertible_Children() {
+        assertNull(converter.convert(operatorWithChildren("and", UNKNOWN_CHILD)))
+    }
+
+    @Test
+    fun converter_Returns_Null_When_Or_Has_Only_Unconvertible_Children() {
+        assertNull(converter.convert(operatorWithChildren("or", UNKNOWN_CHILD)))
+    }
+
+    @Test
     fun asDataItem_Serializes_Rule_Using_Condition_Converter() {
         val rule = Rule.not(
             Rule.just(isEqual(false, "true", "true"))
@@ -248,5 +269,14 @@ class RuleConverterTests {
         Rule.not(
             Rule.just(Any())
         ).asDataItem()
+    }
+
+    private fun operatorWithChildren(operator: String, children: String) = DataObject.fromString(
+        """{ "operator": "$operator", "children": [$children] }"""
+    )!!.asDataItem()
+
+    private companion object {
+        const val UNKNOWN_CHILD =
+            """{ "variable": { "key": "k" }, "operator": "unknown_operator", "filter": { "value": "v" } }"""
     }
 }

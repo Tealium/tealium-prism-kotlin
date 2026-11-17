@@ -6,25 +6,30 @@ import com.tealium.prism.core.api.data.DataObject
 import com.tealium.prism.core.api.data.StringContainer
 import com.tealium.prism.core.api.rules.Condition
 import com.tealium.prism.core.api.rules.Condition.Operator
+import com.tealium.prism.core.api.rules.InvalidRegexException
 import com.tealium.prism.core.api.rules.MissingDataItemException
 import com.tealium.prism.core.api.rules.MissingFilterException
 import com.tealium.prism.core.api.rules.NumberParseException
+import com.tealium.prism.core.api.rules.OperatorFailedException
 import com.tealium.prism.core.api.rules.UnsupportedOperatorException
 import com.tealium.prism.core.internal.rules.Operators.isDefined
 import com.tealium.prism.core.internal.rules.Operators.isNotDefined
 import com.tealium.prism.core.internal.utils.humanReadable
+import java.util.regex.PatternSyntaxException
 
 /**
  * Object for looking up standard Tealium [Condition.Operator] implementations.
  *
  * With the exception of [isDefined]/[isNotDefined] which explicitly check for the existence of values
- * at given keys, [Operator] implementations will throw [MissingDataItemException] in cases where
- * the [DataItem] was not found in the payload,
- *
- * [Operator]s that require a filter value will
+ * at given keys, [Operator]s are typically expected to
+ *  - throw [MissingDataItemException] if the data item is not found in the payload
  *  - throw [MissingFilterException] if the filter is `null`
- *  - throw [NumberParseException] if it requires a value of a given type but the value was not
- *  parseable as such (e.g. "greaterThan" requires a numeric value)
+ *  - throw [NumberParseException] if it requires a numeric value in the payload or filter, but they were not parseable as such
+ *  - throw [UnsupportedOperatorException] if the operator is not supported for the type of data found in the payload
+ *  - throw [InvalidRegexException] if the [regularExpression] filter is not a valid regular expression
+ *
+ * Any other failure is reported as another subclass of [OperatorFailedException], so catching that
+ * type covers every operator failure.
  */
 object Operators {
 
@@ -292,10 +297,18 @@ object Operators {
 
     /**
      * Checks whether an input is matched by a provided RegularExpression.
+     *
+     * If the provided pattern is not a valid regular expression then the operator will throw
+     * [InvalidRegexException].
      */
     val regularExpression: Operator =
         StringsMatchOperator("regular_expression", false) { string, pattern ->
-            Regex(pattern).containsMatchIn(string)
+            val regex = try {
+                Regex(pattern)
+            } catch (ex: PatternSyntaxException) {
+                throw InvalidRegexException(pattern, ex)
+            }
+            regex.containsMatchIn(string)
         }
 
     private val operators = listOf(

@@ -204,6 +204,7 @@ sealed class Rule<T> : DataItemConvertible {
             if (operator == null || children == null) return null
 
             val mappedChildren = children.mapNotNull(::convert)
+            if (mappedChildren.isEmpty()) return null
 
             return when (operator.lowercase()) {
                 OPERATOR_AND -> all(*mappedChildren.toTypedArray())
