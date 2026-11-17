@@ -2,9 +2,9 @@ package com.tealium.prism.core.internal.network
 
 import com.tealium.prism.core.api.logger.LogLevel
 import com.tealium.prism.core.api.logger.Logger
-import com.tealium.prism.core.api.logger.logIfDebugEnabled
 import com.tealium.prism.core.api.logger.logIfErrorEnabled
 import com.tealium.prism.core.api.logger.logIfTraceEnabled
+import com.tealium.prism.core.api.logger.logIfWarnEnabled
 import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.network.HttpRequest
@@ -21,6 +21,7 @@ import com.tealium.prism.core.api.network.NetworkResult.Success
 import com.tealium.prism.core.api.network.RequestInterceptor
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.internal.logger.LogCategory
+import com.tealium.prism.core.internal.logger.withCause
 import com.tealium.prism.core.internal.pubsub.CompletedDisposable
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
@@ -28,6 +29,7 @@ import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.MalformedURLException
+import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.GZIPOutputStream
 
 /**
@@ -168,11 +170,11 @@ class HttpClient internal constructor(
      * The abort handle of a single attempt.
      *
      * Disposing it marks the attempt as cancelled, which the attempt checks before each step that
-     * reaches the network, and disconnects the attempt's [connection] to interrupt a blocking read
+     * reaches the network, and disconnects the attempt's connection to interrupt a blocking read
      * or write.
      *
-     * The attempt writes its [connection] before reading [cancelled], and the handle writes
-     * [cancelled] before reading the [connection], so that at least one of them sees the other.
+     * The attempt attaches its connection before reading [cancelled], and the handle writes
+     * [cancelled] before taking the connection, so that at least one of them sees the other.
      */
     private class Attempt(
         private val logger: Logger
@@ -182,11 +184,28 @@ class HttpClient internal constructor(
         var cancelled = false
             private set
 
-        @Volatile
-        var connection: HttpURLConnection? = null
+        private val connection = AtomicReference<HttpURLConnection?>(null)
 
         override val isDisposed: Boolean
             get() = cancelled
+
+        fun attach(connection: HttpURLConnection) = this.connection.set(connection)
+
+        /**
+         * Disconnects the attached connection unless the other caller has already taken it:
+         * [HttpURLConnection] is not thread safe, and both the attempt's `finally` and [dispose] call
+         * this. Exceptions are logged, not thrown, so that the attempt still calls back.
+         */
+        fun releaseConnection() {
+            val taken = connection.getAndSet(null) ?: return
+            try {
+                taken.disconnect()
+            } catch (e: Exception) {
+                logger.logIfWarnEnabled(LogCategory.HTTP_CLIENT) {
+                    "Failed to disconnect".withCause(e)
+                }
+            }
+        }
 
         // TODO: disconnect() runs on the tealium thread. On Android (com.android.okhttp)
         //  it closes the raw socket and returns at once; the JDK implementation can block until a
@@ -195,13 +214,7 @@ class HttpClient internal constructor(
         //  abort.
         override fun dispose() {
             cancelled = true
-            try {
-                connection?.disconnect()
-            } catch (e: Exception) {
-                logger.logIfDebugEnabled(LogCategory.HTTP_CLIENT) {
-                    "Failed to abort request: $e"
-                }
-            }
+            releaseConnection()
         }
     }
 
@@ -274,11 +287,10 @@ class HttpClient internal constructor(
          * The [attempt] is checked for cancellation before each step that reaches the network.
          */
         private fun executeRequest(request: HttpRequest, attempt: Attempt): NetworkResult {
-            var connection: HttpURLConnection? = null
             return try {
-                connection = request.url.openConnection() as HttpURLConnection
+                val connection = request.url.openConnection() as HttpURLConnection
                 // write the connection before reading the flag; the abort does the opposite
-                attempt.connection = connection
+                attempt.attach(connection)
                 if (attempt.cancelled) return Failure(CancelledException)
 
                 connection.connectTimeout = DEFAULT_TIMEOUT
@@ -354,9 +366,7 @@ class HttpClient internal constructor(
             } catch (e: Exception) {
                 Failure(UnexpectedException(e))
             } finally {
-                // stop the attempt from retaining the connection; a concurrent abort is harmless
-                attempt.connection = null
-                connection?.disconnect()
+                attempt.releaseConnection()
             }
         }
 
