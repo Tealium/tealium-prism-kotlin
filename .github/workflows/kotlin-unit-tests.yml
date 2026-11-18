@@ -16,6 +16,9 @@ jobs:
   unit-test:
     name: Setup Unit Tests
     runs-on: ubuntu-24.04
+    # Runs take 5-9 min (median 7), up to 13 min when every module is tested. A job timeout ends the run cancelled
+    # (grey), so each long step also has its own limit, which fails the step and the job (red).
+    timeout-minutes: 30
     outputs:
       unit-tests: ${{ steps.unit-test-modules.outputs.unit-tests }}
     env:
@@ -43,7 +46,9 @@ jobs:
       - name: Gradle distribution
         run: ./gradlew --version
 
+      # Takes up to 3.4 min with a warm cache, about 6 min with a cold one.
       - name: Build
+        timeout-minutes: 10
         run: ./gradlew assembleDebug -I .github/scripts/phases.init.gradle.kts
 
       - name: Get Updated Modules For Unit Tests
@@ -55,16 +60,19 @@ jobs:
       - name: Robolectric jar folder
         run: echo "ROBOLECTRIC_DEPENDENCY_DIR=$RUNNER_TEMP/robolectric-jars" >> "$GITHUB_ENV"
 
-      # ROBOLECTRIC_REPO: see robolectric_prefetch.sh
+      # ROBOLECTRIC_REPO: see robolectric_prefetch.sh. Takes about 8 s; a long Maven Central Retry-After fails the step
+      # at 5 min instead of waiting, and rerunning the job fetches again.
       - name: Prefetch Robolectric jars
         if: ${{ steps.unit-test-modules.outputs.unit-tests != '' }}
-        timeout-minutes: 15
+        timeout-minutes: 5
         env:
           ROBOLECTRIC_REPO: ${{ vars.ROBOLECTRIC_REPO }}
         run: bash .github/scripts/robolectric_prefetch.sh
 
+      # Takes 3.8 min median and 5.4 min at most, 6.1 min when every module is tested.
       - name: Unit tests
         if: ${{ steps.unit-test-modules.outputs.unit-tests != '' }}
+        timeout-minutes: 15
         env:
           UNIT_MODULES: ${{ steps.unit-test-modules.outputs.unit-tests }}
         run: ./gradlew testModifiedDebugUnitTest -PMODIFIED_PROJECTS="$UNIT_MODULES" -I .github/scripts/phases.init.gradle.kts
@@ -84,6 +92,7 @@ jobs:
       fail-fast: false
       matrix:
         api-level: [ 23, 33 ]
+    # Runs take 4-8 min, up to 11 min when every module is tested.
     timeout-minutes: 30
     env:
       CI_TASKS_ENABLED: true
@@ -169,8 +178,10 @@ jobs:
       # - disable-linux-hw-accel: false plus `-accel on`: use KVM or fail, never fall back to software emulation.
       # - -no-metrics (named in the emulator's banner, not in the public docs): avoids its upcoming blocking
       #   metrics-consent prompt. -gpu software: the current software renderer (swiftshader_indirect is deprecated).
+      # The step takes up to about 2.8 min, emulator boot included, hence the 15 min limit.
       - name: Run Instrumented tests
         if: ${{ steps.inst-modules.outputs.modules != '' }}
+        timeout-minutes: 15
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         env:
           INST_MODULES: ${{ steps.inst-modules.outputs.modules }}

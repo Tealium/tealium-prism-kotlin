@@ -13,6 +13,9 @@ on:
 jobs:
   warm:
     runs-on: ubuntu-24.04
+    # Runs take 3-5 min, 7.3 min at most. Job level only: a job timeout ends the run cancelled, so setup-gradle's post
+    # step (post-if: '!cancelled()') skips saving the cache of a killed build; a step timeout would save it.
+    timeout-minutes: 20
     # A newer run of this job cancels the older one.
     concurrency:
       group: ci-cache-warm-gradle
