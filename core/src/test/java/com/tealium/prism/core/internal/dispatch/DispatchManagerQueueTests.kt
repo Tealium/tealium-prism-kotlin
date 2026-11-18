@@ -7,6 +7,7 @@ import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.internal.pubsub.CompletedDisposable
 import com.tealium.tests.common.TestDispatcher
+import com.tealium.tests.common.awaitQueuedTasks
 import io.mockk.Ordering
 import io.mockk.mockk
 import io.mockk.verify
@@ -25,8 +26,10 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_SendsIndividualDispatches_ToAllDispatcher() {
-        dispatchManager.startDispatchLoop()
-        dispatchManager.track(dispatch1)
+        scheduler.execute {
+            dispatchManager.startDispatchLoop()
+            dispatchManager.track(dispatch1)
+        }
 
         verify(timeout = 1000) {
             dispatcher1.dispatch(listOf(dispatch1), any())
@@ -94,8 +97,10 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
 
     @Test
     fun dispatchManager_DispatchesEvent_WhenQueueWasEmpty() {
-        dispatchManager.startDispatchLoop()
-        dispatchManager.track(dispatch1)
+        scheduler.execute {
+            dispatchManager.startDispatchLoop()
+            dispatchManager.track(dispatch1)
+        }
 
         verify(timeout = 1000) {
             dispatcher1.dispatch(listOf(dispatch1), any())
@@ -162,8 +167,10 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
             dispatch2,
         )
 
-        dispatchManager.startDispatchLoop()
-        dispatchManager.track(dispatch3) // both receive 3
+        scheduler.execute {
+            dispatchManager.startDispatchLoop()
+            dispatchManager.track(dispatch3) // both receive 3
+        }
 
         verify(timeout = 1000) {
             dispatcher1.dispatch(listOf(dispatch1), any())
@@ -176,6 +183,7 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
             queueManager.deleteDispatches(listOf(dispatch2), dispatcher2Name)
             queueManager.deleteDispatches(listOf(dispatch3), dispatcher2Name)
         }
+        scheduler.awaitQueuedTasks()
         verify(exactly = 0) {
             dispatcher1.dispatch(listOf(dispatch2), any())
             dispatcher2.dispatch(listOf(dispatch1), any())
@@ -192,8 +200,10 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
         dispatchers.onNext(listOf(dispatcher1))
         queue[dispatcher1.id] = mutableSetOf(dispatch1, dispatch2)
 
-        dispatchManager.startDispatchLoop()
-        dispatchManager.track(dispatch3)
+        scheduler.execute {
+            dispatchManager.startDispatchLoop()
+            dispatchManager.track(dispatch3)
+        }
 
         verify(timeout = 1000) {
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
@@ -204,12 +214,15 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
 
     @Test
     fun startDispatchLoop_DoesNotDeleteDispatches_WhenDequeuedBatchIsEmpty() {
-        dispatchManager.startDispatchLoop()
-        dispatchManager.track(dispatch1)
+        scheduler.execute {
+            dispatchManager.startDispatchLoop()
+            dispatchManager.track(dispatch1)
+        }
 
         verify(timeout = 1000) {
             queueManager.deleteDispatches(listOf(dispatch1), dispatcher1Name)
         }
+        scheduler.awaitQueuedTasks()
         verify(exactly = 0) {
             queueManager.deleteDispatches(emptyList(), any())
         }
@@ -219,7 +232,10 @@ class DispatchManagerQueueTests : DispatchManagerTestsBase() {
     fun track_Notifies_DispatchAccepted_WhenDispatch_IsQueued() {
         val onComplete: (TrackResult) -> Unit = mockk(relaxed = true)
 
-        dispatchManager.track(dispatch1, onComplete)
+        scheduler.execute {
+            dispatchManager.track(dispatch1, onComplete)
+        }
+        scheduler.awaitQueuedTasks()
 
         verify {
             onComplete(match {

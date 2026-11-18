@@ -111,9 +111,16 @@ Robolectric tests without `@Config(sdk = ...)` run on the catalog `minSdk`, set 
 **Naming convention:** `<methodName>_Does_Something_When_Some_Condition`
 
 **Schedulers:**
-- Use `Scheduler.SYNCHRONOUS` for event-based tests that don't need the Android looper
+- Use `Scheduler.SYNCHRONOUS` for event-based tests that don't need the Android looper and schedule no follow-up work (see Threading in tests)
 - Use `@RunWith(RobolectricTestRunner::class)` + `Scheduler.MAIN` when the Android main looper is required
 - `testSchedulers` from `tests-common` provides real single-threaded schedulers for integration-style tests
+
+**Threading in tests:** subjects call observers while holding their own lock, so drive a reactive graph from one thread only. Two threads can deadlock it rarely and intermittently, so neither a passing run nor a rerun proves the test safe.
+- Prefer a `ManualScheduler` over a real scheduler. Both dispatch test bases provide one and run the dispatch loop on it by default: call the object under test directly, drain the scheduler, then assert. Delay a test dispatcher's completion on that same scheduler, not on a real one: the batch stays in flight until you drain.
+- `DispatchManagerTestsBase`: the manual scheduler is `manualScheduler`, drained with `manualScheduler.runAll()`. Its `scheduler` field is the real `testTealiumScheduler`; a class that overrides `dispatchScheduler` with it follows the next bullet. Some existing tests complete dispatchers on `scheduler` while driving the loop from the test thread, which breaks the one-thread rule: don't copy them.
+- `DispatchLoopTestsBase`: the manual scheduler is `scheduler`, drained with `settle()`, which also runs the `RecordingDispatcher` completions.
+- When the object under test runs on a real single-threaded scheduler (e.g. `testTealiumScheduler`), make every call into it, every emission into its subjects and every test-dispatcher completion on that scheduler. From the test thread, `scheduler.execute { }` queues the block without waiting, and an exception thrown in it is lost (the test then fails later, at a timeout or a following check, or not at all), so assert outside it with `verify(timeout = …)`, and call `scheduler.awaitQueuedTasks()` (`tests-common`) before a negative check such as `verify(exactly = 0)`.
+- `Scheduler.SYNCHRONOUS` runs every task inline and ignores delays, so `async` follow-ups recurse: use it only where nothing schedules follow-up work.
 
 **Settings builder structure:**
 - `ModuleSettingsBuilder.build()` nests the module config under a `"configuration"` key — use `getDataObject("configuration")` or the `buildConfiguration()` helper from `tests-common` to access it in assertions
