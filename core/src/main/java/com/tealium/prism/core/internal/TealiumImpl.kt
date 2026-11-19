@@ -350,7 +350,7 @@ class TealiumImpl(
      */
     private fun checkpoint(moment: String) {
         val result = try {
-            dbProvider.checkpoint()
+            dbProvider.database.checkpoint()
         } catch (e: Exception) {
             logger.logIfErrorEnabled(LogCategory.PERSISTENCE) {
                 "WAL checkpoint at $moment failed".withCause(e)

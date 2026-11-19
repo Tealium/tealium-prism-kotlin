@@ -692,9 +692,9 @@ class V3ToV4Tests {
             config,
             logger,
             databaseHelperCreator = { handler -> DatabaseHelper(config, dbPath, errorHandler = handler) },
-            inMemoryDatabaseProvider = { cfg ->
+            inMemoryDatabaseProvider = { handler ->
                 inMemoryFallbacks++
-                InMemoryDatabaseProvider(cfg)
+                InMemoryDatabaseProvider(config, handler)
             }
         )
 

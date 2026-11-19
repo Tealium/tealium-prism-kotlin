@@ -11,6 +11,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.tealium.prism.core.api.TealiumConfig
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.internal.logger.LogCategory
+import com.tealium.prism.core.internal.persistence.database.DatabaseCorruptionLogs.fileDeletedLog
+import com.tealium.prism.core.internal.persistence.database.DatabaseCorruptionLogs.inMemoryCorruptionLog
 import com.tealium.tests.common.getDefaultConfig
 import io.mockk.Runs
 import io.mockk.every
@@ -93,6 +95,36 @@ class FileDatabaseProviderTests {
             assertTrue("the file must be kept", markerTableExists())
             assertEquals(1, loggedErrors().size)
             assertLogged(FILE_KEPT)
+        }
+    }
+
+    /**
+     * The fallback is built by the provider's default, which hands it the provider's logger, so a
+     * corruption the platform reports for the in-memory database is logged. The platform's own
+     * report is triggered through `SQLiteDatabase.onCorruption()`, which calls the error handler the
+     * helper was opened with. The kept file is not touched.
+     *
+     * Pinned from API 27: before it, `SQLiteOpenHelper` creates an in-memory database without the
+     * error handler, so the platform never reports a corruption to it.
+     */
+    @Test
+    @Config(sdk = [27, 34])
+    fun getDatabase_LogsCorruption_And_KeepsFile_When_FallbackInMemoryIsCorrupt() {
+        createFileWithMarkerTable()
+        val provider = FileDatabaseProvider(
+            config,
+            logger,
+            databaseHelperCreator = { throwingHelper(SQLiteFullException("database or disk is full")) }
+        )
+
+        provider.database.use { database ->
+            assertEquals(":memory:", database.path)
+
+            database.reportCorruption()
+
+            val reports = loggedErrors().filter { it.contains("corruption detected") }
+            assertEquals(listOf(inMemoryCorruptionLog), reports)
+            assertTrue("the file must be kept", markerTableExists())
         }
     }
 
@@ -380,10 +412,9 @@ class FileDatabaseProviderTests {
             assertFalse(schema.containsKey(MARKER_TABLE))
             assertEquals(nextVersion, database.version)
 
-            val messages = loggedErrors()
             assertTrue(
-                "expected the error handler's corruption report in $messages",
-                messages.any { it.contains("corruption", ignoreCase = true) }
+                "expected the error handler's file outcome in ${loggedErrors()}",
+                loggedErrors().contains(fileDeletedLog(dbPath))
             )
             assertLogged(
                 "the upgrade to version $nextVersion hit a corrupt file",
@@ -855,9 +886,9 @@ class FileDatabaseProviderTests {
                 next++
                 creator.invoke(handler).also { helpersCreated.add(it) }
             },
-            inMemoryDatabaseProvider = { cfg ->
+            inMemoryDatabaseProvider = { handler ->
                 inMemoryFallbacks++
-                InMemoryDatabaseProvider(cfg)
+                InMemoryDatabaseProvider(config, handler)
             }
         )
     }

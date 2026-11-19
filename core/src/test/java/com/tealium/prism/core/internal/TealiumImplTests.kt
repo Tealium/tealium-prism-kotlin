@@ -2,6 +2,7 @@ package com.tealium.prism.core.internal
 
 import android.app.Activity
 import android.app.Application
+import android.database.sqlite.SQLiteDatabase
 import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.consent.ConsentDecision
 import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
@@ -522,7 +523,7 @@ class TealiumImplTests {
         try {
             val checkpointThreads = mutableListOf<Thread>()
             val checkpointed = CountDownLatch(1)
-            every { any<DatabaseProvider>().checkpoint() } answers {
+            every { any<SQLiteDatabase>().checkpoint() } answers {
                 synchronized(checkpointThreads) { checkpointThreads.add(Thread.currentThread()) }
                 checkpointed.countDown()
                 callOriginal()
@@ -577,8 +578,8 @@ class TealiumImplTests {
             // whether the database was open at each checkpoint made during shutdown()
             val openAtCheckpoint = mutableListOf<Boolean>()
             var shuttingDown = false
-            every { any<DatabaseProvider>().checkpoint() } answers {
-                if (shuttingDown) openAtCheckpoint.add(firstArg<DatabaseProvider>().database.isOpen)
+            every { any<SQLiteDatabase>().checkpoint() } answers {
+                if (shuttingDown) openAtCheckpoint.add(firstArg<SQLiteDatabase>().isOpen)
                 callOriginal()
             }
             // a fresh manager that never sees an activity, so it never reports Backgrounded

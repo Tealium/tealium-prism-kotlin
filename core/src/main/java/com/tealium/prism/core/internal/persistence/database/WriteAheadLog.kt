@@ -26,8 +26,8 @@ internal data class CheckpointResult(
  * @throws android.database.SQLException if the pragma cannot be run.
  * @throws IllegalStateException if the database is closed.
  */
-internal fun DatabaseProvider.checkpoint(): CheckpointResult =
-    database.rawQuery("PRAGMA wal_checkpoint(RESTART)", null).use { cursor ->
+internal fun SQLiteDatabase.checkpoint(): CheckpointResult =
+    rawQuery("PRAGMA wal_checkpoint(RESTART)", null).use { cursor ->
         cursor.moveToFirst()
         CheckpointResult(
             busy = cursor.getLong(0) != 0L,

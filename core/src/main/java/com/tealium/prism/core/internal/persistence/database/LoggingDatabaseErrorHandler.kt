@@ -5,23 +5,27 @@ import android.database.DefaultDatabaseErrorHandler
 import android.database.sqlite.SQLiteDatabase
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.internal.logger.LogCategory
+import java.io.File
 
 /**
- * Logs every corruption the platform detects, then lets the platform handle it as it always would.
+ * Lets the platform handle every corruption it detects as it always would, then logs the outcome
+ * once.
  *
  * Without a handler, [SQLiteOpenHelper][android.database.sqlite.SQLiteOpenHelper] passes `null`,
- * which the framework reads as [DefaultDatabaseErrorHandler]: it deletes the file - the `.db` plus
- * its `-journal`, `-shm`, `-wal` and master-journal companions - and [SQLiteDatabase.openDatabase]
- * retries the open exactly once. The SDK then sees a fresh, empty database and an `onCreate` call,
- * with no exception and no trace other than logcat. The same handler also fires for a corruption
- * detected by a statement later in the session, where the database *is* open, and the default
- * closes it. A report from SQL run inside the open's transaction, by an upgrade step or by
- * `onCreate`, or by the WAL settings applied after it in `onOpen`, is followed by no retry: the
- * platform has closed and deleted the file, and the open fails.
+ * which the framework reads as [DefaultDatabaseErrorHandler]: it closes the database and deletes
+ * the file - the `.db` plus its `-journal`, `-shm`, `-wal` and master-journal companions - and
+ * [SQLiteDatabase.openDatabase] retries the open exactly once. The SDK then sees a fresh, empty
+ * database and an `onCreate` call, with no exception and no trace other than logcat. The same
+ * handler also fires for a corruption detected by a statement later in the session, where the
+ * database *is* open, and the default closes it. A report from SQL run inside the open's
+ * transaction, by an upgrade step or by `onCreate`, or by the WAL settings applied after it in
+ * `onOpen`, is followed by no retry: the platform has closed and deleted the file, and the open
+ * fails.
  *
  * This wrapper exists so both of those are reported through the SDK's own [Logger]. It changes no
  * behaviour: [DefaultDatabaseErrorHandler] is `final`, so it is held as a delegate rather than
- * extended, and the delegate is always called.
+ * extended, and the delegate is always called. The delegate is called first, so the log can say
+ * whether the file is gone.
  *
  * @param logger The logger to report the corruption through
  * @param delegate The handler that deals with the corruption, the platform's own by default
@@ -34,20 +38,39 @@ internal class LoggingDatabaseErrorHandler(
     /**
      * Called by the platform on a corruption, both while opening and mid-session.
      *
-     * The logging is guarded and the delegate is called outside the guard, so a failure to read the
-     * database's own state - it may already be closed - cannot suppress the platform's recovery.
+     * The path is read first, as the database is closed afterwards. The delegate runs next, and
+     * then the outcome is logged once: that there is no file in memory, that the file was deleted,
+     * or that it could not be deleted. The outcome is logged even if the delegate throws, and the
+     * exception propagates.
+     *
+     * Only the outcome for the file is reported, never one for storage: the handler also runs
+     * while the helper opens the database, where the provider decides what happens to storage.
      */
     override fun onCorruption(db: SQLiteDatabase) {
+        val path = db.path
         try {
-            logger.error(
-                LogCategory.PERSISTENCE,
-                "Database corruption detected in '${db.path}' (open: ${db.isOpen}). The platform " +
-                    "will delete the file; data in it is lost."
-            )
-        } catch (e: Exception) {
-            // diagnostics must never stand between the platform and its own recovery
+            delegate.onCorruption(db)
+        } finally {
+            logger.error(LogCategory.PERSISTENCE, outcomeMessage(path))
         }
+    }
 
-        delegate.onCorruption(db)
+    private fun outcomeMessage(path: String): String = when {
+        path == IN_MEMORY_PATH ->
+            "Database corruption detected in '$path'. There is no file to delete; data in it " +
+                "is lost."
+        !File(path).exists() ->
+            "Database corruption detected in '$path'. The file was deleted; data in it is lost."
+        else ->
+            "Database corruption detected in '$path'. The file could not be deleted, so it " +
+                "stays as it is."
+    }
+
+    private companion object {
+        /**
+         * The path the platform reports for an in-memory database. The handler is given only the
+         * database, so it checks the path, as [DefaultDatabaseErrorHandler] does.
+         */
+        const val IN_MEMORY_PATH = ":memory:"
     }
 }

@@ -1,6 +1,8 @@
 package com.tealium.prism.core.internal.persistence.database
 
+import android.database.DefaultDatabaseErrorHandler
 import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteDatabaseCorruptException
 import android.os.Build
 import androidx.test.filters.SdkSuppress
 import com.tealium.prism.core.api.persistence.PersistenceException
@@ -10,7 +12,9 @@ import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -69,6 +73,26 @@ class DatabaseUtilitiesTests {
 
         assertFalse(db.inTransaction())
         assertEquals(emptyList<String>(), values())
+    }
+
+    /**
+     * The platform's report closes the database, as its error handler does on a corruption, and
+     * the block then fails with the statement's corruption, so ending the transaction throws too.
+     */
+    @Test
+    fun transaction_ThrowsTheBlocksFailure_When_EndingTheTransactionAlsoFails() {
+        val corruption = SQLiteDatabaseCorruptException("database disk image is malformed")
+
+        val thrown = assertThrows(PersistenceException::class.java) {
+            db.transaction {
+                DefaultDatabaseErrorHandler().onCorruption(this)
+                throw corruption
+            }
+        }
+
+        val blockFailure = thrown.cause as PersistenceException
+        assertSame(corruption, blockFailure.cause)
+        assertTrue(blockFailure.suppressed.single() is IllegalStateException)
     }
 
     @Test

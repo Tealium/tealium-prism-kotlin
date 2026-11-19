@@ -6,6 +6,8 @@ import com.tealium.prism.core.api.modules.Module
  * The [ModuleStoreProvider] is responsible for registering and returning the [DataStore] instances
  * required by individual modules
  *
+ * **Warning.** This interface is not thread-safe. Its methods must be called on the Tealium
+ * thread, which is where a module's methods are called, so a module can use it directly from them.
  */
 interface ModuleStoreProvider {
 
@@ -30,8 +32,6 @@ interface ModuleStoreProvider {
      * shared storage.
      * Be mindful that this store can therefore be read from and written to by any code with access
      * to it.
-     *
-     * It is also required to execute updates on the Tealium processing Thread.
      */
     fun getSharedDataStore(): DataStore
 }

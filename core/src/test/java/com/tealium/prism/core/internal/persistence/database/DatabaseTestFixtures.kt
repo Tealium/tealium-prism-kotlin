@@ -233,3 +233,14 @@ internal fun withConfigureWriteAheadLog(
         unmockkStatic(WRITE_AHEAD_LOG_FILE)
     }
 }
+
+/**
+ * A real corruption cannot be produced in memory, so the platform's own report is triggered through
+ * `SQLiteDatabase.onCorruption()`, which calls the error handler the helper was opened with. From
+ * API 27: before it, an in-memory helper ignores the given handler.
+ */
+internal fun SQLiteDatabase.reportCorruption() {
+    SQLiteDatabase::class.java.getDeclaredMethod("onCorruption")
+        .apply { isAccessible = true }
+        .invoke(this)
+}

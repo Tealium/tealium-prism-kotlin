@@ -19,6 +19,11 @@ import com.tealium.prism.core.api.pubsub.Observable
  * included in any retrieval operations; that is, expired data won't be returned by [get] or [getAll]
  * but it will also not be included in any aggregate methods such as [keys] or [count]
  *
+ * **Warning.** This interface is not thread-safe. Its methods, and the [Editor] returned by
+ * [edit], must be called on the Tealium thread, which is where a module's methods are called, so a
+ * module can use its [DataStore] directly from them. [onDataUpdated] and [onDataRemoved] notify
+ * their subscribers synchronously on the thread that made the change.
+ *
  * @see [Expiry]
  */
 interface DataStore : ReadableDataStore, Iterable<Map.Entry<String, DataItem>> {
@@ -31,6 +36,9 @@ interface DataStore : ReadableDataStore, Iterable<Map.Entry<String, DataItem>> {
      *
      * Storing a value whose [Expiry] has already passed removes any existing value at that key and
      * stores nothing.
+     *
+     * **Warning.** Like the [DataStore] that created it, an [Editor] is not thread-safe and must
+     * only be used on the Tealium thread.
      */
     interface Editor: ReadableDataStore, AutoCloseable {
 

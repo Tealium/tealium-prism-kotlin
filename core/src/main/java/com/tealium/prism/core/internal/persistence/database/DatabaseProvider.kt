@@ -1,6 +1,7 @@
 package com.tealium.prism.core.internal.persistence.database
 
 import android.database.DatabaseErrorHandler
+import android.database.DefaultDatabaseErrorHandler
 import android.database.SQLException
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
@@ -44,7 +45,8 @@ interface DatabaseProvider {
  * @param config The TealiumConfig used to access the Android Context, as well as derive the
  * file-name
  * @param logger Used to report a failed open, and what was done about it, at error level, as well
- * as a file that opened without write-ahead logging configured
+ * as a file that opened without write-ahead logging configured, and passed to the in-memory
+ * fallback, to report a corruption in it
  * @param databaseHelperCreator Function to return the DatabaseHelper, given the error handler to
  * open the file with, which logs the corruptions the platform recovers from on its own. This may be
  * called more than once, in the scenarios where the database file itself needs to be deleted and
@@ -58,7 +60,9 @@ internal class FileDatabaseProvider(
     private val databaseHelperCreator: (DatabaseErrorHandler) -> DatabaseHelper = { handler ->
         DatabaseHelper(config, errorHandler = handler)
     },
-    private val inMemoryDatabaseProvider: (TealiumConfig) -> InMemoryDatabaseProvider = ::InMemoryDatabaseProvider
+    private val inMemoryDatabaseProvider: (DatabaseErrorHandler) -> InMemoryDatabaseProvider = { handler ->
+        InMemoryDatabaseProvider(config, handler)
+    }
 ) : DatabaseProvider {
 
     private val errorHandler = LoggingDatabaseErrorHandler(logger)
@@ -286,7 +290,7 @@ internal class FileDatabaseProvider(
             ("Using in-memory storage for this session because $reason.$file " +
                 "Nothing stored will survive this process.").withCause(cause)
         )
-        return inMemoryDatabaseProvider.invoke(config).database
+        return inMemoryDatabaseProvider.invoke(errorHandler).database
     }
 }
 
@@ -295,13 +299,17 @@ internal class FileDatabaseProvider(
  * in-memory so all updates will be lost upon exiting the application.
  *
  * @param config The TealiumConfig used to access the Android Context
+ * @param errorHandler Told of the corruptions the platform detects. Before API 27 the platform
+ * ignores the error handler for an in-memory database, so a corruption only reaches logcat.
  */
 class InMemoryDatabaseProvider(
     private val config: TealiumConfig,
+    private val errorHandler: DatabaseErrorHandler = DefaultDatabaseErrorHandler(),
 ) : DatabaseProvider {
+
     private var _database: SQLiteDatabase? = null
     private val databaseHelper: DatabaseHelper by lazy {
-        DatabaseHelper(config, databaseName = null)
+        DatabaseHelper(config, databaseName = null, errorHandler = errorHandler)
     }
 
     override val database: SQLiteDatabase

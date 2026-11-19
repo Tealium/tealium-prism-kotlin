@@ -10,20 +10,30 @@ import kotlin.math.max
 /**
  * Handles all begin/end transaction calls, wrapping all SQL statements made by the [block] in a
  * single database transaction.
+ *
+ * When the [block] fails, a failure to end the transaction is attached to that failure as
+ * suppressed rather than replacing it: a corruption found in the block has had the database
+ * closed by the error handler, and ending the transaction then throws.
  */
 internal inline fun SQLiteDatabase.transaction(
     block: SQLiteDatabase.() -> Unit
 ) {
     try {
         beginTransactionNonExclusive()
+        var blockFailure: Throwable? = null
         try {
             block(this)
 
             setTransactionSuccessful()
         } catch (e: Exception) {
-            throw PersistenceException("Error during transaction.", e)
+            throw PersistenceException("Error during transaction.", e).also { blockFailure = it }
         } finally {
-            endTransaction()
+            try {
+                endTransaction()
+            } catch (e: Exception) {
+                if (blockFailure == null) throw e
+                blockFailure.addSuppressed(e)
+            }
         }
     } catch (e: Exception) {
         throw PersistenceException("Error starting/completing transaction", e)

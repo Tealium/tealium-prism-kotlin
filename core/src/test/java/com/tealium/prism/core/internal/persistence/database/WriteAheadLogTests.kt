@@ -261,7 +261,7 @@ class WriteAheadLogTests {
             sizeBeforeCheckpoint > 0
         )
 
-        val result = provider.checkpoint()
+        val result = provider.database.checkpoint()
 
         assertFalse("Nothing else holds the log, so the checkpoint must complete.", result.busy)
         assertTrue(result.log > 0)
@@ -307,8 +307,9 @@ class WriteAheadLogTests {
     @Test
     @Config(sdk = [23, 34])
     fun checkpoint_Does_Not_Throw_When_Database_Is_In_Memory() {
-        // A harmless no-op wherever WAL is not in use.
-        val result = InMemoryDatabaseProvider(config).checkpoint()
+        // SQLiteDatabase.checkpoint() must be a harmless no-op where WAL is not in use, as in an
+        // in-memory database, which has no file to checkpoint.
+        val result = InMemoryDatabaseProvider(config).database.checkpoint()
 
         assertFalse(result.busy)
     }
