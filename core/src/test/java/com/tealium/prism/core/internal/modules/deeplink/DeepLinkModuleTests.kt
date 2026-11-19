@@ -3,9 +3,13 @@ package com.tealium.prism.core.internal.modules.deeplink
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.os.BadParcelableException
 import android.os.Build
+import android.os.Bundle
 import com.tealium.prism.core.api.Modules
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.logger.LogLevel
+import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.misc.ActivityManager
 import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.Scheduler
@@ -79,6 +83,7 @@ class DeepLinkModuleTests {
     private lateinit var uri: Uri
     private lateinit var configuration: DeepLinkModuleConfiguration
     private lateinit var deepLinkModule: DeepLinkModule
+    private lateinit var logger: Logger
 
     @Before
     fun setUp() {
@@ -91,6 +96,9 @@ class DeepLinkModuleTests {
         )
         modules = Observables.stateSubject(listOf(traceModule))
         moduleManager = ModuleManagerImpl(Scheduler.SYNCHRONOUS, modules)
+
+        logger = mockk(relaxed = true)
+        every { logger.shouldLog(LogLevel.WARN) } returns true
 
         dataStoreEditor = mockkEditor()
         every { dataStore.edit() } returns dataStoreEditor
@@ -581,6 +589,7 @@ class DeepLinkModuleTests {
             )
             dataStoreEditor.commit()
         }
+        verifyNoReferrerWarning()
     }
 
     @Test
@@ -600,6 +609,67 @@ class DeepLinkModuleTests {
             )
             dataStoreEditor.commit()
         }
+        verifyNoReferrerWarning()
+    }
+
+    @Test
+    fun onDeepLink_Handles_DeepLink_Without_Referrer_And_Skips_Fallback_When_Activity_Referrer_Throws() {
+        val activity = mockActivity(referrer = null)
+        val intent = activity.intent
+        every { activity.referrer } throws BadParcelableException("unknown custom Parcelable")
+
+        activities.onNext(createdStatus(activity))
+
+        verifyHandledWithoutReferrer()
+        verifyReferrerWarning("BadParcelableException")
+        verify(exactly = 0) {
+            intent.getParcelableExtra<Uri>(Intent.EXTRA_REFERRER)
+            intent.getStringExtra(Intent.EXTRA_REFERRER_NAME)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            verify(exactly = 0) { intent.getParcelableExtra(Intent.EXTRA_REFERRER, Uri::class.java) }
+        }
+    }
+
+    @Test
+    fun onDeepLink_Handles_DeepLink_Without_Referrer_And_Skips_Referrer_Name_When_Referrer_Extra_Throws() {
+        val activity = mockActivity(referrer = null)
+        val intent = activity.intent
+        stubReferrerExtraThrows(intent, BadParcelableException("unknown custom Parcelable"))
+
+        activities.onNext(createdStatus(activity))
+
+        verifyHandledWithoutReferrer()
+        verifyReferrerWarning("BadParcelableException")
+        verify(exactly = 0) { intent.getStringExtra(Intent.EXTRA_REFERRER_NAME) }
+    }
+
+    @Test
+    fun onDeepLink_Handles_DeepLink_Without_Referrer_When_Referrer_Name_Throws() {
+        val activity = mockActivity(referrer = null)
+        val intent = activity.intent
+        every {
+            intent.getStringExtra(Intent.EXTRA_REFERRER_NAME)
+        } throws BadParcelableException("unknown custom Parcelable")
+
+        activities.onNext(createdStatus(activity))
+
+        verifyHandledWithoutReferrer()
+        verifyReferrerWarning("BadParcelableException")
+    }
+
+    @Test
+    fun onDeepLink_Handles_DeepLink_Without_Referrer_When_Referrer_Extra_Is_Not_A_Uri() {
+        // activity.referrer is stubbed null, so this reaches the module's own untyped read below API 33.
+        val activity = mockk<Activity>()
+        every { activity.referrer } returns null
+        every { activity.intent } returns Intent(Intent.ACTION_VIEW, uri)
+            .putExtra(Intent.EXTRA_REFERRER, Bundle())
+
+        activities.onNext(createdStatus(activity))
+
+        verifyHandledWithoutReferrer()
+        verifyReferrerWarning("ClassCastException")
     }
 
     @Test
@@ -811,7 +881,7 @@ class DeepLinkModuleTests {
         moduleManager,
         activities,
         configuration,
-        SystemLogger
+        logger
     )
 
     private fun traceUri(traceId: String): Uri =
@@ -847,6 +917,46 @@ class DeepLinkModuleTests {
 
         return activity
     }
+
+    private fun verifyReferrerWarning(exceptionName: String) {
+        verify(exactly = 1) {
+            logger.warn(Modules.Types.DEEP_LINK, match<String> {
+                it.contains("Failed to read the deep link referrer from the intent") && it.contains(exceptionName)
+            })
+        }
+    }
+
+    private fun verifyHandledWithoutReferrer() {
+        verify {
+            dataStoreEditor.putAll(
+                match {
+                    it.getString(Dispatch.Keys.DEEP_LINK_URL) == uri.toString()
+                            && it.getString(Dispatch.Keys.DEEP_LINK_REFERRER_URL) == null
+                },
+                Expiry.SESSION
+            )
+            dataStoreEditor.commit()
+        }
+    }
+
+    private fun stubReferrerExtraThrows(intent: Intent, exception: RuntimeException) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            every { intent.getParcelableExtra(Intent.EXTRA_REFERRER, Uri::class.java) } throws exception
+        }
+        every { intent.getParcelableExtra<Uri>(Intent.EXTRA_REFERRER) } throws exception
+    }
+
+    private fun verifyNoReferrerWarning() {
+        verify(exactly = 0) {
+            logger.warn(Modules.Types.DEEP_LINK, match<String> { it.contains("Failed to read the deep link referrer") })
+        }
+    }
+
+    private fun createdStatus(activity: Activity) =
+        ActivityManager.ActivityStatus(
+            activity = activity,
+            type = ActivityManager.ActivityLifecycleType.Created
+        )
 
     private class CountingObservable<T>(private val source: Observable<T>) : Observable<T> {
         private val disposables = mutableListOf<Disposable>()

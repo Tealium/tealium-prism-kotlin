@@ -167,7 +167,19 @@ class DeepLinkModule(
         if (Intent.ACTION_VIEW != intent.action) return null
 
         val uri = intent.data ?: return null
-        return DeepLink(uri, activity.referrer ?: getIntentReferrer(intent))
+        // Reading the launching app's extras can throw not only BadParcelableException but other
+        // RuntimeExceptions, e.g. IllegalArgumentException / ClassCastException for a malformed or
+        // non-Uri Parcelable, hence the broad catch. A throw drops the optional referrer and ends
+        // the lookup: the getIntentReferrer fallback would re-read the same extras, unreliably.
+        val referrer = try {
+            activity.referrer ?: getIntentReferrer(intent)
+        } catch (e: RuntimeException) {
+            logger.logIfWarnEnabled(id) {
+                "Failed to read the deep link referrer from the intent; handling the deep link without it: $e"
+            }
+            null
+        }
+        return DeepLink(uri, referrer)
     }
 
     private fun onDeepLink(deepLink: DeepLink) {
