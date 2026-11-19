@@ -1,6 +1,7 @@
 package com.tealium.prism.core.api.command
 
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.data.ExtractionException
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.tests.common.TestSyncCommand
 import org.junit.Assert.assertEquals
@@ -35,7 +36,7 @@ class SyncCommandTests {
 
     @Test
     fun synchronous_CompletesWithFailure_WhenBlockThrows() {
-        val cause = CommandException.missingParameter("key")
+        val cause = CommandException.invalidPayload(ExtractionException.Missing("key"))
         val command = Command.synchronous("cmd") { throw cause }
         var result: TealiumResult<Unit>? = null
 
@@ -82,6 +83,17 @@ class SyncCommandTests {
         val command = Command.synchronous("my_command") { }
 
         assertEquals("my_command", command.name)
+    }
+
+    @Test
+    fun synchronous_Uses_CommandName_When_Created_From_CommandName() {
+        var called = false
+        val command = Command.synchronous(TestCommandName.LAUNCH) { called = true }
+
+        command.execute(payload) { }
+
+        assertEquals("launch", command.name)
+        assertTrue(called)
     }
 
     @Test
@@ -146,7 +158,7 @@ class SyncCommandTests {
 
     @Test
     fun testSyncCommand_CompletesWithFailure_WhenErrorToThrowSet() {
-        val expected = CommandException.missingParameter("key")
+        val expected = CommandException.invalidPayload(ExtractionException.Missing("key"))
         val command = TestSyncCommand("cmd", errorToThrow = expected)
         var result: TealiumResult<Unit>? = null
 
@@ -183,5 +195,11 @@ class SyncCommandTests {
         command.execute(payload) { }
 
         assertEquals(2, command.executeCallCount)
+    }
+
+    private enum class TestCommandName : CommandName {
+        LAUNCH;
+
+        override val commandName = name.lowercase()
     }
 }

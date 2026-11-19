@@ -1,5 +1,6 @@
 package com.tealium.prism.core.api.command
 
+import com.tealium.prism.core.api.data.ExtractionException
 import com.tealium.prism.core.api.misc.TealiumException
 
 /**
@@ -12,34 +13,65 @@ class CommandException(
 
     companion object {
 
-        /** A required parameter was absent from the payload. */
+        /**
+         * A payload parameter could not be read.
+         *
+         * The message is the [cause]'s message; the [cause] tells which parameter failed and why.
+         */
         @JvmStatic
-        fun missingParameter(key: String) =
+        fun invalidPayload(cause: ExtractionException): CommandException =
+            CommandException(cause.message, cause)
+
+        // The factories below are kept because dispatchers built against 0.7.0 call them, and
+        // removing them would fail at runtime with NoSuchMethodError.
+        // They keep their original messages and carry no cause, like the deprecated cases on iOS.
+
+        /** A required parameter was absent from the payload. */
+        @Deprecated(
+            "Deprecated, will be removed in a future version. Use invalidPayload(ExtractionException.Missing(key)) instead.",
+            ReplaceWith(
+                "CommandException.invalidPayload(ExtractionException.Missing(key))",
+                "com.tealium.prism.core.api.data.ExtractionException"
+            )
+        )
+        @JvmStatic
+        fun missingParameter(key: String): CommandException =
             CommandException("Required parameter missing: $key")
 
         /** A parameter was present but did not match the expected type. */
+        @Deprecated(
+            "Deprecated, will be removed in a future version. Use invalidPayload(ExtractionException.TypeMismatch(key, expectedType)) instead.",
+            ReplaceWith(
+                "CommandException.invalidPayload(ExtractionException.TypeMismatch(key, expectedType))",
+                "com.tealium.prism.core.api.data.ExtractionException"
+            )
+        )
         @JvmStatic
-        fun invalidParameterType(key: String, expectedType: String) =
+        fun invalidParameterType(key: String, expectedType: String): CommandException =
             CommandException("Parameter '$key' expected type $expectedType")
 
         /** A parameter was present but its value was empty. */
+        @Deprecated(
+            "Deprecated, will be removed in a future version. Use invalidPayload(ExtractionException.Empty(key)) instead.",
+            ReplaceWith(
+                "CommandException.invalidPayload(ExtractionException.Empty(key))",
+                "com.tealium.prism.core.api.data.ExtractionException"
+            )
+        )
         @JvmStatic
-        fun emptyParameter(key: String) =
+        fun emptyParameter(key: String): CommandException =
             CommandException("Parameter '$key' is empty")
 
-        /**
-         * A parameter was present with the correct type, but its value is not acceptable.
-         *
-         * [reason] states what is accepted (for example `expected one of granted, denied`) and must
-         * not include the received value: command errors are logged and values can be personal data.
-         */
-        @JvmStatic
-        fun invalidParameterValue(key: String, reason: String) =
-            CommandException("Invalid value for '$key' - $reason")
-
         /** An array parameter was present but contained no elements. */
+        @Deprecated(
+            "Deprecated, will be removed in a future version. Use invalidPayload(ExtractionException.Empty(key)) instead.",
+            ReplaceWith(
+                "CommandException.invalidPayload(ExtractionException.Empty(key))",
+                "com.tealium.prism.core.api.data.ExtractionException"
+            )
+        )
         @JvmStatic
-        fun emptyArray(key: String) =
+        fun emptyArray(key: String): CommandException =
             CommandException("Array '$key' is empty")
 
         /** Two related array parameters had different lengths and could not be paired. */

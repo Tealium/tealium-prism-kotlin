@@ -3,14 +3,20 @@ package com.tealium.prism.core.api;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import com.tealium.prism.core.api.barriers.Barriers;
 import com.tealium.prism.core.api.command.Command;
+import com.tealium.prism.core.api.command.CommandName;
 import com.tealium.prism.core.api.command.DispatchCommandUtils;
 import com.tealium.prism.core.api.data.DataItem;
 import com.tealium.prism.core.api.data.DataObject;
+import com.tealium.prism.core.api.data.ExtractionException;
+import com.tealium.prism.core.api.data.FailableExtractionUtils;
+import com.tealium.prism.core.api.data.JsonObjectPathConvertible;
+import com.tealium.prism.core.api.data.JsonPath;
 import com.tealium.prism.core.api.data.LenientConverters;
 import com.tealium.prism.core.api.misc.Scheduler;
 import com.tealium.prism.core.api.pubsub.Disposable;
@@ -26,7 +32,9 @@ import org.robolectric.RobolectricTestRunner;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -118,6 +126,81 @@ public class JavaInteropTests {
         assertEquals("cmd", command.getName());
         assertEquals(1, received.size());
         assertSame(DataObject.EMPTY_OBJECT, received.get(0));
+    }
+
+    @Test
+    public void command_synchronous_Accepts_CommandName_And_Is_Static() {
+        List<DataObject> received = new ArrayList<>();
+        CommandName name = () -> "launch";
+        Command command = Command.synchronous(name, received::add);
+
+        command.execute(DataObject.EMPTY_OBJECT, result -> {
+        });
+
+        assertEquals("launch", command.getName());
+        assertEquals(1, received.size());
+    }
+
+    @Test
+    public void failableExtraction_Have_A_Stable_Facade_Name() throws ExtractionException {
+        DataObject payload = DataObject.fromString(
+                "{\"text\":\"abc\",\"object\":{}}"
+        );
+        JsonObjectPathConvertible text = () -> JsonPath.root("text");
+        JsonObjectPathConvertible object = () -> JsonPath.root("object");
+        JsonObjectPathConvertible absent = () -> JsonPath.root("absent");
+
+        assertEquals(DataItem.string("abc"), FailableExtractionUtils.requireDataItem(payload, text));
+        assertEquals(
+                "abc",
+                FailableExtractionUtils.require(payload, text, LenientConverters.STRING, "String")
+        );
+        assertEquals(DataObject.EMPTY_OBJECT, FailableExtractionUtils.requireDataObject(payload, object));
+        assertEquals(
+                "abc",
+                FailableExtractionUtils.optional(payload, text, LenientConverters.STRING, "String")
+        );
+        assertNull(FailableExtractionUtils.optional(payload, absent, LenientConverters.STRING, "String"));
+        assertEquals(DataObject.EMPTY_OBJECT, FailableExtractionUtils.optionalDataObject(payload, object));
+        assertNull(FailableExtractionUtils.optionalDataObject(payload, absent));
+        assertEquals("abc", FailableExtractionUtils.extract(payload, text, LenientConverters.STRING));
+        assertNull(FailableExtractionUtils.extract(payload, absent, LenientConverters.STRING));
+        assertEquals(DataObject.EMPTY_OBJECT, FailableExtractionUtils.extractDataObject(payload, object));
+        assertNull(FailableExtractionUtils.extractDataObject(payload, text));
+    }
+
+    @Test
+    public void failableExtraction_Rule_Helpers_Are_Callable_From_Java() throws ExtractionException {
+        DataObject payload = DataObject.fromString("{\"text\":\"abc\",\"count\":2.0}");
+        JsonObjectPathConvertible text = () -> JsonPath.root("text");
+        JsonObjectPathConvertible count = () -> JsonPath.root("count");
+        JsonObjectPathConvertible absent = () -> JsonPath.root("absent");
+        Map<String, Integer> values = Collections.singletonMap("abc", 1);
+
+        assertEquals("abc", FailableExtractionUtils.requireNonBlank(payload, text, LenientConverters.STRING));
+        assertEquals(Integer.valueOf(1), FailableExtractionUtils.requireOneOf(payload, text, values));
+        assertEquals(Integer.valueOf(1), FailableExtractionUtils.optionalOneOf(payload, text, values));
+        assertNull(FailableExtractionUtils.optionalOneOf(payload, absent, values));
+        JsonPath<JsonPath.Component.Key> rawText = JsonPath.root("text");
+        assertEquals(Integer.valueOf(1), FailableExtractionUtils.requireOneOf(payload, rawText, values));
+        assertEquals(Integer.valueOf(1), FailableExtractionUtils.optionalOneOf(payload, rawText, values));
+        assertEquals(
+                Integer.valueOf(2),
+                FailableExtractionUtils.require(payload, count, LenientConverters.INT, "Int")
+        );
+    }
+
+    @Test
+    public void failableExtraction_Throw_ExtractionException_When_Parameter_Is_Missing() {
+        JsonObjectPathConvertible missing = () -> JsonPath.root("missing");
+
+        try {
+            FailableExtractionUtils.requireDataItem(DataObject.EMPTY_OBJECT, missing);
+            throw new AssertionError("Expected an ExtractionException");
+        } catch (ExtractionException e) {
+            assertTrue(e instanceof ExtractionException.Missing);
+            assertEquals("missing", ((ExtractionException.Missing) e).getKey());
+        }
     }
 
     @Test

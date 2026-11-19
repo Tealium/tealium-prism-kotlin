@@ -1,16 +1,57 @@
 package com.tealium.prism.core.api.command
 
+import com.tealium.prism.core.api.data.ExtractionException
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Test
 
 class CommandExceptionTests {
 
     @Test
-    fun invalidParameterValue_Message_Includes_Parameter_And_Reason() {
-        val exception = CommandException.invalidParameterValue("gender", "expected one of m, f")
+    fun invalidPayload_Message_Is_Cause_Message_And_Keeps_Cause() {
+        val cause = ExtractionException.InvalidValue("gender", "expected one of m, f")
+
+        val exception = CommandException.invalidPayload(cause)
 
         assertEquals("Invalid value for 'gender' - expected one of m, f", exception.message)
+        assertSame(cause, exception.cause)
+    }
+
+    @Test
+    @Suppress("DEPRECATION")
+    fun missingParameter_Keeps_Legacy_Message() {
+        val exception = CommandException.missingParameter("key")
+
+        assertEquals("Required parameter missing: key", exception.message)
+        assertNull(exception.cause)
+    }
+
+    @Test
+    @Suppress("DEPRECATION")
+    fun invalidParameterType_Keeps_Legacy_Message() {
+        val exception = CommandException.invalidParameterType("key", "String")
+
+        assertEquals("Parameter 'key' expected type String", exception.message)
+        assertNull(exception.cause)
+    }
+
+    @Test
+    @Suppress("DEPRECATION")
+    fun emptyParameter_Keeps_Legacy_Message() {
+        val exception = CommandException.emptyParameter("key")
+
+        assertEquals("Parameter 'key' is empty", exception.message)
+        assertNull(exception.cause)
+    }
+
+    @Test
+    @Suppress("DEPRECATION")
+    fun emptyArray_Keeps_Legacy_Message() {
+        val exception = CommandException.emptyArray("key")
+
+        assertEquals("Array 'key' is empty", exception.message)
+        assertNull(exception.cause)
     }
 
     @Test

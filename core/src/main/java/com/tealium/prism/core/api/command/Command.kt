@@ -1,6 +1,7 @@
 package com.tealium.prism.core.api.command
 
 import com.tealium.prism.core.api.data.DataObject
+import com.tealium.prism.core.api.data.ExtractionException
 import com.tealium.prism.core.api.misc.Callback
 import com.tealium.prism.core.api.misc.TealiumResult
 import com.tealium.prism.core.api.pubsub.Consumer
@@ -23,6 +24,10 @@ interface Command {
      *
      * [callback] must be invoked exactly once — with a successful [TealiumResult] or a failure.
      *
+     * When the SDK runs a command, a failure passed to [callback] is reported as a [CommandException]: a
+     * [CommandException] as is, an [ExtractionException] as [CommandException.invalidPayload], and anything else
+     * as [CommandException.unknown].
+     *
      * @return A [Disposable] that can be used to abort in-flight work.
      */
     fun execute(payload: DataObject, callback: Callback<TealiumResult<Unit>>): Disposable
@@ -34,9 +39,26 @@ interface Command {
          *
          * [block] should throw to signal failure; the exception is forwarded as a
          * [TealiumResult.failure] to the caller.
+         *
+         * [block] can call the extraction helpers directly: an [ExtractionException] it throws is reported as
+         * [CommandException.invalidPayload].
          */
         @JvmStatic
         fun synchronous(name: String, block: Consumer<DataObject>): Command =
             SyncCommand(name, block)
+
+        /**
+         * Creates a [Command] named after the given [commandName] that executes [block] synchronously
+         * on the calling thread.
+         *
+         * [block] should throw to signal failure; the exception is forwarded as a
+         * [TealiumResult.failure] to the caller.
+         *
+         * [block] can call the extraction helpers directly: an [ExtractionException] it throws is reported as
+         * [CommandException.invalidPayload].
+         */
+        @JvmStatic
+        fun synchronous(commandName: CommandName, block: Consumer<DataObject>): Command =
+            synchronous(commandName.commandName, block)
     }
 }
