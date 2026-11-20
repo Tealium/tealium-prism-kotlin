@@ -214,6 +214,20 @@ class TasksTests {
         Assert.assertEquals(listOf(listOf(1, 2, 3)), notifications)
     }
 
+    @Test
+    fun execute_Disposes_In_Progress_Tasks_When_Disposed() {
+        val tasks = listOf(HeldTask<Int>(), HeldTask<Int>())
+        val notify = mockk<(List<Int>) -> Unit>(relaxed = true)
+
+        val subscription = Tasks.execute(notifyOn = Scheduler.SYNCHRONOUS, tasks, notify)
+        Assert.assertFalse(tasks.any { it.disposable.isDisposed })
+
+        subscription.dispose()
+
+        Assert.assertTrue(tasks.all { it.disposable.isDisposed })
+        verify(exactly = 0) { notify(any()) }
+    }
+
     /**
      * A task that signals completion twice, synchronously: [first] and then [second]. Only the
      * first result should be kept.
@@ -234,9 +248,11 @@ class TasksTests {
         @Volatile
         private var onComplete: ((T) -> Unit)? = null
 
+        val disposable: Disposable = Disposables.subscription()
+
         override fun execute(onComplete: (T) -> Unit): Disposable {
             this.onComplete = onComplete
-            return Disposables.disposed()
+            return disposable
         }
 
         fun complete(result: T) {

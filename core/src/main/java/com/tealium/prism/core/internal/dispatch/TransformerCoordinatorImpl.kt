@@ -3,6 +3,7 @@ package com.tealium.prism.core.internal.dispatch
 import com.tealium.prism.core.api.logger.Logger
 import com.tealium.prism.core.api.logger.logIfWarnEnabled
 import com.tealium.prism.core.api.misc.Scheduler
+import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.ObservableState
@@ -15,7 +16,9 @@ import com.tealium.prism.core.api.transform.DispatchScope
 import com.tealium.prism.core.api.transform.TransformationSettings
 import com.tealium.prism.core.api.transform.Transformer
 import com.tealium.prism.core.internal.logger.LogCategory
+import com.tealium.prism.core.internal.pubsub.DisposableContainer
 import com.tealium.prism.core.internal.pubsub.update
+import java.util.concurrent.atomic.AtomicBoolean
 
 class TransformerCoordinatorImpl(
     /**
@@ -50,43 +53,45 @@ class TransformerCoordinatorImpl(
         dispatch: Dispatch,
         dispatchScope: DispatchScope,
         completion: (Dispatch?) -> Unit
-    ) {
+    ): Disposable {
         // Resolved once per dispatch, then threaded through the whole apply chain, so that a single
         // dispatch is transformed against a single snapshot of the transformers. The transformations
         // are read at the same moment, so a call held back by a settings pass applies the settings
         // and the transformers of the same pass.
-        onTransformers.subscribeOnce { transformers ->
-            val transformations = scopedTransformations(dispatchScope)
-            serialApply(transformers, transformations, dispatch, dispatchScope, completion)
-        }
+        return onTransformers.take(1)
+            .async<Dispatch?> { transformers, onNext ->
+                val transformations = scopedTransformations(dispatchScope)
+                serialApply(transformers, transformations, dispatch, dispatchScope, onNext::accept)
+            }
+            .subscribe { completion(it) }
     }
 
     override fun transform(
         dispatches: List<Dispatch>,
         dispatchScope: DispatchScope,
         completion: (List<Dispatch>) -> Unit
-    ) {
+    ): Disposable {
         if (dispatches.isEmpty()) {
             completion(emptyList())
-            return
+            return Disposables.disposed()
         }
 
         // Resolved once per batch rather than once per dispatch: every dispatch in the batch is
         // transformed against the same snapshot of the transformers, and the gate on
         // [onTransformers] is only paid a single time. The transformations are read at the same
         // moment, for the same reason as in the single-dispatch overload.
-        onTransformers.subscribeOnce { transformers ->
-            val transformations = scopedTransformations(dispatchScope)
-            Tasks.execute(scheduler, dispatches.map { dispatch ->
-                CompletableTask { onComplete: (Dispatch?) -> Unit ->
-                    serialApply(transformers, transformations, dispatch, dispatchScope, onComplete)
-                    // TODO: Individual transforms are not yet cancellable.
-                    Disposables.disposed()
+        return onTransformers.take(1)
+            .async<List<Dispatch?>> { transformers, onNext ->
+                val transformations = scopedTransformations(dispatchScope)
+                Tasks.execute(scheduler, dispatches.map { dispatch ->
+                    CompletableTask { onComplete: (Dispatch?) -> Unit ->
+                        serialApply(transformers, transformations, dispatch, dispatchScope, onComplete)
+                    }
+                }) { transformed ->
+                    onNext.accept(transformed)
                 }
-            }) {
-                completion(it.filterNotNull())
             }
-        }
+            .subscribe { completion(it.filterNotNull()) }
     }
 
     private fun scopedTransformations(dispatchScope: DispatchScope): List<TransformationSettings> =
@@ -110,44 +115,50 @@ class TransformerCoordinatorImpl(
         }
     }
 
+    /**
+     * Applies the [transformations] to the [dispatch] one after the other, each step starting only
+     * once the previous one has completed.
+     *
+     * @return A [Disposable] for the whole chain. Disposing it disposes the running transformation
+     * and stops the chain before its next step; [completion] is then never called. Disposing it after
+     * [completion] has been called is harmless, and disposes the steps that have already completed,
+     * as [Transformer.applyTransformation] allows.
+     */
     private fun serialApply(
         transformers: List<Transformer>,
         transformations: List<TransformationSettings>,
         dispatch: Dispatch?,
         scope: DispatchScope,
         completion: (Dispatch?) -> Unit
-    ) = recursiveSerialApply(transformers, transformations, 0, dispatch, scope, completion)
+    ): Disposable {
+        val container = DisposableContainer()
 
-    private fun recursiveSerialApply(
-        transformers: List<Transformer>,
-        transformations: List<TransformationSettings>,
-        index: Int,
-        dispatch: Dispatch?,
-        scope: DispatchScope,
-        completion: (Dispatch?) -> Unit
-    ) {
-        if (dispatch == null || index >= transformations.size) {
-            completion(dispatch)
-            return
+        fun applyNext(index: Int, dispatch: Dispatch?) {
+            if (container.isDisposed) return
+
+            if (dispatch == null || index >= transformations.size) {
+                completion(dispatch)
+                return
+            }
+
+            val transformation = transformations[index]
+            if (!matchesConditions(transformation, dispatch)) {
+                // don't apply, but continue iteration.
+                applyNext(index + 1, dispatch)
+                return
+            }
+
+            // Every step's Disposable is added, not only the latest: a synchronous transformer
+            // completes inside `apply`, so the next step has already added its own by then.
+            container.add(apply(transformers, transformation, dispatch, scope) {
+                applyNext(index + 1, it)
+            })
         }
 
-        val nextTransformation = transformations.elementAt(index)
-        val nextIndex = index + 1
-
-        if (!matchesConditions(nextTransformation, dispatch)) {
-            // don't apply, but continue iteration.
-            recursiveSerialApply(
-                transformers, transformations, nextIndex, dispatch, scope, completion
-            )
-            return
-        }
-
-        apply(transformers, nextTransformation, dispatch, scope) { transformedDispatch ->
-            recursiveSerialApply(
-                transformers, transformations, nextIndex, transformedDispatch, scope, completion
-            )
-        }
+        applyNext(0, dispatch)
+        return container
     }
+
 
     /**
      * Applies the [transformation] with the [Transformer] that implements it, taken from the
@@ -155,6 +166,14 @@ class TransformerCoordinatorImpl(
      *
      * When no transformer implements it, the dispatch is reported untransformed rather than dropped:
      * a transformation nobody can apply is not a decision to discard the event.
+     *
+     * The step's [completion] takes effect at most once: [Transformer.applyTransformation] requires
+     * exactly one call, but a transformer that calls it again would re-run the rest of the chain, so
+     * later calls are logged and ignored. It may be called from any thread: the rest of the chain is
+     * resumed on the tealium scheduler.
+     *
+     * @return The [Disposable] returned by the [Transformer], which cancels the running
+     * transformation; an already disposed one when no transformer implements it.
      */
     private fun apply(
         transformers: List<Transformer>,
@@ -162,19 +181,28 @@ class TransformerCoordinatorImpl(
         dispatch: Dispatch,
         scope: DispatchScope,
         completion: (Dispatch?) -> Unit
-    ) {
+    ): Disposable {
         val transformer = transformers.firstOrNull {
             it.id == transformation.transformerId
         }
         if (transformer == null) {
             completion(dispatch)
-            return
+            return Disposables.disposed()
         }
 
-        // TODO: hold this Disposable and dispose it on cancel. Dropping completions that arrive
-        //  after dispose is the coordinator's job, not the transformer's; today the caller guard
-        //  in DispatchManagerImpl.transformAndDispatch does it.
-        transformer.applyTransformation(transformation, dispatch, scope, completion)
+        val completed = AtomicBoolean(false)
+        return transformer.applyTransformation(transformation, dispatch, scope) { transformed ->
+            if (completed.compareAndSet(false, true)) {
+                // Resumed on the Tealium scheduler, so the rest of the chain, the coordinator's
+                // state and the callers never run on a transformer's thread. Inline when the
+                // transformer completes on the Tealium thread already.
+                scheduler.execute { completion(transformed) }
+            } else {
+                logger.logIfWarnEnabled(LogCategory.TRANSFORMATIONS) {
+                    "Transformer(${transformer.id}) completed Transformation(${transformation.id}) more than once; ignoring."
+                }
+            }
+        }
     }
 
     override fun registerTransformation(transformation: TransformationSettings) {

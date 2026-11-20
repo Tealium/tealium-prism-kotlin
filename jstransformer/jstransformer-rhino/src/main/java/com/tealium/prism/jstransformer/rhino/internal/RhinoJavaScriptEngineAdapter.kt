@@ -61,6 +61,7 @@ class RhinoJavaScriptEngineAdapter(
             setupRhinoObjects(context.tracker, context.logger, context.dataLayer)
 
         fun setupRhinoObjects(tracker: Tracker, logger: Logger, dataLayer: DataStore): RhinoObjects {
+            // Rhino binds this Context to the entering thread, so evaluation must stay on the Tealium thread.
             val rhinoContext = Context.enter()
             rhinoContext.isInterpretedMode = true
             val scope = rhinoContext.initSafeStandardObjects()

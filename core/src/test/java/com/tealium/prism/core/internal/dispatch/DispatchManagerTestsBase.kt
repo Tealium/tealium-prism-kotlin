@@ -204,16 +204,27 @@ open class DispatchManagerTestsBase {
             scope: DispatchScope
         ) -> Dispatch?
     ) {
-        transformers.onNext(
-            transformers.value + TestTransformer(
-                transformerId,
-                transformHandler = onTransform
-            )
+        registerTransformation(
+            TestTransformer(transformerId, transformHandler = onTransform),
+            id,
+            scope
         )
+    }
+
+    /**
+     * utility that appends the given [transformer] and a new transformation implemented by it,
+     * scoped to the given [scope]
+     */
+    protected fun registerTransformation(
+        transformer: Transformer,
+        id: String = "test",
+        scope: TransformationScope = TransformationScope.AllDispatchers
+    ) {
+        transformers.onNext(transformers.value + transformer)
         transformations.onNext(
             transformations.value + TransformationSettings(
                 id,
-                transformerId,
+                transformer.id,
                 scope
             )
         )

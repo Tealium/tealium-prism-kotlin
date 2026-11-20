@@ -16,10 +16,17 @@ interface Transformer: Module {
      * Applies the specified [transformation] to the given [Dispatch] for the [DispatchScope] in
      * which this transformation is called.
      *
-     * Threading: this method is called on the Tealium thread, and the caller disposes the returned
-     * [Disposable] on the Tealium thread. [completion] must be called on the Tealium thread (see
-     * [TealiumContext.schedulers][com.tealium.prism.core.api.modules.TealiumContext.schedulers]);
-     * it may be called synchronously, before this method returns.
+     * Threading: this method is called on the Tealium thread (see
+     * [TealiumContext.schedulers][com.tealium.prism.core.api.modules.TealiumContext.schedulers]),
+     * and the caller disposes the returned [Disposable] on the Tealium thread. [completion] may be
+     * called from any thread, and may be called synchronously, before this method returns. Calling
+     * it on the Tealium thread keeps the rest of the transformation chain synchronous and inline;
+     * calling it from another thread makes the rest of the chain asynchronous, resumed on the
+     * Tealium thread.
+     *
+     * **Important.** An implementation that works on other threads must return a [Disposable]
+     * whose [Disposable.dispose] and [Disposable.isDisposed] are safe to use from both the Tealium
+     * thread and its own.
      *
      * Completion: call [completion] exactly once, unless the caller has disposed the returned
      * [Disposable]. Pass the transformed or unchanged [dispatch] for it to proceed, or `null` to drop

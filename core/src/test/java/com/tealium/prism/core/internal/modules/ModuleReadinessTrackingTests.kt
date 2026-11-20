@@ -6,6 +6,7 @@ import com.tealium.prism.core.api.misc.Scheduler
 import com.tealium.prism.core.api.modules.Collector
 import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.modules.TealiumContext
+import com.tealium.prism.core.api.pubsub.Disposables
 import com.tealium.prism.core.api.pubsub.Observables
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchContext
@@ -91,6 +92,7 @@ class ModuleReadinessTrackingTests {
             val dispatch = firstArg<Dispatch>()
             val completion = thirdArg<(Dispatch?) -> Unit>()
             completion(dispatch)
+            Disposables.disposed()
         }
 
         loadRuleEngine = mockk<LoadRuleEngine>()

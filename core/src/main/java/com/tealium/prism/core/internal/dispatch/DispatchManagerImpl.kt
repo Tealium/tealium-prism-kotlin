@@ -325,6 +325,8 @@ class DispatchManagerImpl(
      * the batch to make up the numbers.
      *
      * Completes once every dispatch has been accounted for, or immediately if [dispatches] is empty.
+     * Disposing the subscription cancels a transformation still running, so nothing is sent to the
+     * [dispatcher] afterwards, and cancels any [Dispatcher.dispatch] still in progress.
      */
     private fun transformAndDispatch(
         dispatches: List<Dispatch>,
@@ -374,7 +376,7 @@ class DispatchManagerImpl(
                 dispatcher.dispatch(mapped) { completed ->
                     emitProcessed(completed)
                 }.addTo(container)
-            }
+            }.addTo(container)
 
             container
         }
