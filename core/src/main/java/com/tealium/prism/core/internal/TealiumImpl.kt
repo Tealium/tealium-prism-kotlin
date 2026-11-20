@@ -178,7 +178,8 @@ class TealiumImpl(
         barrierCoordinator = BarrierCoordinatorImpl(
             barrierManager.barriers,
             this.activityManager.applicationStatus,
-            queueMetrics
+            queueMetrics,
+            scheduler = schedulers.tealium
         )
 
         val loadRuleEngine = LoadRuleEngineImpl(settings, logger)
@@ -336,6 +337,7 @@ class TealiumImpl(
          leaves the queues without an owner - which would delete the dispatches still to be sent.
          */
         dispatchManager.stopDispatchLoop()
+        barrierCoordinator.shutdown()
         queueManager.shutdown()
         moduleManager.shutdown()
         connectivityRetriever.unsubscribe()

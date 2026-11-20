@@ -14,12 +14,14 @@ import com.tealium.prism.core.api.modules.Dispatcher
 import com.tealium.prism.core.api.pubsub.Disposable
 import com.tealium.prism.core.api.pubsub.Observable
 import com.tealium.prism.core.api.pubsub.Observables
+import com.tealium.prism.core.api.pubsub.ReplaySubject
 import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.tracking.Dispatch
 import com.tealium.prism.core.api.tracking.DispatchType
 import com.tealium.prism.core.api.tracking.TrackResult
 import com.tealium.prism.core.internal.barriers.BarrierCoordinatorImpl
 import com.tealium.prism.core.internal.barriers.BatchingBarrier
+import com.tealium.prism.core.internal.barriers.ScopedBarrier
 import com.tealium.prism.core.internal.consent.ConsentManager
 import com.tealium.prism.core.internal.persistence.repositories.VolatileQueueRepository
 import com.tealium.prism.core.internal.pubsub.Subscription
@@ -40,10 +42,13 @@ import java.util.concurrent.TimeUnit
  *
  * Call [setUpLoop] at the start of each test, then [start] the loop.
  *
- * No application status is ever emitted: any status starts a flush, which bypasses the [BatchingBarrier].
+ * No application status is emitted unless a test does it on [applicationStatus]: any status starts a flush,
+ * which bypasses the [BatchingBarrier].
  */
 open class DispatchLoopTestsBase {
     protected val scheduler = ManualScheduler()
+    protected val applicationStatus: ReplaySubject<ActivityManager.ApplicationStatus> =
+        Observables.replaySubject(1)
     private val queue: MutableMap<String, MutableSet<Dispatch>> = mutableMapOf()
     private val inFlightDispatches: StateSubject<Map<String, Set<Dispatch>>> =
         Observables.stateSubject(emptyMap())
@@ -54,6 +59,7 @@ open class DispatchLoopTestsBase {
     protected lateinit var queueManager: CountingQueueManager
     protected lateinit var queueMetrics: QueueMetrics
     protected lateinit var barrierCoordinator: BarrierCoordinatorImpl
+    protected lateinit var scopedBarriers: StateSubject<List<ScopedBarrier>>
     protected lateinit var dispatchManager: DispatchManagerImpl
     protected var consentManager: TestConsentManager? = null
         private set
@@ -86,10 +92,14 @@ open class DispatchLoopTestsBase {
         )
         queueMetrics = QueueMetricsImpl(queueManager)
         consentManager = if (consent) TestConsentManager() else null
+        scopedBarriers = Observables.stateSubject(barriers().map { it to BarrierScope.All })
+        // ManualScheduler.runAll() ignores delays, so the flush debounce and timeout fire within the same settle(): any flush ends by the end of each settle().
         barrierCoordinator = BarrierCoordinatorImpl(
-            barriers = Observables.just(barriers().map { it to BarrierScope.All }),
-            applicationStatus = Observables.publishSubject<ActivityManager.ApplicationStatus>(),
-            queueMetrics = queueMetrics
+            barriers = scopedBarriers,
+            applicationStatus = applicationStatus,
+            queueMetrics = queueMetrics,
+            flushDebounceMilliseconds = 0,
+            scheduler = scheduler
         )
         dispatchManager = DispatchManagerImpl(
             onDispatchers = onDispatchers,

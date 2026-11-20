@@ -11,6 +11,7 @@ import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.pubsub.Subject
 import com.tealium.prism.core.internal.barriers.BarrierCoordinatorImpl
 import com.tealium.prism.core.internal.barriers.ScopedBarrier
+import com.tealium.tests.common.VirtualTimeScheduler
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -36,6 +37,7 @@ class BarrierCoordinatorTests {
     private lateinit var barrierCoordinator: BarrierCoordinatorImpl
     private lateinit var queueSize: Subject<Int>
     private lateinit var queueMetrics: QueueMetrics
+    private lateinit var scheduler: VirtualTimeScheduler
 
     @Before
     fun setUp() {
@@ -66,7 +68,14 @@ class BarrierCoordinatorTests {
         )
         barrierSubject = Observables.stateSubject(barriers)
 
-        barrierCoordinator = BarrierCoordinatorImpl(barrierSubject, appStatus, queueMetrics)
+        scheduler = VirtualTimeScheduler()
+        barrierCoordinator = BarrierCoordinatorImpl(
+            barrierSubject,
+            appStatus,
+            queueMetrics,
+            flushDebounceMilliseconds = 0,
+            scheduler = scheduler
+        )
     }
 
     @Test
@@ -426,27 +435,277 @@ class BarrierCoordinatorTests {
         val blockingBarrier =
             barrier("blocking", Observables.just(BarrierState.Closed), flushable = true)
         barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, BarrierScope.All)))
+        val states = mutableListOf<BarrierState>()
+
+        barrierCoordinator.onBarriersState("dispatcher_1")
+            .subscribe { states.add(it) }
+        assertEquals(listOf(BarrierState.Closed), states)
 
         listOf(
             ActivityManager.ApplicationStatus.Init(),
             ActivityManager.ApplicationStatus.Backgrounded(),
             ActivityManager.ApplicationStatus.Foregrounded()
         ).forEach { status ->
-            val verifier = mockk<(BarrierState) -> Unit>(relaxed = true)
-
-            barrierCoordinator.onBarriersState("dispatcher_1")
-                .subscribe(verifier)
-
-            verify(inverse = true) {
-                verifier(BarrierState.Open)
-            }
+            states.clear()
 
             appStatus.onNext(status)
-            verify {
-                verifier(BarrierState.Open)
-            }
+            assertEquals(listOf(BarrierState.Open), states)
 
-            appStatus.clear()
+            queueSize.onNext(0) // the flush ends
+            assertEquals(listOf(BarrierState.Open, BarrierState.Closed), states)
+            queueSize.onNext(1)
         }
+    }
+
+    // region Shared flush state
+
+    @Test
+    fun reemitting_The_Barriers_After_The_Flush_Ended_Does_Not_Start_A_New_Flush() {
+        val states = mutableListOf<BarrierState>()
+        subscribeToClosedFlushableBarrierAfterLaunchFlush { states.add(it) }
+        queueSize.onNext(1)
+
+        reemitBarriers()
+
+        assertEquals("Re-emitting the barriers must not flush the pending dispatches", listOf(BarrierState.Closed), states)
+    }
+
+    @Test
+    fun a_Second_Barriers_State_Subscription_After_The_Flush_Ended_Does_Not_Start_A_Flush() {
+        subscribeToClosedFlushableBarrierAfterLaunchFlush { }
+        queueSize.onNext(1)
+
+        val states = mutableListOf<BarrierState>()
+        barrierCoordinator.onBarriersState("dispatcher_1").subscribe { states.add(it) }
+
+        assertEquals("A new subscriber must not flush the pending dispatches", listOf(BarrierState.Closed), states)
+    }
+
+    @Test
+    fun the_Flush_State_Is_Per_Dispatcher() {
+        val blockingBarrier =
+            barrier("blocking", Observables.just(BarrierState.Closed), flushable = true)
+        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, BarrierScope.All)))
+        val queueSize1 = Observables.stateSubject(0)
+        val queueSize2 = Observables.stateSubject(0)
+        every { queueMetrics.queueSizePendingDispatch("dispatcher_1") } returns queueSize1
+        every { queueMetrics.queueSizePendingDispatch("dispatcher_2") } returns queueSize2
+        appStatus.onNext(ActivityManager.ApplicationStatus.Init())
+        val states1 = mutableListOf<BarrierState>()
+        val states2 = mutableListOf<BarrierState>()
+        barrierCoordinator.onBarriersState("dispatcher_1").subscribe { states1.add(it) }
+        barrierCoordinator.onBarriersState("dispatcher_2").subscribe { states2.add(it) }
+
+        queueSize1.onNext(1)
+        appStatus.onNext(ActivityManager.ApplicationStatus.Foregrounded())
+
+        assertEquals(
+            "The dispatcher with pending dispatches flushes",
+            listOf(BarrierState.Closed, BarrierState.Open),
+            states1
+        )
+        assertEquals(
+            "The other dispatcher's flushable barrier stays closed",
+            listOf(BarrierState.Closed),
+            states2
+        )
+    }
+
+    @Test
+    fun resubscribing_During_A_Flush_Keeps_The_Flush_State_Without_Closing_The_Barriers() {
+        val blockingBarrier =
+            barrier("blocking", Observables.just(BarrierState.Closed), flushable = true)
+        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, BarrierScope.All)))
+        appStatus.onNext(ActivityManager.ApplicationStatus.Init())
+        val firstStates = mutableListOf<BarrierState>()
+        barrierCoordinator.onBarriersState("dispatcher_1").subscribe { firstStates.add(it) }
+        assertEquals("The launch flush is in progress", listOf(BarrierState.Open), firstStates)
+
+        val secondStates = mutableListOf<BarrierState>()
+        barrierCoordinator.onBarriersState("dispatcher_1").subscribe { secondStates.add(it) }
+        reemitBarriers()
+
+        assertEquals(
+            "A new subscriber receives the flushing state, without closing the barriers first",
+            listOf(BarrierState.Open),
+            secondStates
+        )
+        assertEquals("Re-emitting the barriers must not close them again", listOf(BarrierState.Open), firstStates)
+    }
+
+    @Test
+    fun the_Initialized_Status_Flushes_On_Launch_Without_Publishing_A_New_Status() {
+        val blockingBarrier =
+            barrier("blocking", Observables.just(BarrierState.Closed), flushable = true)
+        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, BarrierScope.All)))
+        appStatus.onNext(ActivityManager.ApplicationStatus.Init())
+        val states = mutableListOf<BarrierState>()
+
+        barrierCoordinator.onBarriersState("dispatcher_1").subscribe { states.add(it) }
+
+        // With a 0 ms debounce the flush detection runs synchronously, so the shared state is already true when the first subscriber attaches and Closed is never emitted. With a real debounce the first subscriber sees Closed, then Open.
+        assertEquals(listOf(BarrierState.Open), states)
+    }
+
+    @Test
+    fun a_New_Status_After_Resubscribing_Still_Causes_A_Flush() {
+        val states = mutableListOf<BarrierState>()
+        subscribeToClosedFlushableBarrierAfterLaunchFlush { states.add(it) }
+        queueSize.onNext(1)
+        reemitBarriers()
+        assertEquals("No flush without a new status", listOf(BarrierState.Closed), states)
+
+        appStatus.onNext(ActivityManager.ApplicationStatus.Foregrounded())
+
+        assertEquals(listOf(BarrierState.Closed, BarrierState.Open), states)
+    }
+
+    @Test
+    fun a_Manual_Flush_After_Resubscribing_Still_Causes_A_Flush() {
+        val states = mutableListOf<BarrierState>()
+        subscribeToClosedFlushableBarrierAfterLaunchFlush { states.add(it) }
+        queueSize.onNext(1)
+        reemitBarriers()
+        assertEquals("No flush without a new status or manual flush", listOf(BarrierState.Closed), states)
+
+        barrierCoordinator.flush()
+
+        assertEquals(listOf(BarrierState.Closed, BarrierState.Open), states)
+    }
+
+    // endregion
+
+    // region Timeout and debounce
+
+    @Test
+    fun flush_Ends_After_Timeout_When_Queue_Size_Never_Reaches_Zero() {
+        val states = mutableListOf<BarrierState>()
+        subscribeWithTimes(debounceMilliseconds = 20, timeoutMilliseconds = 100) { states.add(it) }
+
+        scheduler.advanceTimeBy(20)
+        assertEquals(listOf(BarrierState.Closed, BarrierState.Open), states)
+
+        scheduler.advanceTimeBy(79)
+        assertEquals(
+            "The flush must last until the timeout",
+            listOf(BarrierState.Closed, BarrierState.Open),
+            states
+        )
+
+        scheduler.advanceTimeBy(1)
+        assertEquals(listOf(BarrierState.Closed, BarrierState.Open, BarrierState.Closed), states)
+    }
+
+    @Test
+    fun flush_Does_Not_End_When_Queue_Size_Changes_Within_Debounce() {
+        val states = mutableListOf<BarrierState>()
+        subscribeWithTimes(debounceMilliseconds = 20) { states.add(it) }
+        scheduler.advanceTimeBy(20)
+
+        // The queue empties and fills up again synchronously, well within the debounce time.
+        queueSize.onNext(0)
+        queueSize.onNext(1)
+        scheduler.advanceTimeBy(100)
+
+        assertEquals(listOf(BarrierState.Closed, BarrierState.Open), states)
+    }
+
+    @Test
+    fun flush_Ends_When_Queue_Size_Stays_Zero_For_The_Debounce_Time() {
+        val states = mutableListOf<BarrierState>()
+        subscribeWithTimes(debounceMilliseconds = 20) { states.add(it) }
+        scheduler.advanceTimeBy(20)
+
+        queueSize.onNext(0)
+        scheduler.advanceTimeBy(19)
+        assertEquals(
+            "The flush must wait for the queue to stay empty for the debounce time",
+            listOf(BarrierState.Closed, BarrierState.Open),
+            states
+        )
+
+        scheduler.advanceTimeBy(1)
+        assertEquals(listOf(BarrierState.Closed, BarrierState.Open, BarrierState.Closed), states)
+    }
+
+    @Test
+    fun flush_Starts_When_Queue_Size_Keeps_Changing_Within_Debounce() {
+        val states = mutableListOf<BarrierState>()
+        subscribeWithTimes(debounceMilliseconds = 20) { states.add(it) }
+
+        repeat(8) { i ->
+            scheduler.advanceTimeBy(10)
+            queueSize.onNext(2 + i)
+            if (i == 1) {
+                assertEquals(
+                    "Positive changes must not postpone the start of the flush",
+                    listOf(BarrierState.Closed, BarrierState.Open),
+                    states
+                )
+            }
+        }
+
+        assertEquals(listOf(BarrierState.Closed, BarrierState.Open), states)
+    }
+
+    // endregion
+
+    // region Shutdown
+
+    @Test
+    fun shutdown_Stops_Flushing_On_New_Status() {
+        val states = mutableListOf<BarrierState>()
+        subscribeToClosedFlushableBarrierAfterLaunchFlush { states.add(it) }
+        queueSize.onNext(1)
+
+        barrierCoordinator.shutdown()
+        appStatus.onNext(ActivityManager.ApplicationStatus.Foregrounded())
+
+        assertEquals("No flush after shutdown", listOf(BarrierState.Closed), states)
+    }
+
+    // endregion
+
+    /**
+     * Subscribes to a closed flushable barrier, after a launch flush that ended immediately because the queue was empty.
+     */
+    private fun subscribeToClosedFlushableBarrierAfterLaunchFlush(onState: (BarrierState) -> Unit) {
+        val blockingBarrier =
+            barrier("blocking", Observables.just(BarrierState.Closed), flushable = true)
+        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, BarrierScope.All)))
+        queueSize.onNext(0)
+        appStatus.onNext(ActivityManager.ApplicationStatus.Init())
+        barrierCoordinator.onBarriersState("dispatcher_1").subscribe(onState)
+    }
+
+    /**
+     * Emits the same barriers again, as a settings refresh does even when nothing changed.
+     */
+    private fun reemitBarriers() {
+        barrierSubject.onNext(barrierSubject.value)
+    }
+
+    /**
+     * Builds a coordinator with the given times, and subscribes to a closed flushable barrier while the queue is not empty, so the launch status starts a flush.
+     */
+    private fun subscribeWithTimes(
+        debounceMilliseconds: Int,
+        timeoutMilliseconds: Int = 5000,
+        onState: (BarrierState) -> Unit
+    ) {
+        val coordinator = BarrierCoordinatorImpl(
+            barrierSubject,
+            appStatus,
+            queueMetrics,
+            flushDebounceMilliseconds = debounceMilliseconds,
+            flushTimeoutMilliseconds = timeoutMilliseconds,
+            scheduler = scheduler
+        )
+        val blockingBarrier =
+            barrier("blocking", Observables.just(BarrierState.Closed), flushable = true)
+        barrierSubject.onNext(listOf(ScopedBarrier(blockingBarrier, BarrierScope.All)))
+        queueSize.onNext(1)
+        appStatus.onNext(ActivityManager.ApplicationStatus.Init())
+        coordinator.onBarriersState("dispatcher_1").subscribe(onState)
     }
 }

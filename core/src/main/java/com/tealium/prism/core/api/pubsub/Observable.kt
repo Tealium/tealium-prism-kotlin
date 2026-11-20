@@ -1,6 +1,7 @@
 package com.tealium.prism.core.api.pubsub
 
 import com.tealium.prism.core.api.misc.Scheduler
+import com.tealium.prism.core.api.misc.TimeFrame
 import com.tealium.prism.core.internal.pubsub.AnonymousObserver
 import com.tealium.prism.core.internal.pubsub.SingleImpl
 import com.tealium.prism.core.internal.pubsub.impl.DistinctObservable
@@ -208,6 +209,36 @@ interface Observable<T> : Subscribable<T> {
     }
 
     /**
+     * Returns an observable that will emit the last element received after the provided delay if no other event is emitted in the meantime.
+     *
+     * If the provided delay is zero or less, this behaves like an [observeOn], dispatching events immediately on the provided scheduler,
+     * potentially synchronously if the element was emitted from that same scheduler.
+     *
+     * @param delay The time to wait before emitting the elements
+     * @param scheduler The scheduler on which the debouncer is working on.
+     */
+    fun debounce(delay: TimeFrame, scheduler: Scheduler): Observable<T> {
+        return flatMapLatest { element ->
+            Observables.delayed(element, delay, scheduler)
+        }
+    }
+
+    /**
+     * Returns an observable that will emit each value received after the provided delay.
+     *
+     * If the provided delay is zero or less, this behaves like an [observeOn], dispatching events immediately on the provided scheduler,
+     * potentially synchronously if the element was emitted from that same scheduler.
+     *
+     * @param delay The time to wait before emitting the elements
+     * @param scheduler The scheduler on which the elements are emitted.
+     */
+    fun delay(delay: TimeFrame, scheduler: Scheduler): Observable<T> {
+        return flatMap { element ->
+            Observables.delayed(element, delay, scheduler)
+        }
+    }
+
+    /**
      * Returns an observable that combines the emissions of this observable the given [other]. The
      * downstream emission is the result of applying the [combiner] function to the latest emissions
      * of both observables - and are only possible once both this and the [other] have emitted at
@@ -307,4 +338,37 @@ interface Observable<T> : Subscribable<T> {
      */
     fun subscribeOnce(onNext: Consumer<T>): Disposable =
         subscribeOnce(AnonymousObserver(onNext))
+}
+
+private fun <T> Observables.delayed(
+    element: T,
+    delay: TimeFrame,
+    scheduler: Scheduler
+): Observable<T> {
+    return Observables.create { observer ->
+        val downstream = Disposables.composite(scheduler)
+
+        if (delay.number <= 0) {
+            // Dispose inside the block: scheduler.execute may be asynchronous, and disposing
+            // right away would make the block drop the element.
+            scheduler.execute {
+                if (downstream.isDisposed) return@execute
+                observer.onNext(element)
+                // The observer may have disposed this subscription from onNext, e.g. by emitting again upstream.
+                if (downstream.isDisposed) return@execute
+                observer.onComplete()
+                downstream.dispose()
+            }
+            return@create downstream
+        }
+        scheduler.schedule(delay) {
+            if (downstream.isDisposed) return@schedule
+            observer.onNext(element)
+            // The observer may have disposed this subscription from onNext, e.g. by emitting again upstream.
+            if (downstream.isDisposed) return@schedule
+            observer.onComplete()
+            downstream.dispose()
+        }.addTo(downstream)
+        downstream
+    }
 }
