@@ -5,6 +5,11 @@ package com.tealium.prism.core.api.pubsub
  * in a cache. Upon subscription, all values in the cache will be emitted to the subscriber.
  *
  * New values can be emitted to subscribers via the [Observer.onNext] method.
+ *
+ * A new subscriber first receives the cached values. Values emitted into this subject while a
+ * subscriber receives them reach it after the cached values. Subscribing to a completed
+ * [ReplaySubject] delivers the cached values, then the completion; after completion, new values
+ * are ignored.
  */
 interface ReplaySubject<T>: Subject<T> {
 

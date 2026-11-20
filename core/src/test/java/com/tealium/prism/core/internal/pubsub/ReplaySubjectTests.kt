@@ -135,6 +135,21 @@ class ReplaySubjectTests {
     }
 
     @Test
+    fun replaySubject_Resize_Shrinks_Cache_When_Cache_Holds_Null() {
+        val subject = Observables.replaySubject<Int?>(3)
+        val observer = mockk<Observer<Int?>>(relaxed = true)
+
+        subject.onNext(null)
+        subject.onNext(1)
+        subject.onNext(2)
+        subject.resize(1)
+        subject.subscribe(observer)
+
+        verify { observer.onNext(2) }
+        confirmVerified(observer)
+    }
+
+    @Test
     fun replaySubject_Resize_Grows_Cache_Maintaining_Existing() {
         val subject = Observables.replaySubject<Int>(2)
         val observer = mockk<Observer<Int>>(relaxed = true)
@@ -375,15 +390,21 @@ class ReplaySubjectTests {
 
     @Test
     fun subscribe_Emits_Latest_Cache_When_Subscribed_After_OnComplete() {
-        val subject = Observables.replaySubject<Int>(1)
+        val subject = Observables.replaySubject<Int>(2)
         val observer1 = mockk<Observer<Int>>(relaxed = true)
 
         subject.onNext(1)
+        subject.onNext(2)
         subject.onComplete()
+        subject.onNext(3)
         subject.subscribe(observer1)
 
-        verify {
+        assertEquals(2, subject.last())
+        verifyOrder {
             observer1.onNext(1)
+            observer1.onNext(2)
+            observer1.onComplete()
         }
+        confirmVerified(observer1)
     }
 }

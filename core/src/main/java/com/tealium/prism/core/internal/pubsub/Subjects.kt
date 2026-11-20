@@ -10,7 +10,6 @@ import com.tealium.prism.core.api.pubsub.StateSubject
 import com.tealium.prism.core.api.pubsub.Subject
 import com.tealium.prism.core.internal.pubsub.impl.ObservableStateImpl
 import com.tealium.prism.core.internal.pubsub.impl.PassthroughObservable
-import java.util.*
 
 
 /**
@@ -29,11 +28,14 @@ import java.util.*
  * when extending this class it would be advisable to use the [onBeforeNext],
  * [onAfterNext], [onBeforeSubscribed] and [onAfterSubscribed] which are all
  * executed within the synchronized access of the subscribers.
+ *
+ * A subclass that registers a wrapper around the subscribed observer overrides [subscribe]
+ * and passes the wrapper to `super.subscribe`.
  */
 abstract class BaseSubjectImpl<T> : Subject<T> {
 
     protected val lock = Any()
-    protected var done = false
+    protected var isCompleted = false
         private set
 
     private val subscribers: MutableList<Observer<T>> = mutableListOf()
@@ -45,7 +47,7 @@ abstract class BaseSubjectImpl<T> : Subject<T> {
 
     override fun onNext(value: T) {
         synchronized(lock) {
-            if (done) return
+            if (isCompleted) return
 
             onBeforeNext(value)
 
@@ -60,12 +62,18 @@ abstract class BaseSubjectImpl<T> : Subject<T> {
         }
     }
 
-    final override fun subscribe(observer: Observer<T>): Disposable {
+    /**
+     * Runs [onBeforeSubscribed], registers [observer], then runs [onAfterSubscribed] with it,
+     * under [lock]; a value emitted from [onAfterSubscribed], or from a callback it invokes,
+     * reaches [observer].
+     * On a completed subject [observer] is not registered and [onBeforeSubscribed] does not run:
+     * [observer] receives [onAfterSubscribed], then the completion, and the returned Disposable
+     * is already disposed.
+     */
+    override fun subscribe(observer: Observer<T>): Disposable {
         synchronized(lock) {
-            if (done) {
-                // temp fix to replay values to subscribers, even if "done"
+            if (isCompleted) {
                 onAfterSubscribed(observer)
-
                 observer.onComplete()
                 return Disposables.disposed()
             }
@@ -83,12 +91,12 @@ abstract class BaseSubjectImpl<T> : Subject<T> {
     }
 
     override fun onComplete() {
-        if (done) return
+        if (isCompleted) return
 
         synchronized(lock) {
-            if (done) return
+            if (isCompleted) return
 
-            done = true
+            isCompleted = true
             val subscribersCopy = subscribers.toTypedArray()
             subscribers.clear()
 
@@ -122,7 +130,9 @@ abstract class BaseSubjectImpl<T> : Subject<T> {
     protected open fun onBeforeSubscribed(observer: Observer<T>) {}
 
     /**
-     * Executed after a successful subscription
+     * Executed under the lock right after [observer] is registered, or, on a completed subject,
+     * before [observer] is completed without being registered. [observer] is the observer
+     * passed to [subscribe], or the wrapper a subclass passed to `super.subscribe`.
      */
     protected open fun onAfterSubscribed(observer: Observer<T>) {}
 }
@@ -150,8 +160,11 @@ class StateSubjectImpl<T>(
         value = t
     }
 
+    override fun subscribe(observer: Observer<T>): Disposable =
+        super<BaseSubjectImpl>.subscribe(ReplayingObserver(observer))
+
     override fun onAfterSubscribed(observer: Observer<T>) {
-        observer.onNext(value)
+        (observer as ReplayingObserver<T>).replay(listOf(value))
     }
 
     override fun asObservableState(): ObservableState<T> {
@@ -165,10 +178,10 @@ class StateSubjectImpl<T>(
  * subscription
  * */
 class ReplaySubjectImpl<T>(
-    cacheSize: Int,
-    private val cache: Queue<T> = LinkedList()
+    cacheSize: Int
 ) : BaseSubjectImpl<T>(), ReplaySubject<T> {
 
+    private val cache = ArrayDeque<T>()
     private var cacheSize = standardizeSize(cacheSize)
 
     override fun clear() {
@@ -182,7 +195,7 @@ class ReplaySubjectImpl<T>(
             val newSize = standardizeSize(size)
 
             while (cache.size > newSize) {
-                cache.poll() ?: break
+                cache.removeFirst()
             }
 
             cacheSize = newSize
@@ -195,16 +208,20 @@ class ReplaySubjectImpl<T>(
         }
 
         if (cache.size >= cacheSize) {
-            cache.poll()
+            cache.removeFirst()
         }
 
-        cache.offer(t)
+        cache.addLast(t)
     }
 
+    override fun subscribe(observer: Observer<T>): Disposable =
+        super<BaseSubjectImpl>.subscribe(ReplayingObserver(observer))
+
     override fun onAfterSubscribed(observer: Observer<T>) {
-        for (value in cache) {
-            observer.onNext(value)
-        }
+        if (cache.isEmpty()) return
+
+        // snapshot: the observer may emit into, clear or resize this subject while replaying
+        (observer as ReplayingObserver<T>).replay(cache.toList())
     }
 
     override fun last(): T? =
@@ -217,6 +234,64 @@ class ReplaySubjectImpl<T>(
      */
     private fun standardizeSize(size: Int): Int {
         return if (size < 0) Int.MAX_VALUE else size
+    }
+}
+
+/**
+ * Registered entry for a [downstream] observer of a [ReplaySubjectImpl] or [StateSubjectImpl].
+ *
+ * While [replay] runs, emissions from the subject are buffered for this entry only and
+ * delivered after the replayed values; emissions made while delivering the buffer are
+ * buffered too. Otherwise emissions are forwarded directly.
+ *
+ * Every member is accessed only while holding the subject's lock.
+ */
+private class ReplayingObserver<T>(
+    private val downstream: Observer<T>
+) : Observer<T> {
+
+    private var isBuffering = false
+    private val buffer = ArrayDeque<T>()
+    private var completionBuffered = false
+
+    override fun onNext(value: T) {
+        if (isBuffering) {
+            buffer.addLast(value)
+        } else {
+            downstream.onNext(value)
+        }
+    }
+
+    override fun onComplete() {
+        if (isBuffering) {
+            completionBuffered = true
+        } else {
+            downstream.onComplete()
+        }
+    }
+
+    /**
+     * Delivers [values], then everything buffered meanwhile, then a buffered completion.
+     *
+     * If [downstream] throws, buffering stops and the exception propagates: the rest of the
+     * replay and anything buffered, including a completion, are dropped, and later emissions
+     * reach [downstream] directly.
+     */
+    fun replay(values: List<T>) {
+        isBuffering = true
+        try {
+            values.forEach(downstream::onNext)
+            while (buffer.isNotEmpty()) {
+                downstream.onNext(buffer.removeFirst())
+            }
+        } finally {
+            isBuffering = false
+            buffer.clear()
+        }
+        if (completionBuffered) {
+            completionBuffered = false
+            downstream.onComplete()
+        }
     }
 }
 
