@@ -11,6 +11,11 @@
 # "class" also matches interfaces.
 -keep class org.mozilla.javascript.** { *; }
 
+# Rhino finds the SDK's JavaScript-callable methods by checking for @JSFunction at run time
+# (isAnnotationPresent), so the annotation attributes must survive R8, even when the app doesn't use
+# a default Android ProGuard file.
+-keepattributes RuntimeVisibleAnnotations
+
 # Rhino references java.beans.* (Java SE only, not available on Android).
 # These code paths are unreachable on Android — Rhino is run in interpreted
 # mode (isInterpretedMode = true), so the JVM bytecode optimizer path that
