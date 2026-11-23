@@ -6,6 +6,8 @@ A library to integrate the Tealium CDP into your Android apps.
 Minimum OS versions:
 - Android: 23.0+
 
+Apps with a `minSdk` below 26 that use JavaScript transformations also need core library desugaring (see [JavaScript transformations](#javascript-transformations)).
+
 ## Installation
 
 ### Maven/Gradle
@@ -33,6 +35,24 @@ implementation("com.tealium.prism:prism-context-api")
 ```
 
 And re-sync your Gradle projects
+
+### JavaScript transformations
+To run JavaScript transformations, add the Rhino module next to the dependencies above:
+
+```kotlin
+implementation("com.tealium.prism:prism-js-transformer-rhino")
+```
+
+If your app's `minSdk` is below 26, also enable core library desugaring in your app module's `build.gradle.kts`, using `desugar_jdk_libs` 2.1.5 or later. Without it, Tealium fails to initialize on Android 6.0 to 7.1 (API 23 to 25), even if no JavaScript transformation is configured, because the Rhino module registers itself automatically:
+
+```kotlin
+android {
+    compileOptions { isCoreLibraryDesugaringEnabled = true }
+}
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+}
+```
 
 ## Usage
 
