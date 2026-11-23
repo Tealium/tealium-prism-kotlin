@@ -19,8 +19,11 @@ package com.tealium.prism.core.api.data
  *
  * @return The retrieved and converted value; or `null` if absent or not convertible.
  */
-fun <T> DataObject.extract(path: JsonObjectPathConvertible, converter: DataItemConverter<T>): T? =
-    extract(path.asJsonObjectPath(), converter)
+fun <T> DataObject.extract(
+    path: JsonPathConvertible<JsonPath.Component.Key>,
+    converter: DataItemConverter<T>
+): T? =
+    extract(path.asJsonPath(), converter)
 
 /**
  * Extracts a [DataObject] from this [DataObject] at the given [path].
@@ -33,8 +36,8 @@ fun <T> DataObject.extract(path: JsonObjectPathConvertible, converter: DataItemC
  *
  * @return The retrieved [DataObject]; or `null` if absent or not a [DataObject].
  */
-fun DataObject.extractDataObject(path: JsonObjectPathConvertible): DataObject? =
-    extractDataObject(path.asJsonObjectPath())
+fun DataObject.extractDataObject(path: JsonPathConvertible<JsonPath.Component.Key>): DataObject? =
+    extractDataObject(path.asJsonPath())
 
 // Section: optional. An absent value is `null`; a wrong-typed value throws.
 
@@ -57,8 +60,9 @@ fun DataObject.extractDataObject(path: JsonObjectPathConvertible): DataObject? =
  * @return The retrieved and converted value; or `null` if absent or an explicit `null`.
  */
 @Throws(ExtractionException::class)
+@JvmSynthetic
 inline fun <reified T : Any> DataObject.optional(
-    path: JsonObjectPathConvertible,
+    path: JsonPathConvertible<JsonPath.Component.Key>,
     converter: DataItemConverter<T>
 ): T? =
     optional(path, converter, T::class.simpleName ?: T::class.java.name)
@@ -84,11 +88,11 @@ inline fun <reified T : Any> DataObject.optional(
  */
 @Throws(ExtractionException::class)
 fun <T> DataObject.optional(
-    path: JsonObjectPathConvertible,
+    path: JsonPathConvertible<JsonPath.Component.Key>,
     converter: DataItemConverter<T>,
     expectedType: String
 ): T? {
-    val jsonPath = path.asJsonObjectPath()
+    val jsonPath = path.asJsonPath()
 
     val item = extract(jsonPath)
     if (item == null || item.isNull())
@@ -112,7 +116,7 @@ fun <T> DataObject.optional(
  * @return The retrieved [DataObject]; or `null` if absent or an explicit `null`.
  */
 @Throws(ExtractionException::class)
-fun DataObject.optionalDataObject(path: JsonObjectPathConvertible): DataObject? =
+fun DataObject.optionalDataObject(path: JsonPathConvertible<JsonPath.Component.Key>): DataObject? =
     optional(path, DataItem::getDataObject, "DataObject")
 
 /**
@@ -138,7 +142,7 @@ fun DataObject.optionalDataObject(path: JsonObjectPathConvertible): DataObject? 
  */
 @Throws(ExtractionException::class)
 fun <T> DataObject.optionalOneOf(
-    path: JsonObjectPathConvertible,
+    path: JsonPathConvertible<JsonPath.Component.Key>,
     values: Map<String, T>
 ): T? {
     val text = optional(path, LenientConverters.STRING)?.trim()
@@ -147,24 +151,6 @@ fun <T> DataObject.optionalOneOf(
 
     return values.matching(path, text)
 }
-
-/**
- * Same as [optionalOneOf] with a [JsonObjectPathConvertible], but reading from a raw [JsonObjectPath].
- *
- * This is useful for a dynamic child path, such as `base.asJsonObjectPath().key(name)` built from a
- * payload key.
- *
- * @param path The path of the value to extract.
- * @param values The accepted texts, mapped to the value to return for each.
- *
- * @return The value mapped to the matching key; or `null` if absent, an explicit `null` or blank.
- */
-@Throws(ExtractionException::class)
-fun <T> DataObject.optionalOneOf(
-    path: JsonObjectPath,
-    values: Map<String, T>
-): T? =
-    optionalOneOf(RawPath(path), values)
 
 // Section: require. An absent or wrong-typed value throws.
 
@@ -182,8 +168,8 @@ fun <T> DataObject.optionalOneOf(
  * @return The retrieved [DataItem], which is [DataItem.NULL] for an explicit JSON `null`.
  */
 @Throws(ExtractionException::class)
-fun DataObject.requireDataItem(path: JsonObjectPathConvertible): DataItem {
-    val jsonPath = path.asJsonObjectPath()
+fun DataObject.requireDataItem(path: JsonPathConvertible<JsonPath.Component.Key>): DataItem {
+    val jsonPath = path.asJsonPath()
 
     return extract(jsonPath)
         ?: throw ExtractionException.Missing(jsonPath.toString())
@@ -209,8 +195,9 @@ fun DataObject.requireDataItem(path: JsonObjectPathConvertible): DataItem {
  * @return The retrieved and converted value.
  */
 @Throws(ExtractionException::class)
+@JvmSynthetic
 inline fun <reified T : Any> DataObject.require(
-    path: JsonObjectPathConvertible,
+    path: JsonPathConvertible<JsonPath.Component.Key>,
     converter: DataItemConverter<T>
 ): T =
     require(path, converter, T::class.simpleName ?: T::class.java.name)
@@ -237,11 +224,11 @@ inline fun <reified T : Any> DataObject.require(
  */
 @Throws(ExtractionException::class)
 fun <T> DataObject.require(
-    path: JsonObjectPathConvertible,
+    path: JsonPathConvertible<JsonPath.Component.Key>,
     converter: DataItemConverter<T>,
     expectedType: String
 ): T {
-    val jsonPath = path.asJsonObjectPath()
+    val jsonPath = path.asJsonPath()
 
     val item = extract(jsonPath)
     if (item == null || item.isNull())
@@ -265,7 +252,7 @@ fun <T> DataObject.require(
  * @return The retrieved [DataObject].
  */
 @Throws(ExtractionException::class)
-fun DataObject.requireDataObject(path: JsonObjectPathConvertible): DataObject =
+fun DataObject.requireDataObject(path: JsonPathConvertible<JsonPath.Component.Key>): DataObject =
     require(path, DataItem::getDataObject, "DataObject")
 
 /**
@@ -288,12 +275,12 @@ fun DataObject.requireDataObject(path: JsonObjectPathConvertible): DataObject =
  */
 @Throws(ExtractionException::class)
 fun DataObject.requireNonBlank(
-    path: JsonObjectPathConvertible,
+    path: JsonPathConvertible<JsonPath.Component.Key>,
     converter: DataItemConverter<String>
 ): String {
     val value = require(path, converter)
     if (value.isBlank())
-        throw ExtractionException.Empty(path.asJsonObjectPath().toString())
+        throw ExtractionException.Empty(path.asJsonPath().toString())
 
     return value
 }
@@ -324,45 +311,25 @@ fun DataObject.requireNonBlank(
  */
 @Throws(ExtractionException::class)
 fun <T> DataObject.requireOneOf(
-    path: JsonObjectPathConvertible,
+    path: JsonPathConvertible<JsonPath.Component.Key>,
     values: Map<String, T>
 ): T {
     val text = require(path, LenientConverters.STRING).trim()
     if (text.isEmpty())
-        throw ExtractionException.Empty(path.asJsonObjectPath().toString())
+        throw ExtractionException.Empty(path.asJsonPath().toString())
 
     return values.matching(path, text)
 }
 
-/**
- * Same as [requireOneOf] with a [JsonObjectPathConvertible], but reading from a raw [JsonObjectPath].
- *
- * This is useful for a dynamic child path, such as `base.asJsonObjectPath().key(name)` built from a
- * payload key.
- *
- * @param path The path of the value to extract.
- * @param values The accepted texts, mapped to the value to return for each.
- *
- * @return The value mapped to the matching key.
- */
-@Throws(ExtractionException::class)
-fun <T> DataObject.requireOneOf(
-    path: JsonObjectPath,
-    values: Map<String, T>
-): T =
-    requireOneOf(RawPath(path), values)
-
-private fun <T> Map<String, T>.matching(path: JsonObjectPathConvertible, text: String): T {
+private fun <T> Map<String, T>.matching(
+    path: JsonPathConvertible<JsonPath.Component.Key>,
+    text: String
+): T {
     val entry = entries.firstOrNull { it.key.equals(text, ignoreCase = true) }
         ?: throw ExtractionException.InvalidValue(
-            path.asJsonObjectPath().toString(),
+            path.asJsonPath().toString(),
             "expected one of ${keys.sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString(", ")}"
         )
 
     return entry.value
-}
-
-// Lets the raw path overloads share the implementation of the JsonObjectPathConvertible ones.
-private class RawPath(private val path: JsonObjectPath) : JsonObjectPathConvertible {
-    override fun asJsonObjectPath(): JsonObjectPath = path
 }

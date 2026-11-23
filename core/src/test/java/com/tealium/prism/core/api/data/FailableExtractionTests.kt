@@ -68,101 +68,104 @@ class FailableExtractionTests {
 
     @Test
     fun requireOneOf_Matches_Raw_Child_Path() {
-        val payload = DataObject.create {
-            put("parent", DataObject.create { put("AD_STORAGE", "GRANTED") })
-        }
+        val payload = parentWithChild(DataItem.string("GRANTED"))
 
-        assertEquals(Mode.GRANTED, payload.requireOneOf(JsonPath["parent"].key("AD_STORAGE"), Mode.values))
+        assertEquals(Mode.GRANTED, payload.requireOneOf(rawChildPath, Mode.values))
     }
 
     @Test
     fun requireOneOf_Renders_Raw_Child_Path_In_Error_Message() {
-        val payload = DataObject.create {
-            put("parent", DataObject.create { put("AD_STORAGE", "other") })
-        }
+        val payload = parentWithChild(DataItem.string("other"))
 
         val error = assertThrows(ExtractionException::class.java) {
-            payload.requireOneOf(JsonPath["parent"].key("AD_STORAGE"), Mode.values)
+            payload.requireOneOf(rawChildPath, Mode.values)
         }
 
-        assertInvalidValue(error, "parent.AD_STORAGE", "expected one of denied, granted, unknown")
-    }
-
-    @Test
-    fun requireOneOf_Throws_Missing_When_Raw_Child_Path_Is_Absent() {
-        assertMissing("parent.AD_STORAGE") {
-            DataObject.EMPTY_OBJECT.requireOneOf(JsonPath["parent"].key("AD_STORAGE"), Mode.values)
-        }
-    }
-
-    @Test
-    fun requireOneOf_Throws_Missing_When_Raw_Child_Path_Is_Explicit_Null() {
-        val payload = DataObject.create {
-            put("parent", DataObject.create { putNull("AD_STORAGE") })
-        }
-
-        assertMissing("parent.AD_STORAGE") {
-            payload.requireOneOf(JsonPath["parent"].key("AD_STORAGE"), Mode.values)
-        }
-    }
-
-    @Test
-    fun requireOneOf_Throws_Empty_When_Raw_Child_Path_Is_Blank() {
-        val payload = DataObject.create {
-            put("parent", DataObject.create { put("AD_STORAGE", "  ") })
-        }
-
-        val error = assertThrows(ExtractionException::class.java) {
-            payload.requireOneOf(JsonPath["parent"].key("AD_STORAGE"), Mode.values)
-        }
-
-        assertEmpty(error, "parent.AD_STORAGE")
-    }
-
-    @Test
-    fun optionalOneOf_Returns_Null_When_Raw_Child_Path_Is_Absent() {
-        assertNull(DataObject.EMPTY_OBJECT.optionalOneOf(JsonPath["parent"].key("AD_STORAGE"), Mode.values))
-    }
-
-    @Test
-    fun optionalOneOf_Returns_Null_When_Raw_Child_Path_Is_Explicit_Null() {
-        val payload = DataObject.create {
-            put("parent", DataObject.create { putNull("AD_STORAGE") })
-        }
-
-        assertNull(payload.optionalOneOf(JsonPath["parent"].key("AD_STORAGE"), Mode.values))
-    }
-
-    @Test
-    fun optionalOneOf_Returns_Null_When_Raw_Child_Path_Is_Blank() {
-        val payload = DataObject.create {
-            put("parent", DataObject.create { put("AD_STORAGE", "  ") })
-        }
-
-        assertNull(payload.optionalOneOf(JsonPath["parent"].key("AD_STORAGE"), Mode.values))
+        assertInvalidValue(error, "parent.child", "expected one of denied, granted, unknown")
     }
 
     @Test
     fun optionalOneOf_Matches_Raw_Child_Path() {
-        val payload = DataObject.create {
-            put("parent", DataObject.create { put("AD_STORAGE", "Denied") })
-        }
+        val payload = parentWithChild(DataItem.string("Denied"))
 
-        assertEquals(Mode.DENIED, payload.optionalOneOf(JsonPath["parent"].key("AD_STORAGE"), Mode.values))
-        assertNull(payload.optionalOneOf(JsonPath["parent"].key("OTHER"), Mode.values))
+        assertEquals(Mode.DENIED, payload.optionalOneOf(rawChildPath, Mode.values))
+        assertNull(payload.optionalOneOf(JsonPath["parent"].key("other"), Mode.values))
     }
 
     @Test
     fun optionalOneOf_Renders_Raw_Child_Path_In_Error_Message() {
-        val payload = DataObject.create {
-            put("parent", DataObject.create { put("AD_STORAGE", "other") })
-        }
+        val payload = parentWithChild(DataItem.string("other"))
 
         val error = assertThrows(ExtractionException::class.java) {
-            payload.optionalOneOf(JsonPath["parent"].key("AD_STORAGE"), Mode.values)
+            payload.optionalOneOf(rawChildPath, Mode.values)
         }
 
-        assertInvalidValue(error, "parent.AD_STORAGE", "expected one of denied, granted, unknown")
+        assertInvalidValue(error, "parent.child", "expected one of denied, granted, unknown")
+    }
+
+    @Test
+    fun optional_Reads_Raw_Child_Path() {
+        val payload = parentWithChild(DataItem.string("text"))
+
+        assertEquals("text", payload.optional(rawChildPath, LenientConverters.STRING))
+    }
+
+    @Test
+    fun optional_Reads_Raw_Child_Path_With_Expected_Type() {
+        val payload = parentWithChild(DataItem.int(1))
+
+        assertEquals("custom-1", payload.optional(rawChildPath, ToStringConverter, "text"))
+    }
+
+    @Test
+    fun optionalDataObject_Reads_Raw_Child_Path() {
+        val child = DataObject.create { put("inner", "x") }
+        val payload = parentWithChild(child.asDataItem())
+
+        assertEquals(child, payload.optionalDataObject(rawChildPath))
+    }
+
+    @Test
+    fun requireDataItem_Reads_Raw_Child_Path() {
+        val payload = parentWithChild(DataItem.string("text"))
+
+        assertEquals(DataItem.string("text"), payload.requireDataItem(rawChildPath))
+    }
+
+    @Test
+    fun require_Reads_Raw_Child_Path() {
+        val payload = parentWithChild(DataItem.string("text"))
+
+        assertEquals("text", payload.require(rawChildPath, LenientConverters.STRING))
+    }
+
+    @Test
+    fun require_Reads_Raw_Child_Path_With_Expected_Type() {
+        val payload = parentWithChild(DataItem.int(1))
+
+        assertEquals("custom-1", payload.require(rawChildPath, ToStringConverter, "text"))
+    }
+
+    @Test
+    fun require_Renders_Raw_Child_Path_In_Error_Message() {
+        assertMissing("parent.child") {
+            DataObject.EMPTY_OBJECT.require(rawChildPath, LenientConverters.STRING)
+        }
+    }
+
+    @Test
+    fun requireDataObject_Reads_Raw_Child_Path() {
+        val child = DataObject.create { put("inner", "x") }
+        val payload = parentWithChild(child.asDataItem())
+
+        assertEquals(child, payload.requireDataObject(rawChildPath))
+    }
+
+    @Test
+    fun requireNonBlank_Reads_Raw_Child_Path() {
+        val payload = parentWithChild(DataItem.string("text"))
+
+        assertEquals("text", payload.requireNonBlank(rawChildPath, LenientConverters.STRING))
     }
 
     // endregion
@@ -747,6 +750,13 @@ class FailableExtractionTests {
         val empty = error as ExtractionException.Empty
         assertEquals(path, empty.key)
     }
+
+    private val rawChildPath: JsonObjectPath = JsonPath["parent"].key("child")
+
+    private fun parentWithChild(value: DataItem): DataObject =
+        DataObject.create {
+            put("parent", DataObject.create { put("child", value) })
+        }
 
     private enum class Mode {
         GRANTED, DENIED, UNKNOWN;

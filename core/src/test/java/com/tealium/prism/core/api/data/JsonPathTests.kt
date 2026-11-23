@@ -4,6 +4,7 @@ import com.tealium.prism.core.api.data.DataItemUtils.asDataItem
 import com.tealium.tests.common.assertThrows
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Test
 
 class JsonPathTests {
@@ -415,5 +416,21 @@ class JsonPathTests {
         val jsonPath = DataList.EMPTY_LIST.asDataItem()
         val path = JsonPath.Converter.convert(jsonPath)
         assertNull(path)
+    }
+
+    @Test
+    fun asJsonPath_Returns_Same_Instance_When_Object_Rooted() {
+        val path = JsonPath["key"]
+        val convertible: JsonPathConvertible<JsonPath.Component.Key> = path
+
+        assertSame(path, convertible.asJsonPath())
+    }
+
+    @Test
+    fun asJsonPath_Returns_Same_Instance_When_List_Rooted() {
+        val path = JsonPath[0]
+        val convertible: JsonPathConvertible<JsonPath.Component.Index> = path
+
+        assertSame(path, convertible.asJsonPath())
     }
 }

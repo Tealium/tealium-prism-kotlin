@@ -90,10 +90,15 @@ typealias JsonListPath = JsonPath<JsonPath.Component.Index>
 class JsonPath<TRoot : JsonPath.Component> private constructor(
     val firstComponent: TRoot,
     val components: List<Component>
-): DataItemConvertible {
+): DataItemConvertible, JsonPathConvertible<TRoot> {
 
     override fun asDataItem(): DataItem =
         toString().asDataItem()
+
+    /**
+     * Returns this [JsonPath].
+     */
+    override fun asJsonPath(): JsonPath<TRoot> = this
 
     /**
      * Defines a [Component] of a [JsonPath] for navigating through complex JSON objects/arrays

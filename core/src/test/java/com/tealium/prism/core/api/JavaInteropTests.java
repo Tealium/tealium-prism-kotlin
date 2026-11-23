@@ -17,6 +17,7 @@ import com.tealium.prism.core.api.data.ExtractionException;
 import com.tealium.prism.core.api.data.FailableExtractionUtils;
 import com.tealium.prism.core.api.data.JsonObjectPathConvertible;
 import com.tealium.prism.core.api.data.JsonPath;
+import com.tealium.prism.core.api.data.JsonPathConvertible;
 import com.tealium.prism.core.api.data.LenientConverters;
 import com.tealium.prism.core.api.misc.Scheduler;
 import com.tealium.prism.core.api.pubsub.Disposable;
@@ -142,6 +143,15 @@ public class JavaInteropTests {
     }
 
     @Test
+    public void jsonObjectPathConvertible_Lambda_Converts_To_JsonPathConvertible() {
+        JsonPath<JsonPath.Component.Key> path = JsonPath.root("value");
+        JsonObjectPathConvertible lambda = () -> path;
+        JsonPathConvertible<JsonPath.Component.Key> convertible = lambda;
+
+        assertSame(path, convertible.asJsonPath());
+    }
+
+    @Test
     public void failableExtraction_Have_A_Stable_Facade_Name() throws ExtractionException {
         DataObject payload = DataObject.fromString(
                 "{\"text\":\"abc\",\"object\":{}}"
@@ -181,13 +191,37 @@ public class JavaInteropTests {
         assertEquals(Integer.valueOf(1), FailableExtractionUtils.requireOneOf(payload, text, values));
         assertEquals(Integer.valueOf(1), FailableExtractionUtils.optionalOneOf(payload, text, values));
         assertNull(FailableExtractionUtils.optionalOneOf(payload, absent, values));
-        JsonPath<JsonPath.Component.Key> rawText = JsonPath.root("text");
-        assertEquals(Integer.valueOf(1), FailableExtractionUtils.requireOneOf(payload, rawText, values));
-        assertEquals(Integer.valueOf(1), FailableExtractionUtils.optionalOneOf(payload, rawText, values));
         assertEquals(
                 Integer.valueOf(2),
                 FailableExtractionUtils.require(payload, count, LenientConverters.INT, "Int")
         );
+    }
+
+    @Test
+    public void failableExtraction_Helpers_Accept_Raw_JsonPath_From_Java() throws ExtractionException {
+        DataObject payload = DataObject.fromString(
+                "{\"text\":\"abc\",\"object\":{}}"
+        );
+        JsonPath<JsonPath.Component.Key> text = JsonPath.root("text");
+        JsonPath<JsonPath.Component.Key> object = JsonPath.root("object");
+        Map<String, Integer> values = Collections.singletonMap("abc", 1);
+
+        assertEquals(DataItem.string("abc"), FailableExtractionUtils.requireDataItem(payload, text));
+        assertEquals(
+                "abc",
+                FailableExtractionUtils.require(payload, text, LenientConverters.STRING, "String")
+        );
+        assertEquals(DataObject.EMPTY_OBJECT, FailableExtractionUtils.requireDataObject(payload, object));
+        assertEquals("abc", FailableExtractionUtils.requireNonBlank(payload, text, LenientConverters.STRING));
+        assertEquals(Integer.valueOf(1), FailableExtractionUtils.requireOneOf(payload, text, values));
+        assertEquals(
+                "abc",
+                FailableExtractionUtils.optional(payload, text, LenientConverters.STRING, "String")
+        );
+        assertEquals(DataObject.EMPTY_OBJECT, FailableExtractionUtils.optionalDataObject(payload, object));
+        assertEquals(Integer.valueOf(1), FailableExtractionUtils.optionalOneOf(payload, text, values));
+        assertEquals("abc", FailableExtractionUtils.extract(payload, text, LenientConverters.STRING));
+        assertEquals(DataObject.EMPTY_OBJECT, FailableExtractionUtils.extractDataObject(payload, object));
     }
 
     @Test
