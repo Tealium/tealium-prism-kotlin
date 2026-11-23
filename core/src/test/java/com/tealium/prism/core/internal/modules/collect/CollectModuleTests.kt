@@ -52,13 +52,15 @@ class CollectModuleTests {
     private val localhost = URL("https://localhost/")
     private val account = "tealium_account"
     private val profile = "tealium_profile"
+    private val configAccount = "config_account"
+    private val configProfile = "config_profile"
 
     @Before
     fun setUp() {
         MockKAnnotations.init(this)
 
-        every { config.accountName } returns account
-        every { config.profileName } returns profile
+        every { config.accountName } returns configAccount
+        every { config.profileName } returns configProfile
         every { context.config } returns config
         every { context.logger } returns logger
 
@@ -501,6 +503,71 @@ class CollectModuleTests {
     }
 
     @Test
+    fun dispatch_Batches_TakesSharedAccountAndProfile_From_FirstEvent() {
+        collectModule = createCollectDispatcher()
+        val dispatch1 = createTestDispatch("test", account = "a1", profile = "p1")
+        val dispatch2 = createTestDispatch("test", account = "a2", profile = "p2")
+
+        collectModule.dispatch(listOf(dispatch1, dispatch2)) { }
+
+        verify(timeout = 1000) {
+            networkClient.sendRequest(matchRequest { request ->
+                if (request.url != defaultConfiguration.batchUrl) return@matchRequest false
+
+                val payload = request.bodyAsDataObject()
+                val shared = payload.getDataObject(CollectModule.KEY_SHARED)!!
+                val events = payload.getDataList(CollectModule.KEY_EVENTS)!!
+
+                shared.getString(Dispatch.Keys.TEALIUM_ACCOUNT) == "a1"
+                        && shared.getString(Dispatch.Keys.TEALIUM_PROFILE) == "p1"
+                        && events.all {
+                    val event = it.getDataObject()!!
+                    event.get(Dispatch.Keys.TEALIUM_ACCOUNT) == null
+                            && event.get(Dispatch.Keys.TEALIUM_PROFILE) == null
+                }
+            }, any())
+        }
+    }
+
+    @Test
+    fun dispatch_Batches_FallsBackToConfig_When_FirstEventHasNoAccountOrProfile() {
+        collectModule = createCollectDispatcher()
+        val dispatch1 = createTestDispatch("test", profile = null)
+        val dispatch2 = createTestDispatch("test", account = "a2", profile = "p2")
+
+        collectModule.dispatch(listOf(dispatch1, dispatch2)) { }
+
+        verify(timeout = 1000) {
+            networkClient.sendRequest(matchRequest { request ->
+                val shared = request.bodyAsDataObject().getDataObject(CollectModule.KEY_SHARED)!!
+
+                request.url == defaultConfiguration.batchUrl
+                        && shared.getString(Dispatch.Keys.TEALIUM_ACCOUNT) == configAccount
+                        && shared.getString(Dispatch.Keys.TEALIUM_PROFILE) == configProfile
+            }, any())
+        }
+    }
+
+    @Test
+    fun dispatch_Batches_FallsBackToConfig_When_FirstEventHasEmptyAccount() {
+        collectModule = createCollectDispatcher()
+        val dispatch1 = createTestDispatch("test", account = "", profile = "p1")
+        val dispatch2 = createTestDispatch("test", account = "a2", profile = "p2")
+
+        collectModule.dispatch(listOf(dispatch1, dispatch2)) { }
+
+        verify(timeout = 1000) {
+            networkClient.sendRequest(matchRequest { request ->
+                val shared = request.bodyAsDataObject().getDataObject(CollectModule.KEY_SHARED)!!
+
+                request.url == defaultConfiguration.batchUrl
+                        && shared.getString(Dispatch.Keys.TEALIUM_ACCOUNT) == configAccount
+                        && shared.getString(Dispatch.Keys.TEALIUM_PROFILE) == "p1"
+            }, any())
+        }
+    }
+
+    @Test
     fun dispatch_Batches_OverridesProfile_InSharedDataOnly() {
         collectModule = createCollectDispatcher(
             collectConfig = CollectModuleConfiguration(
@@ -751,17 +818,20 @@ class CollectModuleTests {
 
     /**
      * Creates a new [Dispatch] with the supplied event name and data.
-     * All dispatches returned are for the same visitor id and profile unless overridden in the [data]
-     * object
+     * All dispatches returned are for the same visitor id and profile, and have no account, unless
+     * overridden by the parameters or the [data] object. A null [account] or [profile] leaves that
+     * key out.
      */
     private fun createTestDispatch(
         name: String,
         visitorId: String? = "visitor",
-        profile: String = "default",
+        account: String? = null,
+        profile: String? = "default",
         data: DataObject = DataObject.EMPTY_OBJECT
     ): Dispatch {
         return Dispatch.create(name, dataObject = DataObject.create {
-            put(Dispatch.Keys.TEALIUM_PROFILE, profile)
+            account?.let { put(Dispatch.Keys.TEALIUM_ACCOUNT, it) }
+            profile?.let { put(Dispatch.Keys.TEALIUM_PROFILE, it) }
             visitorId?.let { put(Dispatch.Keys.TEALIUM_VISITOR_ID, it) }
             putAll(data)
         })

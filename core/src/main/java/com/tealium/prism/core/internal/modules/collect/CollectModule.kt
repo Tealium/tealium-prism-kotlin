@@ -101,11 +101,16 @@ class CollectModule(
             return sendSingle(batch.first(), onProcessed)
         }
 
+        // The shared account and profile are those of the first event, falling back to the
+        // configured values when it has none or an empty one. Later events' values are replaced.
+        val first = batch.first().payload()
         val compressed = compressDispatches(
             batch,
             visitorId,
-            config.accountName,
-            collectModuleConfiguration.profile ?: config.profileName
+            first.getNonEmptyString(Dispatch.Keys.TEALIUM_ACCOUNT) ?: config.accountName,
+            collectModuleConfiguration.profile
+                ?: first.getNonEmptyString(Dispatch.Keys.TEALIUM_PROFILE)
+                ?: config.profileName
         )
         if (compressed == null) {
             onProcessed.onComplete(batch)
@@ -116,6 +121,9 @@ class CollectModule(
 
         return send(url, compressed.toString(), batch, onProcessed)
     }
+
+    private fun DataObject.getNonEmptyString(key: String): String? =
+        getString(key)?.takeIf { it.isNotEmpty() }
 
     private fun sendSingle(
         dispatch: Dispatch,
